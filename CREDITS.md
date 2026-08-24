@@ -19,6 +19,16 @@ single technique, a document, or something used purely for testing counts.
   documentation used to establish what scripting can and cannot do.
 - **The REFramework VR community** — public documentation of REFramework's VR
   behaviour, limitations, and techniques.
+- **[PureDark](https://www.nexusmods.com/residentevil22019/mods/2069)** — the
+  RE Engine temporal upscaler plugin (`PDPerfPlugin.dll` /
+  UpscalerBasePlugin) that provides the actual DLSS / FSR2 / XeSS
+  implementation REFramework's upscaler UI drives. Used as a tool during
+  development; no part of it is included or modified here.
+- **[gmankab](https://github.com/gmankab/reframework-pd-upscaler-build)** —
+  maintaining the `pd-upscaler` REFramework fork build that exposes that
+  upscaler, which is the build this project is developed against.
+- **[beeradmoore](https://github.com/beeradmoore/dlss-swapper)** — DLSS
+  Swapper, used to obtain and update the DLSS library for testing.
 - **Capcom** — Resident Evil 2 (2019) and the RE Engine. This is a
   non-commercial fan project; it requires a legitimately owned copy of the
   game and redistributes no original game files or assets.
