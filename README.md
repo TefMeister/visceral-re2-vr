@@ -20,9 +20,9 @@ Blow-by-blow history lives in the `-dev-archive` and `-modding-notes`
 repositories; the predecessor's frozen research is at
 [arcade-controls-re2-vr-engine-research](https://github.com/TefMeister/arcade-controls-re2-vr-engine-research).
 
-## The five repositories for Visceral — RE2 VR
+## The six repositories for Visceral — RE2 VR
 
-Everything for this project lives in five repositories, each with one job — so
+Everything for this project lives in six repositories, each with one job — so
 you always know where to look. You are in **visceral-re2-vr-engine-research**.
 
 | Repository | What lives here |
@@ -32,6 +32,7 @@ you always know where to look. You are in **visceral-re2-vr-engine-research**.
 | [visceral-re2-vr-modding-notes](https://github.com/TefMeister/visceral-re2-vr-modding-notes) | Readable field notes / progress ledger. |
 | [visceral-re2-vr-staging](https://github.com/TefMeister/visceral-re2-vr-staging) 🔒 | **Private** — unverified WIP builds, cross-machine handoff. |
 | **visceral-re2-vr-engine-research** ← you are here | Distilled engine reference (dossier) + reusable VR RE playbook. |
+| [visceral-re2-vr-external-research](https://github.com/TefMeister/visceral-re2-vr-external-research) | Ongoing public-research leads, gathered separately from hands-on modding work. |
 
 ## Credits & policy
 
