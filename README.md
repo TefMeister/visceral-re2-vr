@@ -24,6 +24,13 @@ you always know where to look. You are in **visceral-re2-vr-modding-notes**.
 | [visceral-re2-vr-staging](https://github.com/TefMeister/visceral-re2-vr-staging) 🔒 | **Private** — unverified WIP builds, cross-machine handoff. |
 | [visceral-re2-vr-engine-research](https://github.com/TefMeister/visceral-re2-vr-engine-research) | Distilled engine reference (dossier) + reusable VR RE playbook. |
 
+## Setting up the same environment
+
+[`TOOLCHAIN.md`](TOOLCHAIN.md) lists exactly which versions of REFramework and
+the optional DLSS upscaler stack this project is built against, where to
+download each one, and how to install them by hand. It also explains why the
+newest REFramework build is not always the one you want.
+
 ## Credits & policy
 
 See [`CREDITS.md`](CREDITS.md) and [CONTRIBUTING.md](CONTRIBUTING.md).
