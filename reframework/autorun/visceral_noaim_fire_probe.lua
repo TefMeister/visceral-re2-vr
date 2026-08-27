@@ -1,4 +1,14 @@
--- Visceral (RE2 VR) -- no-aim-fire probe, v1
+-- Visceral (RE2 VR) -- no-aim-fire probe, v2
+--
+-- v1 RESULT (2026-08-27, flat, live): CORE QUESTION ANSWERED YES.
+-- setForce(HOLD=64, true) raised the aim stance (IsHold flipped true) and
+-- LMB fired with RMB untouched. The force LATCHES: it survived the pulse
+-- ending by 40+ seconds with no per-frame reassert. The dump shows
+-- setForce(Kind, bool) is the ONLY button-force method (no clear/reset
+-- sibling), so the presumed un-latch is setForce(HOLD, false) -- v2 adds
+-- explicit latch/unlatch buttons to test whether false means "give the
+-- button back" (clean switch) or "force it off" (would block real aim).
+-- Also learned: ATTACK is 256 (256, not the old fallback 4 = WALK).
 --
 -- Question under test: can the "must hold aim (RG / RMB / LT) before the
 -- trigger fires" requirement be removed by forcing the game's own HOLD
@@ -41,8 +51,8 @@ local KIND_HOLD_FALLBACK = 64
 
 local state = {
     enabled_continuous = false,
-    pulse_frames_left = 0,
-    pulse_length_frames = 120,
+    pulse_until = 0,
+    pulse_seconds = 2.0,
     kind_attack = nil,
     kind_hold = nil,
     enum_dumped = false,
@@ -164,12 +174,12 @@ end
 -- The lever
 -- ---------------------------------------------------------------------------
 
-local function force_hold_once()
+local function set_force_hold(value)
     local input_system = get_input_system()
     if not input_system then return end
     local kind = state.kind_hold or KIND_HOLD_FALLBACK
     local ok, err = pcall(function()
-        input_system:call("setForce", kind, true)
+        input_system:call("setForce", kind, value)
     end)
     if ok then
         state.setforce_ok_count = state.setforce_ok_count + 1
@@ -180,7 +190,7 @@ local function force_hold_once()
 end
 
 local function force_wanted()
-    if state.pulse_frames_left > 0 then return true end
+    if state.pulse_until > 0 and os.clock() < state.pulse_until then return true end
     if not state.enabled_continuous then return false end
     -- continuous mode only while an actual weapon is in hand
     local player = get_player()
@@ -190,7 +200,7 @@ end
 
 local function apply_force_if_wanted()
     if force_wanted() then
-        force_hold_once()
+        set_force_hold(true)
     end
 end
 
@@ -200,11 +210,9 @@ re.on_application_entry("UpdateHID", apply_force_if_wanted)
 re.on_pre_application_entry("UpdateBehavior", function()
     dump_kind_enum()
     apply_force_if_wanted()
-    if state.pulse_frames_left > 0 then
-        state.pulse_frames_left = state.pulse_frames_left - 1
-        if state.pulse_frames_left == 0 then
-            log.info(TAG .. " pulse ended (stopped calling setForce; watching for decay)")
-        end
+    if state.pulse_until > 0 and os.clock() >= state.pulse_until then
+        state.pulse_until = 0
+        log.info(TAG .. " pulse ended (stopped calling setForce; watching for decay)")
     end
 end)
 
@@ -296,14 +304,24 @@ re.on_draw_ui(function()
         dump_force_methods()
     end
 
-    if imgui.button(string.format("PULSE: force HOLD for %d frames (~2s)",
-            state.pulse_length_frames)) then
-        state.pulse_frames_left = state.pulse_length_frames
+    if imgui.button("LATCH: setForce(HOLD, true) once") then
+        set_force_hold(true)
+        log.info(TAG .. " latch ON (single setForce true)")
+    end
+
+    if imgui.button("UNLATCH: setForce(HOLD, false) once") then
+        set_force_hold(false)
+        log.info(TAG .. " latch OFF (single setForce false) -- now test if RMB aiming still works")
+    end
+
+    if imgui.button(string.format("PULSE: force HOLD for %.1fs", state.pulse_seconds)) then
+        state.pulse_until = os.clock() + state.pulse_seconds
         log.info(TAG .. " pulse started")
     end
 
-    if state.pulse_frames_left > 0 then
-        imgui.text(string.format("pulse active: %d frames left", state.pulse_frames_left))
+    if state.pulse_until > 0 then
+        imgui.text(string.format("pulse active: %.2fs left",
+            math.max(0, state.pulse_until - os.clock())))
     end
 
     local changed, value = imgui.checkbox(
@@ -313,10 +331,11 @@ re.on_draw_ui(function()
         log.info(TAG .. " continuous mode = " .. tostring(value))
     end
 
-    if imgui.button("PANIC: stop everything now") then
+    if imgui.button("PANIC: stop everything + unlatch") then
         state.enabled_continuous = false
-        state.pulse_frames_left = 0
-        log.info(TAG .. " panic stop")
+        state.pulse_until = 0
+        set_force_hold(false)
+        log.info(TAG .. " panic stop (unlatched)")
     end
 
     imgui.tree_pop()
