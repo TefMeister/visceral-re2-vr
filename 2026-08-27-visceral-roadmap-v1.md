@@ -49,6 +49,10 @@ Items marked `??` are the user's own open questions, not commitments.
     park gibs).
 20. **Player-visible first-person menus** — and the game image instead of black during
     item pick-up.
+21. **No grip needed to shoot** (added the same evening, home PC session) — **feasibility
+    PROVEN flat**: `InputSystem:setForce(HOLD, true/false)` is a clean latching switch;
+    design = latch on trigger-touch, unlatch on release. See
+    `2026-08-27-no-grip-to-shoot-proven-in-one-evening.md`.
 
 Existing design decisions that slot in: the shotgun pump lock (LT = slide release, pump
 worked physically; `2026-08-23-clean-slate-and-pump-lock-design.md`) belongs to 9/11's
