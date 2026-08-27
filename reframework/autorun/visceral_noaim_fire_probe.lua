@@ -10,6 +10,17 @@
 -- button back" (clean switch) or "force it off" (would block real aim).
 -- Also learned: ATTACK is 256 (256, not the old fallback 4 = WALK).
 --
+-- v2 RESULT (2026-08-27, flat, live): UNLATCH IS CLEAN. setForce(HOLD,
+-- false) drops the stance, RMB aiming works normally right after, and the
+-- fire gate returns (LMB alone refuses again). So setForce(kind, bool)
+-- means "start/stop forcing this input active" -- a perfect two-call
+-- on/off switch, no per-frame work, no state-machine writes. The entire
+-- no-grip-to-shoot feature reduces to: latch on trigger-touch/press,
+-- unlatch on release. Livability items (aim-walk speed, footstep sync,
+-- item interaction while latched, LG-only grip) tracked in the Visceral
+-- backlog -- most are sidestepped by only latching while the finger is
+-- on the trigger.
+--
 -- Question under test: can the "must hold aim (RG / RMB / LT) before the
 -- trigger fires" requirement be removed by forcing the game's own HOLD
 -- input on, via app.ropeway.InputSystem:setForce(kind, bool)?
