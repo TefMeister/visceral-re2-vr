@@ -37,7 +37,7 @@ local POISON_TYPE, POISON_MASK = 255, 255
 local SCAN_INTERVAL_S = 0.25
 
 local cfg = {
-    enabled = true,
+    enabled = false,   -- OFF by default: superseded by the aim-state-escape approach (bank-swap was the wrong layer). NUM5 to try it.
     -- true: poison the ENTIRE hold bank (2000) incl CMN_HOLD, so the locomotion
     --   layer falls through to the walk bank (1000) CMN_MOVE = normal careful walk.
     -- false: only poison weapon *_HOLD -> CMN_HOLD (a hold-idle pose; looked like a
