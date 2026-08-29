@@ -339,6 +339,18 @@ with the micro-latch blip. So the likely resolution:
 pure VR motion control without the game's aim state? — which can only be answered
 with VR ENABLED.** Flat testing is now exhausted for this thread.
 
+### ★ MAJOR VR FINDING (2026-08-29, in-headset): aiming does NOT block interaction in VR
+User confirmed live: **in VR you can aim AND open doors / pick items up at the same
+time.** The doors/pickups-blocked-while-aiming result ([2026-08-29-doors-items-test-result.md])
+was a FLAT-game artifact — it does not apply in VR. This DELETES a whole branch of
+the design:
+- No auto-undock needed (v2.2) — there's no interaction block to cure.
+- Docked (sustained aim) does NOT lock you out of doors/items in VR.
+- So the ONLY docked-state issue left is movement SPEED (aim-walk slow), handled by
+  the collision-safe amplify (v3/v4 locomotion) — not interaction.
+Net: the dock design gets much simpler. Hold LG = two-handed; release = one-handed;
+interact any time; speed handled by the locomotion amplifier.
+
 ### ⇒ Pivot point: enable VR
 Copy the deliberately-omitted `openvr_api.dll` / openxr loader back from
 `Downloads/RE2.zip` into the game folder (see TOOLCHAIN.md), then the hand-system
