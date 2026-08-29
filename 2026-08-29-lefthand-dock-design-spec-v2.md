@@ -81,8 +81,11 @@ Answers + additions that change the firing model and the speed model:
 
 - **The latch has THREE behaviours, keyed to hand/dock state (user correction,
   2026-08-29 evening — this replaces the "universal micro-latch" wording above):**
-  1. **Undocked** (left hand NOT on the weapon), any weapon: fire = **micro-latch
-     on RT** (pulse HOLD for the shot, release). Between shots, no aim state.
+  1. **Undocked** (left hand NOT on the weapon), any weapon: fire = **trigger-held
+     latch** — HOLD on for as long as RT is held, off when RT releases. Semi-auto =
+     a blip; **auto-fire weapons stay latched for the whole burst** (user add,
+     2026-08-29). Between shots/bursts, no aim state. ("Micro-latch" = the
+     semi-auto case of this one rule.)
   2. **Docked** (LG pressed, left hand functionally on the weapon), pistols AND
      long guns: **latch SUSTAINED ON the whole time the hand is docked**, until
      LG is pressed again. Two-handed aiming lives here.
@@ -243,6 +246,35 @@ Right instinct; difficulty hinges on one thing:
   moving at different LS deflections).
 - This is encouraging for req 4: RE2 clearly has speed/anim machinery to drive
   rather than us hand-authoring leg animation.
+
+### Measured speed results (2026-08-29 evening, flat, KB/M, speed recon v2)
+Ground speed measured from position delta (units/sec), labelled by IsHold:
+- **Aiming (IsHold=true) ≈ 1.5** peak (the vanilla aim-walk penalty).
+- **Walk (IsHold=false) ≈ 1.7–2.1.**
+- **Run / full movement (IsHold=false) ≈ 3.1–3.68, max seen 3.77.**
+So the **aim state genuinely MOVES you at ~40% of full speed** (position-delta, not
+just animation) — confirms req 4's premise. **Target cap to unify everything ≈
+3.77.** In the dock design this matters ONLY for the docked state (sustained aim);
+undocked already runs at full speed since the micro-latch only blips the aim state.
+
+**The internal speed value is NOT a simple property.** All 59 collected float
+getters were `get_DeltaTime` (frametime), `get_ElapsedSecond`, or constants —
+`getDefaultSpeed=1.0`, `get_PlaySpeed=1.0`, `get_TensionSpeed=1.0`,
+`get_WaterResistanceSpeed=1.0` (all motion-PLAYBACK multipliers, all 1.0 during
+aim-walk → the aim slowdown is NOT a playback multiplier; it's the aim
+locomotion's inherent per-cycle ground distance). The real move-speed / walk→run
+blend value lives as a **`via.motion.MotionFsm2` FSM variable** (accessed by
+name/hash, not a get_ method) — that's the next probe.
+
+**Good omens intact:** footsteps are velocity-driven (`WwiseVelocityTriggerList`)
+so they'll follow measured speed; arm IK components confirmed present for the later
+hand work (`app.ropeway.IkArmFit`, `IkController`, `via.motion.IkLeg`).
+
+**Next probe (speed, round 2):** enumerate `MotionFsm2` (and `via.motion.Motion`)
+float VARIABLES on the player — find the one that = walk→run blend / move speed,
+confirm it's writable, and whether raising the aim-state move speed (or driving the
+blend by measured speed) makes docked movement reach ~3.77 with a run-looking
+animation rather than a sped-up aim shuffle.
 
 ## Static-analysis assets ready for this (2026-08-29)
 - SDK dumped: `<game>/il2cpp_dump.json` (471 MB) maps every managed method to
