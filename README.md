@@ -51,6 +51,32 @@ does **not** include REFramework or any game files.
 
 To uninstall, delete the `visceral_*.lua` files from `reframework/autorun/`.
 
+## Choosing which features you want
+
+Visceral is modular: each feature is its own independent script, and each has an
+on/off toggle in its REFramework menu panel. You can have some features and not
+others, two ways:
+
+- **Easiest — toggle in-game:** open the REFramework menu and untick any feature
+  you don't want. Nothing to install or delete.
+- **Remove it entirely:** delete that feature's script file from
+  `reframework/autorun/`. The others keep working on their own.
+
+| Feature | Script file |
+| --- | --- |
+| Torso straightening | `visceral_spine_straighten.lua` |
+| Feet on the ground while aiming | `visceral_foot_ground.lua` |
+| Faster aim-walk (collision-safe) | `visceral_locomotion.lua` |
+| Cutscene/grab safety (shared — recommended) | `visceral_cinematic_gate.lua` |
+
+`visceral_cinematic_gate.lua` is shared: the body features use it to switch
+themselves off during cutscenes and the enemy-grab camera. They still run without
+it — they just won't auto-pause in those moments — so keep it unless you have a
+reason not to.
+
+Each release is a **single complete package** (all current features). Install the
+latest one; you never need to stack older versions or apply updates in order.
+
 ## Where this comes from
 
 Visceral is the successor to our shipped mod
