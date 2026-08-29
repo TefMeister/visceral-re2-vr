@@ -2,6 +2,15 @@
 
 All notable changes to Visceral — RE2 VR.
 
+## Unreleased (staged for next version)
+
+- Shipped `re2_fw_config.txt` now also enables **manual flashlight**
+  (`ManualFlashlight_Enabled=true`, toggle key F) alongside first-person and the
+  disabled camera light.
+- Planned: a **crosshair-off** feature script (RE2's crosshair is a game HUD option
+  with no config key, so it needs a small GUI-hiding script rather than a config
+  line).
+
 ## 0.1.0 — 2026-08-30 — first release: body & posture
 
 The first slice of Visceral: fixes to how your character's body behaves in VR

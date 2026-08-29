@@ -14,3 +14,5 @@ FirstPerson_ShowInCutscenes=false
 FirstPerson_SmoothXZMovementVR=true
 FirstPerson_SmoothYMovementVR=true
 FirstPerson_ToggleKey=-1
+ManualFlashlight_Enabled=true
+ManualFlashlight_Key_V2=70
