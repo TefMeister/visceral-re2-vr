@@ -28,11 +28,11 @@ local NS = sdk.game_namespace
 local VK_NUMPAD0, VK_NUMPAD1, VK_NUMPAD7, VK_NUMPAD9 = 0x60, 0x61, 0x67, 0x69
 
 local cfg = {
-    enabled = false,
+    enabled = true,         -- aim-walk speed-up on by default (user-confirmed, screenshot 2026-08-30)
     aim_amplify = true,        -- collision-safe speed-up, AIM-WALK ONLY
     all_movement = false,      -- normal walk/run stay fully VANILLA (user, 2026-08-29)
     anim_by_speed = false,     -- OFF: Jog couples speed+anim (jog-style + deadlock). Experimental.
-    aim_speed_mult = 1.5,      -- tune so aim-walk ~matches normal WALK speed (~"1.3" feel)
+    aim_speed_mult = 1.3,      -- user-tuned
     smoothing = 0.4,
     run_threshold = 2.1,       -- speed to switch into the run animation
     run_hysteresis = 0.3,      -- drop back to walk this much below the threshold
