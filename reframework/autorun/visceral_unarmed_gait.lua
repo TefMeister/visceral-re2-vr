@@ -145,6 +145,29 @@ local function dump_banks()
         end
     end
     log_line("DUMP: " .. shown .. " MOVE/id1000 banks shown of " .. n .. " total")
+
+    -- what is ACTUALLY playing per layer (the resolved motion name = the truth)
+    local lc = safe(function() return mc:call("getLayerCount") end)
+        or safe(function() return mc:call("get_LayerCount") end)
+    local maxl = tonumber(lc) or 8
+    log_line("DUMP layers (playing motion per layer), layerCount=" .. tostring(lc))
+    for li = 0, maxl - 1 do
+        local layer = safe(function() return mc:call("getLayer", li) end)
+        if layer then
+            local lw = safe(function() return layer:call("get_Weight") end)
+            local node = safe(function() return layer:call("get_HighestWeightMotionNode") end)
+            if node then
+                local nm = safe(function() return node:call("get_MotionName") end)
+                local w = safe(function() return node:call("get_Weight") end)
+                local bank = safe(function() return node:call("get_MotionBankID") end)
+                local mid = safe(function() return node:call("get_MotionID") end)
+                if nm then
+                    log_line(string.format("  L%d lw=%s  name=%s w=%.2f bank=%s id=%s",
+                        li, tostring(lw), tostring(nm), tonumber(w) or -1, tostring(bank), tostring(mid)))
+                end
+            end
+        end
+    end
 end
 
 local function cinematic()
