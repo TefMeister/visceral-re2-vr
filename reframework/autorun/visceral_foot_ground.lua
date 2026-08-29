@@ -28,8 +28,8 @@ local VK_NUMPAD2 = 0x62
 local PELVIS_CANDIDATES = { "pelvis", "hips", "hip", "cog", "waist", "root" }
 
 local cfg = {
-    enabled = false,
-    drop = 0.10,          -- metres to lower the pelvis while aiming (tune live)
+    enabled = true,       -- CONFIRMED good (2026-08-30, Claire + Leon): feet plant, view fine, bullets true
+    drop = 0.175,         -- user-tuned sweet spot: feet touch ground while walking + looking down
     only_when_aiming = true,
 }
 
