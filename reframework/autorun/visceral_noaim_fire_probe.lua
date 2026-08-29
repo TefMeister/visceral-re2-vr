@@ -63,6 +63,34 @@
 --     The flag is deliberately left true afterwards; NUM9 panic now also
 --     sets it back false.
 --
+-- v4.2 RESULT (2026-08-29, flat, handgun): THE GATES HAVE NAMES.
+-- Audit diff unaimed vs aimed: EnableExecuteFire=true in BOTH (not the
+-- gate; that's why NUM6 unaimed did nothing). enableFire and enableAttack
+-- flip false->true with aim = THE stance gates. isPossibleFireFromMuzzle
+-- also flips, and drops false briefly after each shot (recoil/cooldown
+-- flavored). Aimed NUM6 = ammo spent + camera kick + flash only on the
+-- first call: executeFire IS the ballistic core (bullet via the
+-- ShellGenerator = app.ropeway.weapon.generator.BulletDefaultExGenerator,
+-- ammo, recoil); muzzle flash + gun motion live in the fire ACTION
+-- upstream. And the game never calls Gun.enableFire/enableAttack near a
+-- press -- the accept/reject decision for ATTACK is made on the PLAYER
+-- side; the Gun booleans just mirror it.
+--
+-- v4.3 (same day): hunt the decision-maker on the player + cheap win try.
+--   * NUM4 now ALSO recons the player GameObject: dumps every component
+--     whose type smells player-side (survivor/equip/action/behavior/
+--     posture/hold), scans their hierarchies for fire/shoot/trigger/
+--     attack candidates, hooks them (cap 180 hooks). An aimed real shot
+--     now writes the player-side fire chain into the press summary; the
+--     unaimed press shows where the chain stops = the gate's home.
+--   * NUM6 reworked: TOGGLE force-gates -- while ON, any caller asking
+--     Gun.enableFire / Gun.enableAttack / Gun.isPossibleFireFromMuzzle
+--     gets TRUE. Toggle on, then pull LMB unaimed: if the fire action
+--     starts (real flash, real animation), the mirror was load-bearing
+--     and we have the lever. NUM9 panic turns the toggle off.
+--   * The old set_EnableExecuteFire+executeFire experiment stays as a UI
+--     button only.
+--
 -- v4 (2026-08-29): THE HUNT. Leave HOLD alone; find where the game ignores
 -- ATTACK when the character is not in the aim stance. If that is a
 -- removable check, the gun can fire from normal locomotion and all four
@@ -110,6 +138,13 @@ local VK_NUMPAD9 = 0x69
 local CANDIDATE_PATTERNS = { "fire", "shoot", "trigger", "shell", "launch", "attack" }
 -- component type names worth a full method dump + candidate scan
 local COMPONENT_PATTERNS = { "weapon", "gun", "implement" }
+-- player-side component type names worth the same treatment
+local PLAYER_COMPONENT_PATTERNS = { "survivor", "equip", "action", "behavior", "posture", "hold" }
+local MAX_HOOKS = 180
+-- gun booleans that mirror the stance gate; NUM6 forces their answers TRUE
+local FORCE_TRUE_NAMES = {
+    enableFire = true, enableAttack = true, isPossibleFireFromMuzzle = true,
+}
 
 local REACT_WINDOW = 0.35   -- seconds after an ATTACK press that counts as "reacted"
 
@@ -140,6 +175,8 @@ local state = {
     exec_fire_idx = nil,      -- the executeFire candidate
     last_fire_arg = 1,        -- executeFire's argument (1 on every real shot seen so far)
     sg_dumped = false,        -- ShellGenerator recon done
+    player_recon_done = false,
+    force_gates = false,      -- NUM6 toggle: answer TRUE for the gate mirrors
     press_count = 0,
     press_time = nil,         -- pending press awaiting its summary
     press_calls = 0,          -- candidate calls seen since press_time
@@ -272,12 +309,13 @@ local function do_panic()
     set_force_hold(false)
     state.latched = false
     state.latch_time = nil
+    state.force_gates = false
     local weapon = get_equipped_weapon(get_player())
     if weapon then
         local ok = pcall(function() weapon:call("set_EnableExecuteFire", false) end)
         record_event("PANIC: EnableExecuteFire reset ok=" .. tostring(ok))
     end
-    record_event("PANIC (unlatched; hooks stay but only observe)")
+    record_event("PANIC (unlatched, force-gates off; hooks stay but only observe)")
 end
 
 -- ---------------------------------------------------------------------------
@@ -326,6 +364,7 @@ local function dump_and_scan_type(td, comp_label)
                         nparams = nparams,
                         is_bool_probe = (ret == "System.Boolean") and (nparams == 0),
                         is_execute_fire = (name == "executeFire") and (nparams == 1),
+                        force_true = (FORCE_TRUE_NAMES[name] == true) and (ret == "System.Boolean"),
                         method = m,
                         hooked = false,
                         calls = 0,
@@ -345,6 +384,13 @@ end
 
 local function hook_candidate(c)
     if c.hooked or state.hooked_sigs[c.sig] then return end
+    if state.hook_count >= MAX_HOOKS then
+        if not state.hook_cap_warned then
+            state.hook_cap_warned = true
+            record_event(string.format("hook cap (%d) reached -- further candidates observed-only in dumps", MAX_HOOKS))
+        end
+        return
+    end
     local ok, err = pcall(function()
         sdk.hook(c.method,
             function(args)
@@ -380,6 +426,9 @@ local function hook_candidate(c)
                         record_event(string.format("gate read near press #%d: %s -> %s",
                             state.press_count, c.sig, tostring(v)))
                     end
+                end
+                if state.force_gates and c.force_true then
+                    return sdk.to_ptr(1)
                 end
                 return retval
             end)
@@ -434,11 +483,33 @@ local function recon_and_arm()
         end
     end
 
+    -- v4.3: the PLAYER GameObject -- where the ATTACK accept/reject decision lives
+    if not state.player_recon_done then
+        local comps = safe(function() return player:call("get_Components") end)
+        local elems = comps and safe(function() return comps:get_elements() end) or nil
+        if elems then
+            state.player_recon_done = true
+            log.info(TAG .. " ---- component list on PLAYER GameObject ----")
+            for _, comp in ipairs(elems) do
+                local ctd = safe(function() return comp:get_type_definition() end)
+                local cname = ctd and (safe(function() return ctd:get_full_name() end) or "?") or "?"
+                log.info(TAG .. "   player component: " .. cname)
+                if ctd and name_matches(cname:lower(), PLAYER_COMPONENT_PATTERNS) then
+                    for _, td in ipairs(type_hierarchy(ctd)) do
+                        dump_and_scan_type(td, "player:" .. cname)
+                    end
+                end
+            end
+        else
+            record_event("player component enumeration unavailable")
+        end
+    end
+
     for _, c in ipairs(state.candidates) do
         hook_candidate(c)
     end
     state.armed = true
-    record_event(string.format("ARMED: %d candidates, %d hooked. Now: LMB unaimed x3, then RMB-aim + fire x3, then NUM7 latch + fire x3.",
+    record_event(string.format("ARMED: %d candidates, %d hooked. Now: LMB unaimed x3, then RMB-aim + fire x3, then NUM6 toggle + LMB unaimed x3.",
         #state.candidates, state.hook_count))
 end
 
@@ -562,6 +633,15 @@ local function force_enable_experiment()
     record_event("NUM6: flag left TRUE (NUM9 panic resets it)")
 end
 
+-- v4.3: NUM6 toggle -- answer TRUE to every enableFire/enableAttack/
+-- isPossibleFireFromMuzzle read while ON, then the user pulls LMB unaimed
+local function toggle_force_gates()
+    state.force_gates = not state.force_gates
+    record_event("FORCE-GATES " .. (state.force_gates
+        and "ON (enableFire/enableAttack/isPossibleFireFromMuzzle answer true) -- now pull LMB unaimed"
+        or "OFF"))
+end
+
 -- ---------------------------------------------------------------------------
 -- Hotkeys
 -- ---------------------------------------------------------------------------
@@ -581,7 +661,7 @@ local function poll_hotkeys()
     if not state.keys_ok then return end
     if key_pressed(VK_NUMPAD4) then recon_and_arm() end
     if key_pressed(VK_NUMPAD5) then gate_audit("NUM5") end
-    if key_pressed(VK_NUMPAD6) then force_enable_experiment() end
+    if key_pressed(VK_NUMPAD6) then toggle_force_gates() end
     if key_pressed(VK_NUMPAD7) then do_latch() end
     if key_pressed(VK_NUMPAD8) then do_unlatch() end
     if key_pressed(VK_NUMPAD9) then do_panic() end
@@ -715,13 +795,14 @@ re.on_frame(refresh_readouts)
 -- ---------------------------------------------------------------------------
 
 re.on_draw_ui(function()
-    if not imgui.tree_node("Visceral: fire-gate probe (v4.2)") then return end
+    if not imgui.tree_node("Visceral: fire-gate probe (v4.3)") then return end
 
-    imgui.text("hotkeys: NUM4=arm  NUM5=gate-audit  NUM6=force-enable+fire  NUM7=latch  NUM8=unlatch  NUM9=panic"
+    imgui.text("hotkeys: NUM4=arm  NUM5=gate-audit  NUM6=force-gates toggle  NUM7=latch  NUM8=unlatch  NUM9=panic"
         .. (state.keys_ok and "" or "  [KEY API UNAVAILABLE - use buttons]"))
     imgui.text("armed: " .. tostring(state.armed)
         .. string.format("   candidates: %d   hooked: %d", #state.candidates, state.hook_count))
-    imgui.text("latched: " .. tostring(state.latched))
+    imgui.text("latched: " .. tostring(state.latched)
+        .. "   FORCE-GATES: " .. (state.force_gates and "ON" or "off"))
     imgui.text("player: " .. (state.ui_player_found and "found" or "NOT FOUND"))
     imgui.text("weapon: " .. state.ui_weapon_name)
     imgui.text("SurvivorCondition.IsHold: " .. state.ui_is_hold)
@@ -751,7 +832,11 @@ re.on_draw_ui(function()
     if imgui.button("GATE AUDIT: read all enable flags (NUM5)") then
         gate_audit("UI")
     end
-    if imgui.button("FORCE-ENABLE + FIRE (NUM6)") then
+    if imgui.button(state.force_gates and "FORCE-GATES: ON -- click to disable (NUM6)"
+        or "FORCE-GATES: off -- click to enable (NUM6)") then
+        toggle_force_gates()
+    end
+    if imgui.button("old experiment: set_EnableExecuteFire + executeFire") then
         force_enable_experiment()
     end
     if imgui.button("LATCH (NUM7)") then do_latch() end
@@ -789,4 +874,4 @@ re.on_draw_ui(function()
     imgui.tree_pop()
 end)
 
-log.info(TAG .. " loaded (v4.2 gate audit + force-enable). Hooks install only on NUM4; all idle until used.")
+log.info(TAG .. " loaded (v4.3 player-side hunt + force-gates toggle). Hooks install only on NUM4; all idle until used.")
