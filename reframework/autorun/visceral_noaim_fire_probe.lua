@@ -15,6 +15,29 @@
 -- banned aim animation. Verdict + reframe:
 -- modding-notes/2026-08-29-doors-items-test-result.md.
 --
+-- v4 ROUND-1 RESULT (2026-08-29, flat, minigun): JACKPOT in the dump.
+-- app.ropeway.implement.Gun carries the whole fire surface:
+-- executeFire(System.Int32) (first-sighted only around a real aimed shot;
+-- the minigun's spin-up put it ~0.5s after the press), plus gate-shaped
+-- booleans enableFire(), enableAttack(), get_/set_EnableExecuteFire(bool),
+-- isPossibleFireFromMuzzle(), checkEnableRapidFire(uint). NUM5 was a dud
+-- by bad auto-selection: getFireMatrix() is a per-frame muzzle-transform
+-- getter (400+ calls per press window) that reacted first, so the manual
+-- call returned a mat4 and correctly fired nothing. Per-press totals were
+-- flooded by it. The decisive experiment has NOT actually run yet.
+--
+-- v4.1 (same day): three fixes aimed at the kill:
+--   * per-press summaries list DISTINCT methods with counts (the real
+--     aimed-vs-unaimed diff), not a flooded total;
+--   * every 0-param System.Boolean candidate logs its return value near a
+--     press (enableFire/enableAttack/isPossibleFireFromMuzzle now report
+--     as gate reads, not just call counts);
+--   * executeFire(int) is the star: its argument is captured on every real
+--     shot and always logged; NUM5 now replays executeFire(captured arg)
+--     on the live gun while NOT aiming. Muzzle flash = removable check.
+-- Protocol note: use the HANDGUN this round -- the minigun's loop-fire
+-- spin-up muddies press timing.
+--
 -- v4 (2026-08-29): THE HUNT. Leave HOLD alone; find where the game ignores
 -- ATTACK when the character is not in the aim stance. If that is a
 -- removable check, the gun can fire from normal locomotion and all four
@@ -87,10 +110,13 @@ local state = {
     hooked_sigs = {},         -- "type.method(n)" -> true (hook installed)
     candidates = {},          -- array of candidate records (see arm_hooks)
     hook_count = 0,
-    selected_idx = nil,       -- index into candidates for NUM5
+    selected_idx = nil,       -- hand-picked candidate for NUM5 (fallback)
+    exec_fire_idx = nil,      -- the executeFire candidate, preferred NUM5 target
+    last_fire_arg = 0,        -- executeFire's argument captured from a real shot
     press_count = 0,
     press_time = nil,         -- pending press awaiting its summary
     press_calls = 0,          -- candidate calls seen since press_time
+    press_methods = {},       -- sig -> count within the current press window
     press_hold = "n/a",       -- IsHold at the moment of the press
     prev_attack_on = false,
     -- live readouts
@@ -261,18 +287,24 @@ local function dump_and_scan_type(td, comp_label)
             if name_matches(lower, CANDIDATE_PATTERNS) and not lower:find("^set_") then
                 local sig = tname .. "." .. name .. "(" .. tostring(nparams) .. ")"
                 if not state.hooked_sigs[sig] then
-                    state.candidates[#state.candidates + 1] = {
+                    local c = {
                         sig = sig,
                         type_name = tname,
                         name = name,
                         nparams = nparams,
-                        is_bool_getter = (lower:find("^get_") ~= nil) and (ret == "System.Boolean"),
+                        is_bool_probe = (ret == "System.Boolean") and (nparams == 0),
+                        is_execute_fire = (name == "executeFire") and (nparams == 1),
                         method = m,
                         hooked = false,
                         calls = 0,
                         reacted = 0,
                         last_log = 0,
                     }
+                    state.candidates[#state.candidates + 1] = c
+                    if c.is_execute_fire then
+                        state.exec_fire_idx = #state.candidates
+                        record_event("star candidate found: " .. sig .. " (NUM5 will replay it)")
+                    end
                 end
             end
         end
@@ -287,30 +319,27 @@ local function hook_candidate(c)
                 if not state.armed then return end
                 c.calls = c.calls + 1
                 local now = os.clock()
+                -- the star: always log executeFire and capture its argument
+                if c.is_execute_fire then
+                    local arg = safe(function() return sdk.to_int64(args[3]) & 0xFFFFFFFF end)
+                    if arg ~= nil then state.last_fire_arg = arg end
+                    if now - c.last_log > 1.0 then
+                        c.last_log = now
+                        record_event(string.format("FIRE! executeFire(arg=%s) [IsHold=%s latched=%s]",
+                            tostring(arg), state.ui_is_hold, tostring(state.latched)))
+                    end
+                end
                 local near_press = state.press_time and (now - state.press_time) <= REACT_WINDOW
                 if near_press then
                     state.press_calls = state.press_calls + 1
                     c.reacted = c.reacted + 1
-                    if c.reacted <= 3 or now - c.last_log > 5.0 then
-                        c.last_log = now
-                        record_event(string.format("REACTED to press #%d: %s [IsHold=%s latched=%s]",
-                            state.press_count, c.sig, state.press_hold, tostring(state.latched)))
-                    end
-                    -- first-time reactor with no params becomes the NUM5 selection
-                    if state.selected_idx == nil and c.nparams == 0 and not c.is_bool_getter then
-                        for i, cc in ipairs(state.candidates) do
-                            if cc == c then state.selected_idx = i break end
-                        end
-                        if state.selected_idx then
-                            record_event("auto-selected for NUM5: " .. c.sig)
-                        end
-                    end
+                    state.press_methods[c.sig] = (state.press_methods[c.sig] or 0) + 1
                 elseif c.calls == 1 then
                     record_event("first sighting (no press nearby): " .. c.sig)
                 end
             end,
             function(retval)
-                if state.armed and c.is_bool_getter and state.press_time
+                if state.armed and c.is_bool_probe and state.press_time
                     and (os.clock() - state.press_time) <= REACT_WINDOW then
                     local v = safe(function() return (sdk.to_int64(retval) & 1) ~= 0 end)
                     local now = os.clock()
@@ -391,7 +420,7 @@ local function manual_call(idx)
         record_event("NUM5: no candidate selected yet (arm with NUM4, fire once aimed, or pick in the UI)")
         return
     end
-    if c.nparams ~= 0 then
+    if c.nparams ~= 0 and not c.is_execute_fire then
         record_event("NUM5: selected candidate takes parameters, cannot call blind: " .. c.sig)
         return
     end
@@ -408,9 +437,17 @@ local function manual_call(idx)
         local comp = get_component(go, c.type_name)
         if comp then target = comp end
     end
-    record_event(string.format("MANUAL CALL %s [IsHold=%s latched=%s]",
-        c.sig, state.ui_is_hold, tostring(state.latched)))
-    local ok, r = pcall(function() return target:call(c.name) end)
+    local ok, r
+    if c.is_execute_fire then
+        local arg = state.last_fire_arg or 0
+        record_event(string.format("MANUAL CALL %s with arg=%d [IsHold=%s latched=%s]",
+            c.sig, arg, state.ui_is_hold, tostring(state.latched)))
+        ok, r = pcall(function() return target:call(c.name, arg) end)
+    else
+        record_event(string.format("MANUAL CALL %s [IsHold=%s latched=%s]",
+            c.sig, state.ui_is_hold, tostring(state.latched)))
+        ok, r = pcall(function() return target:call(c.name) end)
+    end
     record_event(string.format("MANUAL CALL result: ok=%s ret=%s -- did a shot come out?",
         tostring(ok), tostring(r)))
 end
@@ -433,7 +470,7 @@ end
 local function poll_hotkeys()
     if not state.keys_ok then return end
     if key_pressed(VK_NUMPAD4) then recon_and_arm() end
-    if key_pressed(VK_NUMPAD5) then manual_call(state.selected_idx or 1) end
+    if key_pressed(VK_NUMPAD5) then manual_call(state.exec_fire_idx or state.selected_idx or 1) end
     if key_pressed(VK_NUMPAD7) then do_latch() end
     if key_pressed(VK_NUMPAD8) then do_unlatch() end
     if key_pressed(VK_NUMPAD9) then do_panic() end
@@ -478,11 +515,23 @@ end
 
 local function finalize_pending_press()
     if state.press_time and os.clock() - state.press_time > REACT_WINDOW then
-        record_event(string.format("press #%d summary: %d candidate calls [IsHold=%s latched=%s]%s",
-            state.press_count, state.press_calls, state.press_hold, tostring(state.latched),
-            state.press_calls == 0 and " -- THE GATE ATE IT" or ""))
+        local parts = {}
+        for sig, n in pairs(state.press_methods) do
+            parts[#parts + 1] = { sig = sig, n = n }
+        end
+        table.sort(parts, function(a, b) return a.n > b.n end)
+        local buf = {}
+        for i, p in ipairs(parts) do
+            if i > 12 then buf[#buf + 1] = "+more" break end
+            buf[#buf + 1] = string.format("%s x%d",
+                p.sig:gsub("app%.ropeway%.implement%.", ""):gsub("app%.ropeway%.", ""), p.n)
+        end
+        record_event(string.format("press #%d summary [IsHold=%s latched=%s]: %s",
+            state.press_count, state.press_hold, tostring(state.latched),
+            #parts == 0 and "0 calls -- THE GATE ATE IT" or table.concat(buf, ", ")))
         state.press_time = nil
         state.press_calls = 0
+        state.press_methods = {}
     end
 end
 
@@ -533,6 +582,7 @@ local function refresh_readouts()
                 state.press_count = state.press_count + 1
                 state.press_time = os.clock()
                 state.press_calls = 0
+                state.press_methods = {}
                 state.press_hold = state.ui_is_hold
                 record_event(string.format("ATTACK pressed (#%d) [IsHold=%s latched=%s]",
                     state.press_count, state.press_hold, tostring(state.latched)))
@@ -554,7 +604,7 @@ re.on_frame(refresh_readouts)
 -- ---------------------------------------------------------------------------
 
 re.on_draw_ui(function()
-    if not imgui.tree_node("Visceral: fire-gate probe (v4)") then return end
+    if not imgui.tree_node("Visceral: fire-gate probe (v4.1)") then return end
 
     imgui.text("hotkeys: NUM4=arm  NUM5=manual-call  NUM7=latch  NUM8=unlatch  NUM9=panic"
         .. (state.keys_ok and "" or "  [KEY API UNAVAILABLE - use buttons]"))
@@ -570,8 +620,11 @@ re.on_draw_ui(function()
             state.ui_hold_on and "ON" or "off"))
     imgui.text(string.format("presses observed: %d   setForce ok=%d fail=%d",
         state.press_count, state.setforce_ok_count, state.setforce_fail_count))
-    if state.selected_idx and state.candidates[state.selected_idx] then
-        imgui.text("NUM5 target: " .. state.candidates[state.selected_idx].sig)
+    local num5_idx = state.exec_fire_idx or state.selected_idx
+    if num5_idx and state.candidates[num5_idx] then
+        local c5 = state.candidates[num5_idx]
+        imgui.text("NUM5 target: " .. c5.sig
+            .. (c5.is_execute_fire and string.format("  [replay arg=%d]", state.last_fire_arg or 0) or ""))
     else
         imgui.text("NUM5 target: none selected yet")
     end
@@ -594,7 +647,7 @@ re.on_draw_ui(function()
         for i, c in ipairs(state.candidates) do
             imgui.text(string.format("[%s] x%d reacted:%d %s",
                 c.hooked and "hooked" or "  --  ", c.calls, c.reacted, c.sig))
-            if c.nparams == 0 and not c.is_bool_getter then
+            if c.nparams == 0 or c.is_execute_fire then
                 imgui.same_line()
                 if imgui.button("select##" .. i) then
                     state.selected_idx = i
@@ -619,4 +672,4 @@ re.on_draw_ui(function()
     imgui.tree_pop()
 end)
 
-log.info(TAG .. " loaded (v4 fire-gate hunt). Hooks install only on NUM4; all idle until used.")
+log.info(TAG .. " loaded (v4.1 fire-gate hunt, executeFire replay). Hooks install only on NUM4; all idle until used.")
