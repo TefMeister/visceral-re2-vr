@@ -91,6 +91,27 @@
 --   * The old set_EnableExecuteFire+executeFire experiment stays as a UI
 --     button only.
 --
+-- v4.3 RESULT (2026-08-29, flat, handgun): THE PLAYER-SIDE CHAIN IS
+-- CAUGHT. A real aimed shot first-sighted, in one moment:
+-- SurvivorCondition.get_EnableAttack -> Equipment.requestFire() ->
+-- Equipment.enableAttack(1) -> Equipment.executeFire(2) ->
+-- Gun.executeFire(1) (+ fireReticleFitPoint). On unaimed presses NONE of
+-- these run -- ATTACK dies upstream of Equipment.requestFire, so the
+-- force-gates toggle changed nothing (nobody ever asked the forced
+-- questions). requestFire() is 0-param: the game's own "fire now"
+-- doorbell, one level above everything poked so far.
+--
+-- v4.4 (same day): RING THE DOORBELL.
+--   NUM3 (new) = call Equipment.requestFire() directly. Each manual call
+--     opens a synthetic press window, so the gate reads + chain summary
+--     log exactly what requestFire consulted and how far it got.
+--   FORCE_TRUE additions: get_EnableAttack (SurvivorCondition) and the
+--     existing enableAttack name now also covers Equipment.enableAttack.
+--   requestFire / executeFire (any type) are always-logged CHAIN events.
+--   Protocol: NUM4 arm; one real aimed shot (baseline); release aim;
+--   NUM3 unaimed (gates natural); NUM6 gates ON; NUM3 unaimed again --
+--   WATCH THE GUN. Then NUM6 off.
+--
 -- v4 (2026-08-29): THE HUNT. Leave HOLD alone; find where the game ignores
 -- ATTACK when the character is not in the aim stance. If that is a
 -- removable check, the gun can fire from normal locomotion and all four
@@ -127,6 +148,7 @@ local NS = sdk.game_namespace
 local KIND_ATTACK_FALLBACK = 256  -- learned in v1 (old guess 4 was wrong)
 local KIND_HOLD_FALLBACK = 64
 
+local VK_NUMPAD3 = 0x63
 local VK_NUMPAD4 = 0x64
 local VK_NUMPAD5 = 0x65
 local VK_NUMPAD6 = 0x66
@@ -141,10 +163,15 @@ local COMPONENT_PATTERNS = { "weapon", "gun", "implement" }
 -- player-side component type names worth the same treatment
 local PLAYER_COMPONENT_PATTERNS = { "survivor", "equip", "action", "behavior", "posture", "hold" }
 local MAX_HOOKS = 180
--- gun booleans that mirror the stance gate; NUM6 forces their answers TRUE
+-- stance-gate booleans; NUM6 forces their answers TRUE (matched by name on
+-- any hooked type: covers Gun.enableFire/enableAttack, Equipment.enableAttack,
+-- SurvivorCondition.get_EnableAttack)
 local FORCE_TRUE_NAMES = {
     enableFire = true, enableAttack = true, isPossibleFireFromMuzzle = true,
+    get_EnableAttack = true,
 }
+-- fire-chain methods that always log a CHAIN event when called
+local ALWAYS_LOG_NAMES = { requestFire = true, executeFire = true }
 
 local REACT_WINDOW = 0.35   -- seconds after an ATTACK press that counts as "reacted"
 
@@ -319,6 +346,49 @@ local function do_panic()
 end
 
 -- ---------------------------------------------------------------------------
+-- Press windows (real presses and synthetic ones from manual calls)
+-- ---------------------------------------------------------------------------
+
+local function finalize_pending_press()
+    if state.press_time and os.clock() - state.press_time > REACT_WINDOW then
+        local parts = {}
+        for sig, n in pairs(state.press_methods) do
+            parts[#parts + 1] = { sig = sig, n = n }
+        end
+        table.sort(parts, function(a, b) return a.n > b.n end)
+        local buf = {}
+        for i, p in ipairs(parts) do
+            if i > 12 then buf[#buf + 1] = "+more" break end
+            buf[#buf + 1] = string.format("%s x%d",
+                p.sig:gsub("app%.ropeway%.implement%.", ""):gsub("app%.ropeway%.", ""), p.n)
+        end
+        record_event(string.format("press #%d summary [IsHold=%s latched=%s]: %s",
+            state.press_count, state.press_hold, tostring(state.latched),
+            #parts == 0 and "0 calls -- THE GATE ATE IT" or table.concat(buf, ", ")))
+        state.press_time = nil
+        state.press_calls = 0
+        state.press_methods = {}
+    end
+end
+
+local function start_press_window(label)
+    if state.press_time then
+        -- close any pending window now, even mid-window
+        state.press_time = os.clock() - REACT_WINDOW - 1
+        finalize_pending_press()
+    end
+    state.press_count = state.press_count + 1
+    state.press_time = os.clock()
+    state.press_calls = 0
+    state.press_methods = {}
+    state.press_hold = state.ui_is_hold
+    if label then
+        record_event(string.format("SYNTHETIC press #%d (%s) [IsHold=%s latched=%s]",
+            state.press_count, label, state.press_hold, tostring(state.latched)))
+    end
+end
+
+-- ---------------------------------------------------------------------------
 -- Recon: component list + method dumps + candidate discovery (NUM4)
 -- ---------------------------------------------------------------------------
 
@@ -365,6 +435,7 @@ local function dump_and_scan_type(td, comp_label)
                         is_bool_probe = (ret == "System.Boolean") and (nparams == 0),
                         is_execute_fire = (name == "executeFire") and (nparams == 1),
                         force_true = (FORCE_TRUE_NAMES[name] == true) and (ret == "System.Boolean"),
+                        always_log = (ALWAYS_LOG_NAMES[name] == true),
                         method = m,
                         hooked = false,
                         calls = 0,
@@ -405,6 +476,13 @@ local function hook_candidate(c)
                         c.last_log = now
                         record_event(string.format("FIRE! executeFire(arg=%s) [IsHold=%s latched=%s]",
                             tostring(arg), state.ui_is_hold, tostring(state.latched)))
+                    end
+                elseif c.always_log then
+                    if now - c.last_log > 1.0 then
+                        c.last_log = now
+                        record_event(string.format("CHAIN: %s [IsHold=%s latched=%s gates=%s]",
+                            c.sig, state.ui_is_hold, tostring(state.latched),
+                            state.force_gates and "FORCED" or "natural"))
                     end
                 end
                 local near_press = state.press_time and (now - state.press_time) <= REACT_WINDOW
@@ -633,6 +711,23 @@ local function force_enable_experiment()
     record_event("NUM6: flag left TRUE (NUM9 panic resets it)")
 end
 
+-- v4.4: NUM3 -- ring the doorbell: Equipment.requestFire(), the game's own
+-- 0-param "fire the equipped weapon now" entry point. Opens a synthetic
+-- press window so gate reads + the chain summary capture what it did.
+local function call_request_fire()
+    local player = get_player()
+    local equipment = player and get_component(player, NS("survivor.Equipment")) or nil
+    if not equipment then
+        record_event("NUM3: no player Equipment component")
+        return
+    end
+    start_press_window("Equipment.requestFire, gates="
+        .. (state.force_gates and "FORCED" or "natural"))
+    local ok, r = pcall(function() return equipment:call("requestFire") end)
+    record_event(string.format("NUM3: requestFire() ok=%s ret=%s -- WATCH THE GUN",
+        tostring(ok), tostring(r)))
+end
+
 -- v4.3: NUM6 toggle -- answer TRUE to every enableFire/enableAttack/
 -- isPossibleFireFromMuzzle read while ON, then the user pulls LMB unaimed
 local function toggle_force_gates()
@@ -659,6 +754,7 @@ end
 
 local function poll_hotkeys()
     if not state.keys_ok then return end
+    if key_pressed(VK_NUMPAD3) then call_request_fire() end
     if key_pressed(VK_NUMPAD4) then recon_and_arm() end
     if key_pressed(VK_NUMPAD5) then gate_audit("NUM5") end
     if key_pressed(VK_NUMPAD6) then toggle_force_gates() end
@@ -704,28 +800,6 @@ local function read_button_bits(input_system)
     return on
 end
 
-local function finalize_pending_press()
-    if state.press_time and os.clock() - state.press_time > REACT_WINDOW then
-        local parts = {}
-        for sig, n in pairs(state.press_methods) do
-            parts[#parts + 1] = { sig = sig, n = n }
-        end
-        table.sort(parts, function(a, b) return a.n > b.n end)
-        local buf = {}
-        for i, p in ipairs(parts) do
-            if i > 12 then buf[#buf + 1] = "+more" break end
-            buf[#buf + 1] = string.format("%s x%d",
-                p.sig:gsub("app%.ropeway%.implement%.", ""):gsub("app%.ropeway%.", ""), p.n)
-        end
-        record_event(string.format("press #%d summary [IsHold=%s latched=%s]: %s",
-            state.press_count, state.press_hold, tostring(state.latched),
-            #parts == 0 and "0 calls -- THE GATE ATE IT" or table.concat(buf, ", ")))
-        state.press_time = nil
-        state.press_calls = 0
-        state.press_methods = {}
-    end
-end
-
 local function refresh_readouts()
     dump_kind_enum()
     poll_hotkeys()
@@ -769,12 +843,7 @@ local function refresh_readouts()
             state.ui_hold_on = (on & kh) ~= 0
             -- ATTACK press edge -> start a per-press observation window
             if attack_now and not state.prev_attack_on and state.armed then
-                finalize_pending_press()
-                state.press_count = state.press_count + 1
-                state.press_time = os.clock()
-                state.press_calls = 0
-                state.press_methods = {}
-                state.press_hold = state.ui_is_hold
+                start_press_window(nil)
                 record_event(string.format("ATTACK pressed (#%d) [IsHold=%s latched=%s]",
                     state.press_count, state.press_hold, tostring(state.latched)))
             end
@@ -795,9 +864,9 @@ re.on_frame(refresh_readouts)
 -- ---------------------------------------------------------------------------
 
 re.on_draw_ui(function()
-    if not imgui.tree_node("Visceral: fire-gate probe (v4.3)") then return end
+    if not imgui.tree_node("Visceral: fire-gate probe (v4.4)") then return end
 
-    imgui.text("hotkeys: NUM4=arm  NUM5=gate-audit  NUM6=force-gates toggle  NUM7=latch  NUM8=unlatch  NUM9=panic"
+    imgui.text("hotkeys: NUM3=requestFire  NUM4=arm  NUM5=audit  NUM6=force-gates  NUM7=latch  NUM8=unlatch  NUM9=panic"
         .. (state.keys_ok and "" or "  [KEY API UNAVAILABLE - use buttons]"))
     imgui.text("armed: " .. tostring(state.armed)
         .. string.format("   candidates: %d   hooked: %d", #state.candidates, state.hook_count))
@@ -828,6 +897,9 @@ re.on_draw_ui(function()
 
     if imgui.button("ARM: recon weapon + hook fire candidates (NUM4)") then
         recon_and_arm()
+    end
+    if imgui.button("RING THE DOORBELL: Equipment.requestFire() (NUM3)") then
+        call_request_fire()
     end
     if imgui.button("GATE AUDIT: read all enable flags (NUM5)") then
         gate_audit("UI")
@@ -874,4 +946,4 @@ re.on_draw_ui(function()
     imgui.tree_pop()
 end)
 
-log.info(TAG .. " loaded (v4.3 player-side hunt + force-gates toggle). Hooks install only on NUM4; all idle until used.")
+log.info(TAG .. " loaded (v4.4 requestFire doorbell). Hooks install only on NUM4; all idle until used.")
