@@ -30,6 +30,7 @@ end
 local TAG = "[visceral_gait]"
 local NS = sdk.game_namespace
 local VK_NUMPAD5 = 0x65
+local VK_NUMPAD6 = 0x66  -- diagnostic dump
 
 local motion_type = sdk.typeof("via.motion.Motion")
 local POISON_TYPE, POISON_MASK = 255, 255
@@ -101,6 +102,10 @@ local function apply_poison()
     elseif state.status == "idle" then
         state.status = "active (nothing to redirect yet)"
     end
+    if state.status ~= state.last_logged then
+        state.last_logged = state.status
+        log_line("status: " .. state.status)
+    end
 end
 
 local function restore_originals()
@@ -113,6 +118,33 @@ local function restore_originals()
         end
     end)
     state.status = "restored/disabled"; state.poisoned = 0
+end
+
+-- diagnostic: log the full live active-bank list so we can see what's there
+local function dump_banks()
+    local mc = get_player_motion()
+    if not mc then log_line("DUMP: no player/motion component"); return end
+    local count = safe(function() return mc:call("getActiveMotionBankCount") end)
+    local tbt = safe(function() return mc:call("get_TargetBankType") end)
+    log_line(string.format("DUMP: activeBankCount=%s  TargetBankType=%s", tostring(count), tostring(tbt)))
+    local n = tonumber(count) or 0
+    local shown = 0
+    for i = 0, n - 1 do
+        local bank = safe(function() return mc:call("getActiveMotionBank", i) end)
+        if bank then
+            local bid = safe(function() return bank:call("get_BankID") end)
+            local name = tostring(safe(function() return bank:call("get_Name") end) or "?")
+            local bt = safe(function() return bank:call("get_BankType") end)
+            local mask = safe(function() return bank:call("get_BankTypeMaskBit") end)
+            -- show all BankID=1000 plus anything with MOVE in the name
+            if bid == 1000 or name:find("MOVE", 1, true) then
+                log_line(string.format("  [%d] id=%s type=%s mask=%s  %s",
+                    i, tostring(bid), tostring(bt), tostring(mask), name))
+                shown = shown + 1
+            end
+        end
+    end
+    log_line("DUMP: " .. shown .. " MOVE/id1000 banks shown of " .. n .. " total")
 end
 
 re.on_pre_application_entry("LateUpdateBehavior", function()
@@ -133,6 +165,9 @@ re.on_frame(function()
         log_line("enabled=" .. tostring(cfg.enabled))
     end
     state.prev = d
+    local d6 = safe(function() return reframework:is_key_down(VK_NUMPAD6) end)
+    if d6 and not state.prev6 then dump_banks() end
+    state.prev6 = d6
 end)
 
 re.on_draw_ui(function()
