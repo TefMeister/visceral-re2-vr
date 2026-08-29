@@ -6,6 +6,13 @@
 -- lever: force `Jog`=1 (per-frame) and watch whether it raises movement speed --
 -- ESPECIALLY while aiming (docked state), and whether the animation looks right.
 --
+-- v2 (2026-08-29): v1 wrote with no visible effect. Diagnose why: write Jog at
+-- SEVERAL frame stages, read the value back immediately after each set, and log
+-- (a) the immediate readback and (b) a fresh read later in the frame + speed.
+-- This distinguishes: set-not-taking (readback!=1) vs game-overwrite (readback=1
+-- but later read=0 -> need a different stage) vs Jog-not-the-lever (both=1, no
+-- speed change).
+--
 -- via.userdata.Variable setters: set_F(float), set_Bool(bool).
 -- WRITE is limited to Jog and MoveStickPower, both documented writable
 -- (RO=false, WP=false). Fully reversible: toggles off + NUM0 panic; the game
@@ -33,6 +40,8 @@ local state = {
     jog_var = nil, msp_var = nil,
     vars_ok = false,
     write_ok = 0, write_fail = 0, last_err = "",
+    jog_after_set = "n/a",   -- Jog read back immediately after we set it
+    last_diag_t = 0,
     -- velocity readout
     have_prev = false, prev_x = 0, prev_z = 0, prev_t = 0,
     speed = 0, speed_max = 0,
@@ -96,16 +105,25 @@ local function set_var(v, value)
     else state.write_fail = state.write_fail + 1; state.last_err = "set failed" end
 end
 
--- write the forces; called at the proven ordering point + on_frame as backup
+-- write the forces at whatever stage this is called from
 local function apply_forces()
     if not (state.force_jog or state.force_msp) then return end
     if not state.vars_ok then acquire_vars() end
-    if state.force_jog then set_var(state.jog_var, 1.0) end
+    if state.force_jog then
+        set_var(state.jog_var, 1.0)
+        state.jog_after_set = tostring(safe(function() return state.jog_var:call("get_F") end))
+    end
     if state.force_msp then set_var(state.msp_var, 1.0) end
 end
 
--- after the game recomputes behavior/input, before motion consumes it
-re.on_application_entry("UpdateBehavior", apply_forces)
+-- cover multiple frame stages so at least one lands after the game's own write
+-- of Jog and before motion consumes it. Invalid names are guarded.
+local function reg_pre(name) pcall(function() re.on_pre_application_entry(name, apply_forces) end) end
+local function reg_post(name) pcall(function() re.on_application_entry(name, apply_forces) end) end
+reg_pre("UpdateBehavior"); reg_post("UpdateBehavior")
+reg_pre("LateUpdateBehavior"); reg_post("LateUpdateBehavior")
+reg_pre("UpdateMotion"); reg_post("UpdateMotion")
+reg_pre("LateUpdateMotion"); reg_post("LateUpdateMotion")
 
 local function update_readouts()
     local player = get_player()
@@ -130,6 +148,17 @@ local function update_readouts()
     state.ui_is_hold = tostring(get_is_hold(player))
     if state.jog_var then state.ui_jog = tostring(safe(function() return state.jog_var:call("get_F") end)) end
     if state.msp_var then state.ui_msp = tostring(safe(function() return state.msp_var:call("get_F") end)) end
+
+    -- diagnostic stream while forcing: immediate-readback vs live-read vs speed
+    if (state.force_jog or state.force_msp) then
+        local now = os.clock()
+        if now - state.last_diag_t > 0.5 then
+            state.last_diag_t = now
+            log_line(string.format("diag: jogAfterSet=%s  liveJog=%s  liveMSP=%s  speed=%.3f  IsHold=%s  writes(ok=%d fail=%d)",
+                state.jog_after_set, state.ui_jog, state.ui_msp, state.speed, state.ui_is_hold,
+                state.write_ok, state.write_fail))
+        end
+    end
 end
 
 local function key_pressed(vk)
@@ -185,4 +214,4 @@ re.on_draw_ui(function()
     imgui.tree_pop()
 end)
 
-log_line("loaded (v1 Jog write-test). NUM1=force Jog, NUM2=force MoveStickPower, NUM0=panic. All off until used.")
+log_line("loaded (v2 Jog write-test + diagnostics). NUM1=force Jog, NUM2=force MoveStickPower, NUM0=panic.")
