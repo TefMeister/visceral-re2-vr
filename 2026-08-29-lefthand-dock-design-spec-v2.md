@@ -75,13 +75,56 @@ the aim pose only shows *while docked* (i.e. while genuinely aiming, where a pos
 is expected), and normal locomotion has no aim pose. If the docked pose looks OK
 and speed is matched, req 4 of v1 is largely satisfied by construction.
 
-**Open questions for the user (load-bearing, not bikeshed):**
-- **One-handed pistol fire without docking?** v2 routes all firing through the
-  dock (left hand on gun → latch → fire). If a pistol should also fire
-  one-handed with no off-hand dock, that path needs its own momentary
-  (true "micro") latch on the trigger. Not covered by 1–4 as written.
-- **Confirm the fire input while docked:** right trigger = ATTACK, firing via
-  the sustained latch (the proven path). Assumed, worth a yes.
+## v2.1 refinements (user, same evening) — firing is a UNIVERSAL micro-latch
+
+Answers + additions that change the firing model and the speed model:
+
+- **Firing = micro-latch on RT press, for EVERY weapon** (pistol AND two-handed).
+  RT pressed → pulse HOLD for just the shot → release. So HOLD is NOT meant to be
+  sustained; it fires in a blip. This resolves the earlier req-2 wording: the
+  dock provides two-handed *holding/aiming*, but the *shot* is always a momentary
+  latch, so the player is never parked in the slow/locked aim state.
+- **RT = fire weapon** (confirmed).
+- **New input map:** **RG (right grip) = ready sub-weapon; RG + RT = throw
+  grenade/flashbang.** (LG = dock left hand, per req 1.)
+- **Speed model, final form (req 4):** the run BUTTON does not exist. walk,
+  aim-ready, and run all share ONE max speed = vanilla run speed; actual speed is
+  the analog LS deflection. Aim-ready feels identical to walking.
+- **User's proposed fix for the coupling wall — drive presentation from measured
+  speed.** Instead of relying on the movement state to set footstep sound, leg
+  animation, and body sway/pose, *measure* the player's actual speed each frame
+  and drive sway + pose + foot-anim cadence + footstep audio proportionally to
+  it. This is the right architecture: it decouples "how the body looks/sounds"
+  from "which state the engine thinks it's in," which is exactly the coupling
+  that beat us before.
+
+### THE load-bearing technical question this creates
+Universal micro-latch + two-handed aim only coexist cleanly IF the **off-hand can
+steer the muzzle WITHOUT the aim (HOLD) state being active.** Two outcomes, both
+shippable:
+- **If yes (the dream):** docked = two-hand muzzle steering during *normal
+  locomotion*; fire = micro-latch pulse on RT. HOLD is never sustained → speed
+  and interaction are never locked, ever. Cleanest possible result.
+- **If no:** two-hand steering needs the aim state, so *docked* must sustain the
+  latch. Then req 4's speed-matching + the speed-driven presentation system are
+  what make sustained-aim-while-moving feel like normal movement. Still works,
+  more wiring.
+**This is recon item #2 below and it decides the whole architecture — settle it
+first.**
+
+### Feasibility of the speed-driven presentation system
+Right instinct; difficulty hinges on one thing:
+- **Reading speed:** easy (position delta or a velocity/speed field).
+- **Body sway / pose:** doable procedurally (additive bone/camera offsets).
+- **Foot/leg animation:** the risk. If RE2's locomotion has a **movement-speed
+  blend parameter** we can write (very common — a float that drives the
+  walk/run blend), driving IT by our measured speed is elegant and SAFE (no FSM
+  writing). If there is no such param, matching leg anim to speed is the
+  dangerous FSM lane. **Recon must find this param before we commit.**
+- **Footstep audio:** the game uses Wwise (WwiseTagTrigger etc. seen on the
+  weapon/player components). Firing footstep events manually at a speed-matched
+  cadence is possible but fiddly; fallback is to let the anim system emit them if
+  the speed-blend param also drives the existing footstep events.
 
 ## Static-analysis assets ready for this (2026-08-29)
 - SDK dumped: `<game>/il2cpp_dump.json` (471 MB) maps every managed method to
@@ -94,10 +137,13 @@ and speed is matched, req 4 of v1 is largely satisfied by construction.
 
 ## Next
 Recon for the build, in this order (all read-only first):
-1. Locate the off-hand grip/foregrip anchor node on weapon models + confirm both
-   controller transforms are readable in our own code (proximity math for 1 & 3).
-2. Confirm hand IK target access + how the base two-hand aim solve reads the
-   off-hand (for 2 & 3's decouple).
-3. Find the per-state locomotion speed params (for 4) and re-test whether the
-   footstep/leg/awareness coupling can be reached without FSM writes.
-Then prototype 1→2→3 (the hand system) before touching 4.
+1. Off-hand grip/foregrip anchor node on weapon models + confirm both controller
+   transforms readable in our own code (proximity math for reqs 1 & 3).
+2. **THE decider — can the off-hand steer the muzzle without the aim/HOLD state
+   active?** (governs the whole architecture, see v2.1). Plus hand IK target
+   access + how two-hand aim reads the off-hand (reqs 2 & 3 decouple).
+3. Locomotion **movement-speed blend param** (safe path for the speed-driven
+   presentation system) + per-state speed caps to unify (req 4); re-test whether
+   footstep/leg/awareness can be driven by measured speed without FSM writes.
+Then prototype the hand system (reqs 1→2→3) before touching 4. Input map to
+build against: LG=dock, RT=fire (micro-latch), RG=ready sub-weapon, RG+RT=throw.
