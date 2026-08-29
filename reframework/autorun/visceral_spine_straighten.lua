@@ -94,8 +94,10 @@ local function is_aiming(player)
     return safe(function() return c:call("get_IsHold") end) == true
 end
 local function cutscene_blocking()
-    -- honor a shared blocker flag if some other script publishes one; else don't block
-    if cfg.cutscene_gate and _G.__vr_is_cinematic_blocking == true then return true end
+    -- honor Visceral's shared cinematic gate (cutscenes, camera events, enemy grab)
+    if cfg.cutscene_gate and type(_G.__visceral_cinematic_blocking) == "function" then
+        return _G.__visceral_cinematic_blocking() == true
+    end
     return false
 end
 
