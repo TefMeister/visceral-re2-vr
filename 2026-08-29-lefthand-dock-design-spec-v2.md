@@ -183,6 +183,25 @@ if it reads as confusing we can look at surfacing the prompt during dock later.
 two-handed stretches (finger fatigue) — the user weighed this against the toggle
 and chose hold-to-grip for the simplicity it buys everywhere else.
 
+## v2.4 refinement (user, same evening) — the two-stage interaction prompt
+
+Resolves the v2.3 residual (prompt maybe hidden while LG held) using UI that
+already exists:
+
+- RE2 already shows a **directional arrow/chevron indicator** when an interactable
+  is near-but-slightly-too-far ("get closer") — the ⌄ over the typewriter in the
+  user's screenshot; the actual **button prompt** appears when you're in range.
+- **Design:** keep the **arrow indicator visible even while LG is held** (docked/
+  aim), so the player always knows something is there; make the **actual
+  interaction button prompt appear only once LG is released.** Free hand → prompt →
+  interact. Immersive AND informative.
+- **Feasibility:** GUI-layer work, separable from core mechanics, low risk (worst
+  case cosmetic). We have prior art manipulating RE2 `via.gui` controls (the
+  route-fix draw-time text-hold). Recon: is the prompt GUI one combined element or
+  separate arrow-vs-button controls, and does the arrow currently survive the aim
+  state? If the arrow is suppressed during aim we force it visible; the button we
+  gate on LG-released. Build this AFTER the core hand system.
+
 ### What the two-state model settles, and what it leaves
 The corrected model resolves the earlier "can the off-hand steer without the aim
 state?" worry: **docked deliberately uses the sustained aim state**, so two-handed
@@ -210,6 +229,20 @@ Right instinct; difficulty hinges on one thing:
   weapon/player components). Firing footstep events manually at a speed-matched
   cadence is possible but fiddly; fallback is to let the anim system emit them if
   the speed-blend param also drives the existing footstep events.
+
+## Recon leads found in the SDK dump (2026-08-29, first pass — flat, no MCP)
+- **`app.ropeway.survivor.SurvivorMotionSpeedController`** exists (VA 141a91xxx
+  family) — modulates motion speed (tension/water-resistance speed fields +
+  `getDefaultSpeed`, `doMotionSpeedControllerUpdate`). Speed modifiers live here;
+  the base walk/run locomotion speed + the anim blend still to be pinned.
+- Speed-related method names present across types: `MoveSpeed`, `SpeedRate`,
+  `SpeedScale`, `MaxSpeed`/`SpeedMax`, `SpeedBlendRate`, `SpeedAnimation`,
+  `MoveSpeedChecker` — strong signal that a **speed→locomotion-animation blend**
+  exists (the "safe path" the speed-driven presentation system needs). Exact
+  owner + writability must be confirmed with a LIVE probe (read values while
+  moving at different LS deflections).
+- This is encouraging for req 4: RE2 clearly has speed/anim machinery to drive
+  rather than us hand-authoring leg animation.
 
 ## Static-analysis assets ready for this (2026-08-29)
 - SDK dumped: `<game>/il2cpp_dump.json` (471 MB) maps every managed method to
