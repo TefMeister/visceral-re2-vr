@@ -136,12 +136,10 @@ local function dump_banks()
             local name = tostring(safe(function() return bank:call("get_Name") end) or "?")
             local bt = safe(function() return bank:call("get_BankType") end)
             local mask = safe(function() return bank:call("get_BankTypeMaskBit") end)
-            -- show all BankID=1000 plus anything with MOVE in the name
-            if bid == 1000 or name:find("MOVE", 1, true) then
-                log_line(string.format("  [%d] id=%s type=%s mask=%s  %s",
-                    i, tostring(bid), tostring(bt), tostring(mask), name))
-                shown = shown + 1
-            end
+            -- show ALL banks this pass (find where the playing bank-2000 HG_ legs come from)
+            log_line(string.format("  [%d] id=%s type=%s mask=%s  %s",
+                i, tostring(bid), tostring(bt), tostring(mask), name))
+            shown = shown + 1
         end
     end
     log_line("DUMP: " .. shown .. " MOVE/id1000 banks shown of " .. n .. " total")
