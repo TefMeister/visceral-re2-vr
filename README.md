@@ -32,15 +32,16 @@ the VR controller pointer). Tested on Leon and Claire.
 
 ## Install with Fluffy Mod Manager (easiest — pick features with no menus)
 
-Prefer not to touch the REFramework UI? Each feature is also packaged as a separate
-**Fluffy Mod Manager** mod, so you enable/disable exactly the ones you want with a
-tick in Fluffy — no files to place by hand.
+Prefer not to touch the REFramework UI? Grab the single **`Visceral-RE2-VR-*-Fluffy.zip`**
+from the release — it's one download that shows up in Fluffy as a single
+**"Visceral — RE2 VR"** entry, and each feature is a tick you turn on/off inside it.
+No files to place by hand.
 
 1. Set up **[REFramework](https://github.com/praydog/REFramework)** for RE2 with VR
    working (Fluffy does not replace this — REFramework is still required).
-2. Drag the per-feature `Visceral-*.zip` files from the release into Fluffy's mod
-   list, enable the ones you want, and hit apply. The **Cutscene Safety (core)** one
-   is recommended alongside any body feature.
+2. Drag the one `Visceral-RE2-VR-*-Fluffy.zip` into Fluffy, open the **Visceral —
+   RE2 VR** entry, tick the features you want (the **Cutscene Safety (core)** one is
+   recommended alongside any body feature), and hit apply.
 
 (Advanced users can still install manually — see below.)
 
