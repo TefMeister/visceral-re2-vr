@@ -30,7 +30,8 @@ local VK_NUMPAD0, VK_NUMPAD1, VK_NUMPAD7, VK_NUMPAD9 = 0x60, 0x61, 0x67, 0x69
 local cfg = {
     enabled = false,
     aim_amplify = true,        -- collision-safe aim speed-up (v4)
-    anim_by_speed = true,      -- drive Jog (run animation) from measured speed
+    anim_by_speed = false,     -- DEFAULT OFF: Jog couples speed+anim, so driving it
+                               -- forces jog-style speed and can deadlock. Experimental only.
     aim_speed_mult = 1.5,
     smoothing = 0.4,
     run_threshold = 2.1,       -- speed to switch into the run animation
