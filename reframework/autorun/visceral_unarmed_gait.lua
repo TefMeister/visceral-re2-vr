@@ -147,8 +147,17 @@ local function dump_banks()
     log_line("DUMP: " .. shown .. " MOVE/id1000 banks shown of " .. n .. " total")
 end
 
+local function cinematic()
+    return type(_G.__visceral_cinematic_blocking) == "function" and _G.__visceral_cinematic_blocking() == true
+end
+
 re.on_pre_application_entry("LateUpdateBehavior", function()
     if not cfg.enabled then return end
+    -- during cutscenes / enemy grab (3rd person), stop redirecting and restore
+    if cinematic() then
+        if state.poisoned > 0 then restore_originals(); state.status = "paused (cinematic)" end
+        return
+    end
     local now = os.clock()
     if now - state.last_scan_t < SCAN_INTERVAL_S then return end
     state.last_scan_t = now
