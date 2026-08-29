@@ -29,7 +29,9 @@ local VK_NUMPAD0, VK_NUMPAD1, VK_NUMPAD7, VK_NUMPAD9 = 0x60, 0x61, 0x67, 0x69
 
 local cfg = {
     enabled = false,
-    aim_amplify = true,        -- collision-safe aim speed-up (v4)
+    aim_amplify = true,        -- collision-safe speed-up (v4)
+    all_movement = true,       -- apply the SAME amplify to normal walking too, not just
+                               -- aiming -> one consistent movement system for both (user req)
     anim_by_speed = false,     -- DEFAULT OFF: Jog couples speed+anim, so driving it
                                -- forces jog-style speed and can deadlock. Experimental only.
     aim_speed_mult = 1.5,
@@ -164,8 +166,8 @@ local function tick()
         set_jog(want)
     end
 
-    -- collision-safe aim speed-up
-    if cfg.aim_amplify and aiming then
+    -- collision-safe speed-up: all movement (default) or aim-only
+    if cfg.aim_amplify and (cfg.all_movement or aiming) then
         do_amplify(tr, x, y, z)
     else
         state.amp_have = false
@@ -190,7 +192,8 @@ re.on_draw_ui(function()
     if not imgui.tree_node("Visceral: locomotion (v5, aim speed + run animation)") then return end
     local ch
     ch, cfg.enabled = imgui.checkbox("ENABLED", cfg.enabled)
-    ch, cfg.aim_amplify = imgui.checkbox("aim speed-up (collision-safe)", cfg.aim_amplify)
+    ch, cfg.aim_amplify = imgui.checkbox("speed-up (collision-safe)", cfg.aim_amplify)
+    ch, cfg.all_movement = imgui.checkbox("apply to ALL movement (walk = aim-walk)", cfg.all_movement)
     ch, cfg.anim_by_speed = imgui.checkbox("run animation by speed (drives Jog)", cfg.anim_by_speed)
     ch, cfg.aim_speed_mult = imgui.slider_float("aim speed multiplier", cfg.aim_speed_mult, 1.0, 5.0, "%.2fx")
     ch, cfg.smoothing = imgui.slider_float("smoothing", cfg.smoothing, 0.0, 0.9, "%.2f")
