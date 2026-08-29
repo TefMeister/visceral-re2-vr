@@ -105,6 +105,46 @@ Answers + additions that change the firing model and the speed model:
   from "which state the engine thinks it's in," which is exactly the coupling
   that beat us before.
 
+## v2.2 refinement (user, same evening) — AUTO-UNDOCK near interactables; DROP the cosmetic tail
+
+The docked-state door/item block is resolved by design, not by fighting it:
+
+- **Auto-undock near an interactable.** When the player is close enough to an
+  item or door that the interaction (A) prompt would apply, the mod **auto-
+  releases the dock** (drops the sustained latch → aim state off). This both
+  restores interaction AND lets the gun micro-latch fire again. Immersion logic
+  (user): you can't grab things or open doors with both hands on the weapon, so
+  freeing the off-hand to interact is natural.
+- **Why this is especially clean:** the door/item block we measured
+  ([2026-08-29-doors-items-test-result.md]) IS the aim/HOLD state itself. Docked =
+  sustained aim state = blocked. Auto-undock drops that exact state, so it is the
+  *precise* cure — not a workaround.
+- **DROP the cosmetic tail (was req 3's "hand lingers on the gun until pulled
+  apart").** User calls this out for removal; it conflicts with a clean auto-
+  undock and was the fiddliest piece anyway. Undock (manual OR auto) becomes just
+  the smooth reverse of docking: the hand animates back to the real tracked pose
+  over ~100–200 ms. **Keep only the useful half of old req 3:** the two-hand→one-
+  hand aim-authority handoff must be **blended so the muzzle does not pop** when
+  the off-hand leaves.
+
+### Feasibility of auto-undock (Claude read)
+- **Best trigger = the game's own "interactable in range" signal**, not the
+  visible prompt. Reason (chicken-and-egg): we don't yet know if the prompt is
+  *suppressed* while in the aim state — if it is, "prompt visible" can never fire
+  while docked. Reading the underlying action/interaction check (RE2 has a clear
+  action system; `action`-named components showed up in the player dump) sidesteps
+  that. **Fallback:** our own proximity scan for nearby interactable objects if
+  the check can't be read during aim. Recon item.
+- **Auto-undock only; manual re-dock.** Freeing the hand on approach is
+  predictable; auto-*re*-docking when you walk away would yank the hand back
+  unexpectedly. Re-dock stays an LG press. (Confirm with user.)
+- **Debounce** so the hand doesn't flicker if the interactable signal flickers.
+- **Watch in playtest — combat near items.** Fighting beside a pickable item
+  could repeatedly pop the off-hand off the gun. Tuning options if it's annoying:
+  only auto-undock on doors (deliberate) vs items, or only when not actively
+  aim-steering, or a brief suppression while the trigger's been used recently.
+  Not a blocker; a feel-tuning knob.
+
 ### What the three-state model settles, and what it leaves
 The corrected model resolves the earlier "can the off-hand steer without the aim
 state?" worry: **docked deliberately uses the sustained aim state**, so two-handed
@@ -112,13 +152,12 @@ aiming runs on the proven path (aim state on → off-hand steers the muzzle, as 
 the base VR handling). No gamble there.
 
 The consequence to design around: **while docked you are in the sustained aim
-(HOLD) state**, which is the state that caps speed and locks interaction (doors/
-pickups). That's acceptable by intent — docked = deliberately ready, you undock
-to interact — BUT it makes req 4 (speed matching) *load-bearing specifically for
-the docked state*: docked movement must not feel like the vanilla slow aim-walk.
-So the speed-cap unification + speed-driven presentation are what make sustained-
-aim-while-docked feel normal. That is now the main technical risk, not the
-off-hand-steering question.
+(HOLD) state**, which caps speed and locks interaction. Interaction is now handled
+by **auto-undock (v2.2)** — the block is dropped exactly when you approach a
+door/item. Speed is handled by req 4's unification + speed-driven presentation, so
+docked movement doesn't feel like vanilla slow aim-walk. **Speed matching remains
+the main technical risk** (needs the movement-speed blend param); auto-undock's
+risk is smaller and is really a recon + tuning item.
 
 ### Feasibility of the speed-driven presentation system
 Right instinct; difficulty hinges on one thing:
@@ -147,10 +186,14 @@ Right instinct; difficulty hinges on one thing:
 Recon for the build, in this order (all read-only first):
 1. Off-hand grip/foregrip anchor node on weapon models + confirm both controller
    transforms readable in our own code (proximity math for reqs 1 & 3).
-2. Hand IK target access + how two-hand aim reads the off-hand (reqs 2 & 3
-   decouple: keep the cosmetic hand on the grip while it contributes zero to the
-   muzzle). Two-hand steering itself is settled — docked uses the sustained aim
-   state (see above).
+2. Hand IK target access + how two-hand aim reads the off-hand (for the smooth
+   dock/undock animation + the no-muzzle-pop aim-authority handoff). Two-hand
+   steering itself is settled — docked uses the sustained aim state (see above).
+   Cosmetic tail is DROPPED (v2.2).
+2b. **Auto-undock trigger:** find the game's "interactable in range" / action
+   check and whether it's readable while in the aim state (v2.2); fallback is our
+   own proximity scan. Also check whether the interact prompt is suppressed during
+   aim.
 3. **The now-main risk:** locomotion **movement-speed blend param** (safe path
    for the speed-driven presentation system) + per-state speed caps to unify so
    the *docked/aim* cap == run cap (req 4); re-test whether footstep/leg/
