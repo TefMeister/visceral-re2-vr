@@ -30,10 +30,14 @@ local cfg = {
     soft_baseline_tau_s = 0.4,      -- how slowly the rest pose follows animation
     freeze_while_aiming = true,     -- hold the rest pose steady while aiming
     correct_upper_chain = true,     -- spine_0 + spine_1 + spine_2 (else spine_0 only)
+    correct_pelvis = false,         -- EXPERIMENT: also straighten the pelvis/waist (the butt-out brace)
     cutscene_gate = true,           -- skip during cutscenes if a blocker flag is present
 }
 
 local UPPER_CHAIN = { "spine_0", "spine_1", "spine_2" }
+-- pelvis/waist root only (NOT individual leg joints -- those carry the live gait
+-- and would freeze if straightened). Candidate names; missing ones are skipped.
+local LOWER_CANDIDATES = { "hips", "hip", "pelvis", "waist", "cog", "root" }
 local SETTERS = { "set_LocalRotation", "setLocalRotation" }
 
 local state = { keys_ok = true, prev = false, setter = nil, status = "idle",
@@ -117,13 +121,19 @@ local function apply(player)
     local tf = get_transform(player); if not tf then state.status = "no transform"; return end
     update_alpha()
     local s = cfg.strength
-    local names = cfg.correct_upper_chain and UPPER_CHAIN or { "spine_0" }
+    local names = {}
+    for _, n in ipairs(cfg.correct_upper_chain and UPPER_CHAIN or { "spine_0" }) do names[#names + 1] = n end
+    if cfg.correct_pelvis then
+        for _, n in ipairs(LOWER_CANDIDATES) do names[#names + 1] = n end   -- missing ones get skipped (get_joint nil)
+    end
     local freeze = cfg.freeze_while_aiming and is_aiming(player)
     local applied = 0
+    local found = {}
 
     for _, name in ipairs(names) do
         local joint = get_joint(tf, name)
         if joint then
+            found[#found + 1] = name
             local r = safe(function() return joint:call("get_LocalRotation") end)
             if r and type(r.y) == "number" then
                 local bl = soft.baselines[name]
@@ -156,6 +166,8 @@ local function apply(player)
             end
         end
     end
+    local fkey = table.concat(found, ",")
+    if fkey ~= state.last_found then state.last_found = fkey; log_line("joints found: " .. fkey) end
     state.applied = applied
     state.status = applied > 0
         and string.format("applied to %d/%d joints (strength %.2f)", applied, #names, s)
@@ -209,6 +221,7 @@ re.on_draw_ui(function()
     ch, cfg.soft_baseline_tau_s = imgui.slider_float("rest-pose follow (tau s)", cfg.soft_baseline_tau_s, 0.1, 1.5, "%.2f")
     ch, cfg.freeze_while_aiming = imgui.checkbox("freeze rest pose while aiming", cfg.freeze_while_aiming)
     ch, cfg.correct_upper_chain = imgui.checkbox("correct spine_0+1+2 (off = spine_0 only)", cfg.correct_upper_chain)
+    ch, cfg.correct_pelvis = imgui.checkbox("ALSO straighten pelvis/waist (EXPERIMENT: butt-out brace)", cfg.correct_pelvis)
     ch, cfg.cutscene_gate = imgui.checkbox("skip during cutscenes", cfg.cutscene_gate)
     imgui.separator()
     imgui.text("status: " .. state.status)
