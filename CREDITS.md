@@ -26,6 +26,11 @@ ourselves, plus third-party components whose licenses permit redistribution
 | RE Engine temporal upscaler plugin (PDPerfPlugin.dll / UpscalerBasePlugin) | PureDark | https://www.nexusmods.com/residentevil22019/mods/2069 |
 | `pd-upscaler` REFramework fork build | gmankab | https://github.com/gmankab/reframework-pd-upscaler-build |
 | DLSS Swapper | beeradmoore | https://github.com/beeradmoore/dlss-swapper |
+| EMV Engine (REFramework Lua toolkit — Console, Action Monitor, Hooked Method Inspector, Poser; technique reference only) | alphaZomega (alphazolam) | https://github.com/alphazolam/EMV-Engine |
+| EMV-Engine-SILVER (maintained fork of EMV Engine) | SilverEzredes | https://github.com/SilverEzredes/EMV-Engine-SILVER |
+| _ScriptCore (REFramework Lua utility/hotkey library) | alphaZomega (alphazolam) | https://github.com/alphazolam/_ScriptCore |
+| RE2R Custom Animation Framework (CAF) — custom animation system + RE3-style dodge for RE2, with engine docs | godlock2000-eng (NonRTX) | https://github.com/godlock2000-eng/ResidentEvil2_CustomAnimationFramework_NonRTX |
+| Better Movement Speed (RE9 original of the RE2 port; layer-speed + move-speed-hook technique) | Junh2x | https://github.com/Junh2x/RE9-Movement-Speed-Mod |
 
 Our own predecessor, [ARCADE CONTROLS for RE2 VR](https://github.com/TefMeister/arcade-controls-re2-vr-mod)
 (final release v1.5.0), is frozen and kept as study material — Visceral
