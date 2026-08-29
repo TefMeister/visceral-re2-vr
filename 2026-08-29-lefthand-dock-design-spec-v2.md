@@ -233,6 +233,28 @@ Right instinct; difficulty hinges on one thing:
   cadence is possible but fiddly; fallback is to let the anim system emit them if
   the speed-blend param also drives the existing footstep events.
 
+## Locomotion prototype learnings (2026-08-29 evening, in VR)
+- **Collision-safe aim speed-up WORKS (v4):** amplify only the stick-forward
+  component of the game's own (collision-resolved) per-frame move → no clipping, no
+  jitter, analog preserved. User: "feels good." This is the aim-speed solution.
+- **VR: aiming does NOT block interaction** (doors/pickups work while aiming) —
+  deletes the auto-undock branch (see the ★ finding below).
+- **`Jog` couples SPEED and ANIMATION** — it is one switch for both. So you CANNOT
+  drive it for "run animation only": flipping it for the animation also forces
+  jog-style run SPEED (kills analog), and it deadlocks (Jog off caps speed below
+  the 2.1 threshold, so the speed-driven rule never turns it on). v5's speed-driven
+  Jog was reverted (default off).
+- **⇒ Consequence:** the correct run animation is the game's OWN native locomotion
+  (analog walk/run + blends + stop, all correct) — it's only "wrong" while in the
+  aim state (slow aim-walk anim). So the run-animation request and the aim-speed
+  problem have ONE shared root: **being in the game's aim/HOLD state during
+  movement.** If we keep the character OUT of the aim state while moving (aim the
+  gun by hand — VR does this anyway; fire via micro-latch blip), native locomotion
+  handles speed AND animation correctly, and the amplify/animation hacks become
+  unnecessary. **This is the load-bearing hand-system experiment — now the critical
+  path.** Next: test suppressing the aim state during movement (e.g. gate/clear
+  HoldUp / IsHold) and confirm the gun still aims by hand + native run works.
+
 ## Recon leads found in the SDK dump (2026-08-29, first pass — flat, no MCP)
 - **`app.ropeway.survivor.SurvivorMotionSpeedController`** exists (VA 141a91xxx
   family) — modulates motion speed (tension/water-resistance speed fields +
