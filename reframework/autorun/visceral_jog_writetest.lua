@@ -41,6 +41,7 @@ local state = {
     vars_ok = false,
     write_ok = 0, write_fail = 0, last_err = "",
     jog_after_set = "n/a",   -- Jog read back immediately after we set it
+    jog_kind = "?", msp_kind = "?",
     last_diag_t = 0,
     -- velocity readout
     have_prev = false, prev_x = 0, prev_z = 0, prev_t = 0,
@@ -76,6 +77,27 @@ local function vec_xz(player)
     return x, z
 end
 
+-- figure out which typed accessor a Variable actually uses
+local function probe_kind(v)
+    local b = safe(function() return v:call("get_Bool") end)
+    if type(b) == "boolean" then return "bool" end
+    local f = safe(function() return v:call("get_F") end)
+    if type(f) == "number" then return "f" end
+    local s = safe(function() return v:call("get_S") end)
+    if type(s) == "number" then return "s" end
+    return "?"
+end
+
+local function read_val(v, kind)
+    if kind == "bool" then local b = safe(function() return v:call("get_Bool") end); return (b == true) and 1 or (b == false and 0 or nil) end
+    if kind == "f" then return safe(function() return v:call("get_F") end) end
+    if kind == "s" then return safe(function() return v:call("get_S") end) end
+    -- unknown: try all
+    local b = safe(function() return v:call("get_Bool") end); if type(b) == "boolean" then return b and 1 or 0 end
+    local f = safe(function() return v:call("get_F") end); if type(f) == "number" then return f end
+    return safe(function() return v:call("get_S") end)
+end
+
 -- locate the Jog and MoveStickPower Variable objects by name
 local function acquire_vars()
     state.jog_var, state.msp_var, state.vars_ok = nil, nil, false
@@ -92,15 +114,26 @@ local function acquire_vars()
         end
     end
     state.vars_ok = (state.jog_var ~= nil)
-    log_line(string.format("acquire_vars: Jog=%s MoveStickPower=%s",
-        tostring(state.jog_var ~= nil), tostring(state.msp_var ~= nil)))
+    if state.jog_var then state.jog_kind = probe_kind(state.jog_var) end
+    if state.msp_var then state.msp_kind = probe_kind(state.msp_var) end
+    log_line(string.format("acquire_vars: Jog=%s (kind %s) MoveStickPower=%s (kind %s)",
+        tostring(state.jog_var ~= nil), state.jog_kind, tostring(state.msp_var ~= nil), state.msp_kind))
     return state.vars_ok
 end
 
-local function set_var(v, value)
+-- write "on/max" using the accessor matching the variable's kind
+local function set_var(v, kind, value)
     if not v then return end
-    local ok = safe(function() v:call("set_F", value); return true end)
-    if not ok then ok = safe(function() v:call("set_Bool", value ~= 0); return true end) end
+    local ok
+    if kind == "bool" then
+        ok = safe(function() v:call("set_Bool", value ~= 0); return true end)
+    elseif kind == "f" then
+        ok = safe(function() v:call("set_F", value); return true end)
+    else
+        -- unknown/int: try bool then float
+        ok = safe(function() v:call("set_Bool", value ~= 0); return true end)
+        if not ok then ok = safe(function() v:call("set_F", value); return true end) end
+    end
     if ok then state.write_ok = state.write_ok + 1
     else state.write_fail = state.write_fail + 1; state.last_err = "set failed" end
 end
@@ -110,10 +143,10 @@ local function apply_forces()
     if not (state.force_jog or state.force_msp) then return end
     if not state.vars_ok then acquire_vars() end
     if state.force_jog then
-        set_var(state.jog_var, 1.0)
-        state.jog_after_set = tostring(safe(function() return state.jog_var:call("get_F") end))
+        set_var(state.jog_var, state.jog_kind, 1.0)
+        state.jog_after_set = tostring(read_val(state.jog_var, state.jog_kind))
     end
-    if state.force_msp then set_var(state.msp_var, 1.0) end
+    if state.force_msp then set_var(state.msp_var, state.msp_kind, 1.0) end
 end
 
 -- cover multiple frame stages so at least one lands after the game's own write
@@ -146,8 +179,8 @@ local function update_readouts()
         state.prev_x, state.prev_z, state.prev_t = x, z, now; state.have_prev = true
     end
     state.ui_is_hold = tostring(get_is_hold(player))
-    if state.jog_var then state.ui_jog = tostring(safe(function() return state.jog_var:call("get_F") end)) end
-    if state.msp_var then state.ui_msp = tostring(safe(function() return state.msp_var:call("get_F") end)) end
+    if state.jog_var then state.ui_jog = tostring(read_val(state.jog_var, state.jog_kind)) end
+    if state.msp_var then state.ui_msp = tostring(read_val(state.msp_var, state.msp_kind)) end
 
     -- diagnostic stream while forcing: immediate-readback vs live-read vs speed
     if (state.force_jog or state.force_msp) then
@@ -170,7 +203,7 @@ end
 
 local function panic()
     state.force_jog, state.force_msp = false, false
-    if state.jog_var then set_var(state.jog_var, 0.0) end
+    if state.jog_var then set_var(state.jog_var, state.jog_kind, 0.0) end
     log_line("PANIC: all forcing OFF")
 end
 
@@ -214,4 +247,4 @@ re.on_draw_ui(function()
     imgui.tree_pop()
 end)
 
-log_line("loaded (v2 Jog write-test + diagnostics). NUM1=force Jog, NUM2=force MoveStickPower, NUM0=panic.")
+log_line("loaded (v3 Jog write-test, type-aware read/write). NUM1=force Jog, NUM2=force MoveStickPower, NUM0=panic.")
