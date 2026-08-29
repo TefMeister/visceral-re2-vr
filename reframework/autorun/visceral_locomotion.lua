@@ -1,22 +1,23 @@
--- Visceral (RE2 VR) -- locomotion prototype, v4 (collision-safe aim speed, de-jittered)
+-- Visceral (RE2 VR) -- locomotion prototype, v5
+--   (collision-safe aim speed  +  speed-driven run animation)
 --
--- v3 amplified the game's own per-frame movement while aiming (collision-safe, no
--- clipping). But near a wall/door it JITTERED: the game shoves you back out of the
--- wall (a corrective delta), and v3 amplified that bounce too -> fore/aft
--- oscillation.
+-- v4 gave collision-safe, de-jittered aim speed-up (amplify only the stick-forward
+-- part of the game's own move). v5 adds the ANIMATION half:
 --
--- v4 fix: only amplify the part of the game's movement that goes the way you're
--- PUSHING (the camera-relative stick direction). The collision push-back is
--- opposite to your intent, so it is NOT amplified -> no jitter. Plus light EMA
--- smoothing on the added amount.
---   intended = camera-relative stick direction (unit)
---   forward  = dot(native_delta, intended)          -- how much of the game's move
---                                                       went the way you asked
---   extra    = intended * max(forward,0) * (mult-1)  -- amplify only forward intent
--- Against a wall forward -> 0 (game blocked you), so extra -> 0 = no clip, no push.
--- Non-aim movement stays vanilla.
+-- The game already has walk/run/start/stop animations with built-in blends. The
+-- `Jog` motion variable (bool) selects walk vs run and the game blends the
+-- transition. Nobody drives it off our real speed, so fast movement looked like
+-- skating. v5 MEASURES actual speed and flips `Jog` on at a threshold (2.1) and
+-- off below it (with hysteresis so it doesn't flicker at the edge). The game
+-- plays the smooth start-run / run / return-to-walk / natural stop for us.
+-- Applies to BOTH aim and non-aim, so they share one system.
 --
--- Hotkeys: NUM1 enable   NUM7 mult -0.1   NUM9 mult +0.1   NUM0 panic
+-- Two independent parts (each toggleable):
+--   * aim_amplify: speed up aim-walk, collision-safe (v4).
+--   * anim_by_speed: drive Jog from measured speed (the run animation).
+--
+-- Hotkeys: NUM1 enable-all  NUM7 mult -0.1  NUM9 mult +0.1  NUM0 panic
+-- Sliders (menu, VR-pointer friendly): multiplier, smoothing, run threshold.
 
 if reframework:get_game_name() ~= "re2" then
     return
@@ -28,16 +29,24 @@ local VK_NUMPAD0, VK_NUMPAD1, VK_NUMPAD7, VK_NUMPAD9 = 0x60, 0x61, 0x67, 0x69
 
 local cfg = {
     enabled = false,
+    aim_amplify = true,        -- collision-safe aim speed-up (v4)
+    anim_by_speed = true,      -- drive Jog (run animation) from measured speed
     aim_speed_mult = 1.5,
-    smoothing = 0.4,   -- EMA on the added amount (0 = none, higher = smoother/laggier)
+    smoothing = 0.4,
+    run_threshold = 2.1,       -- speed to switch into the run animation
+    run_hysteresis = 0.3,      -- drop back to walk this much below the threshold
 }
 
 local state = {
     keys_ok = true, prev_keys = {},
-    have_last = false, last_x = 0, last_y = 0, last_z = 0,
-    ema_fwd = 0.0,
+    -- amplify tracking
+    amp_have = false, amp_x = 0, amp_z = 0, ema_fwd = 0.0,
+    -- speed measure tracking
+    spd_have = false, spd_x = 0, spd_z = 0, last_t = 0.0, ema_speed = 0.0,
+    -- jog
+    jog_var = nil, jog_ok = false, jog_on = false,
+    -- ui
     ui_player = false, ui_aiming = false, ui_input = "none",
-    ui_native = 0.0, ui_fwd = 0.0,
 }
 
 local function safe(fn) local ok, r = pcall(fn); if ok then return r end return nil end
@@ -59,6 +68,24 @@ local function get_pos(tr)
     return safe(function() return p.x end), safe(function() return p.y end), safe(function() return p.z end)
 end
 
+local function acquire_jog(player)
+    state.jog_var, state.jog_ok = nil, false
+    local motion = safe(function() return player:call("getComponent(System.Type)", sdk.typeof("via.motion.Motion")) end)
+    if not motion then return end
+    local hub = safe(function() return motion:call("get_VariablesHub") end); if not hub then return end
+    local count = tonumber(safe(function() return hub:call("get_VariableSum") end)) or 0
+    for i = 0, math.min(count, 512) - 1 do
+        local v = safe(function() return hub:call("getVariableFromIndex", i) end)
+        if v and safe(function() return v:call("get_Name") end) == "Jog" then state.jog_var = v; state.jog_ok = true; return end
+    end
+end
+
+local function set_jog(on)
+    if not state.jog_ok then return end
+    safe(function() state.jog_var:call("set_Bool", on) end)
+    state.jog_on = on
+end
+
 local function get_left_axis()
     if _G.vrmod then
         local using = safe(function() return vrmod:is_using_controllers() end)
@@ -76,7 +103,6 @@ local function get_left_axis()
     return ax
 end
 
--- camera-relative unit direction the stick is pushing (xz)
 local function intended_dir(sx, sy)
     local cam = sdk.get_primary_camera(); if not cam then return nil end
     local cgo = safe(function() return cam:call("get_GameObject") end); if not cgo then return nil end
@@ -91,51 +117,58 @@ local function intended_dir(sx, sy)
     return move.x, move.z
 end
 
-local function tick()
-    local player = get_player()
-    state.ui_player = player ~= nil
-    if not player then state.have_last = false; return end
-    local tr = get_transform(player); if not tr then state.have_last = false; return end
-    local x, y, z = get_pos(tr); if x == nil then state.have_last = false; return end
-    local aiming = get_is_aiming(player); state.ui_aiming = aiming
-
-    if not (cfg.enabled and aiming) then
-        state.last_x, state.last_y, state.last_z = x, y, z
-        state.have_last = true; state.ema_fwd = 0.0; state.ui_native = 0.0; state.ui_fwd = 0.0
-        return
-    end
-    if not state.have_last then
-        state.last_x, state.last_y, state.last_z = x, y, z; state.have_last = true; return
-    end
-
-    local dx, dz = x - state.last_x, z - state.last_z
-    local native = math.sqrt(dx * dx + dz * dz)
-    state.ui_native = native
-    if native > 5.0 then state.last_x, state.last_y, state.last_z = x, y, z; return end   -- teleport guard
-
+local function do_amplify(tr, x, y, z)
+    if not state.amp_have then state.amp_x, state.amp_z = x, z; state.amp_have = true; return end
+    local dx, dz = x - state.amp_x, z - state.amp_z
+    if (dx * dx + dz * dz) > 25.0 then state.amp_x, state.amp_z = x, z; return end
     local ax = get_left_axis()
     local sx = ax and safe(function() return ax.x end) or 0.0
     local sy = ax and safe(function() return ax.y end) or 0.0
     local ix, iz = intended_dir(sx, sy)
-
     local extra = cfg.aim_speed_mult - 1.0
-    if extra <= 0.0 or not ix then
-        state.last_x, state.last_y, state.last_z = x, y, z; return
+    if extra <= 0.0 or not ix then state.amp_x, state.amp_z = x, z; return end
+    local forward = dx * ix + dz * iz
+    if forward < 0.0 then forward = 0.0 end
+    state.ema_fwd = state.ema_fwd + (forward - state.ema_fwd) * (1.0 - cfg.smoothing)
+    local add = state.ema_fwd * extra
+    local nx, nz = x + ix * add, z + iz * add
+    local ok = safe(function() tr:call("set_Position", Vector3f.new(nx, y, nz)); return true end)
+    if ok then state.amp_x, state.amp_z = nx, nz else state.amp_x, state.amp_z = x, z end
+end
+
+local function tick()
+    local now = os.clock(); local dt = now - state.last_t; state.last_t = now
+    local player = get_player()
+    state.ui_player = player ~= nil
+    if not player then state.amp_have = false; state.spd_have = false; return end
+    local tr = get_transform(player); if not tr then return end
+    local x, y, z = get_pos(tr); if x == nil then return end
+    local aiming = get_is_aiming(player); state.ui_aiming = aiming
+    if not state.jog_ok then acquire_jog(player) end
+
+    -- measure real ground speed (includes last frame's amplification)
+    if state.spd_have and dt > 0.0005 and dt < 0.5 then
+        local sd = math.sqrt((x - state.spd_x) ^ 2 + (z - state.spd_z) ^ 2) / dt
+        if sd < 50.0 then state.ema_speed = state.ema_speed * 0.7 + sd * 0.3 end
+    end
+    state.spd_x, state.spd_z = x, z; state.spd_have = true
+
+    if not cfg.enabled then state.amp_have = false; return end
+
+    -- run animation: flip Jog by measured speed, with hysteresis + built-in blend
+    if cfg.anim_by_speed and state.jog_ok then
+        local want = state.jog_on
+        if state.ema_speed >= cfg.run_threshold then want = true
+        elseif state.ema_speed < (cfg.run_threshold - cfg.run_hysteresis) then want = false end
+        set_jog(want)
     end
 
-    -- forward = component of the game's move along the intended direction
-    local forward = dx * ix + dz * iz
-    if forward < 0.0 then forward = 0.0 end            -- never amplify the push-back
-    -- EMA-smooth the amplified amount to kill residual oscillation
-    state.ema_fwd = state.ema_fwd + (forward - state.ema_fwd) * (1.0 - cfg.smoothing)
-    state.ui_fwd = state.ema_fwd
-
-    local add = state.ema_fwd * extra
-    local nx = x + ix * add
-    local nz = z + iz * add
-    local ok = safe(function() tr:call("set_Position", Vector3f.new(nx, y, nz)); return true end)
-    if ok then state.last_x, state.last_y, state.last_z = nx, y, nz
-    else state.last_x, state.last_y, state.last_z = x, y, z end
+    -- collision-safe aim speed-up
+    if cfg.aim_amplify and aiming then
+        do_amplify(tr, x, y, z)
+    else
+        state.amp_have = false
+    end
 end
 
 re.on_frame(function()
@@ -153,22 +186,22 @@ re.on_frame(function()
 end)
 
 re.on_draw_ui(function()
-    if not imgui.tree_node("Visceral: locomotion (v4, smooth collision-safe aim speed)") then return end
+    if not imgui.tree_node("Visceral: locomotion (v5, aim speed + run animation)") then return end
     local ch
-    ch, cfg.enabled = imgui.checkbox("ENABLED (amplify aim-walk, collision-safe)", cfg.enabled)
+    ch, cfg.enabled = imgui.checkbox("ENABLED", cfg.enabled)
+    ch, cfg.aim_amplify = imgui.checkbox("aim speed-up (collision-safe)", cfg.aim_amplify)
+    ch, cfg.anim_by_speed = imgui.checkbox("run animation by speed (drives Jog)", cfg.anim_by_speed)
     ch, cfg.aim_speed_mult = imgui.slider_float("aim speed multiplier", cfg.aim_speed_mult, 1.0, 5.0, "%.2fx")
-    ch, cfg.smoothing = imgui.slider_float("smoothing (higher = smoother)", cfg.smoothing, 0.0, 0.9, "%.2f")
-    imgui.text("hotkeys: NUM1=enable NUM7=-0.1 NUM9=+0.1 NUM0=panic"
-        .. (state.keys_ok and "" or "  [KEYS UNAVAILABLE]"))
+    ch, cfg.smoothing = imgui.slider_float("smoothing", cfg.smoothing, 0.0, 0.9, "%.2f")
+    ch, cfg.run_threshold = imgui.slider_float("run animation threshold", cfg.run_threshold, 0.5, 4.0, "%.2f")
     imgui.separator()
     imgui.text("player: " .. (state.ui_player and "found" or "NO") .. "  aiming: " .. tostring(state.ui_aiming)
         .. "  input: " .. state.ui_input)
-    imgui.text(string.format("game move: %.4f   forward(EMA): %.4f   mult %.2fx",
-        state.ui_native, state.ui_fwd, cfg.aim_speed_mult))
-    imgui.text("Only amplifies motion along your stick push -> collision push-back")
-    imgui.text("is not amplified, so no wall jitter. Non-aim movement is vanilla.")
+    imgui.text(string.format("measured speed: %.2f   Jog(run): %s   threshold %.2f (hys %.2f)",
+        state.ema_speed, tostring(state.jog_on), cfg.run_threshold, cfg.run_hysteresis))
+    imgui.text("Jog var: " .. (state.jog_ok and "acquired" or "NOT FOUND"))
     if imgui.button("PANIC off") then cfg.enabled = false end
     imgui.tree_pop()
 end)
 
-log_line("loaded (v4 smooth collision-safe aim speed). NUM1 enable; tune multiplier + smoothing live.")
+log_line("loaded (v5 aim speed + speed-driven run animation). NUM1 enable; tune sliders live.")
