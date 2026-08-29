@@ -1,37 +1,44 @@
--- Visceral (RE2 VR) -- no-aim-fire probe, v3 (livability sweep recorder)
+-- Visceral (RE2 VR) -- no-aim-fire probe, v4 (fire-path gate hunt)
 --
 -- v1 RESULT (2026-08-27, flat, live): CORE QUESTION ANSWERED YES.
 -- setForce(HOLD=64, true) raised the aim stance (IsHold flipped true) and
--- LMB fired with RMB untouched. The force LATCHES: it survived the pulse
--- ending by 40+ seconds with no per-frame reassert. The dump shows
--- setForce(Kind, bool) is the ONLY button-force method (no clear/reset
--- sibling). Also learned: ATTACK is 256 (not the old fallback 4 = WALK).
+-- LMB fired with RMB untouched. The force LATCHES (no per-frame reassert).
+-- ATTACK is 256.
 --
--- v2 RESULT (2026-08-27, flat, live): UNLATCH IS CLEAN. setForce(HOLD,
--- false) drops the stance, RMB aiming works normally right after, and the
--- fire gate returns (LMB alone refuses again). So setForce(kind, bool)
--- means "start/stop forcing this input active" -- a perfect two-call
--- on/off switch, no per-frame work, no state-machine writes.
+-- v2 RESULT (2026-08-27): UNLATCH IS CLEAN. setForce(kind, bool) is a
+-- perfect two-call on/off switch.
 --
--- v3 (2026-08-29): the feature is proven; the open questions are about
--- BREAKAGE. This build turns the probe into a sweep recorder so one flat
--- playthrough answers them from the log alone:
---   Q3 (livability): does anything misbehave while latched -- doors,
---      pickups, inventory, ladders, saves, cutscenes, grabs, loads?
---      -> user plays the checklist with the latch on; the probe timestamps
---         every stance drop and context change around whatever they see.
---   Q4 (does the game fight the latch): a spy hook on InputSystem.setForce
---      logs every call the GAME makes (ours are flagged and skipped), with
---      kind name, value, and whether our latch was on at the time.
---   Q2 (latch->stance latency): stopwatch from the latch call to IsHold
---      flipping true, logged in milliseconds (decides trigger-touch vs
---      trigger-press latching later).
--- New numpad hotkeys (project rule: numpad only, never F-keys):
---   NUMPAD7 = latch ON (single setForce true)
---   NUMPAD8 = unlatch  (single setForce false)
---   NUMPAD9 = PANIC: stop continuous mode + unlatch
--- Everything is also still available from the REFramework UI tree.
--- All modes idle until used; the spy hook only ever observes.
+-- v3 RESULT (2026-08-29, flat, live): latch is flawless (stance up 0-4 ms,
+-- zero game-made setForce calls, zero IsHold drops) BUT doors and item
+-- pickups are blocked while latched -- and equally blocked while vanilla-RMB
+-- aiming. The HOLD state itself bundles the interaction lock + speed cap +
+-- banned aim animation. Verdict + reframe:
+-- modding-notes/2026-08-29-doors-items-test-result.md.
+--
+-- v4 (2026-08-29): THE HUNT. Leave HOLD alone; find where the game ignores
+-- ATTACK when the character is not in the aim stance. If that is a
+-- removable check, the gun can fire from normal locomotion and all four
+-- design-spec requirements collapse into one fix.
+--   Step 1 (NUM4): recon + arm -- dump the equipped weapon GameObject's
+--     component list and the full method tables of every weapon/gun/
+--     implement component to the log, then install OBSERVE-ONLY hooks on
+--     every method whose name smells like firing (fire/shoot/trigger/
+--     shell/launch/attack).
+--   Step 2 (play): pull LMB unaimed, then aim (RMB) and fire real shots,
+--     then latch (NUM7) and fire. Every ATTACK press gets a per-press
+--     summary line: how many candidate methods reacted within 0.35s, with
+--     IsHold/latched context. Bool-getter candidates also log their return
+--     value near a press (a gate check read directly).
+--   Step 3 (NUM5): the decisive experiment -- manually call the selected
+--     0-parameter fire candidate on the live weapon while NOT aiming.
+--     A muzzle flash from normal locomotion = the gate is a check, not
+--     structure.
+-- Hotkeys (numpad only, per project rule):
+--   NUMPAD4 = recon + arm hooks     NUMPAD5 = manual-call selected candidate
+--   NUMPAD7 = latch HOLD on         NUMPAD8 = unlatch
+--   NUMPAD9 = PANIC (unlatch, nothing else runs continuously)
+-- Hooks install only on demand (NUM4), never at boot. Everything is
+-- observe-only except the deliberate NUM5 call.
 
 if reframework:get_game_name() ~= "re2" then
     return
@@ -41,44 +48,56 @@ local TAG = "[visceral_noaim]"
 
 local NS = sdk.game_namespace
 
-local KIND_ATTACK_FALLBACK = 4
+local KIND_ATTACK_FALLBACK = 256  -- learned in v1 (old guess 4 was wrong)
 local KIND_HOLD_FALLBACK = 64
 
+local VK_NUMPAD4 = 0x64
+local VK_NUMPAD5 = 0x65
 local VK_NUMPAD7 = 0x67
 local VK_NUMPAD8 = 0x68
 local VK_NUMPAD9 = 0x69
 
+-- method names that smell like the fire path
+local CANDIDATE_PATTERNS = { "fire", "shoot", "trigger", "shell", "launch", "attack" }
+-- component type names worth a full method dump + candidate scan
+local COMPONENT_PATTERNS = { "weapon", "gun", "implement" }
+
+local REACT_WINDOW = 0.35   -- seconds after an ATTACK press that counts as "reacted"
+
 local state = {
-    enabled_continuous = false,
-    pulse_until = 0,
-    pulse_seconds = 2.0,
     kind_attack = nil,
     kind_hold = nil,
-    kind_names = {},          -- value -> enum name, filled by the enum dump
+    kind_names = {},
     enum_dumped = false,
-    methods_dumped = false,
     setforce_ok_count = 0,
     setforce_fail_count = 0,
     last_error = "",
-    -- sweep recorder
-    latched = false,          -- our belief: we latched HOLD on and never released it
-    latch_time = nil,         -- os.clock() at latch, cleared once latency is logged
-    in_our_call = false,      -- re-entrancy flag so the spy skips our own setForce
-    spy_hooked = false,
-    foreign_call_count = 0,
-    foreign_seen = {},        -- "kind:value" -> {count=n, last_log=t}
-    events = {},              -- ring buffer of timestamped event strings for the UI
+    latched = false,
+    latch_time = nil,
+    in_our_call = false,
+    events = {},
     prev_is_hold = nil,
     prev_player_found = nil,
     prev_weapon_name = nil,
     keys_ok = true,
     prev_keys = {},
-    -- live readouts, refreshed each frame for the UI
+    -- fire-path hunt
+    armed = false,
+    dumped_types = {},        -- type full name -> true (recon done)
+    hooked_sigs = {},         -- "type.method(n)" -> true (hook installed)
+    candidates = {},          -- array of candidate records (see arm_hooks)
+    hook_count = 0,
+    selected_idx = nil,       -- index into candidates for NUM5
+    press_count = 0,
+    press_time = nil,         -- pending press awaiting its summary
+    press_calls = 0,          -- candidate calls seen since press_time
+    press_hold = "n/a",       -- IsHold at the moment of the press
+    prev_attack_on = false,
+    -- live readouts
     ui_player_found = false,
     ui_weapon_name = "none",
     ui_is_hold = "n/a",
     ui_bits_on = "n/a",
-    ui_bits_down = "n/a",
     ui_attack_on = false,
     ui_hold_on = false,
 }
@@ -89,13 +108,12 @@ local function safe(fn)
     return nil
 end
 
--- every sweep observation goes to the log file AND a small on-screen list
 local function record_event(msg)
     local line = string.format("[t=%8.2fs] %s", os.clock(), msg)
     log.info(TAG .. " EVENT " .. line)
     local ev = state.events
     ev[#ev + 1] = line
-    if #ev > 40 then table.remove(ev, 1) end
+    if #ev > 60 then table.remove(ev, 1) end
 end
 
 local function get_input_system()
@@ -126,8 +144,15 @@ local function get_equipped_weapon(player)
     return safe(function() return equipment:get_field("<EquipWeapon>k__BackingField") end)
 end
 
+local function name_matches(lower_name, patterns)
+    for _, p in ipairs(patterns) do
+        if lower_name:find(p, 1, true) then return true end
+    end
+    return false
+end
+
 -- ---------------------------------------------------------------------------
--- Recon dumps (run once each, on demand or on first player sighting)
+-- Kind enum (for ATTACK/HOLD bit values and labels)
 -- ---------------------------------------------------------------------------
 
 local function dump_kind_enum()
@@ -144,7 +169,6 @@ local function dump_kind_enum()
             local name = safe(function() return f:get_name() end)
             local value = safe(function() return f:get_data(nil) end)
             if name and value ~= nil then
-                log.info(string.format("%s Kind.%s = %s", TAG, name, tostring(value)))
                 local num = tonumber(value)
                 if num then state.kind_names[num] = name end
                 if name == "ATTACK" then state.kind_attack = num end
@@ -156,106 +180,8 @@ local function dump_kind_enum()
         TAG, tostring(state.kind_attack), tostring(state.kind_hold)))
 end
 
-local function dump_force_methods()
-    if state.methods_dumped then return end
-    state.methods_dumped = true
-
-    local input_system = get_input_system()
-    if not input_system then
-        state.methods_dumped = false
-        return
-    end
-    local td = safe(function() return input_system:get_type_definition() end)
-    local depth = 0
-    while td and depth < 8 do
-        local tname = safe(function() return td:get_full_name() end) or "?"
-        for _, m in ipairs(td:get_methods() or {}) do
-            local name = safe(function() return m:get_name() end)
-            if name then
-                local lower = name:lower()
-                if lower:find("force") or lower:find("hold") then
-                    local nparams = safe(function() return m:get_num_params() end) or -1
-                    local ret = safe(function() return m:get_return_type():get_full_name() end) or "?"
-                    local ptypes = {}
-                    local pt = safe(function() return m:get_param_types() end)
-                    if pt then
-                        for _, p in ipairs(pt) do
-                            ptypes[#ptypes + 1] = safe(function() return p:get_full_name() end) or "?"
-                        end
-                    end
-                    log.info(string.format("%s [%s] %s %s(%s)  [%d params]",
-                        TAG, tname, ret, name, table.concat(ptypes, ", "), nparams))
-                end
-            end
-        end
-        td = safe(function() return td:get_parent_type() end)
-        depth = depth + 1
-    end
-    log.info(TAG .. " force/hold method dump complete")
-end
-
 -- ---------------------------------------------------------------------------
--- The spy: log every setForce call the GAME makes (Q4). Observation only --
--- the hook never blocks or alters the call.
--- ---------------------------------------------------------------------------
-
-local function kind_label(kind)
-    local name = state.kind_names[kind]
-    if name then return string.format("%s(%d)", name, kind) end
-    return tostring(kind)
-end
-
-local function on_foreign_setforce(kind, value)
-    state.foreign_call_count = state.foreign_call_count + 1
-    local key = tostring(kind) .. ":" .. tostring(value)
-    local seen = state.foreign_seen[key]
-    local now = os.clock()
-    if not seen then
-        state.foreign_seen[key] = { count = 1, last_log = now }
-        record_event(string.format("GAME called setForce(%s, %s) [latched=%s] -- first sighting",
-            kind_label(kind), tostring(value), tostring(state.latched)))
-    else
-        seen.count = seen.count + 1
-        -- identical calls can come per-frame; summarize instead of flooding
-        if now - seen.last_log > 5.0 then
-            seen.last_log = now
-            record_event(string.format("GAME setForce(%s, %s) again [x%d total, latched=%s]",
-                kind_label(kind), tostring(value), seen.count, tostring(state.latched)))
-        end
-    end
-end
-
-local function install_setforce_spy()
-    if state.spy_hooked then return end
-    local td = sdk.find_type_definition(NS("InputSystem"))
-    if not td then return end
-    local method = td:get_method("setForce")
-    if not method then
-        log.warn(TAG .. " setForce method not found for spy hook")
-        return
-    end
-    local ok, err = pcall(function()
-        sdk.hook(method,
-            function(args)
-                if state.in_our_call then return end
-                local kind = safe(function() return sdk.to_int64(args[3]) & 0xFFFFFFFF end)
-                local raw = safe(function() return sdk.to_int64(args[4]) end)
-                local value
-                if raw ~= nil then value = (raw & 1) ~= 0 else value = "?" end
-                safe(function() on_foreign_setforce(kind or -1, value) end)
-            end,
-            function(retval) return retval end)
-    end)
-    if ok then
-        state.spy_hooked = true
-        log.info(TAG .. " setForce spy hook installed (observe-only)")
-    else
-        log.warn(TAG .. " setForce spy hook FAILED: " .. tostring(err))
-    end
-end
-
--- ---------------------------------------------------------------------------
--- The lever
+-- The latch (proven lever from v1-v3, kept for A/B comparison)
 -- ---------------------------------------------------------------------------
 
 local function set_force_hold(value)
@@ -279,55 +205,218 @@ local function do_latch()
     set_force_hold(true)
     state.latched = true
     state.latch_time = os.clock()
-    record_event("LATCH ON (single setForce true)")
+    record_event("LATCH ON")
 end
 
 local function do_unlatch()
     set_force_hold(false)
     state.latched = false
     state.latch_time = nil
-    record_event("LATCH OFF (single setForce false)")
+    record_event("LATCH OFF")
 end
 
 local function do_panic()
-    state.enabled_continuous = false
-    state.pulse_until = 0
     set_force_hold(false)
     state.latched = false
     state.latch_time = nil
-    record_event("PANIC stop (continuous off + unlatched)")
+    record_event("PANIC (unlatched; hooks stay but only observe)")
 end
-
-local function force_wanted()
-    if state.pulse_until > 0 and os.clock() < state.pulse_until then return true end
-    if not state.enabled_continuous then return false end
-    -- continuous mode only while an actual weapon is in hand
-    local player = get_player()
-    if not player then return false end
-    return get_equipped_weapon(player) ~= nil
-end
-
-local function apply_force_if_wanted()
-    if force_wanted() then
-        set_force_hold(true)
-    end
-end
-
--- proven ordering points: after the HID recompute, before behavior consumes
-re.on_application_entry("UpdateHID", apply_force_if_wanted)
-
-re.on_pre_application_entry("UpdateBehavior", function()
-    dump_kind_enum()
-    install_setforce_spy()
-    apply_force_if_wanted()
-    if state.pulse_until > 0 and os.clock() >= state.pulse_until then
-        state.pulse_until = 0
-        log.info(TAG .. " pulse ended (stopped calling setForce; watching for decay)")
-    end
-end)
 
 -- ---------------------------------------------------------------------------
--- Hotkeys (numpad only, per project rule)
+-- Recon: component list + method dumps + candidate discovery (NUM4)
+-- ---------------------------------------------------------------------------
+
+local function type_hierarchy(td)
+    local list = {}
+    local depth = 0
+    while td and depth < 8 do
+        list[#list + 1] = td
+        td = safe(function() return td:get_parent_type() end)
+        depth = depth + 1
+    end
+    return list
+end
+
+local function dump_and_scan_type(td, comp_label)
+    local tname = safe(function() return td:get_full_name() end) or "?"
+    if state.dumped_types[tname] then return end
+    state.dumped_types[tname] = true
+
+    log.info(string.format("%s ---- method dump: %s (component %s) ----", TAG, tname, comp_label))
+    for _, m in ipairs(td:get_methods() or {}) do
+        local name = safe(function() return m:get_name() end)
+        if name then
+            local nparams = safe(function() return m:get_num_params() end) or -1
+            local ret = safe(function() return m:get_return_type():get_full_name() end) or "?"
+            local ptypes = {}
+            local pt = safe(function() return m:get_param_types() end)
+            if pt then
+                for _, p in ipairs(pt) do
+                    ptypes[#ptypes + 1] = safe(function() return p:get_full_name() end) or "?"
+                end
+            end
+            log.info(string.format("%s   %s %s(%s)", TAG, ret, name, table.concat(ptypes, ", ")))
+
+            local lower = name:lower()
+            if name_matches(lower, CANDIDATE_PATTERNS) and not lower:find("^set_") then
+                local sig = tname .. "." .. name .. "(" .. tostring(nparams) .. ")"
+                if not state.hooked_sigs[sig] then
+                    state.candidates[#state.candidates + 1] = {
+                        sig = sig,
+                        type_name = tname,
+                        name = name,
+                        nparams = nparams,
+                        is_bool_getter = (lower:find("^get_") ~= nil) and (ret == "System.Boolean"),
+                        method = m,
+                        hooked = false,
+                        calls = 0,
+                        reacted = 0,
+                        last_log = 0,
+                    }
+                end
+            end
+        end
+    end
+end
+
+local function hook_candidate(c)
+    if c.hooked or state.hooked_sigs[c.sig] then return end
+    local ok, err = pcall(function()
+        sdk.hook(c.method,
+            function(args)
+                if not state.armed then return end
+                c.calls = c.calls + 1
+                local now = os.clock()
+                local near_press = state.press_time and (now - state.press_time) <= REACT_WINDOW
+                if near_press then
+                    state.press_calls = state.press_calls + 1
+                    c.reacted = c.reacted + 1
+                    if c.reacted <= 3 or now - c.last_log > 5.0 then
+                        c.last_log = now
+                        record_event(string.format("REACTED to press #%d: %s [IsHold=%s latched=%s]",
+                            state.press_count, c.sig, state.press_hold, tostring(state.latched)))
+                    end
+                    -- first-time reactor with no params becomes the NUM5 selection
+                    if state.selected_idx == nil and c.nparams == 0 and not c.is_bool_getter then
+                        for i, cc in ipairs(state.candidates) do
+                            if cc == c then state.selected_idx = i break end
+                        end
+                        if state.selected_idx then
+                            record_event("auto-selected for NUM5: " .. c.sig)
+                        end
+                    end
+                elseif c.calls == 1 then
+                    record_event("first sighting (no press nearby): " .. c.sig)
+                end
+            end,
+            function(retval)
+                if state.armed and c.is_bool_getter and state.press_time
+                    and (os.clock() - state.press_time) <= REACT_WINDOW then
+                    local v = safe(function() return (sdk.to_int64(retval) & 1) ~= 0 end)
+                    local now = os.clock()
+                    if now - c.last_log > 1.0 then
+                        c.last_log = now
+                        record_event(string.format("gate read near press #%d: %s -> %s",
+                            state.press_count, c.sig, tostring(v)))
+                    end
+                end
+                return retval
+            end)
+    end)
+    if ok then
+        c.hooked = true
+        state.hooked_sigs[c.sig] = true
+        state.hook_count = state.hook_count + 1
+    else
+        record_event("hook FAILED: " .. c.sig .. " -- " .. tostring(err))
+    end
+end
+
+local function recon_and_arm()
+    local player = get_player()
+    local weapon = get_equipped_weapon(player)
+    if not weapon then
+        record_event("NUM4: no equipped weapon -- equip a gun first")
+        return
+    end
+
+    local wtd = safe(function() return weapon:get_type_definition() end)
+    local wtype = wtd and (safe(function() return wtd:get_full_name() end) or "?") or "?"
+    record_event("recon: EquipWeapon component type = " .. wtype)
+
+    -- the weapon component's own hierarchy, always
+    if wtd then
+        for _, td in ipairs(type_hierarchy(wtd)) do
+            dump_and_scan_type(td, "EquipWeapon")
+        end
+    end
+
+    -- sibling components on the same GameObject
+    local go = safe(function() return weapon:call("get_GameObject") end)
+    if go then
+        local comps = safe(function() return go:call("get_Components") end)
+        local elems = comps and safe(function() return comps:get_elements() end) or nil
+        if elems then
+            log.info(TAG .. " ---- component list on weapon GameObject ----")
+            for _, comp in ipairs(elems) do
+                local ctd = safe(function() return comp:get_type_definition() end)
+                local cname = ctd and (safe(function() return ctd:get_full_name() end) or "?") or "?"
+                log.info(TAG .. "   component: " .. cname)
+                if ctd and name_matches(cname:lower(), COMPONENT_PATTERNS) then
+                    for _, td in ipairs(type_hierarchy(ctd)) do
+                        dump_and_scan_type(td, cname)
+                    end
+                end
+            end
+        else
+            record_event("component enumeration unavailable (get_Components failed)")
+        end
+    end
+
+    for _, c in ipairs(state.candidates) do
+        hook_candidate(c)
+    end
+    state.armed = true
+    record_event(string.format("ARMED: %d candidates, %d hooked. Now: LMB unaimed x3, then RMB-aim + fire x3, then NUM7 latch + fire x3.",
+        #state.candidates, state.hook_count))
+end
+
+-- ---------------------------------------------------------------------------
+-- The decisive experiment: manual-call a candidate while NOT aiming (NUM5)
+-- ---------------------------------------------------------------------------
+
+local function manual_call(idx)
+    local c = state.candidates[idx]
+    if not c then
+        record_event("NUM5: no candidate selected yet (arm with NUM4, fire once aimed, or pick in the UI)")
+        return
+    end
+    if c.nparams ~= 0 then
+        record_event("NUM5: selected candidate takes parameters, cannot call blind: " .. c.sig)
+        return
+    end
+    local player = get_player()
+    local weapon = get_equipped_weapon(player)
+    if not weapon then
+        record_event("NUM5: no equipped weapon")
+        return
+    end
+    -- call on the component whose type matches the candidate's type if possible
+    local target = weapon
+    local go = safe(function() return weapon:call("get_GameObject") end)
+    if go then
+        local comp = get_component(go, c.type_name)
+        if comp then target = comp end
+    end
+    record_event(string.format("MANUAL CALL %s [IsHold=%s latched=%s]",
+        c.sig, state.ui_is_hold, tostring(state.latched)))
+    local ok, r = pcall(function() return target:call(c.name) end)
+    record_event(string.format("MANUAL CALL result: ok=%s ret=%s -- did a shot come out?",
+        tostring(ok), tostring(r)))
+end
+
+-- ---------------------------------------------------------------------------
+-- Hotkeys
 -- ---------------------------------------------------------------------------
 
 local function key_pressed(vk)
@@ -343,39 +432,29 @@ end
 
 local function poll_hotkeys()
     if not state.keys_ok then return end
+    if key_pressed(VK_NUMPAD4) then recon_and_arm() end
+    if key_pressed(VK_NUMPAD5) then manual_call(state.selected_idx or 1) end
     if key_pressed(VK_NUMPAD7) then do_latch() end
     if key_pressed(VK_NUMPAD8) then do_unlatch() end
     if key_pressed(VK_NUMPAD9) then do_panic() end
 end
 
 -- ---------------------------------------------------------------------------
--- Sweep watchdog: timestamp stance drops while latched, context changes,
--- and the latch->stance latency (Q2/Q3)
+-- Watchdog + press-edge detection + readouts
 -- ---------------------------------------------------------------------------
 
 local function watch_transitions(player_found, weapon_name, is_hold)
-    -- latch->stance stopwatch
     if state.latch_time and is_hold == true then
         record_event(string.format("stance up %.0f ms after latch",
             (os.clock() - state.latch_time) * 1000.0))
         state.latch_time = nil
     end
-
-    -- stance dropped while we believe the latch is on = the game overrode us
-    if state.prev_is_hold == true and is_hold == false
-        and (state.latched or state.enabled_continuous) then
-        record_event(string.format(
-            "STANCE DROPPED while latched [player=%s weapon=%s]",
+    if state.prev_is_hold == true and is_hold == false and state.latched then
+        record_event(string.format("STANCE DROPPED while latched [player=%s weapon=%s]",
             tostring(player_found), weapon_name))
-    end
-    -- stance came back on its own while latched (after a drop)
-    if state.prev_is_hold == false and is_hold == true
-        and (state.latched or state.enabled_continuous) and not state.latch_time then
-        record_event("stance back up while latched")
     end
     state.prev_is_hold = is_hold
 
-    -- context markers: player object swaps (cutscene/load) and weapon changes
     if state.prev_player_found ~= nil and player_found ~= state.prev_player_found then
         record_event(player_found and "player object appeared" or
             "player object GONE (cutscene/load/menu?)")
@@ -389,21 +468,26 @@ local function watch_transitions(player_found, weapon_name, is_hold)
     state.prev_weapon_name = weapon_name
 end
 
--- ---------------------------------------------------------------------------
--- Live readouts + UI
--- ---------------------------------------------------------------------------
-
 local function read_button_bits(input_system)
     local bb = safe(function() return input_system:call("get_ButtonBits") end)
-    if not bb then return nil, nil end
+    if not bb then return nil end
     local on = safe(function() return bb:get_field("On") end)
-    local down = safe(function() return bb:get_field("Down") end)
     if on == nil then on = safe(function() return bb:read_qword(0x18) end) end
-    if down == nil then down = safe(function() return bb:read_qword(0x10) end) end
-    return on, down
+    return on
+end
+
+local function finalize_pending_press()
+    if state.press_time and os.clock() - state.press_time > REACT_WINDOW then
+        record_event(string.format("press #%d summary: %d candidate calls [IsHold=%s latched=%s]%s",
+            state.press_count, state.press_calls, state.press_hold, tostring(state.latched),
+            state.press_calls == 0 and " -- THE GATE ATE IT" or ""))
+        state.press_time = nil
+        state.press_calls = 0
+    end
 end
 
 local function refresh_readouts()
+    dump_kind_enum()
     poll_hotkeys()
 
     local player = get_player()
@@ -432,93 +516,100 @@ local function refresh_readouts()
     end
 
     watch_transitions(state.ui_player_found, state.ui_weapon_name, is_hold)
+    finalize_pending_press()
 
     local input_system = get_input_system()
     if input_system then
-        local on, down = read_button_bits(input_system)
+        local on = read_button_bits(input_system)
         local ka = state.kind_attack or KIND_ATTACK_FALLBACK
         local kh = state.kind_hold or KIND_HOLD_FALLBACK
         if type(on) == "number" then
             state.ui_bits_on = string.format("0x%X", on)
-            state.ui_attack_on = (on & ka) ~= 0
+            local attack_now = (on & ka) ~= 0
             state.ui_hold_on = (on & kh) ~= 0
+            -- ATTACK press edge -> start a per-press observation window
+            if attack_now and not state.prev_attack_on and state.armed then
+                finalize_pending_press()
+                state.press_count = state.press_count + 1
+                state.press_time = os.clock()
+                state.press_calls = 0
+                state.press_hold = state.ui_is_hold
+                record_event(string.format("ATTACK pressed (#%d) [IsHold=%s latched=%s]",
+                    state.press_count, state.press_hold, tostring(state.latched)))
+            end
+            state.prev_attack_on = attack_now
+            state.ui_attack_on = attack_now
         else
             state.ui_bits_on = "unreadable"
         end
-        if type(down) == "number" then
-            state.ui_bits_down = string.format("0x%X", down)
-        else
-            state.ui_bits_down = "unreadable"
-        end
     else
         state.ui_bits_on = "no InputSystem"
-        state.ui_bits_down = "no InputSystem"
     end
 end
 
 re.on_frame(refresh_readouts)
 
-re.on_draw_ui(function()
-    if not imgui.tree_node("Visceral: no-aim fire probe (v3 sweep)") then return end
+-- ---------------------------------------------------------------------------
+-- UI
+-- ---------------------------------------------------------------------------
 
-    imgui.text("hotkeys: NUM7=latch  NUM8=unlatch  NUM9=panic"
+re.on_draw_ui(function()
+    if not imgui.tree_node("Visceral: fire-gate probe (v4)") then return end
+
+    imgui.text("hotkeys: NUM4=arm  NUM5=manual-call  NUM7=latch  NUM8=unlatch  NUM9=panic"
         .. (state.keys_ok and "" or "  [KEY API UNAVAILABLE - use buttons]"))
-    imgui.text("latched (our belief): " .. tostring(state.latched))
+    imgui.text("armed: " .. tostring(state.armed)
+        .. string.format("   candidates: %d   hooked: %d", #state.candidates, state.hook_count))
+    imgui.text("latched: " .. tostring(state.latched))
     imgui.text("player: " .. (state.ui_player_found and "found" or "NOT FOUND"))
     imgui.text("weapon: " .. state.ui_weapon_name)
     imgui.text("SurvivorCondition.IsHold: " .. state.ui_is_hold)
-    imgui.text("ButtonBits On:   " .. state.ui_bits_on)
-    imgui.text("ButtonBits Down: " .. state.ui_bits_down)
-    imgui.text(string.format("ATTACK bit: %s   HOLD bit: %s",
-        state.ui_attack_on and "ON" or "off",
-        state.ui_hold_on and "ON" or "off"))
-    imgui.text(string.format("setForce calls ok=%d fail=%d",
-        state.setforce_ok_count, state.setforce_fail_count))
-    imgui.text(string.format("spy: %s, game-made setForce calls seen: %d",
-        state.spy_hooked and "hooked" or "NOT hooked", state.foreign_call_count))
+    imgui.text("ButtonBits On: " .. state.ui_bits_on
+        .. string.format("   ATTACK: %s   HOLD: %s",
+            state.ui_attack_on and "ON" or "off",
+            state.ui_hold_on and "ON" or "off"))
+    imgui.text(string.format("presses observed: %d   setForce ok=%d fail=%d",
+        state.press_count, state.setforce_ok_count, state.setforce_fail_count))
+    if state.selected_idx and state.candidates[state.selected_idx] then
+        imgui.text("NUM5 target: " .. state.candidates[state.selected_idx].sig)
+    else
+        imgui.text("NUM5 target: none selected yet")
+    end
     if state.last_error ~= "" then
         imgui.text("last error: " .. state.last_error)
     end
 
     imgui.spacing()
 
-    if imgui.button("Dump InputSystem force/hold methods to log") then
-        state.methods_dumped = false
-        dump_force_methods()
+    if imgui.button("ARM: recon weapon + hook fire candidates (NUM4)") then
+        recon_and_arm()
     end
-
-    if imgui.button("LATCH: setForce(HOLD, true) once") then
-        do_latch()
-    end
-
-    if imgui.button("UNLATCH: setForce(HOLD, false) once") then
-        do_unlatch()
-    end
-
-    if imgui.button(string.format("PULSE: force HOLD for %.1fs", state.pulse_seconds)) then
-        state.pulse_until = os.clock() + state.pulse_seconds
-        log.info(TAG .. " pulse started")
-    end
-
-    if state.pulse_until > 0 then
-        imgui.text(string.format("pulse active: %.2fs left",
-            math.max(0, state.pulse_until - os.clock())))
-    end
-
-    local changed, value = imgui.checkbox(
-        "FORCE HOLD continuously (while weapon equipped)", state.enabled_continuous)
-    if changed then
-        state.enabled_continuous = value
-        record_event("continuous mode = " .. tostring(value))
-    end
-
-    if imgui.button("PANIC: stop everything + unlatch") then
-        do_panic()
-    end
+    if imgui.button("LATCH (NUM7)") then do_latch() end
+    if imgui.button("UNLATCH (NUM8)") then do_unlatch() end
+    if imgui.button("PANIC (NUM9)") then do_panic() end
 
     imgui.spacing()
 
-    if imgui.tree_node(string.format("sweep event log (%d)", #state.events)) then
+    if imgui.tree_node(string.format("candidates (%d)", #state.candidates)) then
+        for i, c in ipairs(state.candidates) do
+            imgui.text(string.format("[%s] x%d reacted:%d %s",
+                c.hooked and "hooked" or "  --  ", c.calls, c.reacted, c.sig))
+            if c.nparams == 0 and not c.is_bool_getter then
+                imgui.same_line()
+                if imgui.button("select##" .. i) then
+                    state.selected_idx = i
+                    record_event("NUM5 target set by hand: " .. c.sig)
+                end
+                imgui.same_line()
+                if imgui.button("call##" .. i) then
+                    manual_call(i)
+                end
+            end
+        end
+        imgui.tree_pop()
+    end
+
+    if imgui.tree_node(string.format("event log (%d)", #state.events)) then
         for i = #state.events, 1, -1 do
             imgui.text(state.events[i])
         end
@@ -528,4 +619,4 @@ re.on_draw_ui(function()
     imgui.tree_pop()
 end)
 
-log.info(TAG .. " loaded (v3 sweep recorder). All modes idle until used.")
+log.info(TAG .. " loaded (v4 fire-gate hunt). Hooks install only on NUM4; all idle until used.")
