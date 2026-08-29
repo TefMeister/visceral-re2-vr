@@ -54,10 +54,14 @@ local function get_player_motion()
     return safe(function() return player:call("getComponent(System.Type)", motion_type) end)
 end
 
-local function is_weapon_move_bank(name)
+-- weapon locomotion banks to redirect: the *_MOVE (bank 1000, weapon lowered) AND
+-- *_HOLD (bank 2000, weapon held -- what VR actually uses) families, but NEVER
+-- the CMN_ (unarmed) fallbacks and NEVER the FINGER/grip bank (10000, untouched
+-- so the gun stays gripped).
+local function is_weapon_loco_bank(name)
     if type(name) ~= "string" then return false end
     if name:sub(1, 3) == "CMN" then return false end
-    return name:find("_MOVE", 1, true) ~= nil
+    return name:find("_MOVE", 1, true) ~= nil or name:find("_HOLD", 1, true) ~= nil
 end
 
 local function write_bank(bank, bank_type, mask)
@@ -79,9 +83,10 @@ end
 local function apply_poison()
     local touched = 0
     local ok = for_each_active_bank(function(bank)
-        if safe(function() return bank:call("get_BankID") end) ~= 1000 then return end
+        local bid = safe(function() return bank:call("get_BankID") end)
+        if bid ~= 1000 and bid ~= 2000 then return end   -- move + hold locomotion (not FINGER/grip 10000)
         local name = tostring(safe(function() return bank:call("get_Name") end) or "")
-        if not is_weapon_move_bank(name) then return end
+        if not is_weapon_loco_bank(name) then return end
         local bt = safe(function() return bank:call("get_BankType") end)
         if bt == POISON_TYPE then return end
         if not state.originals[name] then
@@ -110,7 +115,8 @@ end
 
 local function restore_originals()
     for_each_active_bank(function(bank)
-        if safe(function() return bank:call("get_BankID") end) ~= 1000 then return end
+        local bid = safe(function() return bank:call("get_BankID") end)
+        if bid ~= 1000 and bid ~= 2000 then return end
         local name = tostring(safe(function() return bank:call("get_Name") end) or "")
         local orig = state.originals[name]
         if orig and safe(function() return bank:call("get_BankType") end) == POISON_TYPE then
