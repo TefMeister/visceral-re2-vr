@@ -38,6 +38,31 @@
 -- Protocol note: use the HANDGUN this round -- the minigun's loop-fire
 -- spin-up muddies press timing.
 --
+-- v4.1 ROUND-2 RESULT (2026-08-29, flat, handgun wp0800): THE THIRD
+-- OUTCOME. NUM5's manual executeFire(arg=1) RAN (our own hook saw it,
+-- ok=true) while unaimed -- but no flash, no ammo change. The fire
+-- machinery is reachable from normal locomotion; the refusal is INSIDE
+-- executeFire: some enable flag reads false outside the aim stance.
+-- Also learned: real shots pass arg=1; the gate booleans were never
+-- called near a press by the game itself.
+--
+-- v4.2 (same day): stop guessing which flag -- read them all, then flip
+-- the writable one.
+--   NUM5 (reworked) = GATE AUDIT: call every readable gate on the gun
+--     (get_EnableExecuteFire, get_CommonVariablesFire,
+--     isPossibleFireFromMuzzle, enableFire, enableAttack,
+--     IsLoopFireMotion, get_EnableRapidFireNumber, get_FireBulletType,
+--     checkEnableRapidFire(0)) and log every value. Run it once unaimed
+--     and once while holding RMB -- the diff names the gate. Also dumps
+--     the gun's ShellGenerator type (the object that actually spawns the
+--     bullet) and hooks its fire-smelling methods, one level deeper for
+--     the next iteration.
+--   NUM6 (new) = FORCE-ENABLE EXPERIMENT: audit, set_EnableExecuteFire
+--     (true), executeFire(captured arg), audit again. Muzzle flash =
+--     EnableExecuteFire is the gate and we have our production lever.
+--     The flag is deliberately left true afterwards; NUM9 panic now also
+--     sets it back false.
+--
 -- v4 (2026-08-29): THE HUNT. Leave HOLD alone; find where the game ignores
 -- ATTACK when the character is not in the aim stance. If that is a
 -- removable check, the gun can fire from normal locomotion and all four
@@ -76,6 +101,7 @@ local KIND_HOLD_FALLBACK = 64
 
 local VK_NUMPAD4 = 0x64
 local VK_NUMPAD5 = 0x65
+local VK_NUMPAD6 = 0x66
 local VK_NUMPAD7 = 0x67
 local VK_NUMPAD8 = 0x68
 local VK_NUMPAD9 = 0x69
@@ -111,8 +137,9 @@ local state = {
     candidates = {},          -- array of candidate records (see arm_hooks)
     hook_count = 0,
     selected_idx = nil,       -- hand-picked candidate for NUM5 (fallback)
-    exec_fire_idx = nil,      -- the executeFire candidate, preferred NUM5 target
-    last_fire_arg = 0,        -- executeFire's argument captured from a real shot
+    exec_fire_idx = nil,      -- the executeFire candidate
+    last_fire_arg = 1,        -- executeFire's argument (1 on every real shot seen so far)
+    sg_dumped = false,        -- ShellGenerator recon done
     press_count = 0,
     press_time = nil,         -- pending press awaiting its summary
     press_calls = 0,          -- candidate calls seen since press_time
@@ -245,6 +272,11 @@ local function do_panic()
     set_force_hold(false)
     state.latched = false
     state.latch_time = nil
+    local weapon = get_equipped_weapon(get_player())
+    if weapon then
+        local ok = pcall(function() weapon:call("set_EnableExecuteFire", false) end)
+        record_event("PANIC: EnableExecuteFire reset ok=" .. tostring(ok))
+    end
     record_event("PANIC (unlatched; hooks stay but only observe)")
 end
 
@@ -453,6 +485,84 @@ local function manual_call(idx)
 end
 
 -- ---------------------------------------------------------------------------
+-- Gate audit (NUM5): read every gate value on the gun; run unaimed then
+-- aimed -- the diff names the gate. Also recons the ShellGenerator once.
+-- ---------------------------------------------------------------------------
+
+local AUDIT_READS = {
+    { name = "get_EnableExecuteFire" },
+    { name = "get_CommonVariablesFire" },
+    { name = "isPossibleFireFromMuzzle" },
+    { name = "enableFire" },
+    { name = "enableAttack" },
+    { name = "IsLoopFireMotion" },
+    { name = "get_EnableRapidFireNumber" },
+    { name = "get_FireBulletType" },
+    { name = "checkEnableRapidFire", arg = 0 },
+}
+
+local function gate_audit(label)
+    local weapon = get_equipped_weapon(get_player())
+    if not weapon then
+        record_event("AUDIT (" .. label .. "): no equipped weapon")
+        return
+    end
+    local parts = {}
+    for _, probe in ipairs(AUDIT_READS) do
+        local ok, r
+        if probe.arg ~= nil then
+            ok, r = pcall(function() return weapon:call(probe.name, probe.arg) end)
+        else
+            ok, r = pcall(function() return weapon:call(probe.name) end)
+        end
+        parts[#parts + 1] = string.format("%s=%s",
+            probe.name:gsub("^get_", ""), ok and tostring(r) or "ERR")
+    end
+    record_event(string.format("GATE AUDIT (%s) [IsHold=%s latched=%s]: %s",
+        label, state.ui_is_hold, tostring(state.latched), table.concat(parts, "  ")))
+
+    if not state.sg_dumped then
+        local sg = safe(function() return weapon:call("get_ShellGenerator") end)
+        if sg then
+            state.sg_dumped = true
+            local std = safe(function() return sg:get_type_definition() end)
+            local sname = std and (safe(function() return std:get_full_name() end) or "?") or "?"
+            record_event("ShellGenerator type = " .. sname .. " (methods dumped + fire-smelling ones hooked)")
+            if std then
+                local before = #state.candidates
+                for _, td in ipairs(type_hierarchy(std)) do
+                    dump_and_scan_type(td, "ShellGenerator")
+                end
+                for i = before + 1, #state.candidates do
+                    hook_candidate(state.candidates[i])
+                end
+            end
+        end
+    end
+end
+
+-- ---------------------------------------------------------------------------
+-- Force-enable experiment (NUM6): flip the writable gate, then fire
+-- ---------------------------------------------------------------------------
+
+local function force_enable_experiment()
+    local weapon = get_equipped_weapon(get_player())
+    if not weapon then
+        record_event("NUM6: no equipped weapon")
+        return
+    end
+    gate_audit("NUM6 before")
+    local ok1 = pcall(function() weapon:call("set_EnableExecuteFire", true) end)
+    record_event("NUM6: set_EnableExecuteFire(true) ok=" .. tostring(ok1))
+    local arg = state.last_fire_arg or 1
+    local ok2, r2 = pcall(function() return weapon:call("executeFire", arg) end)
+    record_event(string.format("NUM6: executeFire(%d) ok=%s ret=%s -- WATCH FOR FLASH",
+        arg, tostring(ok2), tostring(r2)))
+    gate_audit("NUM6 after")
+    record_event("NUM6: flag left TRUE (NUM9 panic resets it)")
+end
+
+-- ---------------------------------------------------------------------------
 -- Hotkeys
 -- ---------------------------------------------------------------------------
 
@@ -470,7 +580,8 @@ end
 local function poll_hotkeys()
     if not state.keys_ok then return end
     if key_pressed(VK_NUMPAD4) then recon_and_arm() end
-    if key_pressed(VK_NUMPAD5) then manual_call(state.exec_fire_idx or state.selected_idx or 1) end
+    if key_pressed(VK_NUMPAD5) then gate_audit("NUM5") end
+    if key_pressed(VK_NUMPAD6) then force_enable_experiment() end
     if key_pressed(VK_NUMPAD7) then do_latch() end
     if key_pressed(VK_NUMPAD8) then do_unlatch() end
     if key_pressed(VK_NUMPAD9) then do_panic() end
@@ -604,9 +715,9 @@ re.on_frame(refresh_readouts)
 -- ---------------------------------------------------------------------------
 
 re.on_draw_ui(function()
-    if not imgui.tree_node("Visceral: fire-gate probe (v4.1)") then return end
+    if not imgui.tree_node("Visceral: fire-gate probe (v4.2)") then return end
 
-    imgui.text("hotkeys: NUM4=arm  NUM5=manual-call  NUM7=latch  NUM8=unlatch  NUM9=panic"
+    imgui.text("hotkeys: NUM4=arm  NUM5=gate-audit  NUM6=force-enable+fire  NUM7=latch  NUM8=unlatch  NUM9=panic"
         .. (state.keys_ok and "" or "  [KEY API UNAVAILABLE - use buttons]"))
     imgui.text("armed: " .. tostring(state.armed)
         .. string.format("   candidates: %d   hooked: %d", #state.candidates, state.hook_count))
@@ -620,13 +731,13 @@ re.on_draw_ui(function()
             state.ui_hold_on and "ON" or "off"))
     imgui.text(string.format("presses observed: %d   setForce ok=%d fail=%d",
         state.press_count, state.setforce_ok_count, state.setforce_fail_count))
-    local num5_idx = state.exec_fire_idx or state.selected_idx
-    if num5_idx and state.candidates[num5_idx] then
-        local c5 = state.candidates[num5_idx]
-        imgui.text("NUM5 target: " .. c5.sig
-            .. (c5.is_execute_fire and string.format("  [replay arg=%d]", state.last_fire_arg or 0) or ""))
+    local star_idx = state.exec_fire_idx or state.selected_idx
+    if star_idx and state.candidates[star_idx] then
+        local c5 = state.candidates[star_idx]
+        imgui.text("star candidate: " .. c5.sig
+            .. (c5.is_execute_fire and string.format("  [NUM6 fires it with arg=%d]", state.last_fire_arg or 1) or ""))
     else
-        imgui.text("NUM5 target: none selected yet")
+        imgui.text("star candidate: none yet (arm with NUM4)")
     end
     if state.last_error ~= "" then
         imgui.text("last error: " .. state.last_error)
@@ -636,6 +747,12 @@ re.on_draw_ui(function()
 
     if imgui.button("ARM: recon weapon + hook fire candidates (NUM4)") then
         recon_and_arm()
+    end
+    if imgui.button("GATE AUDIT: read all enable flags (NUM5)") then
+        gate_audit("UI")
+    end
+    if imgui.button("FORCE-ENABLE + FIRE (NUM6)") then
+        force_enable_experiment()
     end
     if imgui.button("LATCH (NUM7)") then do_latch() end
     if imgui.button("UNLATCH (NUM8)") then do_unlatch() end
@@ -672,4 +789,4 @@ re.on_draw_ui(function()
     imgui.tree_pop()
 end)
 
-log.info(TAG .. " loaded (v4.1 fire-gate hunt, executeFire replay). Hooks install only on NUM4; all idle until used.")
+log.info(TAG .. " loaded (v4.2 gate audit + force-enable). Hooks install only on NUM4; all idle until used.")
