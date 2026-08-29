@@ -32,6 +32,10 @@ handling, reloads and holsters come in later versions.
 
 **Notes**
 
+- Ships with **REFramework FirstPerson enabled by default** (via a minimal
+  `re2_fw_config.txt`) — required, as this is a first-person VR body mod. Existing
+  users with a tuned config should set `FirstPerson_Enabled=true` themselves instead
+  of overwriting (see the README).
 - Tested on both Leon and Claire.
 - Each feature has an in-game panel (REFramework menu) with a toggle and sliders,
   usable with the VR controller pointer.

@@ -37,9 +37,15 @@ does **not** include REFramework or any game files.
    its VR support (its `dinput8.dll` in the game folder, plus the VR runtime dll —
    `openxr_loader.dll` or `openvr_api.dll` — for your headset). Confirm VR works
    first.
-2. Download this release and copy its **`reframework/`** folder into your RE2 game
-   directory, merging with the one REFramework created. The four scripts land in
-   `reframework/autorun/`.
+2. Download this release and copy its contents into your RE2 game directory: the
+   **`reframework/`** folder (the four scripts land in `reframework/autorun/`) and
+   **`re2_fw_config.txt`** (game root). The included config turns **first-person on
+   by default** — required, since this is a first-person VR body mod.
+   - **Fresh REFramework install:** just copy both; you're set.
+   - **Already tuned your `re2_fw_config.txt`?** Don't overwrite it — instead set
+     `FirstPerson_Enabled=true` in your own config (one line), or toggle FirstPerson
+     on in the REFramework menu. (Overwriting would reset your other REFramework
+     settings to defaults.)
 3. Launch in VR and open the REFramework menu to find the **Visceral** panels; the
    features are on by default.
 
