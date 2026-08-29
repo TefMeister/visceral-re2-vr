@@ -6,9 +6,44 @@ weapon handling, manual reloads, hand-pose slide racking and pump action,
 holsters, body IK and posture, and more: the game's guns and body handled
 with your own hands.
 
-> **Status: ground-up rebuild in progress — nothing is released yet.** This
-> repository will hold releases only; watch it if you want to know the moment
-> there is something to try.
+> **Status: v0.1.0 released — the first slice (body & posture).** This build fixes
+> how your character's body behaves in VR with a weapon out: torso straightening,
+> feet planted on the ground while aiming, and cutscene/grab safety. Weapon
+> handling, reloads and holsters are still to come. Full list in
+> [`CHANGELOG.md`](CHANGELOG.md).
+
+## What's in this release (0.1.0)
+
+- **Torso straightening** — removes the twisted weapon-hold posture; the upper
+  body faces forward while normal gait/breathing motion is kept.
+- **Feet on the ground while aiming** — kills the ~10 cm body float of the VR aim
+  pose (feet plant, knees bend); your hands, gun and where bullets land are
+  untouched. Tunable (default 0.175 m).
+- **Faster aim-walk** — while aiming you move at a normal pace instead of the
+  vanilla aim-crawl, done by amplifying the game's own movement so walls still stop
+  you and it stays analog. Aiming only; tunable (default 1.3×).
+- **Cutscene & grab safety** — the body adjustments switch off during cutscenes,
+  camera events, and the enemy-grab third-person camera.
+
+Each has an in-game panel in the REFramework menu (toggles + sliders, usable with
+the VR controller pointer). Tested on Leon and Claire.
+
+## Install
+
+Visceral is a set of Lua scripts that run **on top of** praydog's REFramework — it
+does **not** include REFramework or any game files.
+
+1. Install **[REFramework](https://github.com/praydog/REFramework)** for RE2 with
+   its VR support (its `dinput8.dll` in the game folder, plus the VR runtime dll —
+   `openxr_loader.dll` or `openvr_api.dll` — for your headset). Confirm VR works
+   first.
+2. Download this release and copy its **`reframework/`** folder into your RE2 game
+   directory, merging with the one REFramework created. The four scripts land in
+   `reframework/autorun/`.
+3. Launch in VR and open the REFramework menu to find the **Visceral** panels; the
+   features are on by default.
+
+To uninstall, delete the `visceral_*.lua` files from `reframework/autorun/`.
 
 ## Where this comes from
 
