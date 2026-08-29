@@ -50,8 +50,12 @@ foreach ($f in $features) {
       "description=$($f.Desc)",
       "author=TefMeister, Claude",
       "category=RE Framework",
+      "screenshot=visceral.png",
       "NameAsBundle=$bundle"
     ) | Set-Content -Encoding UTF8 (Join-Path $pkg "modinfo.ini")
+    # bundle screenshot (shown in Fluffy) — include in every sub-mod so the entry always has it
+    $shot = Join-Path $repo "visceral.png"
+    if (Test-Path $shot) { Copy-Item $shot (Join-Path $pkg "visceral.png") }
     foreach ($rel in $f.Files) {
         $src = Join-Path $repo $rel
         if (-not (Test-Path $src)) { throw "missing file: $rel" }
