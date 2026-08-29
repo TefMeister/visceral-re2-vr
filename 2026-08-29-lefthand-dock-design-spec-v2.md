@@ -315,6 +315,36 @@ the docked case) — does aim-walk (~1.0) rise to run speed, and does the body s
 proper run or a broken/sped-up aim pose? The passing test so far was all
 IsHold=false. This is the actual docked-state question.
 
+### RESULT (2026-08-29 evening): Jog does NOT affect the aim state
+Forced Jog=1 while aiming (IsHold=true, liveJog=1 confirmed): speed stayed
+**~0.8–1.6** the whole time, never reached run. **The aim-state slowdown is a
+separate, independent cap that Jog cannot override.** So `Jog` unifies walk↔run for
+NON-aim movement only; it is not the docked-speed lever.
+(Also observed: a one-off auto-fire-while-aiming glitch, cleared by LMB then RMB —
+probably stray state from the still-loaded fire probe; retire that probe from
+autorun to remove interference.)
+
+### The reframe this forces — and it favors the VR-native path
+The aim state hard-caps movement, and it's the thing we'd be in if docked used the
+game's sustained aim. BUT: **in VR the muzzle is steered by the physical hand pose
+(the VR mod drives the weapon transform), NOT by the game's aim/HOLD state.** The
+game's aim state, in VR, is really only needed to gate FIRING — which we already do
+with the micro-latch blip. So the likely resolution:
+- **Docked = two-handed VR hold (IK + our muzzle control) with the sustained aim
+  state OFF.** Speed then unifies via `Jog` (proven), and the aim-walk slowdown only
+  occurs for the fraction of a second of each micro-latch shot — negligible.
+- This dissolves the docked-speed problem WITHOUT needing to find/raise a separate
+  aim-move-speed parameter.
+**This hinges on the original load-bearing question — does two-hand aiming work via
+pure VR motion control without the game's aim state? — which can only be answered
+with VR ENABLED.** Flat testing is now exhausted for this thread.
+
+### ⇒ Pivot point: enable VR
+Copy the deliberately-omitted `openvr_api.dll` / openxr loader back from
+`Downloads/RE2.zip` into the game folder (see TOOLCHAIN.md), then the hand-system
+recon (grip anchors, controller transforms, two-hand aim vs aim-state) can begin.
+`Jog` write is banked as the walk↔run speed lever for req 4.
+
 ## Static-analysis assets ready for this (2026-08-29)
 - SDK dumped: `<game>/il2cpp_dump.json` (471 MB) maps every managed method to
   its static VA (`"function": "140xxxxxx"`, image base 0x140000000). Query by
