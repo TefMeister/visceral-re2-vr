@@ -1,0 +1,16 @@
+FirstPerson_BodyRotateSpeed=0.300000
+FirstPerson_CameraShake=15.000000
+FirstPerson_CameraSpeed=40.000000
+FirstPerson_DisableLightSource=true
+FirstPerson_DisableVignette=true
+FirstPerson_Enabled=true
+FirstPerson_FOVMultiplier=1.000000
+FirstPerson_FOVOffset=10.000000
+FirstPerson_ForceRotateMesh=true
+FirstPerson_HideJointMesh=true
+FirstPerson_RoomScale=false
+FirstPerson_RotateBody=true
+FirstPerson_ShowInCutscenes=false
+FirstPerson_SmoothXZMovementVR=true
+FirstPerson_SmoothYMovementVR=true
+FirstPerson_ToggleKey=-1
