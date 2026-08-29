@@ -22,11 +22,27 @@ with your own hands.
 - **Faster aim-walk** — while aiming you move at a normal pace instead of the
   vanilla aim-crawl, done by amplifying the game's own movement so walls still stop
   you and it stays analog. Aiming only; tunable (default 1.3×).
+- **No crosshair** — hides the game's 2D reticle so it doesn't float in the VR view
+  (on by default; toggle in the menu).
 - **Cutscene & grab safety** — the body adjustments switch off during cutscenes,
   camera events, and the enemy-grab third-person camera.
 
 Each has an in-game panel in the REFramework menu (toggles + sliders, usable with
 the VR controller pointer). Tested on Leon and Claire.
+
+## Install with Fluffy Mod Manager (easiest — pick features with no menus)
+
+Prefer not to touch the REFramework UI? Each feature is also packaged as a separate
+**Fluffy Mod Manager** mod, so you enable/disable exactly the ones you want with a
+tick in Fluffy — no files to place by hand.
+
+1. Set up **[REFramework](https://github.com/praydog/REFramework)** for RE2 with VR
+   working (Fluffy does not replace this — REFramework is still required).
+2. Drag the per-feature `Visceral-*.zip` files from the release into Fluffy's mod
+   list, enable the ones you want, and hit apply. The **Cutscene Safety (core)** one
+   is recommended alongside any body feature.
+
+(Advanced users can still install manually — see below.)
 
 ## Install
 
@@ -67,6 +83,7 @@ others, two ways:
 | Torso straightening | `visceral_spine_straighten.lua` |
 | Feet on the ground while aiming | `visceral_foot_ground.lua` |
 | Faster aim-walk (collision-safe) | `visceral_locomotion.lua` |
+| No crosshair | `visceral_crosshair.lua` (+ `data/visceral/crosshair_config.json`) |
 | Cutscene/grab safety (shared — recommended) | `visceral_cinematic_gate.lua` |
 
 `visceral_cinematic_gate.lua` is shared: the body features use it to switch

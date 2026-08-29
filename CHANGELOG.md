@@ -7,9 +7,8 @@ All notable changes to Visceral — RE2 VR.
 - Shipped `re2_fw_config.txt` now also enables **manual flashlight**
   (`ManualFlashlight_Enabled=true`, toggle key F) alongside first-person and the
   disabled camera light.
-- Planned: a **crosshair-off** feature script (RE2's crosshair is a game HUD option
-  with no config key, so it needs a small GUI-hiding script rather than a config
-  line).
+- **No-crosshair feature added** (`visceral_crosshair.lua` + `data/visceral/crosshair_config.json`) — hides the game's 2D reticle; on by default, menu toggle.
+- **Fluffy Mod Manager packaging** — each feature is now built as a separate Fluffy mod (`tools/build-fluffy.ps1`) so players can pick features by ticking them in Fluffy, no REFramework UI needed.
 
 ## 0.1.0 — 2026-08-30 — first release: body & posture
 
