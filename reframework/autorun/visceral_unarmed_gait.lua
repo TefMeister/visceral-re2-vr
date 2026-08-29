@@ -36,7 +36,14 @@ local motion_type = sdk.typeof("via.motion.Motion")
 local POISON_TYPE, POISON_MASK = 255, 255
 local SCAN_INTERVAL_S = 0.25
 
-local cfg = { enabled = true }
+local cfg = {
+    enabled = true,
+    -- true: poison the ENTIRE hold bank (2000) incl CMN_HOLD, so the locomotion
+    --   layer falls through to the walk bank (1000) CMN_MOVE = normal careful walk.
+    -- false: only poison weapon *_HOLD -> CMN_HOLD (a hold-idle pose; looked like a
+    --   sideways shuffle in testing).
+    force_move_locomotion = true,
+}
 local state = {
     keys_ok = true, prev = false,
     status = "idle", last_scan_t = 0.0, poisoned = 0,
@@ -86,7 +93,18 @@ local function apply_poison()
         local bid = safe(function() return bank:call("get_BankID") end)
         if bid ~= 1000 and bid ~= 2000 then return end   -- move + hold locomotion (not FINGER/grip 10000)
         local name = tostring(safe(function() return bank:call("get_Name") end) or "")
-        if not is_weapon_loco_bank(name) then return end
+        local do_poison
+        if bid == 1000 then
+            -- weapon *_MOVE only; keep CMN_MOVE eligible (it's the walk we want to land on)
+            do_poison = is_weapon_loco_bank(name)
+        else -- bid == 2000 (hold locomotion)
+            if cfg.force_move_locomotion then
+                do_poison = true            -- poison ALL of the hold bank -> fall through to bank 1000 CMN_MOVE
+            else
+                do_poison = is_weapon_loco_bank(name)  -- weapon HOLD only -> CMN_HOLD
+            end
+        end
+        if not do_poison then return end
         local bt = safe(function() return bank:call("get_BankType") end)
         if bt == POISON_TYPE then return end
         if not state.originals[name] then
@@ -210,6 +228,8 @@ re.on_draw_ui(function()
     if not imgui.tree_node("Visceral: unarmed gait (relaxed legs while armed)") then return end
     local c, v = imgui.checkbox("Use no-weapon walk/idle legs while a weapon is equipped (NUM5)", cfg.enabled)
     if c then cfg.enabled = v; if not v then restore_originals() end end
+    local c2, v2 = imgui.checkbox("force MOVE locomotion (poison whole hold bank -> normal walk)", cfg.force_move_locomotion)
+    if c2 then cfg.force_move_locomotion = v2; restore_originals() end
     imgui.text("status: " .. state.status)
     imgui.text("Weapon grip/fingers unaffected; caution/danger/wet gait variants still work.")
     imgui.tree_pop()
