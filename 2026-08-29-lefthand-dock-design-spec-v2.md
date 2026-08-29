@@ -106,6 +106,8 @@ Answers + additions that change the firing model and the speed model:
   that beat us before.
 
 ## v2.2 refinement (user, same evening) — AUTO-UNDOCK near interactables; DROP the cosmetic tail
+> **SUPERSEDED by v2.3 below:** hold-to-grip removes the need for auto-undock (the
+> two conflict). The cosmetic-tail removal and the no-muzzle-pop handoff survive.
 
 The docked-state door/item block is resolved by design, not by fighting it:
 
@@ -145,19 +147,55 @@ The docked-state door/item block is resolved by design, not by fighting it:
   aim-steering, or a brief suppression while the trigger's been used recently.
   Not a blocker; a feel-tuning knob.
 
-### What the three-state model settles, and what it leaves
+## v2.3 refinement (user, same evening) — LG is HOLD-to-grip, not a toggle; auto-undock removed
+
+Two decisions that simplify the whole dock down to two clean states:
+
+- **Re-dock is manual — confirmed.** (Now inherent: you just hold LG again.)
+- **LG is HOLD-to-grip.** Hold LG = left hand docked on the weapon (sustained
+  latch, two-handed aim). Release LG = undock (latch off, back to one-handed
+  micro-latch fire). No toggle.
+
+**The latch is now TWO states, not three:**
+1. **LG not held (undocked):** fire = micro-latch on RT.
+2. **LG held (docked):** sustained latch ON, two-handed aiming; the instant you
+   release LG you're back to state 1.
+(The cosmetic tail is already gone per v2.2; hold-to-grip makes that doubly true —
+release = the hand smoothly comes off, with the no-muzzle-pop aim handoff kept.)
+
+**Why this kills the auto-undock (and its recon dependency):** with hold-to-grip,
+undocking to interact is just *letting go of the button* — the player does it
+naturally as they reach for a door/item. Auto-undock would actively FIGHT this: if
+the mod force-released while you're physically holding LG, the hand would drop off
+a button you're still pressing (feels broken), or it'd snap back the instant you
+step clear (the auto-re-dock we already rejected). So hold-to-grip **replaces**
+auto-undock; we drop that mechanism and no longer need to read the game's
+interactable check during aim. The combat-near-items worry also dissolves: you're
+only docked while actively holding LG, so grabbing an item mid-fight is just
+releasing the grip (which you'd likely do to reload or fire one-handed anyway).
+
+**Residual to watch in playtest (minor):** while holding LG (aim state on), the
+interaction prompt may be suppressed, so you might not *see* that a door/item is
+usable until you release. Almost certainly fine (lower the gun to interact), but
+if it reads as confusing we can look at surfacing the prompt during dock later.
+
+**Accepted trade-off:** hold-to-grip means continuous LG hold during long
+two-handed stretches (finger fatigue) — the user weighed this against the toggle
+and chose hold-to-grip for the simplicity it buys everywhere else.
+
+### What the two-state model settles, and what it leaves
 The corrected model resolves the earlier "can the off-hand steer without the aim
 state?" worry: **docked deliberately uses the sustained aim state**, so two-handed
 aiming runs on the proven path (aim state on → off-hand steers the muzzle, as in
 the base VR handling). No gamble there.
 
-The consequence to design around: **while docked you are in the sustained aim
-(HOLD) state**, which caps speed and locks interaction. Interaction is now handled
-by **auto-undock (v2.2)** — the block is dropped exactly when you approach a
-door/item. Speed is handled by req 4's unification + speed-driven presentation, so
-docked movement doesn't feel like vanilla slow aim-walk. **Speed matching remains
-the main technical risk** (needs the movement-speed blend param); auto-undock's
-risk is smaller and is really a recon + tuning item.
+The consequence to design around: **while LG is held you are in the sustained aim
+(HOLD) state**, which caps speed and locks interaction. Interaction is handled by
+simply **releasing LG** (v2.3) — that drops the aim state, restoring doors/pickups
+and one-handed micro-latch fire. Speed is handled by req 4's unification +
+speed-driven presentation, so held-LG movement doesn't feel like vanilla slow
+aim-walk. **Speed matching remains the main technical risk** (needs the
+movement-speed blend param).
 
 ### Feasibility of the speed-driven presentation system
 Right instinct; difficulty hinges on one thing:
@@ -190,10 +228,8 @@ Recon for the build, in this order (all read-only first):
    dock/undock animation + the no-muzzle-pop aim-authority handoff). Two-hand
    steering itself is settled — docked uses the sustained aim state (see above).
    Cosmetic tail is DROPPED (v2.2).
-2b. **Auto-undock trigger:** find the game's "interactable in range" / action
-   check and whether it's readable while in the aim state (v2.2); fallback is our
-   own proximity scan. Also check whether the interact prompt is suppressed during
-   aim.
+2b. ~~Auto-undock trigger recon~~ — DROPPED with auto-undock (v2.3). Optional
+   playtest-only: is the interact prompt suppressed while LG is held?
 3. **The now-main risk:** locomotion **movement-speed blend param** (safe path
    for the speed-driven presentation system) + per-state speed caps to unify so
    the *docked/aim* cap == run cap (req 4); re-test whether footstep/leg/
