@@ -270,11 +270,39 @@ name/hash, not a get_ method) — that's the next probe.
 so they'll follow measured speed; arm IK components confirmed present for the later
 hand work (`app.ropeway.IkArmFit`, `IkController`, `via.motion.IkLeg`).
 
-**Next probe (speed, round 2):** enumerate `MotionFsm2` (and `via.motion.Motion`)
-float VARIABLES on the player — find the one that = walk→run blend / move speed,
-confirm it's writable, and whether raising the aim-state move speed (or driving the
-blend by measured speed) makes docked movement reach ~3.77 with a run-looking
-animation rather than a sped-up aim shuffle.
+### Motion-variable recon results (2026-08-29 evening) — THE LOCOMOTION IS VARIABLE-DRIVEN AND WRITABLE
+`player -> via.motion.Motion -> get_VariablesHub()` exposes **47 named user
+variables**, and **almost all are writable** (RO=false, WP=false; only `LowAttack`
+RO). This is the safe path we hoped for — the whole locomotion/animation system is
+driven by named inputs we can read AND write, so NO FSM surgery is needed.
+
+Key variables (name, kind, writable):
+- **`Jog`** (bool, writable) — **the walk↔run selector.** Stream proof: flips to 1
+  when running, back to 0 when slowing.
+- **`MoveStickPower`** (float, writable) — analog move input power. **0 on KB/M**
+  (digital movement bypasses it); expected to carry the LS deflection under VR/pad
+  = the natural input for req 4's analog speed.
+- **`HoldUp`** (bool, writable) — aim/weapon-up. `MoveDir`/`TargetMoveDir`/
+  `WatchDir`/`CameraDir` (dir), `MoveStickPower`, `StepLeft` (footstep phase),
+  `Fire`, `CanRapidFire`, `Relax`, plus reload/door/damage/event triggers.
+
+**Speed tiers, now explained by the variables (measured, IsHold-labelled):**
+- Aim-walk (aiming, Jog=0): **~1.0**
+- Walk (no aim, Jog=0): **~1.8–2.1**
+- Jog/Run (no aim, **Jog=1**): **~2.7–3.35, max 3.79**
+So the walk→run jump IS the `Jog` variable, and aiming imposes a further slowdown
+on top of Jog=0. NB: RE2 has no run button on pad normally — default is jog; the
+"walk" tier here is the analog/slow band. Footsteps are velocity-driven, and the
+animation blend is fed by these very variables, so **driving the variables gives
+correct legs + footsteps for free** — exactly the "speed-driven presentation" the
+user wanted, built into the engine.
+
+**The likely lever for req 4 (docked = full speed):** force **`Jog=1`** (and manage
+`MoveStickPower`) while docked/aiming. Open question needing a WRITE test: (a) does
+the game overwrite Jog each frame (→ we write per-frame like the fire latch), and
+(b) does an aim-jog animation exist, or does forcing Jog=1 while HoldUp look wrong /
+do nothing? That is the next probe — the **first write** (safe: a documented
+writable motion variable, fully reversible, with a panic key).
 
 ## Static-analysis assets ready for this (2026-08-29)
 - SDK dumped: `<game>/il2cpp_dump.json` (471 MB) maps every managed method to
