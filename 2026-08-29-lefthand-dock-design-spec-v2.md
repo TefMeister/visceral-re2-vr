@@ -298,11 +298,22 @@ correct legs + footsteps for free** — exactly the "speed-driven presentation" 
 user wanted, built into the engine.
 
 **The likely lever for req 4 (docked = full speed):** force **`Jog=1`** (and manage
-`MoveStickPower`) while docked/aiming. Open question needing a WRITE test: (a) does
-the game overwrite Jog each frame (→ we write per-frame like the fire latch), and
-(b) does an aim-jog animation exist, or does forcing Jog=1 while HoldUp look wrong /
-do nothing? That is the next probe — the **first write** (safe: a documented
-writable motion variable, fully reversible, with a panic key).
+`MoveStickPower`) while docked/aiming.
+
+### ✅ WRITE TEST PASSED (2026-08-29 evening) — Jog is a proven writable speed lever
+First write to live game state, and it works. Key detail: **`Jog` is a BOOL
+variable (kind 2)** — must be written with `set_Bool`, not `set_F` (v1/v2 wrote the
+float slot → no effect + nil readback; v3 type-aware fixed it). Writing per-frame
+at the UpdateBehavior/Motion stages, **`liveJog` held =1 and measured speed rose
+from ~1.9 (walk) to ~2.8–3.1 (run), reversible on release** (verified in log,
+IsHold=false). So unifying speed to the run cap is achievable by writing a bool.
+Accessor rule for the build: kind 2 = Bool (get_Bool/set_Bool), kind 11 = Float
+(get_F/set_F); only set_F + set_Bool setters exist on via.userdata.Variable.
+
+**Still to verify (next, same probe):** force Jog=1 **while AIMING** (IsHold=true,
+the docked case) — does aim-walk (~1.0) rise to run speed, and does the body show a
+proper run or a broken/sped-up aim pose? The passing test so far was all
+IsHold=false. This is the actual docked-state question.
 
 ## Static-analysis assets ready for this (2026-08-29)
 - SDK dumped: `<game>/il2cpp_dump.json` (471 MB) maps every managed method to
