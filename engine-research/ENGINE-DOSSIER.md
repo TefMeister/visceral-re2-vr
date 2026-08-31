@@ -225,6 +225,18 @@ Full write-ups: `external-research/topics/2026-08-29-weapon-equipped-state-surfa
   full day on bank poisoning, motlist swapping and bone correction before the answer turned out
   to be a state flag. **Before writing a mechanism, spend ten minutes looking for the enum.**
 
+- **🧭 HABIT: when a HUD-suppression script "does nothing", date-check the REFramework
+  revision before doubting the Lua.** Returning `false` from `re.on_pre_gui_draw_element`
+  (the documented way to hide a GUI element, used by `visceral_crosshair.lua`) was silently
+  broken in REFramework master between **2026-08-19 (PR #1503) and 2026-08-28 (PR #1809)** —
+  no error, the element just kept drawing. **Checked 2026-08-31 (home PC): our pinned rev
+  `76298bd` is dated 2026-03-11, months BEFORE the broken window — v0.1.0's crosshair hiding
+  is NOT affected.** But any future REFramework upgrade should land on a build from
+  2026-08-28 or later, and this class of silent no-op is worth remembering: the framework
+  under the script can break the script's documented contract without a single log line.
+  (Found by the 2026-08-31 `/sr` sweep; details in the cross-engine library's
+  "silent no-ops" technique page.)
+
 - **Swapping compiled animation files on disk** to change locomotion —
   skeleton-specific binary data, and a file-level hammer for a runtime problem.
   Use the motion-bank selector (§8) instead.
