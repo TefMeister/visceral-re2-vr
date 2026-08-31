@@ -165,6 +165,32 @@ Two field traps, both hit in practice:
   shipped — no file swapping, no weapon-type spoofing (which visibly swaps the
   weapon model).
 
+
+### 8b. The equipped-weapon surface (from public sources, NOT yet verified live)
+
+`[reported, /gr 2026-08-29]` Read from public source (REFramework's `FirstPerson.cpp` and the
+RE2R Custom Animation Framework project), not confirmed against our own build. Treat every line
+here as a lead to verify, not a fact to build on.
+
+- **The equipped weapon is one component read:** the player's
+  `app.ropeway.survivor.Equipment` component → `<EquipWeapon>k__BackingField`. Weapon kind by
+  type check against `implement.Gun` / `implement.Melee`. The gun muzzle is the weapon joint
+  **`vfx_muzzle1`**.
+- **`SurvivorCondition.get_IsReload`** is the reload-state flag, sitting alongside the
+  `get_IsHold` we already rely on. Relevant to the queued manual-reload work.
+- **A second dormant enum selector:** `app.ropeway.weapon.shell.ShellDefine.FireBulletType`
+  chooses **`Camera` vs `AlongMuzzle`** as the fire origin; REFramework flips it to `AlongMuzzle`
+  for VR. **This is the same shape as `TargetBankType` above** — a narrow selector the engine
+  already honours, shipped with both paths live. See §11's habit note.
+- **Playing a custom animation without the FSM stomping it:** the public CAF project registers
+  runtime `via.motion.DynamicMotionBank`s for its own motlists, then **pauses and disables
+  `via.motion.MotionFsm2`** for the clip's duration. Manual root motion needs
+  `transform:set_Position` **plus `CharacterController:warp()`**, or physics snaps the character
+  back. Directly relevant if manual reloads ever need a bespoke clip.
+
+Full write-ups: `external-research/topics/2026-08-29-weapon-equipped-state-surface.md` and
+`...-caf-custom-animation-framework.md`.
+
 ## 9. "Several lookalike systems, one is live" (a recurring RE2 trap)
 - A single weapon can carry **multiple similarly-purposed config tables** for
   what looks like one feature, and tuning the wrong one throws no error and no
@@ -190,6 +216,15 @@ Two field traps, both hit in practice:
   another round of text description.
 
 ## 11. Dead ends & false leads (save future time)
+
+- **🧭 HABIT, earned the expensive way: check for a dormant enum before building a mechanism.**
+  Twice now RE2 has turned out to ship **both** behaviours behind a narrow selector the engine
+  already honours — `TargetBankType` for armed/unarmed locomotion (§8), and
+  `ShellDefine.FireBulletType` for `Camera` vs `AlongMuzzle` fire origin (§8b). In both cases the
+  engine-supported switch beats anything hand-built. The 2026-08-29/30 animation battle burned a
+  full day on bank poisoning, motlist swapping and bone correction before the answer turned out
+  to be a state flag. **Before writing a mechanism, spend ten minutes looking for the enum.**
+
 - **Swapping compiled animation files on disk** to change locomotion —
   skeleton-specific binary data, and a file-level hammer for a runtime problem.
   Use the motion-bank selector (§8) instead.
