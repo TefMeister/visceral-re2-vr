@@ -1,22 +1,22 @@
-# visceral-re2-vr-external-research
+# visceral-re2-vr — `external-research/`
 
 Ongoing **public research** findings for **Visceral — RE2 VR** — leads, prior art, and technique write-ups gathered from publicly available sources (blogs, forums, existing tools, documentation), kept **separate from hands-on modding work**.
 
 This repo exists so a dedicated research-only session can run *at the same time* as active reverse-engineering/coding work without any risk of the two colliding — research never writes to any of the other five repos, and the modding side just reads this one when it wants to check for new leads. See [INDEX.md](INDEX.md) for the running list of topics.
 
-## The six repositories for Visceral — RE2 VR
+## The folders for Visceral — RE2 VR
 
-Everything for this project lives in six repositories, each with one job — so
-you always know where to look. You are in **visceral-re2-vr-external-research**.
+Everything for this project lives in six folders, each with one job — so
+you always know where to look. You are in **`external-research/`**.
 
-| Repository | What lives here |
+| Folder | What lives here |
 | --- | --- |
-| [visceral-re2-vr-mod](https://github.com/TefMeister/visceral-re2-vr-mod) | The mod itself — releases only. |
-| [visceral-re2-vr-dev-archive](https://github.com/TefMeister/visceral-re2-vr-dev-archive) | Full development history — snapshots, probes, dead ends, raw recon. |
-| [visceral-re2-vr-modding-notes](https://github.com/TefMeister/visceral-re2-vr-modding-notes) | Readable field notes / progress ledger. |
-| [visceral-re2-vr-staging](https://github.com/TefMeister/visceral-re2-vr-staging) 🔒 | **Private** — unverified WIP builds, cross-machine handoff. |
-| [visceral-re2-vr-engine-research](https://github.com/TefMeister/visceral-re2-vr-engine-research) | Distilled engine reference (dossier) + reusable VR RE playbook. |
-| **visceral-re2-vr-external-research** ← you are here | Ongoing public-research leads — read-only input to the other five, never the other way around. |
+| [`mod/`](../mod/) | The mod itself — releases only. |
+| [`dev-archive/`](../dev-archive/) | Full development history — snapshots, probes, dead ends, raw recon. |
+| [`modding-notes/`](../modding-notes/) | Readable field notes / progress ledger. |
+| [staging/visceral-re2-vr](https://github.com/TefMeister/staging/tree/main/visceral-re2-vr) 🔒 | **Private** — unverified WIP builds, cross-machine handoff. |
+| [`engine-research/`](../engine-research/) | Distilled engine reference (dossier) + reusable VR RE playbook. |
+| **`external-research/`** ← you are here | Ongoing public-research leads — read-only input to the other five, never the other way around. |
 
 Note: this project's predecessor, `arcade-controls-re2-vr`, is frozen (study
 material only) and does not get its own `-external-research` repo — it is not

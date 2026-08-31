@@ -24,7 +24,7 @@ single technique, a document, or something used purely for testing counts.
   game and redistributes no original game files or assets.
 
 Our own predecessor,
-[ARCADE CONTROLS for RE2 VR](https://github.com/TefMeister/arcade-controls-re2-vr-mod)
+[ARCADE CONTROLS for RE2 VR](https://github.com/TefMeister/arcade-controls-re2-vr/tree/main/mod)
 (final release v1.5.0), is frozen and kept as study material — Visceral reuses
 its knowledge, not its code.
 

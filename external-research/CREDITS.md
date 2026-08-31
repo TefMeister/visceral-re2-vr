@@ -32,7 +32,7 @@ ourselves, plus third-party components whose licenses permit redistribution
 | RE2R Custom Animation Framework (CAF) — custom animation system + RE3-style dodge for RE2, with engine docs | godlock2000-eng (NonRTX) | https://github.com/godlock2000-eng/ResidentEvil2_CustomAnimationFramework_NonRTX |
 | Better Movement Speed (RE9 original of the RE2 port; layer-speed + move-speed-hook technique) | Junh2x | https://github.com/Junh2x/RE9-Movement-Speed-Mod |
 
-Our own predecessor, [ARCADE CONTROLS for RE2 VR](https://github.com/TefMeister/arcade-controls-re2-vr-mod)
+Our own predecessor, [ARCADE CONTROLS for RE2 VR](https://github.com/TefMeister/arcade-controls-re2-vr/tree/main/mod)
 (final release v1.5.0), is frozen and kept as study material — Visceral
 reuses its knowledge, not its code.
 
