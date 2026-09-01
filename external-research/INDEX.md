@@ -1,6 +1,6 @@
 # Research index
 
-**Last `/gr` pass: 2026-09-01 (second pass, estate sweep) — FULL.** Inbox was empty. One new topic:
+**Last `/gr` pass: 2026-09-01 (second pass, estate sweep) — CHECK-IN** (one targeted upstream-source question; no dossier or topic re-read)**.** Inbox was empty. One new topic:
 the **FirstPerson ~1s settle** carried over from the predecessor project is diagnosed against
 upstream's published source — the VR snap branch is gated on `bone_scale == 0.0f`, while VR sets that
 value's *target* to zero and only lerps toward it at ~0.0008/frame, so the equality is not reached in
