@@ -1,9 +1,15 @@
 # Research index
 
-**Last `/gr` pass: 2026-09-01 — CHECK-IN.** Inbox drained (three files): two status flips applied,
-and the REFramework GUI-callback regression closed out — the sweep filed it, the modding side
-date-checked our pinned revision, and we are **not** affected. No new web research this pass; the
-project's open questions are live-VR ones that public sources cannot answer.
+**Last `/gr` pass: 2026-09-01 (second pass, estate sweep) — FULL.** Inbox was empty. One new topic:
+the **FirstPerson ~1s settle** carried over from the predecessor project is diagnosed against
+upstream's published source — the VR snap branch is gated on `bone_scale == 0.0f`, while VR sets that
+value's *target* to zero and only lerps toward it at ~0.0008/frame, so the equality is not reached in
+practice. The CameraShake slider is **not** a workaround (VR never reads it). A fix matching
+upstream's own idiom a few lines away is identified, with one value left to confirm in a browser.
+
+_Earlier the same day — CHECK-IN:_ inbox drained (three files): two status flips applied, and the
+REFramework GUI-callback regression closed out — the sweep filed it, the modding side date-checked our
+pinned revision, and we are **not** affected. No new web research that pass.
 
 Every research topic gathered for this project, newest first. Each row links to a self-contained
 write-up in `topics/`. Status tags:
@@ -33,6 +39,7 @@ write-up in `topics/`. Status tags:
 
 | Date | Topic | Status | Summary |
 | --- | --- | --- | --- |
+| 2026-09-01 | [The FirstPerson settle bug is a lerp that never reaches zero](topics/2026-09-01-the-firstperson-settle-bug-is-a-lerp-that-never-reaches-zero.md) | 🆕 new | Every Visceral release ships `FirstPerson_Enabled=true`, so this is our users' bug. Upstream sets `wanted_camera_shake = 0.0f` in VR, then only **lerps** `m_interp_bone_scale` toward it at `clamp(delta_time*0.05f, …)`; the snap branch tests `bone_scale == 0.0f` exactly, so it never fires. **The CameraShake slider is not a workaround** — VR never reads it. The consistent fix is to add `vr->is_hmd_active()` to that condition, exactly as the `m_interpolated_bone` branch a few lines up already does. Clean candidate for an upstream PR. One unknown left: `m_interp_bone_scale`'s initial value. Line numbers are approximate — the blob view truncated at 1000 and returned a false negative first. |
 | 2026-08-29 | [Weapon-equipped state surface](topics/2026-08-29-weapon-equipped-state-surface.md) | 👀 reviewed | The public RE2 class surface for "a weapon is out": `Equipment.<EquipWeapon>k__BackingField`, `implement.Gun`/`Melee`, `IsHold`/`IsReload`, and REFramework's `FireBulletType Camera→AlongMuzzle` flip as the model behavior-change-while-armed. |
 | 2026-08-29 | [CAF custom animation framework](topics/2026-08-29-caf-custom-animation-framework.md) | 👀 reviewed | Working public custom-animation system for RE2 with an RE3-style dodge (= roadmap 15 prior art): DynamicMotionBank loading, MotionFsm2 pause, set_Position+warp root motion — and the armed-state gating it lacks. Plus the layer-speed + getMoveSpeed-hook technique for aim-walk speed. |
 | 2026-08-29 | [EMV Engine toolkit map](topics/2026-08-29-emv-engine-toolkit-map.md) | 🆕 new | EMV has zero weapon code — its value is instrumentation: Console, Action Monitor, Hooked Method Inspector, Poser, and the RE2 motion-bank path/ID reference, mapped to the armed-state study each roadmap front needs. |
