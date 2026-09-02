@@ -30,7 +30,7 @@ ourselves, plus third-party components whose licenses permit redistribution
 | EMV-Engine-SILVER (maintained fork of EMV Engine) | SilverEzredes | https://github.com/SilverEzredes/EMV-Engine-SILVER |
 | _ScriptCore (REFramework Lua utility/hotkey library) | alphaZomega (alphazolam) | https://github.com/alphazolam/_ScriptCore |
 | RE2R Custom Animation Framework (CAF) — custom animation system + RE3-style dodge for RE2, with engine docs | godlock2000-eng (NonRTX) | https://github.com/godlock2000-eng/ResidentEvil2_CustomAnimationFramework_NonRTX |
-| Better Movement Speed (RE9 original of the RE2 port; layer-speed + move-speed-hook technique) | Junh2x | https://github.com/Junh2x/RE9-Movement-Speed-Mod |
+| Better Movement Speed (RE9 original of the RE2 port; layer-speed + move-speed-hook technique, incl. the `getLayer(0)`/enemy-context-list approach studied in detail) | Junh2x | https://github.com/Junh2x/RE9-Movement-Speed-Mod |
 | REFramework (its published `FirstPerson.cpp` is the source of the settle-bug diagnosis; read online, nothing copied) | praydog and REFramework contributors | https://github.com/praydog/REFramework |
 | `re2_smooth_movement.lua` (transform-write locomotion route, MIT) | praydog and REFramework contributors | https://github.com/praydog/REFramework/blob/master/scripts/re2_smooth_movement.lua |
 
