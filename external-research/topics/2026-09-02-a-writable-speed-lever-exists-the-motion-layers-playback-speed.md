@@ -58,8 +58,54 @@ excluded by name, as the script does, or they slow down too.
 3. Keep praydog's transform-write route as the fallback for locomotion that root motion cannot
    express (analog strafing), with the `warp()` caveat.
 
+## Addendum (2026-09-02, same day, follow-up pass): layer index confirmed, awareness stays open
+
+Read `re9_movement_speed.lua` directly (public GitHub blob, online only, nothing downloaded) to
+settle "which layer" rather than guess `[reported 2026-09-02, from source]`:
+
+- **The script hard-codes layer index 0**: `getComponent(via.motion.Motion):getLayer(0)`, then
+  reads `get_HighestWeightMotionNode():get_MotionName()` off that one layer and string-matches
+  `"walk"`/`"run"`. It never enumerates other layers or checks a layer count — layer 0 is an
+  assumption baked into a shipping mod, not a documented constant. REFramework's own API book
+  (`cursey.github.io/reframework-book`) does not document `via.motion.Motion`/`MotionLayer` at all —
+  it is a per-game managed type, reflection-only, exactly as dossier §4 already says, so there is no
+  public authority to check the assumption against beyond "another mod's author picked 0 and it
+  worked for them, on Requiem, not RE2."
+- **The same script confirms enemies use the identical API**, which is useful even though it doesn't
+  answer the awareness question: for non-player characters it walks
+  `get_EnemyContextList()` and applies `getLayer`/`set_Speed` to each enemy's own **animation**
+  playback (their walk/run cycle), explicitly excluding boss-tier IDs (`B030`, `V000`, `V100` —
+  scripted/boss logic, not generic walk-cycle blending) and motions containing `"attack"`/`"dead"`.
+  This is enemies' own locomotion presentation, symmetric to the player's — **not** an AI
+  perception/awareness system reading player speed.
+- **No public source was found on RE2/RE Engine enemy awareness reading player movement speed at
+  all** `[checked 2026-09-02]` — targeted web searches for zombie/enemy detection-radius or
+  noise-vs-speed mods and writeups returned only cosmetic/audio-replacement mods (classic zombie
+  sounds, model swaps), nothing gameplay-AI-adjacent. RE2 is not a stealth-mechanics game in the
+  first place, so this may simply not exist as a modder-documented system; treat req 4's "drive
+  awareness from measured speed" as **new ground for this project**, not something to go looking
+  for again without a different angle (e.g. a live reflection dump of the enemy AI/perception
+  component itself, once one is identified).
+- **No turnkey layer-dumper tool exists publicly either.** Checked alphaZomega's EMV Engine
+  toolkit (already known to this project, dossier §12) — its Console/Poser/Action Monitor/Hooked
+  Method Inspector do not include a motion-layer enumerator; the closest is its generic managed-
+  object property panel (the same reflection technique dossier §4 already documents). So the
+  concrete next probe below is genuinely the cheapest way to get a real answer, not a second-best
+  substitute for a public tool that exists somewhere.
+
+**Suggested probe (3 reflection calls, read-only, no game state changed):** on the player's
+`via.motion.Motion` component, loop `i = 0..N` calling `getLayer(i)` until it returns `nil` (or use
+whatever count method the live reflection dump exposes — dossier §4's field-enumeration technique
+answers that in one call if `get_LayerCount`/similar isn't a real property), and at each layer log
+`get_HighestWeightMotionNode():get_MotionName()` while walking, running, aiming and idle. Whichever
+layer's name changes with the player's real movement is the locomotion layer; if more than one
+layer's name tracks movement, that says something about how aim-pose and locomotion are blended
+that the dossier doesn't know yet either.
+
 ## Sources
 
-- https://github.com/Junh2x/RE9-Movement-Speed-Mod — `reframework/autorun/re9_movement_speed.lua` (no licence file visible; study-only)
+- https://github.com/Junh2x/RE9-Movement-Speed-Mod — `reframework/autorun/re9_movement_speed.lua` (no licence file visible; study-only; read online, not downloaded)
 - https://www.nexusmods.com/residentevil22019/mods/2391 — "Better Movement Speed RE2" (403 on fetch; existence and feature list from search)
 - https://github.com/praydog/REFramework/blob/master/scripts/re2_smooth_movement.lua — MIT; the transform-write route
+- https://cursey.github.io/reframework-book/ — checked for `via.motion.Motion`/`MotionLayer` documentation; confirmed absent (per-game reflected type, out of scope for the engine-level API book)
+- https://github.com/alphazolam/EMV-Engine — checked for an existing layer-dump tool; none found
