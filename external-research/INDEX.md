@@ -1,20 +1,7 @@
 # Research index
 
-**Last `/gr` pass: 2026-09-02 (scoped re-run, this project named explicitly) — FULL.** Followed up
-the same-day speed-lever topic in place rather than a fresh one: read `re9_movement_speed.lua`
-directly and confirmed the layer index it hard-codes (**0**), confirmed enemies use the identical
-`getLayer`/`set_Speed` API for their own locomotion animation (not an awareness system), and
-searched public sources for RE2/RE-Engine enemy awareness reading player speed — **found nothing**;
-treat req 4's awareness half as new ground, not a re-search target. No public layer-dump tool
-exists either (checked EMV Engine) — a 3-call reflection probe is written up as the concrete next
-step. Second pointer filed in `engine-research/inbox/`.
-_Earlier the same day (estate sweep) — CHECK-IN_ (board OPEN block + INDEX + dossier §8/§11; topics
-not re-read)**.** Inbox empty. One new topic answering the board's main technical risk: **a
-writable speed lever exists** — public REFramework scripts ship `via.motion.MotionLayer.set_Speed`
-gated by motion name, and with root motion that moves body, legs and footsteps together. Pointer in
-`engine-research/inbox/`. Layer index and the awareness half stayed unverified until the follow-up
-above.
-_Previous: Last `/gr` pass: 2026-09-01 (second pass, estate sweep) — CHECK-IN (one targeted upstream-source question; no dossier or topic re-read). Inbox was empty. One new topic: the FirstPerson ~1s settle carried over from the pr…_
+**Last `/gr` pass: 2026-09-03 (estate sweep) — CHECK-IN** (board OPEN block + INDEX)**.** Inbox empty. **Nothing new — because the board's own "MAIN technical risk" is already answered and waiting.** That row asks whether a writable locomotion movement-speed blend param exists; my 2026-09-02 drop `2026-09-02-gr-motion-layer-set-speed-is-the-writable-locomotion-lever.md` answers it (`via.motion.MotionLayer.set_Speed`, with the layer-index caveat) and is **still unread in `engine-research/inbox/`**. Nothing further to research until that is drained — the remaining rows are a Lua probe to write and a live object-graph read.
+_Previous: **Last `/gr` pass: 2026-09-02 (scoped re-run, this project named explicitly) — FULL.** Followed up the same-day speed-lever topic in place rather than a fresh one: read `re9_movement_speed.lua` directly and confirmed the layer index it hard-codes (**0**), conf…_
 
 _Earlier the same day — CHECK-IN:_ inbox drained (three files): two status flips applied, and the
 REFramework GUI-callback regression closed out — the sweep filed it, the modding side date-checked our
