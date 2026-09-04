@@ -10,8 +10,9 @@ BUILD="$HERE/build"
 if [ ! -f "$BUILD/CMakeCache.txt" ]; then
     cmake -S "$HERE" -B "$BUILD" -G "Visual Studio 17 2022" -A x64
 fi
-cmake --build "$BUILD" --config Release 2>&1 | tee "$BUILD/last-build.log" | grep -E "warning|error|visceral_core\.(dll|vcxproj) ->|Build succeeded|FAILED" || true
 DLL="$BUILD/Release/visceral_core.dll"
+rm -f "$DLL"   # a failed build must not leave the previous DLL to be "deployed OK" (bit once, 2026-09-05)
+cmake --build "$BUILD" --config Release 2>&1 | tee "$BUILD/last-build.log" | grep -E "warning|error|visceral_core\.(dll|vcxproj) ->|Build succeeded|FAILED" || true
 [ -f "$DLL" ] || { echo "BUILD FAILED: no $DLL"; exit 1; }
 ls -l "$DLL"
 

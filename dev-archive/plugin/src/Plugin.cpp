@@ -152,7 +152,7 @@ bool call_void_direct(API::ManagedObject* o, std::string_view name, Args... args
 }
 // The invoke path marshals every argument in an 8-byte slot ("each arg is always 8 bytes" — API.h);
 // a float goes in as its bit pattern in the low 32 bits.
-void* float_arg(float f) { uint64_t v = 0; memcpy(&v, &f, sizeof f); return (void*)(uintptr_t)v; }
+[[maybe_unused]] void* float_arg(float f) { uint64_t v = 0; memcpy(&v, &f, sizeof f); return (void*)(uintptr_t)v; }
 uint32_t inv_u32(API::ManagedObject* o, std::string_view name) { return call_direct<uint32_t>(o, name, 0xFFFFFFFFu); }
 float inv_f32(API::ManagedObject* o, std::string_view name) { return call_direct<float>(o, name, NAN); }
 bool inv_vec3(API::ManagedObject* o, std::string_view name, Vec3& v) {
@@ -275,19 +275,21 @@ struct State {
     bool want_layers{false};
     bool force_hold{false};          // NUM4: InputSystem.setForce(HOLD, true) — the latch proven in Lua on 2026-08-27, now native
     int attack_pulse{0};             // NUM5: setForce(ATTACK, true) for one frame, then false
-    // NUM6 (v0.2, 2026-09-05): the ARM-kind experiment. setArmFitTarget was disproved on 2026-09-04
-    // (IkArmFit is the wall-touch solver). Cycle 0 off -> 1 arm 0 -> 2 arm 1 -> 0. On entering a
-    // mode: IkController.setEnable(ARM=3, true, 0.2f) FIRST, then setArmTarget(idx, aid+0.10 up, false)
-    // every frame, with isEnabled(ARM) and the ArmStatusList logged so we see whether the enable sticks.
-    int arm_mode{0};
-    int arm_frames{0};
-    int arm_pending_enable{0};       // 1 = setEnable just sent, read back next frame
+    // NUM6 (v0.3, 2026-09-05): the AID-TARGET OVERRIDE. The ARM kind is dead (v0.2: setEnable(ARM) never
+    // sticks by either call route, setArmTarget throws on both indices, IkTwoArm/IkHand are null) and
+    // the reload test proved _101 is an anchor the wrist is solved onto. So: post-hook the two managed
+    // getters that serve the aid target and shift what they return 10 cm up. Bit 1 = get_AidTargetWorldMatrix,
+    // bit 2 = getIKLeftArmMatrix. Cycle 0 -> 1 -> 2 -> 3 -> 0. If the wrist follows, that is the dock lever.
+    int shift_mode{0};
     std::vector<std::string> layer_last;   // last highest-weight motion name per layer
     uint64_t layer_lines_this_second{};
     uint64_t layer_second{};
     double last_summary_t{};
     double last_layer_table_t{};
 } g;
+
+// v0.3 hook call counters (the hooks themselves are defined with the bridge hook below).
+std::atomic<uint32_t> g_calls_aid{0}, g_calls_ikl{0};
 
 double now_s() {
     static LARGE_INTEGER f{}; static bool init = false;
@@ -440,19 +442,6 @@ void dump_type_surface(API::ManagedObject* o, const char* label) {
     if (lines >= 120) LOGW("%s     (surface dump capped at 120 lines)", TAG);
 }
 
-void dump_arm_status(const char* why) {
-    auto* arms = inv_ptr(g.ik, "get_ArmStatusList");
-    const auto n = arms != nullptr ? arr_count(arms) : 0u;
-    LOGI("%s   ArmStatusList (%s): %u entries", TAG, why, n);
-    for (uint32_t i = 0; arms != nullptr && i < n && i < 8; ++i) {
-        auto* st = arr_ptr_at(arms, i);
-        if (!is_managed(st)) { LOGW("%s   arm[%u] not managed", TAG, i); break; }
-        const auto ap = field_at<Vec3>(st, 0x30);
-        LOGI("%s     arm[%u] Index=%d AdjustMode=%d ActivateTime=%.3f ResetTime=%.3f AdjustedPoint=(%.3f %.3f %.3f)", TAG, i,
-             field_at<int32_t>(st, 0x10), field_at<int32_t>(st, 0x1c), field_at<float>(st, 0x14), field_at<float>(st, 0x18), ap.x, ap.y, ap.z);
-    }
-}
-
 void dump_ik() {
     auto* ik = g.ik;
     if (ik == nullptr) { LOGI("%s ik: none", TAG); return; }
@@ -551,6 +540,7 @@ void summary_line() {
         if (ik_has) o += snprintf(buf + o, sizeof buf - o, " ikL=(%.2f %.2f %.2f)", ikm.m[12], ikm.m[13], ikm.m[14]);
         else o += snprintf(buf + o, sizeof buf - o, " ikL=none");
     }
+    o += snprintf(buf + o, sizeof buf - o, " shift=%d hooks(aid=%u ikL=%u)", g.shift_mode, g_calls_aid.exchange(0), g_calls_ikl.exchange(0));
     if (bridge_live()) {
         const float* f = arr_f32(g.bridge);
         o += snprintf(buf + o, sizeof buf - o, " | vr f=%.0f hmd=%.0f ctl=%.0f", f[S_FRAME], f[S_HMD_ACTIVE], f[S_USING_CTL]);
@@ -599,29 +589,8 @@ void poll_hotkeys() {
     {
         const bool down = (GetAsyncKeyState(vks[5]) & 0x8000) != 0;
         if (down && !prev6) {
-            const int prev_mode = g.arm_mode;
-            g.arm_mode = (g.arm_mode + 1) % 3; g.arm_frames = 0;
-            LOGI("%s NUM6: ARM-kind mode -> %d (0 off, 1 arm 0, 2 arm 1)", TAG, g.arm_mode);
-            if (g.ik != nullptr) {
-                if (prev_mode == 0 && g.arm_mode != 0) {
-                    // Enable the ARM kind first — direct route (real ABI, the float lands where the callee reads it).
-                    const bool before = inv_bool_i(g.ik, "isEnabled", KIND_ARM);
-                    const bool sent = call_void_direct(g.ik, "setEnable", KIND_ARM, true, 0.2f);
-                    const bool after = inv_bool_i(g.ik, "isEnabled", KIND_ARM);
-                    LOGI("%s   setEnable(ARM, true, 0.2) direct: %s; isEnabled(ARM) %d -> %d", TAG, sent ? "sent" : "METHOD NOT FOUND", (int)before, (int)after);
-                    if (!after) {
-                        // Fallback: the invoke route with the float as its bit pattern in an 8-byte slot.
-                        auto r = inv(g.ik, "setEnable", {(void*)(uintptr_t)KIND_ARM, (void*)(uintptr_t)1, float_arg(0.2f)});
-                        LOGI("%s   setEnable(ARM, true, 0.2) invoke: %s; isEnabled(ARM) now %d", TAG, r.ok ? "ok" : "THREW/NOT FOUND", (int)inv_bool_i(g.ik, "isEnabled", KIND_ARM));
-                    }
-                    g.arm_pending_enable = 1;
-                    dump_arm_status("right after setEnable");
-                } else if (g.arm_mode == 0) {
-                    call_void_direct(g.ik, "setEnable", KIND_ARM, false, 0.2f);
-                    LOGI("%s   setEnable(ARM, false, 0.2) sent; isEnabled(ARM) now %d", TAG, (int)inv_bool_i(g.ik, "isEnabled", KIND_ARM));
-                    dump_arm_status("after disable");
-                }
-            }
+            g.shift_mode = (g.shift_mode + 1) % 4;
+            LOGI("%s NUM6: aid-target shift mode -> %d (bit1 AidTargetWorldMatrix, bit2 IKLeftArmMatrix; +0.10 m up)", TAG, g.shift_mode);
         }
         prev6 = down;
     }
@@ -688,35 +657,6 @@ void on_frame() {
         dump_weapon();
     }
     if (g.attack_pulse > 0 && --g.attack_pulse == 0) set_force(KIND_ATTACK, false);
-    // THE ARM-KIND EXPERIMENT (v0.2): ARM was enabled on the NUM6 edge; now push the arm target 10 cm above
-    // the aid joint every frame and watch whether l_weapon follows, over how many frames, and whether the
-    // enable even stuck (isEnabled(ARM) read back each logged frame).
-    if (g.arm_mode != 0 && g.ik != nullptr && g.aid_joint != nullptr) {
-        Vec3 aid{};
-        if (inv_vec3(g.aid_joint, "get_Position", aid)) {
-            alignas(16) float target[4] = {aid.x, aid.y + 0.10f, aid.z, 0.0f};
-            static API::Method* m = nullptr;
-            if (m == nullptr) {
-                m = find_method_deep(g.ik->get_type_definition(), "setArmTarget(System.Int32, via.vec3, System.Boolean)");
-                if (m == nullptr) m = find_method_deep(g.ik->get_type_definition(), "setArmTarget");
-                LOGI("%s setArmTarget %s (params=%u)", TAG, m ? "found" : "NOT FOUND", m ? m->get_num_params() : 0u);
-            }
-            if (m != nullptr) {
-                const int idx = g.arm_mode - 1;
-                auto r = m->invoke(g.ik, {(void*)(uintptr_t)idx, (void*)target, (void*)(uintptr_t)0});
-                Vec3 lh{}; const bool have_lh = g.l_hand != nullptr && inv_vec3(g.l_hand, "get_Position", lh);
-                const bool log_now = g.arm_frames < 40 || (g.arm_frames % 60) == 0;
-                if (log_now) {
-                    auto* arms = inv_ptr(g.ik, "get_ArmStatusList");
-                    LOGI("%s arm[%d] frame %d exc=%d isEnabled(ARM)=%d armStatus=%u |Lhand-aid|=%.3f |Lhand-target|=%.3f", TAG, idx, g.arm_frames,
-                         (int)r.exception_thrown, (int)inv_bool_i(g.ik, "isEnabled", KIND_ARM), arms != nullptr ? arr_count(arms) : 0u,
-                         have_lh ? dist(lh, aid) : -1.0f, have_lh ? dist(lh, Vec3{target[0], target[1], target[2]}) : -1.0f);
-                    if (g.arm_frames == 1 || g.arm_frames == 30) dump_arm_status(g.arm_frames == 1 ? "frame 1" : "frame 30");
-                }
-                g.arm_frames++;
-            }
-        }
-    }
     {
         static bool last_hold = false;
         const bool hold = inv_bool(g.cond, "get_IsHold");
@@ -761,6 +701,35 @@ int pre_mailbox(int argc, void** argv, REFrameworkTypeDefinitionHandle*, unsigne
     return ours ? REFRAMEWORK_HOOK_SKIP_ORIGINAL : REFRAMEWORK_HOOK_CALL_ORIGINAL;
 }
 
+// ---------------------------------------------------------------------------
+// v0.3: the aid-target override. Both getters return System.Nullable`1<via.mat4> through a hidden
+// return-buffer pointer, so at return RAX holds that pointer: *ret_val -> { u8 HasValue @0, mat4 @+0x10 }.
+// The post-hook edits the buffer before the caller reads it. Call counts tell whether the GAME reads
+// these getters at all (our own summary reads them ~1/s, the game would be ~60/s).
+// ---------------------------------------------------------------------------
+
+int pre_passthrough(int, void**, REFrameworkTypeDefinitionHandle*, unsigned long long) { return REFRAMEWORK_HOOK_CALL_ORIGINAL; }
+
+void shift_nullable_mat4(void** ret_val, int bit) {
+    if ((g.shift_mode & bit) == 0 || ret_val == nullptr) return;
+    auto* nb = (uint8_t*)*ret_val;
+    if (nb == nullptr || nb[0] == 0) return;
+    float* m = (float*)(nb + 0x10);
+    m[13] += 0.10f;
+}
+void post_aid_target(void** ret_val, REFrameworkTypeDefinitionHandle, unsigned long long) { g_calls_aid++; shift_nullable_mat4(ret_val, 1); }
+void post_ik_left_arm(void** ret_val, REFrameworkTypeDefinitionHandle, unsigned long long) { g_calls_ikl++; shift_nullable_mat4(ret_val, 2); }
+
+void install_shift_hooks() {
+    auto& api = API::get();
+    auto* a = api->tdb()->find_method("app.ropeway.implement.Implement", "get_AidTargetWorldMatrix");
+    auto* b = api->tdb()->find_method("app.ropeway.implement.Implement", "getIKLeftArmMatrix");
+    if (a != nullptr) { const auto id = a->add_hook(pre_passthrough, post_aid_target, false); LOGI("%s hook get_AidTargetWorldMatrix id=%u fn=%p", TAG, id, a->get_function_raw()); }
+    else LOGE("%s Implement.get_AidTargetWorldMatrix not found — no aid-target hook", TAG);
+    if (b != nullptr) { const auto id = b->add_hook(pre_passthrough, post_ik_left_arm, false); LOGI("%s hook getIKLeftArmMatrix id=%u fn=%p", TAG, id, b->get_function_raw()); }
+    else LOGE("%s Implement.getIKLeftArmMatrix not found — no IK-left-arm hook", TAG);
+}
+
 void install_bridge_hook() {
     auto& api = API::get();
     auto* m = api->tdb()->find_method("app.ropeway.RagdollControlZoneManager", "set_AccessMutex");
@@ -771,6 +740,7 @@ void install_bridge_hook() {
 
 void on_initialized() {
     install_bridge_hook();
+    install_shift_hooks();
 }
 
 } // namespace
@@ -791,7 +761,7 @@ extern "C" __declspec(dllexport) bool reframework_plugin_initialize(const REFram
         fns->log_error("%s C++ SDK wrapper init failed — probe disabled", TAG);
         return true;
     }
-    fns->log_info("%s native core v0.2 loaded — reqs-1-and-3 recon probe. NUM7 dump (+IkTwoArm/IkHand surface) / NUM8 trace / NUM9 layers / NUM4 force-HOLD toggle / NUM5 ATTACK pulse / NUM6 ARM-kind enable+target", TAG);
+    fns->log_info("%s native core v0.3 loaded — reqs-1-and-3 recon probe. NUM7 dump / NUM8 trace / NUM9 layers / NUM4 force-HOLD toggle / NUM5 ATTACK pulse / NUM6 aid-target shift (hooked getters, +10 cm)", TAG);
     // Hooks need the TDB up; register them from the game thread on the first frame.
     static std::atomic<bool> hooked{false};
     fns->on_pre_application_entry("LockScene", []() {
