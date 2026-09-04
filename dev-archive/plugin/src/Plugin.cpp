@@ -140,6 +140,19 @@ T call_direct(API::ManagedObject* o, std::string_view name, T fallback, Args... 
 }
 bool inv_bool(API::ManagedObject* o, std::string_view name) { return call_direct<bool>(o, name, false); }
 bool inv_bool_i(API::ManagedObject* o, std::string_view name, int arg) { return call_direct<bool>(o, name, false, arg); }
+// Direct-route call with no return: the real function pointer, real C ABI, so a float
+// argument lands where the callee reads it. Returns false only if the method is missing.
+template <typename... Args>
+bool call_void_direct(API::ManagedObject* o, std::string_view name, Args... args) {
+    if (o == nullptr) return false;
+    auto* m = find_method_deep(o->get_type_definition(), name);
+    if (m == nullptr) return false;
+    m->call<void>(API::get()->get_vm_context(), (void*)o, args...);
+    return true;
+}
+// The invoke path marshals every argument in an 8-byte slot ("each arg is always 8 bytes" — API.h);
+// a float goes in as its bit pattern in the low 32 bits.
+void* float_arg(float f) { uint64_t v = 0; memcpy(&v, &f, sizeof f); return (void*)(uintptr_t)v; }
 uint32_t inv_u32(API::ManagedObject* o, std::string_view name) { return call_direct<uint32_t>(o, name, 0xFFFFFFFFu); }
 float inv_f32(API::ManagedObject* o, std::string_view name) { return call_direct<float>(o, name, NAN); }
 bool inv_vec3(API::ManagedObject* o, std::string_view name, Vec3& v) {
@@ -262,8 +275,13 @@ struct State {
     bool want_layers{false};
     bool force_hold{false};          // NUM4: InputSystem.setForce(HOLD, true) — the latch proven in Lua on 2026-08-27, now native
     int attack_pulse{0};             // NUM5: setForce(ATTACK, true) for one frame, then false
-    int fit_mode{0};                 // NUM6 cycles 0 off -> 1 wrist 0 -> 2 wrist 1 -> 0: IkController.setArmFitTarget(idx, aid+0.10 up, false) every frame
-    int fit_frames{0};               // frames since the mode changed (per-frame distance log for the first 40)
+    // NUM6 (v0.2, 2026-09-05): the ARM-kind experiment. setArmFitTarget was disproved on 2026-09-04
+    // (IkArmFit is the wall-touch solver). Cycle 0 off -> 1 arm 0 -> 2 arm 1 -> 0. On entering a
+    // mode: IkController.setEnable(ARM=3, true, 0.2f) FIRST, then setArmTarget(idx, aid+0.10 up, false)
+    // every frame, with isEnabled(ARM) and the ArmStatusList logged so we see whether the enable sticks.
+    int arm_mode{0};
+    int arm_frames{0};
+    int arm_pending_enable{0};       // 1 = setEnable just sent, read back next frame
     std::vector<std::string> layer_last;   // last highest-weight motion name per layer
     uint64_t layer_lines_this_second{};
     uint64_t layer_second{};
@@ -387,10 +405,61 @@ void dump_weapon() {
     LOGI("%s ---- end weapon dump ----", TAG);
 }
 
+// Every method and field of an object's type (parent chain included) whose name contains one of the
+// hunt words. For the two unread IK objects — what places the support hand may be in here.
+void dump_type_surface(API::ManagedObject* o, const char* label) {
+    if (o == nullptr) { LOGI("%s   %s: null", TAG, label); return; }
+    static const char* words[] = {"target", "weight", "enable", "joint"};
+    LOGI("%s   %s: %s", TAG, label, tname(o).c_str());
+    int lines = 0;
+    for (auto* td = o->get_type_definition(); td != nullptr && lines < 120; td = td->get_parent_type()) {
+        const auto tn = td->get_full_name();
+        if (tn == "System.Object" || tn == "via.Component" || tn == "via.Base") break;
+        for (auto* m : td->get_methods()) {
+            const auto ln = lower(m->get_name());
+            bool hit = false; for (auto* w : words) hit = hit || ln.find(w) != std::string::npos;
+            if (!hit) continue;
+            auto* rt = m->get_return_type();
+            std::string ps;
+            for (const auto& p : m->get_params()) {
+                auto* pt = (API::TypeDefinition*)p.t;
+                ps += (ps.empty() ? "" : ", ") + std::string(pt != nullptr ? pt->get_full_name() : "?") + " " + (p.name != nullptr ? p.name : "");
+            }
+            LOGI("%s     %s :: %s %s(%s)", TAG, tn.c_str(), rt != nullptr ? rt->get_full_name().c_str() : "void", m->get_name(), ps.c_str());
+            if (++lines >= 120) break;
+        }
+        for (auto* f : td->get_fields()) {
+            const auto ln = lower(f->get_name());
+            bool hit = false; for (auto* w : words) hit = hit || ln.find(w) != std::string::npos;
+            if (!hit) continue;
+            auto* ft = f->get_type();
+            LOGI("%s     %s :: field %s %s @+0x%x%s", TAG, tn.c_str(), ft != nullptr ? ft->get_full_name().c_str() : "?", f->get_name(), f->get_offset_from_base(), f->is_static() ? " (static)" : "");
+            if (++lines >= 120) break;
+        }
+    }
+    if (lines >= 120) LOGW("%s     (surface dump capped at 120 lines)", TAG);
+}
+
+void dump_arm_status(const char* why) {
+    auto* arms = inv_ptr(g.ik, "get_ArmStatusList");
+    const auto n = arms != nullptr ? arr_count(arms) : 0u;
+    LOGI("%s   ArmStatusList (%s): %u entries", TAG, why, n);
+    for (uint32_t i = 0; arms != nullptr && i < n && i < 8; ++i) {
+        auto* st = arr_ptr_at(arms, i);
+        if (!is_managed(st)) { LOGW("%s   arm[%u] not managed", TAG, i); break; }
+        const auto ap = field_at<Vec3>(st, 0x30);
+        LOGI("%s     arm[%u] Index=%d AdjustMode=%d ActivateTime=%.3f ResetTime=%.3f AdjustedPoint=(%.3f %.3f %.3f)", TAG, i,
+             field_at<int32_t>(st, 0x10), field_at<int32_t>(st, 0x1c), field_at<float>(st, 0x14), field_at<float>(st, 0x18), ap.x, ap.y, ap.z);
+    }
+}
+
 void dump_ik() {
     auto* ik = g.ik;
     if (ik == nullptr) { LOGI("%s ik: none", TAG); return; }
     LOGI("%s ---- IK DUMP: %s ----", TAG, tname(ik).c_str());
+    // The two unread candidates for what places the support hand (board, 2026-09-04 22:30).
+    dump_type_surface(inv_ptr(ik, "getIkTwoArm"), "getIkTwoArm()");
+    dump_type_surface(inv_ptr(ik, "getIkHand"), "getIkHand()");
     LOGI("%s   UseIkArm=%d UseIkWrist=%d UseIkArmFitAsWrist=%d WristKind=%u WristSolveMode=%u", TAG,
          (int)inv_bool(ik, "get_UseIkArm"), (int)inv_bool(ik, "get_UseIkWrist"), (int)inv_bool(ik, "get_UseIkArmFitAsWrist"),
          inv_u32(ik, "get_WristKind"), inv_u32(ik, "get_WristSolveMode"));
@@ -513,6 +582,8 @@ bool game_is_foreground() {
 // app.ropeway.InputDefine.Kind values learned by the Lua probes (2026-08-27): HOLD=64, ATTACK=256.
 constexpr int KIND_HOLD = 64;
 constexpr int KIND_ATTACK = 256;
+// via.motion.IkKind as the IkController indexes it (isEnabled(k) read 2026-09-04): LEG 0, SPINE 1, LOOKAT 2, ARM 3, ARMFIT 4, HAND 5.
+constexpr int KIND_ARM = 3;
 void set_force(int kind, bool on) {
     auto* is = API::get()->get_managed_singleton("app.ropeway.InputSystem");
     if (is == nullptr) { LOGW("%s InputSystem singleton missing", TAG); return; }
@@ -527,7 +598,31 @@ void poll_hotkeys() {
     if (!game_is_foreground()) return;
     {
         const bool down = (GetAsyncKeyState(vks[5]) & 0x8000) != 0;
-        if (down && !prev6) { g.fit_mode = (g.fit_mode + 1) % 3; g.fit_frames = 0; LOGI("%s NUM6: arm-fit write mode -> %d (0 off, 1 wrist 0, 2 wrist 1)", TAG, g.fit_mode); }
+        if (down && !prev6) {
+            const int prev_mode = g.arm_mode;
+            g.arm_mode = (g.arm_mode + 1) % 3; g.arm_frames = 0;
+            LOGI("%s NUM6: ARM-kind mode -> %d (0 off, 1 arm 0, 2 arm 1)", TAG, g.arm_mode);
+            if (g.ik != nullptr) {
+                if (prev_mode == 0 && g.arm_mode != 0) {
+                    // Enable the ARM kind first — direct route (real ABI, the float lands where the callee reads it).
+                    const bool before = inv_bool_i(g.ik, "isEnabled", KIND_ARM);
+                    const bool sent = call_void_direct(g.ik, "setEnable", KIND_ARM, true, 0.2f);
+                    const bool after = inv_bool_i(g.ik, "isEnabled", KIND_ARM);
+                    LOGI("%s   setEnable(ARM, true, 0.2) direct: %s; isEnabled(ARM) %d -> %d", TAG, sent ? "sent" : "METHOD NOT FOUND", (int)before, (int)after);
+                    if (!after) {
+                        // Fallback: the invoke route with the float as its bit pattern in an 8-byte slot.
+                        auto r = inv(g.ik, "setEnable", {(void*)(uintptr_t)KIND_ARM, (void*)(uintptr_t)1, float_arg(0.2f)});
+                        LOGI("%s   setEnable(ARM, true, 0.2) invoke: %s; isEnabled(ARM) now %d", TAG, r.ok ? "ok" : "THREW/NOT FOUND", (int)inv_bool_i(g.ik, "isEnabled", KIND_ARM));
+                    }
+                    g.arm_pending_enable = 1;
+                    dump_arm_status("right after setEnable");
+                } else if (g.arm_mode == 0) {
+                    call_void_direct(g.ik, "setEnable", KIND_ARM, false, 0.2f);
+                    LOGI("%s   setEnable(ARM, false, 0.2) sent; isEnabled(ARM) now %d", TAG, (int)inv_bool_i(g.ik, "isEnabled", KIND_ARM));
+                    dump_arm_status("after disable");
+                }
+            }
+        }
         prev6 = down;
     }
     for (int i = 0; i < 5; ++i) {
@@ -537,7 +632,8 @@ void poll_hotkeys() {
             if (i == 1) { g.trace = !g.trace; LOGI("%s NUM8: trace %s", TAG, g.trace ? "ON (10 Hz)" : "OFF (1 Hz)"); }
             if (i == 2) { g.want_layers = true; LOGI("%s NUM9: layer table requested", TAG); }
             if (i == 3) { g.force_hold = !g.force_hold; LOGI("%s NUM4: force HOLD %s", TAG, g.force_hold ? "ON" : "OFF"); set_force(KIND_HOLD, g.force_hold); }
-            if (i == 4) { g.attack_pulse = 2; LOGI("%s NUM5: ATTACK pulse", TAG); set_force(KIND_ATTACK, true); }
+            // 8 frames (~130 ms): a real trigger press, long enough for the aim FSM to see it on a frame where HOLD is up.
+            if (i == 4) { g.attack_pulse = 8; LOGI("%s NUM5: ATTACK pulse (8 frames)", TAG); set_force(KIND_ATTACK, true); }
         }
         prev[i] = down;
     }
@@ -592,26 +688,32 @@ void on_frame() {
         dump_weapon();
     }
     if (g.attack_pulse > 0 && --g.attack_pulse == 0) set_force(KIND_ATTACK, false);
-    // THE FIRST WRITE INTO THE IK (2026-09-04 late): push the ArmFit target 10 cm above the aid joint
-    // and watch whether l_weapon follows, and over how many frames. ARMFIT is the kind the game keeps
-    // enabled on both weapons tried; ARM is off, so setArmTarget is not expected to do anything here.
-    if (g.fit_mode != 0 && g.ik != nullptr && g.aid_joint != nullptr) {
+    // THE ARM-KIND EXPERIMENT (v0.2): ARM was enabled on the NUM6 edge; now push the arm target 10 cm above
+    // the aid joint every frame and watch whether l_weapon follows, over how many frames, and whether the
+    // enable even stuck (isEnabled(ARM) read back each logged frame).
+    if (g.arm_mode != 0 && g.ik != nullptr && g.aid_joint != nullptr) {
         Vec3 aid{};
         if (inv_vec3(g.aid_joint, "get_Position", aid)) {
             alignas(16) float target[4] = {aid.x, aid.y + 0.10f, aid.z, 0.0f};
             static API::Method* m = nullptr;
             if (m == nullptr) {
-                m = find_method_deep(g.ik->get_type_definition(), "setArmFitTarget(System.Int32, via.vec3, System.Boolean)");
-                LOGI("%s setArmFitTarget(int, vec3, bool) %s (params=%u)", TAG, m ? "found" : "NOT FOUND", m ? m->get_num_params() : 0u);
+                m = find_method_deep(g.ik->get_type_definition(), "setArmTarget(System.Int32, via.vec3, System.Boolean)");
+                if (m == nullptr) m = find_method_deep(g.ik->get_type_definition(), "setArmTarget");
+                LOGI("%s setArmTarget %s (params=%u)", TAG, m ? "found" : "NOT FOUND", m ? m->get_num_params() : 0u);
             }
             if (m != nullptr) {
-                const int idx = g.fit_mode - 1;
+                const int idx = g.arm_mode - 1;
                 auto r = m->invoke(g.ik, {(void*)(uintptr_t)idx, (void*)target, (void*)(uintptr_t)0});
                 Vec3 lh{}; const bool have_lh = g.l_hand != nullptr && inv_vec3(g.l_hand, "get_Position", lh);
-                if (g.fit_frames < 40 || (g.fit_frames % 60) == 0)
-                    LOGI("%s fit[%d] frame %d exc=%d |Lhand-aid|=%.3f |Lhand-target|=%.3f", TAG, idx, g.fit_frames, (int)r.exception_thrown,
+                const bool log_now = g.arm_frames < 40 || (g.arm_frames % 60) == 0;
+                if (log_now) {
+                    auto* arms = inv_ptr(g.ik, "get_ArmStatusList");
+                    LOGI("%s arm[%d] frame %d exc=%d isEnabled(ARM)=%d armStatus=%u |Lhand-aid|=%.3f |Lhand-target|=%.3f", TAG, idx, g.arm_frames,
+                         (int)r.exception_thrown, (int)inv_bool_i(g.ik, "isEnabled", KIND_ARM), arms != nullptr ? arr_count(arms) : 0u,
                          have_lh ? dist(lh, aid) : -1.0f, have_lh ? dist(lh, Vec3{target[0], target[1], target[2]}) : -1.0f);
-                g.fit_frames++;
+                    if (g.arm_frames == 1 || g.arm_frames == 30) dump_arm_status(g.arm_frames == 1 ? "frame 1" : "frame 30");
+                }
+                g.arm_frames++;
             }
         }
     }
@@ -689,7 +791,7 @@ extern "C" __declspec(dllexport) bool reframework_plugin_initialize(const REFram
         fns->log_error("%s C++ SDK wrapper init failed — probe disabled", TAG);
         return true;
     }
-    fns->log_info("%s native core v0.1 loaded — reqs-1-and-3 recon probe. NUM7 dump / NUM8 trace / NUM9 layers / NUM4 force-HOLD toggle / NUM5 ATTACK pulse / NUM6 arm-fit write", TAG);
+    fns->log_info("%s native core v0.2 loaded — reqs-1-and-3 recon probe. NUM7 dump (+IkTwoArm/IkHand surface) / NUM8 trace / NUM9 layers / NUM4 force-HOLD toggle / NUM5 ATTACK pulse / NUM6 ARM-kind enable+target", TAG);
     // Hooks need the TDB up; register them from the game thread on the first frame.
     static std::atomic<bool> hooked{false};
     fns->on_pre_application_entry("LockScene", []() {
