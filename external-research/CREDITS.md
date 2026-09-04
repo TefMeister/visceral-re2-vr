@@ -21,6 +21,7 @@ ourselves, plus third-party components whose licenses permit redistribution
 | Source / Work | Creator(s) | Link |
 |---|---|---|
 | REFramework (mod framework, VR support for RE2, FirstPerson mode, Lua API) | praydog | https://github.com/praydog/REFramework |
+| REFramework PR #1809 — restored `on_pre_gui_draw_element`'s `false` return after the 2026-08-19→28 silent regression (PR #1503) | ErwinGunsmith, and praydog as maintainer | https://github.com/praydog/REFramework/pull/1809 |
 | REFramework Book (Lua API documentation) | cursey | https://cursey.github.io/reframework-book/ |
 | RE2VRMODRELOADED (VR interaction layer, prior art this project is measured against) | Andyalpa | https://www.nexusmods.com/residentevil22019/users/Andyalpa |
 | RE Engine temporal upscaler plugin (PDPerfPlugin.dll / UpscalerBasePlugin) | PureDark | https://www.nexusmods.com/residentevil22019/mods/2069 |
