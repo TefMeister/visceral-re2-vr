@@ -1,0 +1,197 @@
+[2026-09-04 22:19:10.165] [info] REFramework entry
+[2026-09-04 22:19:12.353] [info] [Plugin] [visceral] native core v0.1 loaded — reqs-1-and-3 recon probe. NUM7 dump / NUM8 trace / NUM9 layers / NUM4 force-HOLD toggle / NUM5 ATTACK pulse / NUM6 arm-fit write
+[2026-09-04 22:19:12.363] [info] [visceral-bridge] array ready (2113381224832)
+[2026-09-04 22:19:12.363] [info] [visceral-bridge] hand-over #1 at frame 1 (mailbox call)
+[2026-09-04 22:19:12.366] [info] [Plugin] [visceral] bridge mailbox hook installed on RagdollControlZoneManager.set_AccessMutex (id=8, fn=00007FF7BD175B40) — check the HookManager lines above for 'Failed to hook'
+[2026-09-04 22:19:12.706] [info] [visceral-bridge] hand-over #2 at frame 182 (mailbox call)
+[2026-09-04 22:19:12.706] [info] [Plugin] [visceral] array layout probe: get_size=288 dwords@0x10..0x2c = c4607d60 00007ff7 00000001 00000040 43350000 00000000 00000000 00000000
+[2026-09-04 22:19:12.706] [info] [Plugin] [visceral] ARRAY LAYOUT MEASURED: elements @+0x20, count @+0x1c (sentinel found at +0x11c, get_size=288)
+[2026-09-04 22:19:12.706] [info] [Plugin] [visceral] VR BRIDGE ATTACHED (argv[1] of 5, array 000001EC0F565180) — Lua shim poses are live
+[2026-09-04 22:19:12.708] [info] [visceral-bridge] plugin acknowledged the bridge at frame 183
+[2026-09-04 22:19:49.986] [info] [Plugin] [visceral] PLAYER BOUND: go=000001EC0E8C6D30 (pl1000) cond=000001EC0E1F8B20 (app.ropeway.survivor.player.PlayerCondition) equipment=000001EC0E1F7800 ik=000001EC0E8C0C30 transform=000001EC0E8C6D80 motion=000001EC0E8CBE80
+[2026-09-04 22:19:49.986] [info] [Plugin] [visceral] player skeleton (hand/arm/weapon names only): 190 joints (array type via.Joint[])
+[2026-09-04 22:19:49.986] [info] [Plugin] [visceral]   joint[16] l_arm_clavicle               pos=(-19.673 -10.123 20.514)
+[2026-09-04 22:19:49.986] [info] [Plugin] [visceral]   joint[17] l_arm_humerus                pos=(-19.675 -10.141 20.389)
+[2026-09-04 22:19:49.986] [info] [Plugin] [visceral]   joint[18] l_arm_radius                 pos=(-19.738 -10.400 20.310)
+[2026-09-04 22:19:49.986] [info] [Plugin] [visceral]   joint[19] l_arm_wrist                  pos=(-19.698 -10.617 20.292)
+[2026-09-04 22:19:49.986] [info] [Plugin] [visceral]   joint[20] l_weapon                     pos=(-19.690 -10.701 20.304)
+[2026-09-04 22:19:49.986] [info] [Plugin] [visceral]   joint[21] l_hand_thumb_0               pos=(-19.682 -10.640 20.309)
+[2026-09-04 22:19:49.986] [info] [Plugin] [visceral]   joint[22] l_hand_thumb_1               pos=(-19.659 -10.675 20.336)
+[2026-09-04 22:19:49.986] [info] [Plugin] [visceral]   joint[23] l_hand_thumb_2               pos=(-19.654 -10.695 20.344)
+[2026-09-04 22:19:49.986] [info] [Plugin] [visceral]   joint[24] l_hand_index_0               pos=(-19.650 -10.691 20.299)
+[2026-09-04 22:19:49.986] [info] [Plugin] [visceral]   joint[25] l_hand_index_1               pos=(-19.643 -10.732 20.306)
+[2026-09-04 22:19:49.986] [info] [Plugin] [visceral]   joint[26] l_hand_index_2               pos=(-19.653 -10.748 20.318)
+[2026-09-04 22:19:49.986] [info] [Plugin] [visceral]   joint[27] l_hand_middle_0              pos=(-19.664 -10.697 20.284)
+[2026-09-04 22:19:49.986] [info] [Plugin] [visceral]   joint[28] l_hand_middle_1              pos=(-19.655 -10.738 20.293)
+[2026-09-04 22:19:49.986] [info] [Plugin] [visceral]   joint[29] l_hand_middle_2              pos=(-19.666 -10.753 20.314)
+[2026-09-04 22:19:49.986] [info] [Plugin] [visceral]   joint[30] l_hand_ring_0                pos=(-19.692 -10.653 20.284)
+[2026-09-04 22:19:49.986] [info] [Plugin] [visceral]   joint[31] l_hand_ring_1                pos=(-19.678 -10.697 20.278)
+[2026-09-04 22:19:49.986] [info] [Plugin] [visceral]   joint[32] l_hand_ring_2                pos=(-19.670 -10.734 20.284)
+[2026-09-04 22:19:49.986] [info] [Plugin] [visceral]   joint[33] l_hand_ring_3                pos=(-19.679 -10.746 20.306)
+[2026-09-04 22:19:49.986] [info] [Plugin] [visceral]   joint[34] l_hand_little_0              pos=(-19.703 -10.653 20.282)
+[2026-09-04 22:19:49.986] [info] [Plugin] [visceral]   joint[35] l_hand_little_1              pos=(-19.698 -10.694 20.273)
+[2026-09-04 22:19:49.986] [info] [Plugin] [visceral]   joint[36] l_hand_little_2              pos=(-19.688 -10.722 20.277)
+[2026-09-04 22:19:49.986] [info] [Plugin] [visceral]   joint[37] l_hand_little_3              pos=(-19.692 -10.732 20.294)
+[2026-09-04 22:19:49.986] [info] [Plugin] [visceral]   joint[39] r_arm_clavicle               pos=(-19.688 -10.123 20.555)
+[2026-09-04 22:19:49.986] [info] [Plugin] [visceral]   joint[40] r_arm_humerus                pos=(-19.760 -10.144 20.657)
+[2026-09-04 22:19:49.986] [info] [Plugin] [visceral]   joint[41] r_arm_radius                 pos=(-19.835 -10.409 20.698)
+[2026-09-04 22:19:49.986] [info] [Plugin] [visceral]   joint[42] r_arm_wrist                  pos=(-19.758 -10.615 20.716)
+[2026-09-04 22:19:49.986] [info] [Plugin] [visceral]   joint[43] r_weapon                     pos=(-19.770 -10.695 20.689)
+[2026-09-04 22:19:49.986] [info] [Plugin] [visceral]   joint[44] r_hand_thumb_0               pos=(-19.743 -10.642 20.705)
+[2026-09-04 22:19:49.986] [info] [Plugin] [visceral]   joint[45] r_hand_thumb_1               pos=(-19.734 -10.681 20.676)
+[2026-09-04 22:19:49.986] [info] [Plugin] [visceral]   joint[46] r_hand_thumb_2               pos=(-19.736 -10.702 20.668)
+[2026-09-04 22:19:49.986] [info] [Plugin] [visceral]   joint[47] r_hand_index_0               pos=(-19.740 -10.702 20.717)
+[2026-09-04 22:19:49.986] [info] [Plugin] [visceral]   joint[48] r_hand_index_1               pos=(-19.749 -10.729 20.686)
+[2026-09-04 22:19:49.986] [info] [Plugin] [visceral]   joint[49] r_hand_index_2               pos=(-19.751 -10.714 20.670)
+[2026-09-04 22:19:49.986] [info] [Plugin] [visceral]   joint[50] r_hand_middle_0              pos=(-19.761 -10.702 20.721)
+[2026-09-04 22:19:49.986] [info] [Plugin] [visceral]   joint[51] r_hand_middle_1              pos=(-19.769 -10.723 20.684)
+[2026-09-04 22:19:49.986] [info] [Plugin] [visceral]   joint[52] r_hand_middle_2              pos=(-19.764 -10.701 20.668)
+[2026-09-04 22:19:49.986] [info] [Plugin] [visceral]   joint[53] r_hand_ring_0                pos=(-19.769 -10.650 20.717)
+[2026-09-04 22:19:49.986] [info] [Plugin] [visceral]   joint[54] r_hand_ring_1                pos=(-19.777 -10.697 20.718)
+[2026-09-04 22:19:49.986] [info] [Plugin] [visceral]   joint[55] r_hand_ring_2                pos=(-19.782 -10.714 20.684)
+[2026-09-04 22:19:49.986] [info] [Plugin] [visceral]   joint[56] r_hand_ring_3                pos=(-19.779 -10.693 20.669)
+[2026-09-04 22:19:49.986] [info] [Plugin] [visceral]   joint[57] r_hand_little_0              pos=(-19.778 -10.646 20.713)
+[2026-09-04 22:19:49.986] [info] [Plugin] [visceral]   joint[58] r_hand_little_1              pos=(-19.794 -10.686 20.712)
+[2026-09-04 22:19:49.986] [info] [Plugin] [visceral]   joint[59] r_hand_little_2              pos=(-19.795 -10.706 20.690)
+[2026-09-04 22:19:49.986] [info] [Plugin] [visceral]   joint[60] r_hand_little_3              pos=(-19.792 -10.692 20.677)
+[2026-09-04 22:19:49.986] [info] [Plugin] [visceral]   l_hand=l_arm_wrist r_hand=r_arm_wrist
+[2026-09-04 22:19:49.986] [info] [Plugin] [visceral] ---- IK DUMP: app.ropeway.IkController ----
+[2026-09-04 22:19:49.986] [info] [Plugin] [visceral]   UseIkArm=0 UseIkWrist=1 UseIkArmFitAsWrist=1 WristKind=0 WristSolveMode=0
+[2026-09-04 22:19:49.986] [info] [Plugin] [visceral]   isEnabled(LEG)=1
+[2026-09-04 22:19:49.986] [info] [Plugin] [visceral]   isEnabled(SPINE)=0
+[2026-09-04 22:19:49.986] [info] [Plugin] [visceral]   isEnabled(LOOKAT)=0
+[2026-09-04 22:19:49.986] [info] [Plugin] [visceral]   isEnabled(ARM)=0
+[2026-09-04 22:19:49.986] [info] [Plugin] [visceral]   isEnabled(ARMFIT)=1
+[2026-09-04 22:19:49.986] [info] [Plugin] [visceral]   isEnabled(HAND)=0
+[2026-09-04 22:19:49.986] [info] [Plugin] [visceral]   ArmStatusList: 0 entries; ControlStatus: 6 entries
+[2026-09-04 22:19:49.986] [info] [Plugin] [visceral] ---- end IK dump ----
+[2026-09-04 22:19:49.986] [info] [Plugin] [visceral]   layer[0] CHG motion=pl10_0160_KFF_Gazing_Idle_F_Loop     speed=1.000 blend=1.00 bank=1 id=160 frame=0/3039
+[2026-09-04 22:19:49.986] [info] [Plugin] [visceral]   layer[1] CHG motion=dummy                                speed=1.000 blend=1.00 bank=1 id=2000 frame=0/2
+[2026-09-04 22:19:49.986] [info] [Plugin] [visceral]   layer[2] CHG motion=pl10_02_FIN_BH01                     speed=1.000 blend=1.00 bank=10000 id=2 frame=0/30
+[2026-09-04 22:19:49.986] [info] [Plugin] [visceral]   layer[3] CHG motion=-                                    speed=1.000 blend=1.00 bank=0 id=4294967295 frame=0/0
+[2026-09-04 22:19:49.986] [info] [Plugin] [visceral]   layer[4] CHG motion=-                                    speed=1.000 blend=1.00 bank=0 id=4294967295 frame=0/0
+[2026-09-04 22:19:49.986] [info] [Plugin] [visceral]   layer[5] CHG motion=-                                    speed=1.000 blend=1.00 bank=0 id=4294967295 frame=0/0
+[2026-09-04 22:19:50.033] [info] [Plugin] [visceral] WEAPON CHANGED -> app.ropeway.implement.Gun (go=wp8700)
+[2026-09-04 22:19:50.033] [info] [Plugin] [visceral] ---- WEAPON DUMP: app.ropeway.implement.Gun ----
+[2026-09-04 22:19:50.033] [info] [Plugin] [visceral]   WeaponType=252  MuzzleJointName=vfx_muzzle1  AidJointType=2 (0 None,1 ExtraNarrow,2 Narrow,3 Wide)
+[2026-09-04 22:19:50.033] [info] [Plugin] [visceral]   IsEquiped=0  EnabledHoldMainWeapon=1  ParentIkController=0000000000000000 (cond IkController=000001EC0E8C0C30)
+[2026-09-04 22:19:50.033] [info] [Plugin] [visceral]   AidJoint=null
+[2026-09-04 22:19:50.033] [info] [Plugin] [visceral]   LEFT_ARM_JOINT_NARROW=0xcf4d4c03 -> weapon:_101 player:(not on this skeleton)
+[2026-09-04 22:19:50.033] [info] [Plugin] [visceral]   LEFT_ARM_JOINT_WIDE  =0x29429d17 -> weapon:_100 player:(not on this skeleton)
+[2026-09-04 22:19:50.033] [info] [Plugin] [visceral]   AimJoint (app.ropeway.implement.VirtualJoint) pos=(-19.735 -11.499 20.514)
+[2026-09-04 22:19:50.033] [info] [Plugin] [visceral]   AimJointWorldMatrix t=(-19.735 -11.499 20.514)
+[2026-09-04 22:19:50.033] [info] [Plugin] [visceral]   MuzzleJoint (app.ropeway.ExtraJoint) pos=(-19.735 -11.499 20.514)
+[2026-09-04 22:19:50.033] [info] [Plugin] [visceral]   MuzzleJointWorldMatrix t=(-19.735 -11.499 20.514)
+[2026-09-04 22:19:50.033] [info] [Plugin] [visceral]   IKLeftArmMatrix: (no value)
+[2026-09-04 22:19:50.034] [info] [Plugin] [visceral]   AidTargetWorldMatrix: (no value)
+[2026-09-04 22:19:50.034] [info] [Plugin] [visceral] weapon skeleton: 21 joints (array type via.Joint[])
+[2026-09-04 22:19:50.034] [info] [Plugin] [visceral]   joint[0] root                         pos=(-19.735 -11.499 20.514)
+[2026-09-04 22:19:50.034] [info] [Plugin] [visceral]   joint[1] _00                          pos=(-19.735 -11.499 20.514)
+[2026-09-04 22:19:50.034] [info] [Plugin] [visceral]   joint[2] _01                          pos=(-19.213 -11.574 20.708)
+[2026-09-04 22:19:50.034] [info] [Plugin] [visceral]   joint[3] _03                          pos=(-19.693 -11.438 20.530)
+[2026-09-04 22:19:50.034] [info] [Plugin] [visceral]   joint[4] vfx_muzzle1                  pos=(-18.896 -11.573 20.823)
+[2026-09-04 22:19:50.034] [info] [Plugin] [visceral]   joint[5] vfx_muzzle2                  pos=(-19.509 -11.630 20.613)
+[2026-09-04 22:19:50.034] [info] [Plugin] [visceral]   joint[6] _100                         pos=(-19.575 -11.711 20.556)
+[2026-09-04 22:19:50.034] [info] [Plugin] [visceral]   joint[7] _101                         pos=(-19.579 -11.711 20.554)
+[2026-09-04 22:19:50.034] [info] [Plugin] [visceral]   joint[8] _20                          pos=(-19.619 -11.623 20.640)
+[2026-09-04 22:19:50.034] [info] [Plugin] [visceral]   joint[9] _21                          pos=(-19.625 -11.623 20.657)
+[2026-09-04 22:19:50.034] [info] [Plugin] [visceral]   joint[10] _22                          pos=(-19.631 -11.623 20.673)
+[2026-09-04 22:19:50.034] [info] [Plugin] [visceral]   joint[11] _23                          pos=(-19.638 -11.623 20.690)
+[2026-09-04 22:19:50.034] [info] [Plugin] [visceral]   joint[12] _24                          pos=(-19.644 -11.623 20.706)
+[2026-09-04 22:19:50.034] [info] [Plugin] [visceral]   joint[13] _25                          pos=(-19.650 -11.623 20.723)
+[2026-09-04 22:19:50.034] [info] [Plugin] [visceral]   joint[14] _26                          pos=(-19.656 -11.623 20.739)
+[2026-09-04 22:19:50.034] [info] [Plugin] [visceral]   joint[15] _27                          pos=(-19.662 -11.623 20.755)
+[2026-09-04 22:19:50.034] [info] [Plugin] [visceral]   joint[16] _28                          pos=(-19.668 -11.623 20.772)
+[2026-09-04 22:19:50.034] [info] [Plugin] [visceral]   joint[17] _29                          pos=(-19.674 -11.623 20.788)
+[2026-09-04 22:19:50.034] [info] [Plugin] [visceral]   joint[18] _30                          pos=(-19.680 -11.623 20.805)
+[2026-09-04 22:19:50.034] [info] [Plugin] [visceral]   joint[19] _10_chain00_00               pos=(-19.637 -11.643 20.759)
+[2026-09-04 22:19:50.034] [info] [Plugin] [visceral]   joint[20] _11_chain00_end              pos=(-19.663 -11.643 20.830)
+[2026-09-04 22:19:50.034] [info] [Plugin] [visceral] ---- end weapon dump ----
+[2026-09-04 22:19:51.051] [info] [Plugin] [visceral]   layer[1] CHG motion=pl10_2000_GFC_Arm                    speed=1.000 blend=1.00 bank=1 id=2000 frame=0/30
+[2026-09-04 22:19:51.051] [info] [Plugin] [visceral]   layer[2] CHG motion=pl10_02_FIN_GG_LGT                   speed=1.000 blend=1.00 bank=10000 id=2 frame=0/30
+[2026-09-04 22:19:51.991] [info] [Plugin] [visceral] AidJoint appeared: _101
+[2026-09-04 22:20:18.666] [info] [Plugin] [visceral]   layer[0] CHG motion=pl10_0197_KFF_GazingWalk_Back_B_Loop speed=1.000 blend=1.00 bank=1 id=196 frame=0/56
+[2026-09-04 22:20:19.602] [info] [Plugin] [visceral]   layer[0] CHG motion=pl10_0192_KFF_GazingWalk_End_LR      speed=1.000 blend=1.00 bank=1 id=192 frame=0/60
+[2026-09-04 22:20:19.999] [info] [Plugin] [visceral]   layer[0] CHG motion=pl10_0160_KFF_Gazing_Idle_F_Loop     speed=1.000 blend=1.00 bank=1 id=160 frame=0/3039
+[2026-09-04 22:20:20.988] [info] [Plugin] [visceral] NUM6: arm-fit write mode -> 1 (0 off, 1 wrist 0, 2 wrist 1)
+[2026-09-04 22:20:20.989] [info] [Plugin] [visceral] setArmFitTarget(int, vec3, bool) found (params=3)
+[2026-09-04 22:20:20.989] [info] [Plugin] [visceral] fit[0] frame 0 exc=0 |Lhand-aid|=0.000 |Lhand-target|=0.100
+[2026-09-04 22:20:21.157] [info] [Plugin] [visceral] fit[0] frame 60 exc=0 |Lhand-aid|=0.000 |Lhand-target|=0.100
+[2026-09-04 22:20:23.878] [info] [Plugin] [visceral] fit[0] frame 1020 exc=0 |Lhand-aid|=0.000 |Lhand-target|=0.100
+[2026-09-04 22:20:24.046] [info] [Plugin] [visceral] fit[0] frame 1080 exc=0 |Lhand-aid|=0.000 |Lhand-target|=0.100
+[2026-09-04 22:20:24.196] [info] [Plugin] [visceral] NUM6: arm-fit write mode -> 2 (0 off, 1 wrist 0, 2 wrist 1)
+[2026-09-04 22:20:24.196] [info] [Plugin] [visceral] fit[1] frame 0 exc=1 |Lhand-aid|=0.000 |Lhand-target|=0.100
+[2026-09-04 22:20:24.368] [info] [Plugin] [visceral] fit[1] frame 60 exc=1 |Lhand-aid|=0.000 |Lhand-target|=0.100
+[2026-09-04 22:20:27.329] [info] [Plugin] [visceral] fit[1] frame 1020 exc=1 |Lhand-aid|=0.000 |Lhand-target|=0.100
+[2026-09-04 22:20:27.396] [info] [Plugin] [visceral] NUM6: arm-fit write mode -> 0 (0 off, 1 wrist 0, 2 wrist 1)
+[2026-09-04 22:20:28.586] [info] [Plugin] [visceral] NUM4: force HOLD ON
+[2026-09-04 22:20:28.586] [info] [Plugin] [visceral] setForce(kind=64, true) ok
+[2026-09-04 22:20:28.589] [info] [Plugin] [visceral] IsHold -> 1 (force_hold=1)
+[2026-09-04 22:20:28.589] [info] [Plugin] [visceral] ---- WEAPON DUMP: app.ropeway.implement.Gun ----
+[2026-09-04 22:20:28.589] [info] [Plugin] [visceral]   WeaponType=252  MuzzleJointName=vfx_muzzle1  AidJointType=2 (0 None,1 ExtraNarrow,2 Narrow,3 Wide)
+[2026-09-04 22:20:28.589] [info] [Plugin] [visceral]   IsEquiped=1  EnabledHoldMainWeapon=1  ParentIkController=000001EC0E8C0C30 (cond IkController=000001EC0E8C0C30)
+[2026-09-04 22:20:28.589] [info] [Plugin] [visceral]   AidJoint=_101 pos=(-20.426 -10.352 19.820) owner_transform=000001EC0DE62A40 (weapon transform=000001EC0DE62A40, player transform=000001EC0E8C6D80)
+[2026-09-04 22:20:28.589] [info] [Plugin] [visceral]   LEFT_ARM_JOINT_NARROW=0xcf4d4c03 -> weapon:_101 player:(not on this skeleton)
+[2026-09-04 22:20:28.589] [info] [Plugin] [visceral]   LEFT_ARM_JOINT_WIDE  =0x29429d17 -> weapon:_100 player:(not on this skeleton)
+[2026-09-04 22:20:28.589] [info] [Plugin] [visceral]   AimJoint (app.ropeway.implement.VirtualJoint) pos=(-20.587 -10.385 20.125)
+[2026-09-04 22:20:28.589] [info] [Plugin] [visceral]   AimJointWorldMatrix t=(-20.587 -10.385 20.125)
+[2026-09-04 22:20:28.589] [info] [Plugin] [visceral]   MuzzleJoint (app.ropeway.ExtraJoint) pos=(-20.587 -10.385 20.125)
+[2026-09-04 22:20:28.589] [info] [Plugin] [visceral]   MuzzleJointWorldMatrix t=(-20.587 -10.385 20.125)
+[2026-09-04 22:20:28.589] [info] [Plugin] [visceral]   IKLeftArmMatrix: (no value)
+[2026-09-04 22:20:28.589] [info] [Plugin] [visceral]   AidTargetWorldMatrix: t=(-20.426 -10.352 19.820) r0=(0.97 -0.22 -0.02) r2=(0.21 0.88 0.42)
+[2026-09-04 22:20:28.589] [info] [Plugin] [visceral] weapon skeleton: 21 joints (array type via.Joint[])
+[2026-09-04 22:20:28.589] [info] [Plugin] [visceral]   joint[0] root                         pos=(-20.587 -10.385 20.125)
+[2026-09-04 22:20:28.589] [info] [Plugin] [visceral]   joint[1] _00                          pos=(-20.587 -10.385 20.125)
+[2026-09-04 22:20:28.589] [info] [Plugin] [visceral]   joint[2] _01                          pos=(-20.175 -10.470 19.753)
+[2026-09-04 22:20:28.589] [info] [Plugin] [visceral]   joint[3] _03                          pos=(-20.584 -10.341 20.064)
+[2026-09-04 22:20:28.589] [info] [Plugin] [visceral]   joint[4] vfx_muzzle1                  pos=(-19.946 -10.488 19.505)
+[2026-09-04 22:20:28.589] [info] [Plugin] [visceral]   joint[5] vfx_muzzle2                  pos=(-20.352 -10.489 20.013)
+[2026-09-04 22:20:28.589] [info] [Plugin] [visceral]   joint[6] _100                         pos=(-20.445 -10.348 19.821)
+[2026-09-04 22:20:28.589] [info] [Plugin] [visceral]   joint[7] _101                         pos=(-20.426 -10.352 19.820)
+[2026-09-04 22:20:28.589] [info] [Plugin] [visceral]   joint[8] _20                          pos=(-20.382 -10.437 20.110)
+[2026-09-04 22:20:28.589] [info] [Plugin] [visceral]   joint[9] _21                          pos=(-20.374 -10.425 20.120)
+[2026-09-04 22:20:28.589] [info] [Plugin] [visceral]   joint[10] _22                          pos=(-20.364 -10.413 20.128)
+[2026-09-04 22:20:28.589] [info] [Plugin] [visceral]   joint[11] _23                          pos=(-20.354 -10.400 20.134)
+[2026-09-04 22:20:28.589] [info] [Plugin] [visceral]   joint[12] _24                          pos=(-20.344 -10.388 20.141)
+[2026-09-04 22:20:28.589] [info] [Plugin] [visceral]   joint[13] _25                          pos=(-20.333 -10.381 20.153)
+[2026-09-04 22:20:28.589] [info] [Plugin] [visceral]   joint[14] _26                          pos=(-20.321 -10.383 20.166)
+[2026-09-04 22:20:28.589] [info] [Plugin] [visceral]   joint[15] _27                          pos=(-20.309 -10.389 20.177)
+[2026-09-04 22:20:28.589] [info] [Plugin] [visceral]   joint[16] _28                          pos=(-20.298 -10.397 20.188)
+[2026-09-04 22:20:28.589] [info] [Plugin] [visceral]   joint[17] _29                          pos=(-20.286 -10.406 20.198)
+[2026-09-04 22:20:28.589] [info] [Plugin] [visceral]   joint[18] _30                          pos=(-20.275 -10.415 20.207)
+[2026-09-04 22:20:28.589] [info] [Plugin] [visceral]   joint[19] _10_chain00_00               pos=(-20.288 -10.378 20.160)
+[2026-09-04 22:20:28.589] [info] [Plugin] [visceral]   joint[20] _11_chain00_end              pos=(-20.249 -10.336 20.194)
+[2026-09-04 22:20:28.589] [info] [Plugin] [visceral] ---- end weapon dump ----
+[2026-09-04 22:20:28.589] [info] [Plugin] [visceral] ---- IK DUMP: app.ropeway.IkController ----
+[2026-09-04 22:20:28.589] [info] [Plugin] [visceral]   UseIkArm=0 UseIkWrist=1 UseIkArmFitAsWrist=1 WristKind=0 WristSolveMode=0
+[2026-09-04 22:20:28.589] [info] [Plugin] [visceral]   isEnabled(LEG)=1
+[2026-09-04 22:20:28.589] [info] [Plugin] [visceral]   isEnabled(SPINE)=0
+[2026-09-04 22:20:28.589] [info] [Plugin] [visceral]   isEnabled(LOOKAT)=0
+[2026-09-04 22:20:28.589] [info] [Plugin] [visceral]   isEnabled(ARM)=0
+[2026-09-04 22:20:28.589] [info] [Plugin] [visceral]   isEnabled(ARMFIT)=1
+[2026-09-04 22:20:28.589] [info] [Plugin] [visceral]   isEnabled(HAND)=0
+[2026-09-04 22:20:28.589] [info] [Plugin] [visceral]   ArmStatusList: 0 entries; ControlStatus: 6 entries
+[2026-09-04 22:20:28.589] [info] [Plugin] [visceral] ---- end IK dump ----
+[2026-09-04 22:20:28.589] [info] [Plugin] [visceral]   layer[0] CHG motion=pl10_0140_GG_Hold_Start_L0           speed=1.000 blend=1.00 bank=2 id=140 frame=0/20
+[2026-09-04 22:20:28.589] [info] [Plugin] [visceral]   layer[1] CHG motion=dummy                                speed=1.000 blend=1.00 bank=2 id=2000 frame=0/2
+[2026-09-04 22:20:28.589] [info] [Plugin] [visceral]   layer[2] CHG motion=pl10_50_Hold_GG_LGT                  speed=1.000 blend=1.00 bank=10000 id=50 frame=0/30
+[2026-09-04 22:20:28.589] [info] [Plugin] [visceral]   layer[3] CHG motion=pl10_0140_GG_Hold_Start_L0           speed=1.000 blend=1.00 bank=2 id=140 frame=0/20
+[2026-09-04 22:20:28.788] [info] [Plugin] [visceral]   layer[3] CHG motion=-                                    speed=1.000 blend=1.00 bank=0 id=4294967295 frame=0/0
+[2026-09-04 22:20:28.821] [info] [Plugin] [visceral]   layer[0] CHG motion=pl10_0160_GG_Hold_Idle_Loop          speed=1.000 blend=1.00 bank=2 id=160 frame=0/1374
+[2026-09-04 22:20:30.777] [info] [Plugin] [visceral] NUM6: arm-fit write mode -> 1 (0 off, 1 wrist 0, 2 wrist 1)
+[2026-09-04 22:20:30.777] [info] [Plugin] [visceral] fit[0] frame 0 exc=0 |Lhand-aid|=0.000 |Lhand-target|=0.100
+[2026-09-04 22:20:30.944] [info] [Plugin] [visceral] fit[0] frame 60 exc=0 |Lhand-aid|=0.000 |Lhand-target|=0.100
+[2026-09-04 22:20:33.590] [info] [Plugin] [visceral] fit[0] frame 1020 exc=0 |Lhand-aid|=0.000 |Lhand-target|=0.100
+[2026-09-04 22:20:33.753] [info] [Plugin] [visceral] fit[0] frame 1080 exc=0 |Lhand-aid|=0.000 |Lhand-target|=0.100
+[2026-09-04 22:20:33.916] [info] [Plugin] [visceral] fit[0] frame 1140 exc=0 |Lhand-aid|=0.000 |Lhand-target|=0.100
+[2026-09-04 22:20:33.982] [info] [Plugin] [visceral] NUM6: arm-fit write mode -> 2 (0 off, 1 wrist 0, 2 wrist 1)
+[2026-09-04 22:20:33.982] [info] [Plugin] [visceral] fit[1] frame 0 exc=1 |Lhand-aid|=0.000 |Lhand-target|=0.100
+[2026-09-04 22:20:34.149] [info] [Plugin] [visceral] fit[1] frame 60 exc=1 |Lhand-aid|=0.000 |Lhand-target|=0.100
+[2026-09-04 22:20:37.027] [info] [Plugin] [visceral] fit[1] frame 1020 exc=1 |Lhand-aid|=0.000 |Lhand-target|=0.100
+[2026-09-04 22:20:37.195] [info] [Plugin] [visceral] NUM6: arm-fit write mode -> 0 (0 off, 1 wrist 0, 2 wrist 1)
+[2026-09-04 22:20:38.385] [info] [Plugin] [visceral] NUM4: force HOLD OFF
+[2026-09-04 22:20:38.385] [info] [Plugin] [visceral] setForce(kind=64, false) ok
+[2026-09-04 22:20:38.388] [info] [Plugin] [visceral] IsHold -> 0 (force_hold=0)
+[2026-09-04 22:20:38.388] [info] [Plugin] [visceral]   layer[0] CHG motion=pl10_0160_KFF_Gazing_Idle_F_Loop     speed=1.000 blend=1.00 bank=1 id=160 frame=0/3039
+[2026-09-04 22:20:38.388] [info] [Plugin] [visceral]   layer[1] CHG motion=pl10_2000_GFC_Arm                    speed=1.000 blend=1.00 bank=1 id=2000 frame=0/30
+[2026-09-04 22:20:38.388] [info] [Plugin] [visceral]   layer[2] CHG motion=pl10_02_FIN_GG_LGT                   speed=1.000 blend=1.00 bank=10000 id=2 frame=0/30
