@@ -103,7 +103,7 @@ in praydog's `API.hpp` are silenced in `CMakeLists.txt`.
 
 ## Live results, same evening (four launches, flat, Claire's save with the minigun `wp8700`)
 
-Log rescued to `dev-archive/recon/2026-09-04-native-probe-first-runs/run4-latch-test.log`.
+Log rescued to `dev-archive/recon/2026-09-04-native-probe-first-runs/run4-latch-test.txt`.
 Tags below are `[verified-live 2026-09-04, n=1]` unless stated; one weapon, one save, one PC.
 
 **Run 1 crashed in 8 s — the hand-over method, not the probe.** `System.GC.KeepAlive` is an
