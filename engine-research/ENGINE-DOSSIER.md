@@ -53,8 +53,11 @@ reverse-engineering effort like our other engine dossiers.
   injector + mod loader + scripting platform + generic 6DOF VR for all RE
   Engine games. We ship Lua scripts into `reframework/autorun/`; no proxy DLL,
   no debugger, no manual hooks of our own.
-- **The whole mod is Lua.** No native code, no memory patching, no x64dbg. All
-  interaction with the engine is through REFramework's reflection/hook API.
+- **Until 2026-09-04 the whole mod was Lua.** From that date, under the standing "reach for the
+  deep end" rule, new features are built in **`dev-archive/plugin/` — a REFramework native
+  plugin (`visceral_core.dll`, C++, plugin API 1.15)** using the same reflection/hook machinery
+  from native code; the shipped v0.1.0 Lua scripts stay until a feature needs the native
+  layer. No memory patching, no x64dbg; REFramework's plugin API is the whole foothold (§8c).
 - Base VR layer: **RE2VRMODRELOADED** (by Andyalpa), itself on top of
   REFramework — this mod is tuned against that specific base, used with
   permission.
@@ -190,6 +193,75 @@ here as a lead to verify, not a fact to build on.
 
 Full write-ups: `external-research/topics/2026-08-29-weapon-equipped-state-surface.md` and
 `...-caf-custom-animation-framework.md`.
+
+### 8c. The off-hand support surface — the game already has one (TDB dump, 2026-09-04)
+
+`[inferred-static 2026-09-04]` Read from `il2cpp_dump.json` (the game's own type database, dumped
+2026-08-29), not yet confirmed live. This is the surface the left-hand dock design (spec v2.3)
+should ride instead of inventing its own anchor and its own hand placement:
+
+- **Every weapon carries an "aid joint"** — `app.ropeway.implement.Implement.get_AidJoint()` →
+  `via.Joint`, plus `setupAidJoint()`, `get_AidTargetWorldMatrix()` → `Nullable<via.mat4>` and
+  **`getIKLeftArmMatrix()`** → `Nullable<via.mat4>`. "Aid" is Capcom's word for the support hand.
+  `Equipment.getAidJointType()` returns `AidJointType` (`None=0, ExtraNarrow=1, Narrow=2,
+  Wide=3`), and `Implement.get_LEFT_ARM_JOINT_NARROW()` / `get_LEFT_ARM_JOINT_WIDE()` return
+  joint-name hashes (resolve with `via.Transform.getJointByHash(u32)`).
+- **The player's arms are already IK-driven** — `app.ropeway.IkController` (reachable as
+  `SurvivorCondition.get_IkController()`, also `Implement.get_ParentIkController()`) has
+  `setArmTarget(int arm_index, via.vec3 pos, bool immediate)`, `setArmFitTarget(...)` (vec3,
+  vec3+normal, or mat4 overloads), `setArmAdjustMode(int, ArmAdjustType{NONE,CANCEL,FIT})`,
+  `setEnable(IkKind, bool, float t)` with `IkKind{LEG=0,SPINE=1,LOOKAT=2,ARM=3,ARMFIT=4,HAND=5}`,
+  and `get_ArmStatusList()` → `IkArmStatus[]` (fields: `Index` @0x10, `ActivateTime` @0x14,
+  `ResetTime` @0x18, `AdjustMode` @0x1c, `AdjustedPoint` Nullable<vec3> @0x20).
+  **`setArmTarget` with a blend time is exactly the "smooth, not snap" dock of req 1.**
+- Other named joints on a weapon: `get_AttachJoint()` → `JointConstraintInfo` (`Joint` @0x10,
+  `OfsetPosition` @0x20, `OfsetRotation` @0x30), `get_AimJoint()` → `VirtualJoint`,
+  `Gun.get_MuzzleJoint()` → `ExtraJoint` (`get_Position/get_Rotation/get_WorldMatrix`),
+  `Gun.get_MuzzleJointWorldMatrix()`.
+- Player lookup, all through properties (no component scans): `app.ropeway.PlayerManager`
+  singleton → `get_CurrentPlayer()` (GameObject) / `get_CurrentPlayerCondition()`
+  (`PlayerCondition : SurvivorCondition`) → `get_Equipment()` → `get_EquipWeapon()`
+  (`implement.Arm`; `Gun : Arm : Implement`).
+- Value-type layouts (unboxed, as `invoke` returns them): `via.vec3` = 3 floats; `via.mat4` =
+  16 floats row-major, translation in row 3 (`m30..m32`); `Nullable<T>` = `_HasValue` byte at
+  +0, `_Value` at +0x10. `System.String` = int32 length @0x10, UTF-16 @0x14. Managed arrays:
+  count @0x18, elements @0x20.
+- Also seen, unexplored: **`app.ropeway.survivor.SurvivorMotionSpeedController`**
+  (`: MotionSpeedController`; `TensionSpeed` / `WaterResistanceSpeed` as `RangeLerpFloat`,
+  `applyTensionSpeed`) — a game-side motion-speed controller on the player, one level above the
+  motion layer, and therefore the deeper candidate for req 4 than `TreeLayer.set_Speed` (§8d).
+
+The native probe that reads all of this live is `dev-archive/plugin/` (`visceral_core.dll`,
+REFramework plugin API 1.15 — the version the pinned `76298bd` build exports, confirmed from its
+`API.h`). **Plugin API 1.15 has no VR calls**; controller poses reach native code only through
+a Lua shim (`visceral_native_bridge.lua`) over a shared `System.Single[64]` handed across by a
+hook on `System.GC.KeepAlive` — see the plugin header for the slot map.
+
+### 8d. Motion-layer playback speed — the writable locomotion lever (from `/gr`, 2026-09-02)
+
+`[reported 2026-09-02, public source]` The board's "does a writable movement-speed param exist"
+risk is answered in public code: Junh2x's Requiem "Better Movement Speed" (ported to RE2 on
+Nexus) writes **`set_Speed(k)` on the player's `via.motion.Motion` layer** every
+`LateUpdateBehavior`, gated on `"walk"`/`"run"` in
+`get_HighestWeightMotionNode():get_MotionName()`. Because RE2 locomotion is root-motion driven
+(§8), a playback-rate clamp scales travel, leg cycle and footstep events together — req 4's
+"drive legs and footsteps from speed" holds by construction. It is a rate, not a walk/run blend.
+
+- RE2's types (`[inferred-static 2026-09-04]`, from the dump): `via.motion.Motion.getLayer(u32)` →
+  **`via.motion.TreeLayer`** (there is no `MotionLayer` type in RE2), with `get_/set_Speed`,
+  `get_HighestWeightMotionNode()` → `via.motion.MotionNodeCtrl` (`get_MotionName`, `get_Weight`,
+  `get_MotionID`, `get_MotionBankID`), `get_BlendRate`, `get_LayerNo`, `getLayerCount()`.
+- **Open:** which layer index carries locomotion. The public script hard-codes `getLayer(0)` for
+  Requiem; nothing public confirms it for RE2, and §8 already knows the weapon grip sits on a
+  different layer. The native probe logs every layer's highest-weight motion name on change to
+  settle it.
+- Enemy awareness: no public source ties RE2 enemy perception to player movement speed at all;
+  enemies use the same `getLayer/set_Speed` API for their own animation, not for noticing the
+  player. Treat req 4's awareness half as ours to establish, not a lead to keep searching for.
+- Fallback if root motion cannot express something: praydog's `re2_smooth_movement.lua` writes
+  the body transform per `UpdateMotion` instead.
+
+Sources: `external-research/topics/2026-09-02-a-writable-speed-lever-exists-the-motion-layers-playback-speed.md`.
 
 ## 9. "Several lookalike systems, one is live" (a recurring RE2 trap)
 - A single weapon can carry **multiple similarly-purposed config tables** for
