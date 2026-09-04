@@ -211,6 +211,19 @@ Read from `il2cpp_dump.json` (the game's own type database, dumped 2026-08-29) a
   `UseIkWrist=1`, `UseIkArmFitAsWrist=1`, `ArmStatusList` empty, `ControlStatus` 6 entries,
   unchanged between locomotion and aim. Player skeleton (`pl1000`, 190 joints): palms
   `l_weapon`/`r_weapon`, wrists `l_arm_wrist`/`r_arm_wrist`, no `l_hand`.
+- **Handgun `wp0200` (WeaponType 3), same evening: identical** `[verified-live 2026-09-04, n=1]` —
+  `AidJoint` = `_101` (Narrow), `_100`/`_101` 8 mm apart on the slide, palm on `_101` at 0.000 in
+  idle / ready / walk / HOLD, hands 8 cm apart, LEG + ARMFIT on and ARM off in every state,
+  `AttachJoint` = `setProp_A_00`. So the aid-joint surface is per-weapon data, not a minigun quirk.
+- **`IkController.setArmFitTarget(int, via.vec3, bool)` is NOT the grip lever** `[disproved
+  2026-09-04]`: wrist 0 accepts a target 10 cm off the aid joint every frame for ~1100 frames and
+  the palm does not move; wrist 1 throws (one wrist entry). `IkArmFit` is the wall-touch solver.
+- **Open — anchor or follower?** A palm at exactly 0.000 from `_101` through walking and two weapons
+  reads like a joint **constraint** (`Implement.JointConstraintExpressionID`, `setupJointConstraint`,
+  `updateJointConstraint`, `[inferred-static]`): `_101` may follow the hand rather than pull it.
+  Test: jog with the handgun (one-handed run) and watch `|l_weapon − _101|`. Unread candidates for
+  the real placement: `IkController.getIkTwoArm()` (`app.ropeway.IkTwoArm`), `getIkHand()`
+  (`via.motion.IkHand`), and the per-weapon `Hold_*` clips on layers 0 and 2.
 - **Native aim latch:** `app.ropeway.InputSystem.setForce(64 /*HOLD*/, true)` from the plugin
   raises the full aim state within a frame (`IsHold` 0→1, layer 0 to bank 2
   `GG_Hold_Start_L0` → `GG_Hold_Idle_Loop`, `TargetBankType` 50 → 3145778); `false` drops it

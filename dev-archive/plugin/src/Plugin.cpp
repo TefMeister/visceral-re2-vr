@@ -262,6 +262,8 @@ struct State {
     bool want_layers{false};
     bool force_hold{false};          // NUM4: InputSystem.setForce(HOLD, true) — the latch proven in Lua on 2026-08-27, now native
     int attack_pulse{0};             // NUM5: setForce(ATTACK, true) for one frame, then false
+    int fit_mode{0};                 // NUM6 cycles 0 off -> 1 wrist 0 -> 2 wrist 1 -> 0: IkController.setArmFitTarget(idx, aid+0.10 up, false) every frame
+    int fit_frames{0};               // frames since the mode changed (per-frame distance log for the first 40)
     std::vector<std::string> layer_last;   // last highest-weight motion name per layer
     uint64_t layer_lines_this_second{};
     uint64_t layer_second{};
@@ -520,8 +522,14 @@ void set_force(int kind, bool on) {
 
 void poll_hotkeys() {
     static bool prev[5] = {false, false, false, false, false};
-    const int vks[5] = {VK_NUMPAD7, VK_NUMPAD8, VK_NUMPAD9, VK_NUMPAD4, VK_NUMPAD5};
+    const int vks[6] = {VK_NUMPAD7, VK_NUMPAD8, VK_NUMPAD9, VK_NUMPAD4, VK_NUMPAD5, VK_NUMPAD6};
+    static bool prev6 = false;
     if (!game_is_foreground()) return;
+    {
+        const bool down = (GetAsyncKeyState(vks[5]) & 0x8000) != 0;
+        if (down && !prev6) { g.fit_mode = (g.fit_mode + 1) % 3; g.fit_frames = 0; LOGI("%s NUM6: arm-fit write mode -> %d (0 off, 1 wrist 0, 2 wrist 1)", TAG, g.fit_mode); }
+        prev6 = down;
+    }
     for (int i = 0; i < 5; ++i) {
         const bool down = (GetAsyncKeyState(vks[i]) & 0x8000) != 0;
         if (down && !prev[i]) {
@@ -584,6 +592,29 @@ void on_frame() {
         dump_weapon();
     }
     if (g.attack_pulse > 0 && --g.attack_pulse == 0) set_force(KIND_ATTACK, false);
+    // THE FIRST WRITE INTO THE IK (2026-09-04 late): push the ArmFit target 10 cm above the aid joint
+    // and watch whether l_weapon follows, and over how many frames. ARMFIT is the kind the game keeps
+    // enabled on both weapons tried; ARM is off, so setArmTarget is not expected to do anything here.
+    if (g.fit_mode != 0 && g.ik != nullptr && g.aid_joint != nullptr) {
+        Vec3 aid{};
+        if (inv_vec3(g.aid_joint, "get_Position", aid)) {
+            alignas(16) float target[4] = {aid.x, aid.y + 0.10f, aid.z, 0.0f};
+            static API::Method* m = nullptr;
+            if (m == nullptr) {
+                m = find_method_deep(g.ik->get_type_definition(), "setArmFitTarget(System.Int32, via.vec3, System.Boolean)");
+                LOGI("%s setArmFitTarget(int, vec3, bool) %s (params=%u)", TAG, m ? "found" : "NOT FOUND", m ? m->get_num_params() : 0u);
+            }
+            if (m != nullptr) {
+                const int idx = g.fit_mode - 1;
+                auto r = m->invoke(g.ik, {(void*)(uintptr_t)idx, (void*)target, (void*)(uintptr_t)0});
+                Vec3 lh{}; const bool have_lh = g.l_hand != nullptr && inv_vec3(g.l_hand, "get_Position", lh);
+                if (g.fit_frames < 40 || (g.fit_frames % 60) == 0)
+                    LOGI("%s fit[%d] frame %d exc=%d |Lhand-aid|=%.3f |Lhand-target|=%.3f", TAG, idx, g.fit_frames, (int)r.exception_thrown,
+                         have_lh ? dist(lh, aid) : -1.0f, have_lh ? dist(lh, Vec3{target[0], target[1], target[2]}) : -1.0f);
+                g.fit_frames++;
+            }
+        }
+    }
     {
         static bool last_hold = false;
         const bool hold = inv_bool(g.cond, "get_IsHold");
@@ -658,7 +689,7 @@ extern "C" __declspec(dllexport) bool reframework_plugin_initialize(const REFram
         fns->log_error("%s C++ SDK wrapper init failed — probe disabled", TAG);
         return true;
     }
-    fns->log_info("%s native core v0.1 loaded — reqs-1-and-3 recon probe. NUM7 dump / NUM8 trace / NUM9 layers / NUM4 force-HOLD toggle / NUM5 ATTACK pulse", TAG);
+    fns->log_info("%s native core v0.1 loaded — reqs-1-and-3 recon probe. NUM7 dump / NUM8 trace / NUM9 layers / NUM4 force-HOLD toggle / NUM5 ATTACK pulse / NUM6 arm-fit write", TAG);
     // Hooks need the TDB up; register them from the game thread on the first frame.
     static std::atomic<bool> hooked{false};
     fns->on_pre_application_entry("LockScene", []() {

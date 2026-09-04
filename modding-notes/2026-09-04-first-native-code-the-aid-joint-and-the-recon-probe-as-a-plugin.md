@@ -151,11 +151,47 @@ placement comes from ARMFIT + animation, so `setArmTarget` has not been exercise
 next live experiment, and it needs a **one-handed weapon** (handgun), where the aid joint may be
 absent or the hand may float, to see which kind the game switches on for two-hand aim.
 
+## Later the same evening: the handgun, and the first write into the IK (runs 5 and 6)
+
+Tefa launched again at 22:14 with a **handgun (`wp0200`, WeaponType 3)** equipped. Same probe,
+same sequence (dump, native HOLD, dump, release). `[verified-live 2026-09-04, n=1 per weapon]`:
+
+- **Identical to the minigun in every field that matters.** `AidJoint` = `_101`, type Narrow,
+  NARROW → `_101` / WIDE → `_100` on the weapon (11 joints; `_100` and `_101` 8 mm apart on the
+  slide), `AttachJoint` = `setProp_A_00` with a (−0.005, 0.010, −0.060) offset. `|l_weapon − _101|`
+  = **0.000** in idle, in the ready stance, walking and under HOLD; `|l_weapon − r_weapon|` =
+  0.080 (the support hand cupping the gun hand). IK: LEG + ARMFIT on, ARM off, `ArmStatusList`
+  empty, unchanged under HOLD. `getIKLeftArmMatrix()` still never carries a value.
+- HOLD on the handgun: layer 0 `pl10_0140_HG_Hold_Start_L0` → `pl10_0160_HG_Hold_Idle_Loop`,
+  strafe `pl10_0120_HG_StrafeL_F`; `TargetBankType` 1027 → 3146755. Same shape as the minigun's
+  `GG_*` clips with the weapon-family prefix swapped.
+
+**Run 6 — `IkController.setArmFitTarget(int, via.vec3, bool)` moves nothing** `[disproved
+2026-09-04]`. Called every frame at `LockScene` with the target 10 cm above the aid joint,
+`immediate=false`, for ~1100 frames each: wrist index **0** accepts the call (no exception) and
+`l_weapon` stays on `_101` at 0.000; wrist index **1 throws** on every call (one wrist entry only).
+Tried unaimed on the minigun; the HOLD variant was queued but the run ended first. Reading:
+`IkArmFit` is the **wall-touch** solver (`castArmFit`, `ArmRayRadius`, `LiftUpWristOnGround` on
+the controller) and its target is either rewritten by the game later in the frame or simply not
+what places the support hand. Either way it is not the dock lever.
+
+**The sharper question this leaves.** A palm on the aid joint at *exactly* 0.000 through walking,
+strafing and two weapons is what a **constraint** produces, not what animation produces.
+`Implement` carries `JointConstraintExpressionID`, `setupJointConstraint`, `updateJointConstraint`
+`[inferred-static]`. So `_101` may be a weapon joint that **follows the left hand**, not an anchor
+the hand is pulled to — which would make the game's own "aid" data a *readout* of where the
+support hand is, and put the real placement in the per-weapon hold animation (`pl10_50_Hold_HG01`
+on layer 2, the `Hold_*` bank on layer 0) plus one of `IkController.getIkTwoArm()` /
+`getIkHand()` (`app.ropeway.IkTwoArm`, `via.motion.IkHand`), neither of which the probe has
+read yet. **Decisive cheap test, next flat run:** jog with the handgun. Claire runs one-handed;
+if `|l_weapon − _101|` stays 0.000 while the left arm swings, `_101` is a follower.
+
 ## Not established
 
-- All of the above is one weapon (the minigun, always two-handed) on one save. A handgun run is
-  the missing half.
-- `setArmTarget` / `setEnable(ARM, …)` have not been called — read only, no writes to IK.
+- The follower-vs-anchor question above.
+- `setArmTarget` / `setEnable(ARM, …)` have not been called (ARM is off on both weapons, so a
+  target write alone is not expected to act; enabling the kind first is the untried half).
+- `getIkTwoArm()` / `getIkHand()` have not been read.
 - The VR pose path (slots 3–24 of the bridge array) has never carried real values.
 - Whether `getIKLeftArmMatrix()` carries a value on any weapon, or only in the VR/first-person
   path — every read so far said "no value".
