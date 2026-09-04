@@ -24,3 +24,6 @@
 # Local scratch
 /tmp/
 *.log
+
+# Native plugin build tree (CMake output)
+/plugin/build/
