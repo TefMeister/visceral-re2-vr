@@ -186,6 +186,16 @@ on layer 2, the `Hold_*` bank on layer 0) plus one of `IkController.getIkTwoArm(
 read yet. **Decisive cheap test, next flat run:** jog with the handgun. Claire runs one-handed;
 if `|l_weapon − _101|` stays 0.000 while the left arm swings, `_101` is a follower.
 
+### Correction from Tefa, 22:30 — the jog test is void
+
+In the flat game **both hands stay on the gun at all times, running included**, so no locomotion
+state can separate the palm from `_101`. A reload was tried instead (handgun `wp0200`, key `R`,
+10 Hz trace): the magazine was full, no reload animation played, the distance stayed 0.000 and
+nothing was learned (`recon/…/run7-reload-check.txt`). Also from Tefa: **weapon slots are keys
+1–4** (`[reported]`, recorded in the control profile). The anchor-or-follower question therefore
+moves to static work — decompiling `setupAidJoint` / `updateJointConstraint` — with a
+partly-empty-magazine reload as the fallback live test.
+
 ## Not established
 
 - The follower-vs-anchor question above.

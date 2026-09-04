@@ -1,0 +1,374 @@
+[2026-09-04 22:34:36.924] [info] REFramework entry
+[2026-09-04 22:34:39.449] [info] [Plugin] [visceral] native core v0.1 loaded — reqs-1-and-3 recon probe. NUM7 dump / NUM8 trace / NUM9 layers / NUM4 force-HOLD toggle / NUM5 ATTACK pulse / NUM6 arm-fit write
+[2026-09-04 22:34:39.457] [info] [visceral-bridge] array ready (2438486798448)
+[2026-09-04 22:34:39.457] [info] [visceral-bridge] hand-over #1 at frame 1 (mailbox call)
+[2026-09-04 22:34:39.459] [info] [Plugin] [visceral] bridge mailbox hook installed on RagdollControlZoneManager.set_AccessMutex (id=8, fn=00007FF7BD175B40) — check the HookManager lines above for 'Failed to hook'
+[2026-09-04 22:34:39.814] [info] [visceral-bridge] hand-over #2 at frame 182 (mailbox call)
+[2026-09-04 22:34:39.814] [info] [Plugin] [visceral] array layout probe: get_size=288 dwords@0x10..0x2c = c4607d60 00007ff7 00000001 00000040 43350000 00000000 00000000 00000000
+[2026-09-04 22:34:39.814] [info] [Plugin] [visceral] ARRAY LAYOUT MEASURED: elements @+0x20, count @+0x1c (sentinel found at +0x11c, get_size=288)
+[2026-09-04 22:34:39.814] [info] [Plugin] [visceral] VR BRIDGE ATTACHED (argv[1] of 5, array 00000237C123B070) — Lua shim poses are live
+[2026-09-04 22:34:39.815] [info] [visceral-bridge] plugin acknowledged the bridge at frame 183
+[2026-09-04 22:34:51.830] [info] [Plugin] [visceral] PLAYER BOUND: go=00000237C09C67E0 (pl1000) cond=00000237C0A484D0 (app.ropeway.survivor.player.PlayerCondition) equipment=00000237C0A471B0 ik=00000237C09C1250 transform=00000237C09C6830 motion=00000237C09CB930
+[2026-09-04 22:34:51.830] [info] [Plugin] [visceral] player skeleton (hand/arm/weapon names only): 190 joints (array type via.Joint[])
+[2026-09-04 22:34:51.830] [info] [Plugin] [visceral]   joint[16] l_arm_clavicle               pos=(-19.673 -10.123 20.514)
+[2026-09-04 22:34:51.830] [info] [Plugin] [visceral]   joint[17] l_arm_humerus                pos=(-19.675 -10.141 20.389)
+[2026-09-04 22:34:51.830] [info] [Plugin] [visceral]   joint[18] l_arm_radius                 pos=(-19.738 -10.400 20.310)
+[2026-09-04 22:34:51.830] [info] [Plugin] [visceral]   joint[19] l_arm_wrist                  pos=(-19.698 -10.617 20.292)
+[2026-09-04 22:34:51.830] [info] [Plugin] [visceral]   joint[20] l_weapon                     pos=(-19.690 -10.701 20.304)
+[2026-09-04 22:34:51.830] [info] [Plugin] [visceral]   joint[21] l_hand_thumb_0               pos=(-19.682 -10.640 20.309)
+[2026-09-04 22:34:51.830] [info] [Plugin] [visceral]   joint[22] l_hand_thumb_1               pos=(-19.659 -10.675 20.336)
+[2026-09-04 22:34:51.830] [info] [Plugin] [visceral]   joint[23] l_hand_thumb_2               pos=(-19.654 -10.695 20.344)
+[2026-09-04 22:34:51.830] [info] [Plugin] [visceral]   joint[24] l_hand_index_0               pos=(-19.650 -10.691 20.299)
+[2026-09-04 22:34:51.830] [info] [Plugin] [visceral]   joint[25] l_hand_index_1               pos=(-19.643 -10.732 20.306)
+[2026-09-04 22:34:51.830] [info] [Plugin] [visceral]   joint[26] l_hand_index_2               pos=(-19.653 -10.748 20.318)
+[2026-09-04 22:34:51.830] [info] [Plugin] [visceral]   joint[27] l_hand_middle_0              pos=(-19.664 -10.697 20.284)
+[2026-09-04 22:34:51.830] [info] [Plugin] [visceral]   joint[28] l_hand_middle_1              pos=(-19.655 -10.738 20.293)
+[2026-09-04 22:34:51.830] [info] [Plugin] [visceral]   joint[29] l_hand_middle_2              pos=(-19.666 -10.753 20.314)
+[2026-09-04 22:34:51.830] [info] [Plugin] [visceral]   joint[30] l_hand_ring_0                pos=(-19.692 -10.653 20.284)
+[2026-09-04 22:34:51.830] [info] [Plugin] [visceral]   joint[31] l_hand_ring_1                pos=(-19.678 -10.697 20.278)
+[2026-09-04 22:34:51.830] [info] [Plugin] [visceral]   joint[32] l_hand_ring_2                pos=(-19.670 -10.734 20.284)
+[2026-09-04 22:34:51.830] [info] [Plugin] [visceral]   joint[33] l_hand_ring_3                pos=(-19.679 -10.746 20.306)
+[2026-09-04 22:34:51.830] [info] [Plugin] [visceral]   joint[34] l_hand_little_0              pos=(-19.703 -10.653 20.282)
+[2026-09-04 22:34:51.830] [info] [Plugin] [visceral]   joint[35] l_hand_little_1              pos=(-19.698 -10.694 20.273)
+[2026-09-04 22:34:51.830] [info] [Plugin] [visceral]   joint[36] l_hand_little_2              pos=(-19.688 -10.722 20.277)
+[2026-09-04 22:34:51.830] [info] [Plugin] [visceral]   joint[37] l_hand_little_3              pos=(-19.692 -10.732 20.294)
+[2026-09-04 22:34:51.830] [info] [Plugin] [visceral]   joint[39] r_arm_clavicle               pos=(-19.688 -10.123 20.555)
+[2026-09-04 22:34:51.830] [info] [Plugin] [visceral]   joint[40] r_arm_humerus                pos=(-19.760 -10.144 20.657)
+[2026-09-04 22:34:51.830] [info] [Plugin] [visceral]   joint[41] r_arm_radius                 pos=(-19.835 -10.409 20.698)
+[2026-09-04 22:34:51.830] [info] [Plugin] [visceral]   joint[42] r_arm_wrist                  pos=(-19.758 -10.615 20.716)
+[2026-09-04 22:34:51.830] [info] [Plugin] [visceral]   joint[43] r_weapon                     pos=(-19.770 -10.695 20.689)
+[2026-09-04 22:34:51.830] [info] [Plugin] [visceral]   joint[44] r_hand_thumb_0               pos=(-19.743 -10.642 20.705)
+[2026-09-04 22:34:51.830] [info] [Plugin] [visceral]   joint[45] r_hand_thumb_1               pos=(-19.734 -10.681 20.676)
+[2026-09-04 22:34:51.830] [info] [Plugin] [visceral]   joint[46] r_hand_thumb_2               pos=(-19.736 -10.702 20.668)
+[2026-09-04 22:34:51.830] [info] [Plugin] [visceral]   joint[47] r_hand_index_0               pos=(-19.740 -10.702 20.717)
+[2026-09-04 22:34:51.830] [info] [Plugin] [visceral]   joint[48] r_hand_index_1               pos=(-19.749 -10.729 20.686)
+[2026-09-04 22:34:51.830] [info] [Plugin] [visceral]   joint[49] r_hand_index_2               pos=(-19.751 -10.714 20.670)
+[2026-09-04 22:34:51.830] [info] [Plugin] [visceral]   joint[50] r_hand_middle_0              pos=(-19.761 -10.702 20.721)
+[2026-09-04 22:34:51.830] [info] [Plugin] [visceral]   joint[51] r_hand_middle_1              pos=(-19.769 -10.723 20.684)
+[2026-09-04 22:34:51.830] [info] [Plugin] [visceral]   joint[52] r_hand_middle_2              pos=(-19.764 -10.701 20.668)
+[2026-09-04 22:34:51.830] [info] [Plugin] [visceral]   joint[53] r_hand_ring_0                pos=(-19.769 -10.650 20.717)
+[2026-09-04 22:34:51.830] [info] [Plugin] [visceral]   joint[54] r_hand_ring_1                pos=(-19.777 -10.697 20.718)
+[2026-09-04 22:34:51.830] [info] [Plugin] [visceral]   joint[55] r_hand_ring_2                pos=(-19.782 -10.714 20.684)
+[2026-09-04 22:34:51.830] [info] [Plugin] [visceral]   joint[56] r_hand_ring_3                pos=(-19.779 -10.693 20.669)
+[2026-09-04 22:34:51.830] [info] [Plugin] [visceral]   joint[57] r_hand_little_0              pos=(-19.778 -10.646 20.713)
+[2026-09-04 22:34:51.830] [info] [Plugin] [visceral]   joint[58] r_hand_little_1              pos=(-19.794 -10.686 20.712)
+[2026-09-04 22:34:51.830] [info] [Plugin] [visceral]   joint[59] r_hand_little_2              pos=(-19.795 -10.706 20.690)
+[2026-09-04 22:34:51.830] [info] [Plugin] [visceral]   joint[60] r_hand_little_3              pos=(-19.792 -10.692 20.677)
+[2026-09-04 22:34:51.830] [info] [Plugin] [visceral]   l_hand=l_arm_wrist r_hand=r_arm_wrist
+[2026-09-04 22:34:51.830] [info] [Plugin] [visceral] ---- IK DUMP: app.ropeway.IkController ----
+[2026-09-04 22:34:51.830] [info] [Plugin] [visceral]   UseIkArm=0 UseIkWrist=1 UseIkArmFitAsWrist=1 WristKind=0 WristSolveMode=0
+[2026-09-04 22:34:51.830] [info] [Plugin] [visceral]   isEnabled(LEG)=1
+[2026-09-04 22:34:51.830] [info] [Plugin] [visceral]   isEnabled(SPINE)=0
+[2026-09-04 22:34:51.830] [info] [Plugin] [visceral]   isEnabled(LOOKAT)=0
+[2026-09-04 22:34:51.830] [info] [Plugin] [visceral]   isEnabled(ARM)=0
+[2026-09-04 22:34:51.830] [info] [Plugin] [visceral]   isEnabled(ARMFIT)=1
+[2026-09-04 22:34:51.830] [info] [Plugin] [visceral]   isEnabled(HAND)=0
+[2026-09-04 22:34:51.830] [info] [Plugin] [visceral]   ArmStatusList: 0 entries; ControlStatus: 6 entries
+[2026-09-04 22:34:51.830] [info] [Plugin] [visceral] ---- end IK dump ----
+[2026-09-04 22:34:51.830] [info] [Plugin] [visceral]   layer[0] CHG motion=pl10_0160_KFF_Gazing_Idle_F_Loop     speed=1.000 blend=1.00 bank=1 id=160 frame=0/3039
+[2026-09-04 22:34:51.830] [info] [Plugin] [visceral]   layer[1] CHG motion=dummy                                speed=1.000 blend=1.00 bank=1 id=2000 frame=0/2
+[2026-09-04 22:34:51.830] [info] [Plugin] [visceral]   layer[2] CHG motion=pl10_02_FIN_BH01                     speed=1.000 blend=1.00 bank=10000 id=2 frame=0/30
+[2026-09-04 22:34:51.830] [info] [Plugin] [visceral]   layer[3] CHG motion=-                                    speed=1.000 blend=1.00 bank=0 id=4294967295 frame=0/0
+[2026-09-04 22:34:51.830] [info] [Plugin] [visceral]   layer[4] CHG motion=-                                    speed=1.000 blend=1.00 bank=0 id=4294967295 frame=0/0
+[2026-09-04 22:34:51.830] [info] [Plugin] [visceral]   layer[5] CHG motion=-                                    speed=1.000 blend=1.00 bank=0 id=4294967295 frame=0/0
+[2026-09-04 22:34:51.855] [info] [Plugin] [visceral] WEAPON CHANGED -> app.ropeway.implement.Gun (go=wp8700)
+[2026-09-04 22:34:51.855] [info] [Plugin] [visceral] ---- WEAPON DUMP: app.ropeway.implement.Gun ----
+[2026-09-04 22:34:51.855] [info] [Plugin] [visceral]   WeaponType=252  MuzzleJointName=vfx_muzzle1  AidJointType=2 (0 None,1 ExtraNarrow,2 Narrow,3 Wide)
+[2026-09-04 22:34:51.855] [info] [Plugin] [visceral]   IsEquiped=0  EnabledHoldMainWeapon=1  ParentIkController=0000000000000000 (cond IkController=00000237C09C1250)
+[2026-09-04 22:34:51.855] [info] [Plugin] [visceral]   AidJoint=null
+[2026-09-04 22:34:51.855] [info] [Plugin] [visceral]   LEFT_ARM_JOINT_NARROW=0xcf4d4c03 -> weapon:_101 player:(not on this skeleton)
+[2026-09-04 22:34:51.855] [info] [Plugin] [visceral]   LEFT_ARM_JOINT_WIDE  =0x29429d17 -> weapon:_100 player:(not on this skeleton)
+[2026-09-04 22:34:51.855] [info] [Plugin] [visceral]   AimJoint (app.ropeway.implement.VirtualJoint) pos=(-19.735 -11.499 20.514)
+[2026-09-04 22:34:51.855] [info] [Plugin] [visceral]   AimJointWorldMatrix t=(-19.735 -11.499 20.514)
+[2026-09-04 22:34:51.855] [info] [Plugin] [visceral]   MuzzleJoint (app.ropeway.ExtraJoint) pos=(-19.735 -11.499 20.514)
+[2026-09-04 22:34:51.855] [info] [Plugin] [visceral]   MuzzleJointWorldMatrix t=(-19.735 -11.499 20.514)
+[2026-09-04 22:34:51.855] [info] [Plugin] [visceral]   IKLeftArmMatrix: (no value)
+[2026-09-04 22:34:51.855] [info] [Plugin] [visceral]   AidTargetWorldMatrix: (no value)
+[2026-09-04 22:34:51.855] [info] [Plugin] [visceral] weapon skeleton: 21 joints (array type via.Joint[])
+[2026-09-04 22:34:51.855] [info] [Plugin] [visceral]   joint[0] root                         pos=(-19.735 -11.499 20.514)
+[2026-09-04 22:34:51.855] [info] [Plugin] [visceral]   joint[1] _00                          pos=(-19.735 -11.499 20.514)
+[2026-09-04 22:34:51.855] [info] [Plugin] [visceral]   joint[2] _01                          pos=(-19.213 -11.574 20.708)
+[2026-09-04 22:34:51.855] [info] [Plugin] [visceral]   joint[3] _03                          pos=(-19.693 -11.438 20.530)
+[2026-09-04 22:34:51.855] [info] [Plugin] [visceral]   joint[4] vfx_muzzle1                  pos=(-18.896 -11.573 20.823)
+[2026-09-04 22:34:51.855] [info] [Plugin] [visceral]   joint[5] vfx_muzzle2                  pos=(-19.509 -11.630 20.613)
+[2026-09-04 22:34:51.855] [info] [Plugin] [visceral]   joint[6] _100                         pos=(-19.575 -11.711 20.556)
+[2026-09-04 22:34:51.855] [info] [Plugin] [visceral]   joint[7] _101                         pos=(-19.579 -11.711 20.554)
+[2026-09-04 22:34:51.855] [info] [Plugin] [visceral]   joint[8] _20                          pos=(-19.619 -11.623 20.640)
+[2026-09-04 22:34:51.855] [info] [Plugin] [visceral]   joint[9] _21                          pos=(-19.625 -11.623 20.657)
+[2026-09-04 22:34:51.855] [info] [Plugin] [visceral]   joint[10] _22                          pos=(-19.631 -11.623 20.673)
+[2026-09-04 22:34:51.855] [info] [Plugin] [visceral]   joint[11] _23                          pos=(-19.638 -11.623 20.690)
+[2026-09-04 22:34:51.855] [info] [Plugin] [visceral]   joint[12] _24                          pos=(-19.644 -11.623 20.706)
+[2026-09-04 22:34:51.855] [info] [Plugin] [visceral]   joint[13] _25                          pos=(-19.650 -11.623 20.723)
+[2026-09-04 22:34:51.855] [info] [Plugin] [visceral]   joint[14] _26                          pos=(-19.656 -11.623 20.739)
+[2026-09-04 22:34:51.855] [info] [Plugin] [visceral]   joint[15] _27                          pos=(-19.662 -11.623 20.755)
+[2026-09-04 22:34:51.855] [info] [Plugin] [visceral]   joint[16] _28                          pos=(-19.668 -11.623 20.772)
+[2026-09-04 22:34:51.855] [info] [Plugin] [visceral]   joint[17] _29                          pos=(-19.674 -11.623 20.788)
+[2026-09-04 22:34:51.855] [info] [Plugin] [visceral]   joint[18] _30                          pos=(-19.680 -11.623 20.805)
+[2026-09-04 22:34:51.855] [info] [Plugin] [visceral]   joint[19] _10_chain00_00               pos=(-19.637 -11.643 20.759)
+[2026-09-04 22:34:51.855] [info] [Plugin] [visceral]   joint[20] _11_chain00_end              pos=(-19.663 -11.643 20.830)
+[2026-09-04 22:34:51.855] [info] [Plugin] [visceral] ---- end weapon dump ----
+[2026-09-04 22:34:52.862] [info] [Plugin] [visceral]   layer[1] CHG motion=pl10_2000_GFC_Arm                    speed=1.000 blend=1.00 bank=1 id=2000 frame=0/30
+[2026-09-04 22:34:52.862] [info] [Plugin] [visceral]   layer[2] CHG motion=pl10_02_FIN_GG_LGT                   speed=1.000 blend=1.00 bank=10000 id=2 frame=0/30
+[2026-09-04 22:34:53.834] [info] [Plugin] [visceral] AidJoint appeared: _101
+[2026-09-04 22:34:55.453] [info] [Plugin] [visceral]   layer[3] CHG motion=pl00_1311_SG_HoldToHolster           speed=1.000 blend=1.00 bank=2000 id=1311 frame=0/30
+[2026-09-04 22:34:55.719] [info] [Plugin] [visceral] WEAPON CHANGED -> app.ropeway.implement.Gun (go=wp0200)
+[2026-09-04 22:34:55.719] [info] [Plugin] [visceral] ---- WEAPON DUMP: app.ropeway.implement.Gun ----
+[2026-09-04 22:34:55.719] [info] [Plugin] [visceral]   WeaponType=3  MuzzleJointName=vfx_muzzle1  AidJointType=2 (0 None,1 ExtraNarrow,2 Narrow,3 Wide)
+[2026-09-04 22:34:55.719] [info] [Plugin] [visceral]   IsEquiped=1  EnabledHoldMainWeapon=1  ParentIkController=00000237C09C1250 (cond IkController=00000237C09C1250)
+[2026-09-04 22:34:55.719] [info] [Plugin] [visceral]   AidJoint=_101 pos=(-19.845 -10.600 20.493) owner_transform=00000237C063B4A0 (weapon transform=00000237C063B4A0, player transform=00000237C09C6830)
+[2026-09-04 22:34:55.719] [info] [Plugin] [visceral]   LEFT_ARM_JOINT_NARROW=0xcf4d4c03 -> weapon:_101 player:(not on this skeleton)
+[2026-09-04 22:34:55.719] [info] [Plugin] [visceral]   LEFT_ARM_JOINT_WIDE  =0x29429d17 -> weapon:_100 player:(not on this skeleton)
+[2026-09-04 22:34:55.719] [info] [Plugin] [visceral]   AttachJoint=setProp_A_00 offset=(-0.005 0.010 -0.060)
+[2026-09-04 22:34:55.719] [info] [Plugin] [visceral]   AimJoint (app.ropeway.implement.VirtualJoint) pos=(-19.830 -10.664 20.520)
+[2026-09-04 22:34:55.719] [info] [Plugin] [visceral]   AimJointWorldMatrix t=(-19.830 -10.664 20.520)
+[2026-09-04 22:34:55.719] [info] [Plugin] [visceral]   MuzzleJoint (app.ropeway.ExtraJoint) pos=(-19.830 -10.664 20.520)
+[2026-09-04 22:34:55.719] [info] [Plugin] [visceral]   MuzzleJointWorldMatrix t=(-19.830 -10.664 20.520)
+[2026-09-04 22:34:55.719] [info] [Plugin] [visceral]   IKLeftArmMatrix: (no value)
+[2026-09-04 22:34:55.719] [info] [Plugin] [visceral]   AidTargetWorldMatrix: t=(-19.845 -10.600 20.493) r0=(-0.01 -0.89 -0.13) r2=(0.88 -0.04 0.19)
+[2026-09-04 22:34:55.719] [info] [Plugin] [visceral] weapon skeleton: 11 joints (array type via.Joint[])
+[2026-09-04 22:34:55.719] [info] [Plugin] [visceral]   joint[0] root                         pos=(-19.830 -10.664 20.520)
+[2026-09-04 22:34:55.719] [info] [Plugin] [visceral]   joint[1] _00                          pos=(-19.830 -10.664 20.520)
+[2026-09-04 22:34:55.719] [info] [Plugin] [visceral]   joint[2] _01                          pos=(-19.769 -10.760 20.518)
+[2026-09-04 22:34:55.719] [info] [Plugin] [visceral]   joint[3] _02                          pos=(-19.783 -10.659 20.540)
+[2026-09-04 22:34:55.719] [info] [Plugin] [visceral]   joint[4] vfx_muzzle1                  pos=(-19.774 -10.823 20.499)
+[2026-09-04 22:34:55.719] [info] [Plugin] [visceral]   joint[5] vfx_muzzle2                  pos=(-19.771 -10.732 20.535)
+[2026-09-04 22:34:55.719] [info] [Plugin] [visceral]   joint[6] _100                         pos=(-19.843 -10.598 20.487)
+[2026-09-04 22:34:55.719] [info] [Plugin] [visceral]   joint[7] _101                         pos=(-19.845 -10.600 20.493)
+[2026-09-04 22:34:55.719] [info] [Plugin] [visceral]   joint[8] _03                          pos=(-19.790 -10.714 20.522)
+[2026-09-04 22:34:55.719] [info] [Plugin] [visceral]   joint[9] _04                          pos=(-19.826 -10.666 20.521)
+[2026-09-04 22:34:55.719] [info] [Plugin] [visceral]   joint[10] vfx_muzzle3                  pos=(-19.814 -10.816 20.486)
+[2026-09-04 22:34:55.719] [info] [Plugin] [visceral] ---- end weapon dump ----
+[2026-09-04 22:34:55.719] [info] [Plugin] [visceral]   layer[3] CHG motion=pl00_1301_HG_HolsterToMove           speed=1.000 blend=1.00 bank=2000 id=1301 frame=0/30
+[2026-09-04 22:34:55.722] [info] [Plugin] [visceral]   layer[0] CHG motion=pl10_0160_OFF_Gazing_Idle_F_Loop     speed=1.000 blend=1.00 bank=1 id=160 frame=190/3354
+[2026-09-04 22:34:55.722] [info] [Plugin] [visceral]   layer[1] CHG motion=dummy                                speed=1.000 blend=1.00 bank=1 id=2000 frame=0/2
+[2026-09-04 22:34:55.722] [info] [Plugin] [visceral]   layer[2] CHG motion=pl10_50_Hold_HG01                    speed=1.000 blend=1.00 bank=10000 id=2 frame=0/30
+[2026-09-04 22:34:56.018] [info] [Plugin] [visceral]   layer[3] CHG motion=-                                    speed=1.000 blend=1.00 bank=0 id=4294967295 frame=0/0
+[2026-09-04 22:34:56.468] [info] [Plugin] [visceral]   layer[0] CHG motion=pl10_0197_OFF_GazingWalk_Back_B_Loop speed=1.000 blend=1.00 bank=1 id=196 frame=0/59
+[2026-09-04 22:34:56.536] [info] [Plugin] [visceral]   layer[0] CHG motion=pl10_0196_OFF_GazingWalk_Back_L_Loop speed=1.000 blend=1.00 bank=1 id=196 frame=4/60
+[2026-09-04 22:34:56.854] [info] [Plugin] [visceral]   layer[0] CHG motion=pl10_0193_OFF_GazingWalk_End_RL      speed=1.000 blend=1.00 bank=1 id=192 frame=0/60
+[2026-09-04 22:34:57.251] [info] [Plugin] [visceral]   layer[0] CHG motion=pl10_0160_OFF_Gazing_Idle_F_Loop     speed=1.000 blend=1.00 bank=1 id=160 frame=0/3354
+[2026-09-04 22:34:57.357] [info] [Plugin] [visceral]   layer[0] CHG motion=pl10_0194_OFF_GazingWalk_R_Loop      speed=1.000 blend=1.00 bank=1 id=190 frame=0/61
+[2026-09-04 22:34:57.400] [info] [Plugin] [visceral]   layer[0] CHG motion=pl10_0190_OFF_GazingWalk_F_Loop      speed=1.000 blend=1.00 bank=1 id=190 frame=3/61
+[2026-09-04 22:34:57.748] [info] [Plugin] [visceral]   layer[0] CHG motion=pl10_0231_OFF_Jog_Straight_Loop      speed=1.000 blend=1.00 bank=1 id=230 frame=15/40
+[2026-09-04 22:34:58.982] [info] [Plugin] [visceral]   layer[0] CHG motion=pl10_0230_OFF_Jog_LCycle_Loop        speed=1.000 blend=1.00 bank=1 id=230 frame=9/40
+[2026-09-04 22:34:59.023] [info] [Plugin] [visceral]   layer[0] CHG motion=pl10_0231_OFF_Jog_Straight_Loop      speed=1.000 blend=1.00 bank=1 id=230 frame=12/40
+[2026-09-04 22:35:00.095] [info] [Plugin] [visceral]   layer[0] CHG motion=pl10_0224_OFF_Jog_End                speed=1.000 blend=1.00 bank=1 id=224 frame=0/60
+[2026-09-04 22:35:00.250] [info] [Plugin] [visceral]   layer[0] CHG motion=pl10_0202_OFF_Jog_Start_L180_LR      speed=1.000 blend=1.00 bank=1 id=220 frame=0/61
+[2026-09-04 22:35:00.685] [info] [Plugin] [visceral]   layer[0] CHG motion=pl10_0231_OFF_Jog_Straight_Loop      speed=1.000 blend=1.00 bank=1 id=230 frame=22/40
+[2026-09-04 22:35:00.885] [info] [Plugin] [visceral]   layer[0] CHG motion=pl10_0230_OFF_Jog_LCycle_Loop        speed=1.000 blend=1.00 bank=1 id=230 frame=34/40
+[2026-09-04 22:35:00.936] [info] [Plugin] [visceral]   layer[0] CHG motion=pl10_0231_OFF_Jog_Straight_Loop      speed=1.000 blend=1.00 bank=1 id=230 frame=37/40
+[2026-09-04 22:35:01.544] [info] [Plugin] [visceral]   layer[0] CHG motion=pl10_0232_OFF_Jog_RCycle_Loop        speed=1.000 blend=1.00 bank=1 id=230 frame=33/40
+[2026-09-04 22:35:01.654] [info] [Plugin] [visceral]   layer[0] CHG motion=pl10_0231_OFF_Jog_Straight_Loop      speed=1.000 blend=1.00 bank=1 id=230 frame=40/40
+[2026-09-04 22:35:02.514] [info] [Plugin] [visceral]   layer[0] CHG motion=pl10_0224_OFF_Jog_End                speed=1.000 blend=1.00 bank=1 id=224 frame=0/60
+[2026-09-04 22:35:03.244] [info] [Plugin] [visceral]   layer[0] CHG motion=pl10_0160_OFF_Gazing_Idle_F_Loop     speed=1.000 blend=1.00 bank=1 id=160 frame=0/3354
+[2026-09-04 22:36:44.771] [info] [Plugin] [visceral]   layer[0] CHG motion=pl10_0197_OFF_GazingWalk_Back_B_Loop speed=1.000 blend=1.00 bank=1 id=196 frame=0/59
+[2026-09-04 22:36:45.577] [info] [Plugin] [visceral]   layer[0] CHG motion=pl10_0192_OFF_GazingWalk_End_LR      speed=1.000 blend=1.00 bank=1 id=192 frame=0/60
+[2026-09-04 22:36:45.975] [info] [Plugin] [visceral]   layer[0] CHG motion=pl10_0160_OFF_Gazing_Idle_F_Loop     speed=1.000 blend=1.00 bank=1 id=160 frame=0/3354
+[2026-09-04 22:36:46.679] [info] [Plugin] [visceral]   layer[0] CHG motion=pl10_0194_OFF_GazingWalk_R_Loop      speed=1.000 blend=1.00 bank=1 id=190 frame=0/60
+[2026-09-04 22:36:46.756] [info] [Plugin] [visceral]   layer[0] CHG motion=pl10_0190_OFF_GazingWalk_F_Loop      speed=1.000 blend=1.00 bank=1 id=190 frame=5/61
+[2026-09-04 22:36:48.224] [info] [Plugin] [visceral]   layer[0] CHG motion=pl10_0193_OFF_GazingWalk_End_RL      speed=1.000 blend=1.00 bank=1 id=192 frame=0/60
+[2026-09-04 22:36:48.621] [info] [Plugin] [visceral]   layer[0] CHG motion=pl10_0160_OFF_Gazing_Idle_F_Loop     speed=1.000 blend=1.00 bank=1 id=160 frame=0/3354
+[2026-09-04 22:36:48.910] [info] [Plugin] [visceral]   layer[0] CHG motion=pl10_0194_OFF_GazingWalk_R_Loop      speed=1.000 blend=1.00 bank=1 id=190 frame=0/60
+[2026-09-04 22:36:49.021] [info] [Plugin] [visceral]   layer[0] CHG motion=pl10_0192_OFF_GazingWalk_End_LR      speed=1.000 blend=1.00 bank=1 id=192 frame=0/60
+[2026-09-04 22:37:23.205] [info] [Plugin] [visceral]   layer[0] CHG motion=pl10_0160_OFF_Gazing_Idle_F_Loop     speed=1.000 blend=1.00 bank=1 id=160 frame=17/3354
+[2026-09-04 22:37:25.063] [info] [Plugin] [visceral]   layer[0] CHG motion=pl10_0197_OFF_GazingWalk_Back_B_Loop speed=1.000 blend=1.00 bank=1 id=196 frame=0/59
+[2026-09-04 22:37:25.093] [info] [Plugin] [visceral]   layer[0] CHG motion=pl10_0196_OFF_GazingWalk_Back_L_Loop speed=1.000 blend=1.00 bank=1 id=196 frame=2/60
+[2026-09-04 22:37:25.365] [info] [Plugin] [visceral]   layer[0] CHG motion=pl10_0191_OFF_GazingWalk_L_Loop      speed=1.000 blend=1.00 bank=1 id=190 frame=20/63
+[2026-09-04 22:37:25.449] [info] [Plugin] [visceral]   layer[0] CHG motion=pl10_0190_OFF_GazingWalk_F_Loop      speed=1.000 blend=1.00 bank=1 id=190 frame=25/62
+[2026-09-04 22:37:26.960] [info] [Plugin] [visceral]   layer[0] CHG motion=pl10_0192_OFF_GazingWalk_End_LR      speed=1.000 blend=1.00 bank=1 id=192 frame=0/60
+[2026-09-04 22:37:27.359] [info] [Plugin] [visceral]   layer[0] CHG motion=pl10_0160_OFF_Gazing_Idle_F_Loop     speed=1.000 blend=1.00 bank=1 id=160 frame=0/3354
+[2026-09-04 22:37:28.074] [info] [Plugin] [visceral]   layer[0] CHG motion=pl10_0196_OFF_GazingWalk_Back_L_Loop speed=1.000 blend=1.00 bank=1 id=196 frame=0/60
+[2026-09-04 22:37:28.478] [info] [Plugin] [visceral]   layer[0] CHG motion=pl10_0193_OFF_GazingWalk_End_RL      speed=1.000 blend=1.00 bank=1 id=192 frame=0/60
+[2026-09-04 22:37:28.636] [info] [Plugin] [visceral]   layer[0] CHG motion=pl10_0194_OFF_GazingWalk_R_Loop      speed=1.000 blend=1.00 bank=1 id=190 frame=0/60
+[2026-09-04 22:37:28.834] [info] [Plugin] [visceral]   layer[0] CHG motion=pl10_0210_OFF_Jog_Start_R0_RL        speed=1.000 blend=1.00 bank=1 id=200 frame=0/61
+[2026-09-04 22:37:29.199] [info] [Plugin] [visceral]   layer[0] CHG motion=pl10_0230_OFF_Jog_LCycle_Loop        speed=1.000 blend=1.00 bank=1 id=230 frame=2/40
+[2026-09-04 22:37:29.443] [info] [Plugin] [visceral]   layer[0] CHG motion=pl10_0231_OFF_Jog_Straight_Loop      speed=1.000 blend=1.00 bank=1 id=230 frame=17/40
+[2026-09-04 22:37:29.914] [info] [Plugin] [visceral]   layer[0] CHG motion=pl10_0230_OFF_Jog_LCycle_Loop        speed=1.000 blend=1.00 bank=1 id=230 frame=5/40
+[2026-09-04 22:37:30.065] [info] [Plugin] [visceral]   layer[0] CHG motion=pl10_0231_OFF_Jog_Straight_Loop      speed=1.000 blend=1.00 bank=1 id=230 frame=14/40
+[2026-09-04 22:37:32.099] [info] [Plugin] [visceral]   layer[0] CHG motion=pl10_0190_OFF_GazingWalk_F_Loop      speed=1.000 blend=1.00 bank=1 id=190 frame=26/62
+[2026-09-04 22:37:32.164] [info] [Plugin] [visceral] WEAPON CHANGED -> none
+[2026-09-04 22:37:32.164] [info] [Plugin] [visceral] weapon: none equipped
+[2026-09-04 22:37:32.164] [info] [Plugin] [visceral]   layer[0] CHG motion=pl10_0190_KFF_GazingWalk_F_Loop      speed=1.000 blend=1.00 bank=1 id=190 frame=28/58
+[2026-09-04 22:37:32.164] [info] [Plugin] [visceral]   layer[2] CHG motion=pl10_02_FIN_BH01                     speed=1.000 blend=1.00 bank=10000 id=2 frame=0/30
+[2026-09-04 22:37:32.167] [info] [Plugin] [visceral]   layer[5] CHG motion=pl10_0010_Ladder_Up_Fine_Start       speed=1.000 blend=1.00 bank=20000 id=10 frame=0/44
+[2026-09-04 22:37:32.330] [info] [Plugin] [visceral]   layer[0] CHG motion=pl10_0193_KFF_GazingWalk_End_RL      speed=1.000 blend=1.00 bank=1 id=192 frame=0/60
+[2026-09-04 22:37:32.727] [info] [Plugin] [visceral]   layer[0] CHG motion=pl10_0160_KFF_Gazing_Idle_F_Loop     speed=1.000 blend=1.00 bank=1 id=160 frame=0/3039
+[2026-09-04 22:37:32.898] [info] [Plugin] [visceral]   layer[5] CHG motion=pl10_0020_Ladder_Up_Fine_R           speed=1.000 blend=1.00 bank=20000 id=20 frame=0/20
+[2026-09-04 22:37:32.901] [info] [Plugin] [visceral]   layer[0] CHG motion=pl10_0190_KFF_GazingWalk_F_Loop      speed=1.000 blend=1.00 bank=1 id=190 frame=0/58
+[2026-09-04 22:37:33.234] [info] [Plugin] [visceral]   layer[5] CHG motion=pl10_0030_Ladder_Up_Fine_L           speed=1.000 blend=1.00 bank=20000 id=30 frame=0/20
+[2026-09-04 22:37:33.568] [info] [Plugin] [visceral]   layer[5] CHG motion=pl10_0020_Ladder_Up_Fine_R           speed=1.000 blend=1.00 bank=20000 id=20 frame=0/20
+[2026-09-04 22:37:33.906] [info] [Plugin] [visceral]   layer[5] CHG motion=pl10_0030_Ladder_Up_Fine_L           speed=1.000 blend=1.00 bank=20000 id=30 frame=0/20
+[2026-09-04 22:37:34.239] [info] [Plugin] [visceral]   layer[5] CHG motion=pl10_0020_Ladder_Up_Fine_R           speed=1.000 blend=1.00 bank=20000 id=20 frame=0/20
+[2026-09-04 22:37:34.574] [info] [Plugin] [visceral]   layer[5] CHG motion=pl10_0030_Ladder_Up_Fine_L           speed=1.000 blend=1.00 bank=20000 id=30 frame=0/20
+[2026-09-04 22:37:34.910] [info] [Plugin] [visceral]   layer[5] CHG motion=pl10_0020_Ladder_Up_Fine_R           speed=1.000 blend=1.00 bank=20000 id=20 frame=0/20
+[2026-09-04 22:37:35.244] [info] [Plugin] [visceral]   layer[5] CHG motion=pl10_0030_Ladder_Up_Fine_L           speed=1.000 blend=1.00 bank=20000 id=30 frame=0/20
+[2026-09-04 22:37:35.578] [info] [Plugin] [visceral]   layer[5] CHG motion=pl10_0020_Ladder_Up_Fine_R           speed=1.000 blend=1.00 bank=20000 id=20 frame=0/20
+[2026-09-04 22:37:35.914] [info] [Plugin] [visceral]   layer[5] CHG motion=pl10_0030_Ladder_Up_Fine_L           speed=1.000 blend=1.00 bank=20000 id=30 frame=0/20
+[2026-09-04 22:37:36.249] [info] [Plugin] [visceral]   layer[5] CHG motion=pl10_0020_Ladder_Up_Fine_R           speed=1.000 blend=1.00 bank=20000 id=20 frame=0/20
+[2026-09-04 22:37:36.584] [info] [Plugin] [visceral]   layer[5] CHG motion=pl10_0040_Ladder_Up_Fine_R_End       speed=1.000 blend=1.00 bank=20000 id=40 frame=0/114
+[2026-09-04 22:37:36.924] [info] [Plugin] [visceral]   layer[0] CHG motion=pl10_0192_KFF_GazingWalk_End_LR      speed=1.000 blend=1.00 bank=1 id=192 frame=0/60
+[2026-09-04 22:37:36.937] [info] [Plugin] [visceral]   layer[0] CHG motion=pl10_0190_KFF_GazingWalk_F_Loop      speed=1.000 blend=1.00 bank=1 id=190 frame=0/58
+[2026-09-04 22:37:37.331] [info] [Plugin] [visceral]   layer[0] CHG motion=pl10_0193_KFF_GazingWalk_End_RL      speed=1.000 blend=1.00 bank=1 id=192 frame=0/60
+[2026-09-04 22:37:37.431] [info] [Plugin] [visceral]   layer[0] CHG motion=pl10_0190_KFF_GazingWalk_F_Loop      speed=1.000 blend=1.00 bank=1 id=190 frame=0/58
+[2026-09-04 22:37:37.928] [info] [Plugin] [visceral]   layer[0] CHG motion=pl10_0192_KFF_GazingWalk_End_LR      speed=1.000 blend=1.00 bank=1 id=192 frame=0/60
+[2026-09-04 22:37:38.327] [info] [Plugin] [visceral]   layer[0] CHG motion=pl10_0160_KFF_Gazing_Idle_F_Loop     speed=1.000 blend=1.00 bank=1 id=160 frame=0/3039
+[2026-09-04 22:37:38.481] [info] [Plugin] [visceral]   layer[5] CHG motion=-                                    speed=1.000 blend=1.00 bank=0 id=4294967295 frame=0/0
+[2026-09-04 22:37:38.488] [info] [Plugin] [visceral] WEAPON CHANGED -> app.ropeway.implement.Gun (go=wp0200)
+[2026-09-04 22:37:38.488] [info] [Plugin] [visceral] ---- WEAPON DUMP: app.ropeway.implement.Gun ----
+[2026-09-04 22:37:38.488] [info] [Plugin] [visceral]   WeaponType=3  MuzzleJointName=vfx_muzzle1  AidJointType=2 (0 None,1 ExtraNarrow,2 Narrow,3 Wide)
+[2026-09-04 22:37:38.488] [info] [Plugin] [visceral]   IsEquiped=1  EnabledHoldMainWeapon=1  ParentIkController=00000237C09C1250 (cond IkController=00000237C09C1250)
+[2026-09-04 22:37:38.488] [info] [Plugin] [visceral]   AidJoint=_101 pos=(-14.850 -4.049 7.629) owner_transform=00000237C063B4A0 (weapon transform=00000237C063B4A0, player transform=00000237C09C6830)
+[2026-09-04 22:37:38.488] [info] [Plugin] [visceral]   LEFT_ARM_JOINT_NARROW=0xcf4d4c03 -> weapon:_101 player:(not on this skeleton)
+[2026-09-04 22:37:38.488] [info] [Plugin] [visceral]   LEFT_ARM_JOINT_WIDE  =0x29429d17 -> weapon:_100 player:(not on this skeleton)
+[2026-09-04 22:37:38.488] [info] [Plugin] [visceral]   AttachJoint=setProp_A_00 offset=(-0.005 0.010 -0.060)
+[2026-09-04 22:37:38.488] [info] [Plugin] [visceral]   AimJoint (app.ropeway.implement.VirtualJoint) pos=(-14.844 -4.109 7.590)
+[2026-09-04 22:37:38.488] [info] [Plugin] [visceral]   AimJointWorldMatrix t=(-14.844 -4.109 7.590)
+[2026-09-04 22:37:38.488] [info] [Plugin] [visceral]   MuzzleJoint (app.ropeway.ExtraJoint) pos=(-14.844 -4.109 7.590)
+[2026-09-04 22:37:38.488] [info] [Plugin] [visceral]   MuzzleJointWorldMatrix t=(-14.844 -4.109 7.590)
+[2026-09-04 22:37:38.488] [info] [Plugin] [visceral]   IKLeftArmMatrix: (no value)
+[2026-09-04 22:37:38.488] [info] [Plugin] [visceral]   AidTargetWorldMatrix: t=(-14.850 -4.049 7.629) r0=(-0.09 -0.89 -0.03) r2=(-0.51 0.07 -0.73)
+[2026-09-04 22:37:38.488] [info] [Plugin] [visceral] weapon skeleton: 11 joints (array type via.Joint[])
+[2026-09-04 22:37:38.488] [info] [Plugin] [visceral]   joint[0] root                         pos=(-14.844 -4.109 7.590)
+[2026-09-04 22:37:38.488] [info] [Plugin] [visceral]   joint[1] _00                          pos=(-14.844 -4.109 7.590)
+[2026-09-04 22:37:38.488] [info] [Plugin] [visceral]   joint[2] _01                          pos=(-14.891 -4.198 7.536)
+[2026-09-04 22:37:38.488] [info] [Plugin] [visceral]   joint[3] _02                          pos=(-14.864 -4.097 7.544)
+[2026-09-04 22:37:38.488] [info] [Plugin] [visceral]   joint[4] vfx_muzzle1                  pos=(-14.901 -4.262 7.545)
+[2026-09-04 22:37:38.488] [info] [Plugin] [visceral]   joint[5] vfx_muzzle2                  pos=(-14.877 -4.168 7.529)
+[2026-09-04 22:37:38.488] [info] [Plugin] [visceral]   joint[6] _100                         pos=(-14.855 -4.048 7.631)
+[2026-09-04 22:37:38.488] [info] [Plugin] [visceral]   joint[7] _101                         pos=(-14.850 -4.049 7.629)
+[2026-09-04 22:37:38.488] [info] [Plugin] [visceral]   joint[8] _03                          pos=(-14.872 -4.153 7.554)
+[2026-09-04 22:37:38.488] [info] [Plugin] [visceral]   joint[9] _04                          pos=(-14.846 -4.110 7.586)
+[2026-09-04 22:37:38.488] [info] [Plugin] [visceral]   joint[10] vfx_muzzle3                  pos=(-14.880 -4.260 7.581)
+[2026-09-04 22:37:38.488] [info] [Plugin] [visceral] ---- end weapon dump ----
+[2026-09-04 22:37:38.489] [info] [Plugin] [visceral]   layer[3] CHG motion=pl00_1301_HG_HolsterToMove           speed=1.000 blend=1.00 bank=2000 id=1301 frame=0/30
+[2026-09-04 22:37:38.493] [info] [Plugin] [visceral]   layer[0] CHG motion=pl10_0160_OFF_Gazing_Idle_F_Loop     speed=1.000 blend=1.00 bank=1 id=160 frame=1/3354
+[2026-09-04 22:37:38.493] [info] [Plugin] [visceral]   layer[2] CHG motion=pl10_50_Hold_HG01                    speed=1.000 blend=1.00 bank=10000 id=2 frame=0/30
+[2026-09-04 22:37:38.790] [info] [Plugin] [visceral]   layer[3] CHG motion=-                                    speed=1.000 blend=1.00 bank=0 id=4294967295 frame=0/0
+[2026-09-04 22:37:44.123] [info] [Plugin] [visceral]   layer[0] CHG motion=pl10_0197_OFF_GazingWalk_Back_B_Loop speed=1.000 blend=1.00 bank=1 id=196 frame=0/59
+[2026-09-04 22:37:44.130] [info] [Plugin] [visceral] WEAPON CHANGED -> none
+[2026-09-04 22:37:44.130] [info] [Plugin] [visceral] weapon: none equipped
+[2026-09-04 22:37:44.130] [info] [Plugin] [visceral]   layer[0] CHG motion=pl10_0197_KFF_GazingWalk_Back_B_Loop speed=1.000 blend=1.00 bank=1 id=196 frame=1/56
+[2026-09-04 22:37:44.130] [info] [Plugin] [visceral]   layer[2] CHG motion=pl10_02_FIN_BH01                     speed=1.000 blend=1.00 bank=10000 id=2 frame=0/30
+[2026-09-04 22:37:44.133] [info] [Plugin] [visceral]   layer[5] CHG motion=pl10_0110_Ladder_Down_Fine_Start     speed=1.000 blend=1.00 bank=20000 id=110 frame=0/97
+[2026-09-04 22:37:44.411] [info] [Plugin] [visceral]   layer[0] CHG motion=pl10_0196_KFF_GazingWalk_Back_L_Loop speed=1.000 blend=1.00 bank=1 id=196 frame=19/58
+[2026-09-04 22:37:44.699] [info] [Plugin] [visceral]   layer[0] CHG motion=pl10_0191_KFF_GazingWalk_L_Loop      speed=1.000 blend=1.00 bank=1 id=190 frame=41/66
+[2026-09-04 22:37:44.702] [info] [Plugin] [visceral]   layer[0] CHG motion=pl10_0192_KFF_GazingWalk_End_LR      speed=1.000 blend=1.00 bank=1 id=192 frame=0/60
+[2026-09-04 22:37:45.102] [info] [Plugin] [visceral]   layer[0] CHG motion=pl10_0160_KFF_Gazing_Idle_F_Loop     speed=1.000 blend=1.00 bank=1 id=160 frame=0/3039
+[2026-09-04 22:37:45.244] [info] [Plugin] [visceral]   layer[0] CHG motion=pl10_0197_KFF_GazingWalk_Back_B_Loop speed=1.000 blend=1.00 bank=1 id=196 frame=0/56
+[2026-09-04 22:37:45.367] [info] [Plugin] [visceral]   layer[0] CHG motion=pl10_0193_KFF_GazingWalk_End_RL      speed=1.000 blend=1.00 bank=1 id=192 frame=0/60
+[2026-09-04 22:37:45.747] [info] [Plugin] [visceral]   layer[5] CHG motion=pl10_0120_Ladder_Down_Fine_L         speed=1.000 blend=1.00 bank=20000 id=120 frame=0/20
+[2026-09-04 22:37:45.765] [info] [Plugin] [visceral]   layer[0] CHG motion=pl10_0160_KFF_Gazing_Idle_F_Loop     speed=1.000 blend=1.00 bank=1 id=160 frame=0/3039
+[2026-09-04 22:37:46.085] [info] [Plugin] [visceral]   layer[5] CHG motion=pl10_0130_Ladder_Down_Fine_R         speed=1.000 blend=1.00 bank=20000 id=130 frame=0/20
+[2026-09-04 22:37:46.420] [info] [Plugin] [visceral]   layer[5] CHG motion=pl10_0120_Ladder_Down_Fine_L         speed=1.000 blend=1.00 bank=20000 id=120 frame=0/20
+[2026-09-04 22:37:46.754] [info] [Plugin] [visceral]   layer[5] CHG motion=pl10_0130_Ladder_Down_Fine_R         speed=1.000 blend=1.00 bank=20000 id=130 frame=0/20
+[2026-09-04 22:37:47.019] [info] [Plugin] [visceral]   layer[0] CHG motion=pl10_0197_KFF_GazingWalk_Back_B_Loop speed=1.000 blend=1.00 bank=1 id=196 frame=0/56
+[2026-09-04 22:37:47.029] [info] [Plugin] [visceral]   layer[0] CHG motion=pl10_0192_KFF_GazingWalk_End_LR      speed=1.000 blend=1.00 bank=1 id=192 frame=0/60
+[2026-09-04 22:37:47.090] [info] [Plugin] [visceral]   layer[5] CHG motion=pl10_0120_Ladder_Down_Fine_L         speed=1.000 blend=1.00 bank=20000 id=120 frame=0/20
+[2026-09-04 22:37:47.191] [info] [Plugin] [visceral]   layer[0] CHG motion=pl10_0197_KFF_GazingWalk_Back_B_Loop speed=1.000 blend=1.00 bank=1 id=196 frame=0/57
+[2026-09-04 22:37:47.318] [info] [Plugin] [visceral]   layer[0] CHG motion=pl10_0193_KFF_GazingWalk_End_RL      speed=1.000 blend=1.00 bank=1 id=192 frame=0/60
+[2026-09-04 22:37:47.414] [info] [Plugin] [visceral]   layer[0] CHG motion=pl10_0197_KFF_GazingWalk_Back_B_Loop speed=1.000 blend=1.00 bank=1 id=196 frame=0/56
+[2026-09-04 22:37:47.421] [info] [Plugin] [visceral]   layer[0] CHG motion=pl10_0193_KFF_GazingWalk_End_RL      speed=1.000 blend=1.00 bank=1 id=192 frame=0/60
+[2026-09-04 22:37:47.424] [info] [Plugin] [visceral]   layer[5] CHG motion=pl10_0130_Ladder_Down_Fine_R         speed=1.000 blend=1.00 bank=20000 id=130 frame=0/20
+[2026-09-04 22:37:47.508] [info] [Plugin] [visceral]   layer[0] CHG motion=pl10_0197_KFF_GazingWalk_Back_B_Loop speed=1.000 blend=1.00 bank=1 id=196 frame=0/56
+[2026-09-04 22:37:47.562] [info] [Plugin] [visceral]   layer[0] CHG motion=pl10_0192_KFF_GazingWalk_End_LR      speed=1.000 blend=1.00 bank=1 id=192 frame=0/60
+[2026-09-04 22:37:47.568] [info] [Plugin] [visceral]   layer[0] CHG motion=pl10_0198_KFF_GazingWalk_Back_R_Loop speed=1.000 blend=1.00 bank=1 id=196 frame=0/55
+[2026-09-04 22:37:47.757] [info] [Plugin] [visceral]   layer[5] CHG motion=pl10_0120_Ladder_Down_Fine_L         speed=1.000 blend=1.00 bank=20000 id=120 frame=0/20
+[2026-09-04 22:37:48.093] [info] [Plugin] [visceral]   layer[5] CHG motion=pl10_0130_Ladder_Down_Fine_R         speed=1.000 blend=1.00 bank=20000 id=130 frame=0/20
+[2026-09-04 22:37:48.129] [info] [Plugin] [visceral]   layer[0] CHG motion=pl10_0193_KFF_GazingWalk_End_RL      speed=1.000 blend=1.00 bank=1 id=192 frame=0/60
+[2026-09-04 22:37:48.138] [info] [Plugin] [visceral]   layer[0] CHG motion=pl10_0198_KFF_GazingWalk_Back_R_Loop speed=1.000 blend=1.00 bank=1 id=196 frame=0/55
+[2026-09-04 22:37:48.188] [info] [Plugin] [visceral]   layer[0] CHG motion=pl10_0197_KFF_GazingWalk_Back_B_Loop speed=1.000 blend=1.00 bank=1 id=196 frame=3/56
+[2026-09-04 22:37:48.222] [info] [Plugin] [visceral]   layer[0] CHG motion=pl10_0192_KFF_GazingWalk_End_LR      speed=1.000 blend=1.00 bank=1 id=192 frame=0/60
+[2026-09-04 22:37:48.429] [info] [Plugin] [visceral]   layer[5] CHG motion=pl10_0120_Ladder_Down_Fine_L         speed=1.000 blend=1.00 bank=20000 id=120 frame=0/20
+[2026-09-04 22:37:48.556] [info] [Plugin] [visceral]   layer[0] CHG motion=pl10_0197_KFF_GazingWalk_Back_B_Loop speed=1.000 blend=1.00 bank=1 id=196 frame=0/56
+[2026-09-04 22:37:48.566] [info] [Plugin] [visceral]   layer[0] CHG motion=pl10_0193_KFF_GazingWalk_End_RL      speed=1.000 blend=1.00 bank=1 id=192 frame=0/60
+[2026-09-04 22:37:48.569] [info] [Plugin] [visceral]   layer[0] CHG motion=pl10_0197_KFF_GazingWalk_Back_B_Loop speed=1.000 blend=1.00 bank=1 id=196 frame=0/56
+[2026-09-04 22:37:48.765] [info] [Plugin] [visceral]   layer[5] CHG motion=pl10_0130_Ladder_Down_Fine_R         speed=1.000 blend=1.00 bank=20000 id=130 frame=0/20
+[2026-09-04 22:37:49.101] [info] [Plugin] [visceral]   layer[5] CHG motion=pl10_0120_Ladder_Down_Fine_L         speed=1.000 blend=1.00 bank=20000 id=120 frame=0/20
+[2026-09-04 22:37:49.437] [info] [Plugin] [visceral]   layer[5] CHG motion=pl10_0140_Ladder_Down_Fine_L_End     speed=1.000 blend=1.00 bank=20000 id=140 frame=0/35
+[2026-09-04 22:37:50.019] [info] [Plugin] [visceral]   layer[0] CHG motion=pl10_0160_KFF_Gazing_Idle_F_Loop     speed=1.000 blend=1.00 bank=1 id=160 frame=0/3039
+[2026-09-04 22:37:50.020] [info] [Plugin] [visceral]   layer[5] CHG motion=-                                    speed=1.000 blend=1.00 bank=0 id=4294967295 frame=0/0
+[2026-09-04 22:37:50.023] [info] [Plugin] [visceral]   layer[0] CHG motion=pl10_0197_KFF_GazingWalk_Back_B_Loop speed=1.000 blend=1.00 bank=1 id=196 frame=0/56
+[2026-09-04 22:37:50.027] [info] [Plugin] [visceral] WEAPON CHANGED -> app.ropeway.implement.Gun (go=wp0200)
+[2026-09-04 22:37:50.027] [info] [Plugin] [visceral] ---- WEAPON DUMP: app.ropeway.implement.Gun ----
+[2026-09-04 22:37:50.027] [info] [Plugin] [visceral]   WeaponType=3  MuzzleJointName=vfx_muzzle1  AidJointType=2 (0 None,1 ExtraNarrow,2 Narrow,3 Wide)
+[2026-09-04 22:37:50.027] [info] [Plugin] [visceral]   IsEquiped=1  EnabledHoldMainWeapon=1  ParentIkController=00000237C09C1250 (cond IkController=00000237C09C1250)
+[2026-09-04 22:37:50.027] [info] [Plugin] [visceral]   AidJoint=_101 pos=(-14.919 -10.459 8.804) owner_transform=00000237C063B4A0 (weapon transform=00000237C063B4A0, player transform=00000237C09C6830)
+[2026-09-04 22:37:50.027] [info] [Plugin] [visceral]   LEFT_ARM_JOINT_NARROW=0xcf4d4c03 -> weapon:_101 player:(not on this skeleton)
+[2026-09-04 22:37:50.027] [info] [Plugin] [visceral]   LEFT_ARM_JOINT_WIDE  =0x29429d17 -> weapon:_100 player:(not on this skeleton)
+[2026-09-04 22:37:50.027] [info] [Plugin] [visceral]   AttachJoint=setProp_A_00 offset=(-0.005 0.010 -0.060)
+[2026-09-04 22:37:50.027] [info] [Plugin] [visceral]   AimJoint (app.ropeway.implement.VirtualJoint) pos=(-14.893 -10.511 8.764)
+[2026-09-04 22:37:50.027] [info] [Plugin] [visceral]   AimJointWorldMatrix t=(-14.893 -10.511 8.764)
+[2026-09-04 22:37:50.027] [info] [Plugin] [visceral]   MuzzleJoint (app.ropeway.ExtraJoint) pos=(-14.893 -10.511 8.764)
+[2026-09-04 22:37:50.027] [info] [Plugin] [visceral]   MuzzleJointWorldMatrix t=(-14.893 -10.511 8.764)
+[2026-09-04 22:37:50.027] [info] [Plugin] [visceral]   IKLeftArmMatrix: (no value)
+[2026-09-04 22:37:50.027] [info] [Plugin] [visceral]   AidTargetWorldMatrix: t=(-14.919 -10.459 8.804) r0=(-0.02 -0.88 -0.20) r2=(-0.12 0.19 -0.87)
+[2026-09-04 22:37:50.027] [info] [Plugin] [visceral] weapon skeleton: 11 joints (array type via.Joint[])
+[2026-09-04 22:37:50.027] [info] [Plugin] [visceral]   joint[0] root                         pos=(-14.893 -10.511 8.764)
+[2026-09-04 22:37:50.027] [info] [Plugin] [visceral]   joint[1] _00                          pos=(-14.893 -10.511 8.764)
+[2026-09-04 22:37:50.027] [info] [Plugin] [visceral]   joint[2] _01                          pos=(-14.905 -10.590 8.683)
+[2026-09-04 22:37:50.027] [info] [Plugin] [visceral]   joint[3] _02                          pos=(-14.890 -10.492 8.717)
+[2026-09-04 22:37:50.027] [info] [Plugin] [visceral]   joint[4] vfx_muzzle1                  pos=(-14.914 -10.655 8.676)
+[2026-09-04 22:37:50.027] [info] [Plugin] [visceral]   joint[5] vfx_muzzle2                  pos=(-14.891 -10.560 8.687)
+[2026-09-04 22:37:50.027] [info] [Plugin] [visceral]   joint[6] _100                         pos=(-14.926 -10.458 8.805)
+[2026-09-04 22:37:50.027] [info] [Plugin] [visceral]   joint[7] _101                         pos=(-14.919 -10.459 8.804)
+[2026-09-04 22:37:50.027] [info] [Plugin] [visceral]   joint[8] _03                          pos=(-14.899 -10.549 8.713)
+[2026-09-04 22:37:50.027] [info] [Plugin] [visceral]   joint[9] _04                          pos=(-14.893 -10.512 8.760)
+[2026-09-04 22:37:50.027] [info] [Plugin] [visceral]   joint[10] vfx_muzzle3                  pos=(-14.913 -10.659 8.718)
+[2026-09-04 22:37:50.027] [info] [Plugin] [visceral] ---- end weapon dump ----
+[2026-09-04 22:37:50.027] [info] [Plugin] [visceral]   layer[3] CHG motion=pl00_1301_HG_HolsterToMove           speed=1.000 blend=1.00 bank=2000 id=1301 frame=0/30
+[2026-09-04 22:37:50.033] [info] [Plugin] [visceral]   layer[0] CHG motion=pl10_0197_OFF_GazingWalk_Back_B_Loop speed=1.000 blend=1.00 bank=1 id=196 frame=1/59
+[2026-09-04 22:37:50.033] [info] [Plugin] [visceral]   layer[2] CHG motion=pl10_50_Hold_HG01                    speed=1.000 blend=1.00 bank=10000 id=2 frame=0/30
+[2026-09-04 22:37:50.324] [info] [Plugin] [visceral]   layer[3] CHG motion=-                                    speed=1.000 blend=1.00 bank=0 id=4294967295 frame=0/0
+[2026-09-04 22:37:50.848] [info] [Plugin] [visceral]   layer[0] CHG motion=pl10_0192_OFF_GazingWalk_End_LR      speed=1.000 blend=1.00 bank=1 id=192 frame=0/60
+[2026-09-04 22:37:51.010] [info] [Plugin] [visceral]   layer[0] CHG motion=pl10_0194_OFF_GazingWalk_R_Loop      speed=1.000 blend=1.00 bank=1 id=190 frame=0/60
+[2026-09-04 22:37:51.188] [info] [Plugin] [visceral]   layer[0] CHG motion=pl10_0211_OFF_Jog_Start_R90_RL       speed=1.000 blend=1.00 bank=1 id=200 frame=0/61
+[2026-09-04 22:37:51.556] [info] [Plugin] [visceral]   layer[0] CHG motion=pl10_0231_OFF_Jog_Straight_Loop      speed=1.000 blend=1.00 bank=1 id=230 frame=3/40
+[2026-09-04 22:37:52.001] [info] [Plugin] [visceral]   layer[0] CHG motion=pl10_0230_OFF_Jog_LCycle_Loop        speed=1.000 blend=1.00 bank=1 id=230 frame=29/40
+[2026-09-04 22:37:52.060] [info] [Plugin] [visceral]   layer[0] CHG motion=pl10_0231_OFF_Jog_Straight_Loop      speed=1.000 blend=1.00 bank=1 id=230 frame=33/40
+[2026-09-04 22:37:53.755] [info] [Plugin] [visceral]   layer[0] CHG motion=pl10_0232_OFF_Jog_RCycle_Loop        speed=1.000 blend=1.00 bank=1 id=230 frame=15/40
+[2026-09-04 22:37:53.881] [info] [Plugin] [visceral]   layer[0] CHG motion=pl10_0231_OFF_Jog_Straight_Loop      speed=1.000 blend=1.00 bank=1 id=230 frame=22/40
+[2026-09-04 22:37:55.556] [info] [Plugin] [visceral]   layer[0] CHG motion=pl10_0224_OFF_Jog_End                speed=1.000 blend=1.00 bank=1 id=224 frame=0/60
+[2026-09-04 22:37:56.288] [info] [Plugin] [visceral]   layer[0] CHG motion=pl10_0160_OFF_Gazing_Idle_F_Loop     speed=1.000 blend=1.00 bank=1 id=160 frame=0/3354
+[2026-09-04 22:40:11.135] [info] [Plugin] [visceral] NUM8: trace ON (10 Hz)
+[2026-09-04 22:40:11.136] [info] [Plugin] [visceral] ---- MOTION LAYERS (6) TargetBankType=1027 ----
+[2026-09-04 22:40:11.136] [info] [Plugin] [visceral]   layer[0]     motion=pl10_0160_OFF_Gazing_Idle_F_Loop     speed=1.000 blend=1.00 bank=1 id=160 frame=987/3354
+[2026-09-04 22:40:11.136] [info] [Plugin] [visceral]   layer[1]     motion=dummy                                speed=1.000 blend=1.00 bank=1 id=2000 frame=2/2
+[2026-09-04 22:40:11.136] [info] [Plugin] [visceral]   layer[2]     motion=pl10_50_Hold_HG01                    speed=1.000 blend=1.00 bank=10000 id=2 frame=14/30
+[2026-09-04 22:40:11.136] [info] [Plugin] [visceral]   layer[3]     motion=-                                    speed=1.000 blend=1.00 bank=0 id=4294967295 frame=0/0
+[2026-09-04 22:40:11.136] [info] [Plugin] [visceral]   layer[4]     motion=-                                    speed=1.000 blend=1.00 bank=0 id=4294967295 frame=0/0
+[2026-09-04 22:40:11.136] [info] [Plugin] [visceral]   layer[5]     motion=-                                    speed=1.000 blend=1.00 bank=0 id=4294967295 frame=0/0
+[2026-09-04 22:40:12.138] [info] [Plugin] [visceral] ---- MOTION LAYERS (6) TargetBankType=1027 ----
+[2026-09-04 22:40:12.138] [info] [Plugin] [visceral]   layer[0]     motion=pl10_0160_OFF_Gazing_Idle_F_Loop     speed=1.000 blend=1.00 bank=1 id=160 frame=1047/3354
+[2026-09-04 22:40:12.138] [info] [Plugin] [visceral]   layer[1]     motion=dummy                                speed=1.000 blend=1.00 bank=1 id=2000 frame=2/2
+[2026-09-04 22:40:12.138] [info] [Plugin] [visceral]   layer[2]     motion=pl10_50_Hold_HG01                    speed=1.000 blend=1.00 bank=10000 id=2 frame=15/30
+[2026-09-04 22:40:12.138] [info] [Plugin] [visceral]   layer[3]     motion=-                                    speed=1.000 blend=1.00 bank=0 id=4294967295 frame=0/0
+[2026-09-04 22:40:12.138] [info] [Plugin] [visceral]   layer[4]     motion=-                                    speed=1.000 blend=1.00 bank=0 id=4294967295 frame=0/0
+[2026-09-04 22:40:12.138] [info] [Plugin] [visceral]   layer[5]     motion=-                                    speed=1.000 blend=1.00 bank=0 id=4294967295 frame=0/0
+[2026-09-04 22:40:13.140] [info] [Plugin] [visceral] ---- MOTION LAYERS (6) TargetBankType=1027 ----
+[2026-09-04 22:40:13.140] [info] [Plugin] [visceral]   layer[0]     motion=pl10_0160_OFF_Gazing_Idle_F_Loop     speed=1.000 blend=1.00 bank=1 id=160 frame=1107/3354
+[2026-09-04 22:40:13.140] [info] [Plugin] [visceral]   layer[1]     motion=dummy                                speed=1.000 blend=1.00 bank=1 id=2000 frame=2/2
+[2026-09-04 22:40:13.140] [info] [Plugin] [visceral]   layer[2]     motion=pl10_50_Hold_HG01                    speed=1.000 blend=1.00 bank=10000 id=2 frame=15/30
+[2026-09-04 22:40:13.140] [info] [Plugin] [visceral]   layer[3]     motion=-                                    speed=1.000 blend=1.00 bank=0 id=4294967295 frame=0/0
+[2026-09-04 22:40:13.140] [info] [Plugin] [visceral]   layer[4]     motion=-                                    speed=1.000 blend=1.00 bank=0 id=4294967295 frame=0/0
+[2026-09-04 22:40:13.140] [info] [Plugin] [visceral]   layer[5]     motion=-                                    speed=1.000 blend=1.00 bank=0 id=4294967295 frame=0/0
+[2026-09-04 22:40:14.143] [info] [Plugin] [visceral] ---- MOTION LAYERS (6) TargetBankType=1027 ----
+[2026-09-04 22:40:14.143] [info] [Plugin] [visceral]   layer[0]     motion=pl10_0160_OFF_Gazing_Idle_F_Loop     speed=1.000 blend=1.00 bank=1 id=160 frame=1167/3354
+[2026-09-04 22:40:14.143] [info] [Plugin] [visceral]   layer[1]     motion=dummy                                speed=1.000 blend=1.00 bank=1 id=2000 frame=2/2
+[2026-09-04 22:40:14.143] [info] [Plugin] [visceral]   layer[2]     motion=pl10_50_Hold_HG01                    speed=1.000 blend=1.00 bank=10000 id=2 frame=15/30
+[2026-09-04 22:40:14.143] [info] [Plugin] [visceral]   layer[3]     motion=-                                    speed=1.000 blend=1.00 bank=0 id=4294967295 frame=0/0
+[2026-09-04 22:40:14.143] [info] [Plugin] [visceral]   layer[4]     motion=-                                    speed=1.000 blend=1.00 bank=0 id=4294967295 frame=0/0
+[2026-09-04 22:40:14.143] [info] [Plugin] [visceral]   layer[5]     motion=-                                    speed=1.000 blend=1.00 bank=0 id=4294967295 frame=0/0
+[2026-09-04 22:40:15.143] [info] [Plugin] [visceral] ---- MOTION LAYERS (6) TargetBankType=1027 ----
+[2026-09-04 22:40:15.143] [info] [Plugin] [visceral]   layer[0]     motion=pl10_0160_OFF_Gazing_Idle_F_Loop     speed=1.000 blend=1.00 bank=1 id=160 frame=1227/3354
+[2026-09-04 22:40:15.143] [info] [Plugin] [visceral]   layer[1]     motion=dummy                                speed=1.000 blend=1.00 bank=1 id=2000 frame=2/2
+[2026-09-04 22:40:15.143] [info] [Plugin] [visceral]   layer[2]     motion=pl10_50_Hold_HG01                    speed=1.000 blend=1.00 bank=10000 id=2 frame=15/30
+[2026-09-04 22:40:15.143] [info] [Plugin] [visceral]   layer[3]     motion=-                                    speed=1.000 blend=1.00 bank=0 id=4294967295 frame=0/0
+[2026-09-04 22:40:15.143] [info] [Plugin] [visceral]   layer[4]     motion=-                                    speed=1.000 blend=1.00 bank=0 id=4294967295 frame=0/0
+[2026-09-04 22:40:15.143] [info] [Plugin] [visceral]   layer[5]     motion=-                                    speed=1.000 blend=1.00 bank=0 id=4294967295 frame=0/0
+[2026-09-04 22:40:16.031] [info] [Plugin] [visceral] NUM8: trace OFF (1 Hz)
+[2026-09-04 22:40:33.007] [info] [Plugin] [visceral]   layer[0] CHG motion=pl10_0197_OFF_GazingWalk_Back_B_Loop speed=1.000 blend=1.00 bank=1 id=196 frame=0/59
+[2026-09-04 22:40:33.027] [info] [Plugin] [visceral]   layer[0] CHG motion=pl10_0196_OFF_GazingWalk_Back_L_Loop speed=1.000 blend=1.00 bank=1 id=196 frame=1/60
+[2026-09-04 22:40:33.309] [info] [Plugin] [visceral]   layer[0] CHG motion=pl10_0191_OFF_GazingWalk_L_Loop      speed=1.000 blend=1.00 bank=1 id=190 frame=20/63
+[2026-09-04 22:40:33.390] [info] [Plugin] [visceral]   layer[0] CHG motion=pl10_0190_OFF_GazingWalk_F_Loop      speed=1.000 blend=1.00 bank=1 id=190 frame=24/62
+[2026-09-04 22:40:33.649] [info] [Plugin] [visceral]   layer[0] CHG motion=pl10_0193_OFF_GazingWalk_End_RL      speed=1.000 blend=1.00 bank=1 id=192 frame=0/60
+[2026-09-04 22:40:34.048] [info] [Plugin] [visceral]   layer[0] CHG motion=pl10_0160_OFF_Gazing_Idle_F_Loop     speed=1.000 blend=1.00 bank=1 id=160 frame=0/3354
