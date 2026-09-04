@@ -196,6 +196,36 @@ Full write-ups: `external-research/topics/2026-08-29-weapon-equipped-state-surfa
 
 ### 8c. The off-hand support surface — the game already has one (TDB dump, 2026-09-04)
 
+**⭐ 2026-09-05 — THE DOCK LEVER: the aid target is a hookable managed getter, and the wrist goes
+where it says.** `[verified-live 2026-09-05, n=1 weapon (handgun), unaimed + HOLD, 3 modes]`
+Post-hooking `Implement.get_AidTargetWorldMatrix` (or `Implement.getIKLeftArmMatrix`) and adding
+10 cm to the returned translation moved `l_arm_wrist` 10 cm off `_101` (joint-to-joint read, no
+hook in the path); shifting both gave 20 cm (additive); mode off returned it to 0.000; identical
+under HOLD with the aim kept up. **The game calls each getter once per frame** (~345/s at ~350 fps)
+and the two counts are always equal, so the chain is *wrist solver → `getIKLeftArmMatrix()` →
+`get_AidTargetWorldMatrix()` → `AidJoint` world matrix*. **The solver snaps** (0.000 → 0.100 within
+one 100 ms trace sample), so the "smooth, not snap" of spec v2.3 req 1 is ours to add by blending
+the returned translation — trivial, the hook returns a fresh matrix every frame. Both return
+`Nullable<via.mat4>` through a hidden return-buffer pointer: at return `*ret_val` is that buffer,
+`u8 HasValue @0`, the matrix at `+0x10`. The dock is therefore: *while LG is held, return the
+controller pose (blended in) instead of the joint's, and latch HOLD natively.* Ledger:
+`modding-notes/2026-09-05-the-aid-joint-is-an-anchor-and-the-arm-kind-is-dead.md`; log
+`dev-archive/recon/2026-09-05-arm-kind-and-reload/run9-aid-target-override.txt`. Not established:
+whether the rotation part is consumed; what an unreachable target does.
+
+**Static, same session — `_101` is an ANCHOR, and the joint constraint on `Implement` is the
+weapon→right-hand attach, not the support hand.** Three ghidrust decompiles of `re2.exe`
+(`setupAidJoint` `0x140ef7a10`, `updateJointConstraint` `0x140f11ad0`, `get_AidTargetWorldMatrix`
+`0x140ebf3e0`) `[inferred-static 2026-09-05]`: `updateJointConstraint` reads **`this+0x78` =
+`AttachJoint` (`JointConstraintInfo`)** and never `+0x80` = `AidJoint`; `get_AidTargetWorldMatrix`
+reads `AidJoint` and returns its **world matrix** (a static null-Nullable at `0x1491842c0` when the
+joint is null). Live, the reload test agreed: `|l_arm_wrist − _101|` opened to **0.349 m** during
+`HG_Hold_Reload` while `_100`/`_101` stayed 8 mm apart, then closed to 0.000 in one step
+`[verified-live 2026-09-05, n=1]`. **Reading rule for every RE2 decompile:** the first register is
+the VM context and `this` is the second; the `*(rcx+0x50)->+0x18 != 0 → return` prologue is the VM
+interrupt check. Field map of `Implement` (`offset_from_base`): `+0x70 JointConstraintExpressionID`,
+`+0x78 AttachJoint`, `+0x80 AidJoint`, `+0x88 AimJoint`, `+0x98 Motion`, `+0xd8 MotionFsm`.
+
 Read from `il2cpp_dump.json` (the game's own type database, dumped 2026-08-29) and then
 **confirmed live the same evening** by the native probe on Claire's minigun save
 (`[verified-live 2026-09-04, n=1]` — one weapon, one save; ledger
@@ -204,9 +234,15 @@ Read from `il2cpp_dump.json` (the game's own type database, dumped 2026-08-29) a
 
 - **Live facts, minigun `wp8700`:** `get_AidJoint()` = weapon joint **`_101`**, `AidJointType` =
   Narrow (2); NARROW hash → `_101`, WIDE hash → `_100`, both on the **weapon** skeleton, neither
-  on the player. The player's left palm joint **`l_weapon` sits exactly on `_101`** (distance
-  0.000) in idle, walk, jog and aim — the game's own two-hand hold pins the hand to the aid
-  joint. `AidTargetWorldMatrix` is live; `getIKLeftArmMatrix()` returned no value in every state.
+  on the player. The player's left **wrist** joint **`l_arm_wrist` sits exactly on `_101`**
+  (distance 0.000) in idle, walk, jog and aim — the game's own two-hand hold pins the wrist to the
+  aid joint. *(Corrected 2026-09-05: the probe's `l_hand` is `l_arm_wrist`, joint[19], which
+  precedes `l_weapon`, joint[20], in the skeleton walk — the 2026-09-04 text said "palm
+  `l_weapon`"; every distance ever logged is wrist-to-joint, which is what an arm IK's end effector
+  would be.)* `AidTargetWorldMatrix` is live; `getIKLeftArmMatrix()` returned no value at the
+  minigun reads, **but carries a value equal to the aid position on the handgun in the ready
+  stance** (2026-09-05, appearing the same second `AidJoint` did) — it is the outer getter of the
+  wrist-target chain above.
   `IkController`: LEG + ARMFIT enabled, ARM/HAND/SPINE/LOOKAT off, `UseIkArm=0`,
   `UseIkWrist=1`, `UseIkArmFitAsWrist=1`, `ArmStatusList` empty, `ControlStatus` 6 entries,
   unchanged between locomotion and aim. Player skeleton (`pl1000`, 190 joints): palms
@@ -218,17 +254,23 @@ Read from `il2cpp_dump.json` (the game's own type database, dumped 2026-08-29) a
 - **`IkController.setArmFitTarget(int, via.vec3, bool)` is NOT the grip lever** `[disproved
   2026-09-04]`: wrist 0 accepts a target 10 cm off the aid joint every frame for ~1100 frames and
   the palm does not move; wrist 1 throws (one wrist entry). `IkArmFit` is the wall-touch solver.
-- **Open — anchor or follower?** A palm at exactly 0.000 from `_101` through walking and two weapons
-  reads like a joint **constraint** (`Implement.JointConstraintExpressionID`, `setupJointConstraint`,
-  `updateJointConstraint`, `[inferred-static]`): `_101` may follow the hand rather than pull it.
-  Test: jog with the handgun (one-handed run) and watch `|l_weapon − _101|`. Unread candidates for
-  the real placement: `IkController.getIkTwoArm()` (`app.ropeway.IkTwoArm`), `getIkHand()`
-  (`via.motion.IkHand`), and the per-weapon `Hold_*` clips on layers 0 and 2.
+- **Anchor or follower — ANSWERED 2026-09-05: anchor** (the headline block above). The follower
+  reading via `Implement`'s joint constraint is `[disproved 2026-09-05]` (that constraint is the
+  attach joint). **The `IkController` ARM kind is not the lever either** `[disproved 2026-09-05]`:
+  `setEnable(ARM, true, 0.2f)` through the direct-ABI route *and* the invoke route both execute and
+  `isEnabled(ARM)` stays 0 on every frame after; `setArmTarget` throws an internal game exception
+  on index 0 and 1; `getIkTwoArm()` and `getIkHand()` are **null** on both weapons, at bind and
+  with the weapon held (n=2 weapons). What stays enabled is ARMFIT with `UseIkArmFitAsWrist=1` —
+  the wrist solver that consumes the getter chain above `[hypothesis]` as to its name, `[verified-
+  live]` as to its behaviour.
 - **Native aim latch:** `app.ropeway.InputSystem.setForce(64 /*HOLD*/, true)` from the plugin
   raises the full aim state within a frame (`IsHold` 0→1, layer 0 to bank 2
   `GG_Hold_Start_L0` → `GG_Hold_Idle_Loop`, `TargetBankType` 50 → 3145778); `false` drops it
   cleanly. `[verified-live 2026-09-04, n=1]` — the 2026-08-27 Lua result, now native.
-  `ATTACK` is kind 256 (from the Lua probes; not yet pulsed natively).
+  **`ATTACK` is kind 256 and fires natively:** `setForce(256, true)` for 8 frames under forced HOLD
+  spent a round (13 → 12) with `pl00_1100_HG_Hold_Shoot` on layer 4 `[verified-live 2026-09-05,
+  n=1]`. Layer map so far: 0 locomotion/hold body, 1 arm, 2 fingers, **3 upper-body action**
+  (`Hold_Start`, `Hold_Reload`), **4 shoot overlay**, 5 empty.
 
 - **Every weapon carries an "aid joint"** — `app.ropeway.implement.Implement.get_AidJoint()` →
   `via.Joint`, plus `setupAidJoint()`, `get_AidTargetWorldMatrix()` → `Nullable<via.mat4>` and
@@ -243,7 +285,8 @@ Read from `il2cpp_dump.json` (the game's own type database, dumped 2026-08-29) a
   `setEnable(IkKind, bool, float t)` with `IkKind{LEG=0,SPINE=1,LOOKAT=2,ARM=3,ARMFIT=4,HAND=5}`,
   and `get_ArmStatusList()` → `IkArmStatus[]` (fields: `Index` @0x10, `ActivateTime` @0x14,
   `ResetTime` @0x18, `AdjustMode` @0x1c, `AdjustedPoint` Nullable<vec3> @0x20).
-  **`setArmTarget` with a blend time is exactly the "smooth, not snap" dock of req 1.**
+  *(2026-09-04 wrote "`setArmTarget` with a blend time is exactly the smooth dock of req 1" —
+  `[disproved 2026-09-05]`, see above; the blend is done in the getter hook instead.)*
 - Other named joints on a weapon: `get_AttachJoint()` → `JointConstraintInfo` (`Joint` @0x10,
   `OfsetPosition` @0x20, `OfsetRotation` @0x30), `get_AimJoint()` → `VirtualJoint`,
   `Gun.get_MuzzleJoint()` → `ExtraJoint` (`get_Position/get_Rotation/get_WorldMatrix`),
@@ -254,8 +297,10 @@ Read from `il2cpp_dump.json` (the game's own type database, dumped 2026-08-29) a
   (`implement.Arm`; `Gun : Arm : Implement`).
 - Value-type layouts (unboxed, as `invoke` returns them): `via.vec3` = 3 floats; `via.mat4` =
   16 floats row-major, translation in row 3 (`m30..m32`); `Nullable<T>` = `_HasValue` byte at
-  +0, `_Value` at +0x10. `System.String` = int32 length @0x10, UTF-16 @0x14. Managed arrays:
-  count @0x18, elements @0x20.
+  +0, `_Value` at +0x10. `System.String` = int32 length @0x10, UTF-16 @0x14. Managed arrays on
+  THIS build: **count @0x1c**, elements @0x20 (`+0x18` holds 1, probably the rank) — measured from
+  the bridge array's sentinel on 2026-09-04, and re-measured identically on every boot since; the
+  plugin derives the offsets at hand-over rather than assuming them.
 - Also seen, unexplored: **`app.ropeway.survivor.SurvivorMotionSpeedController`**
   (`: MotionSpeedController`; `TensionSpeed` / `WaterResistanceSpeed` as `RangeLerpFloat`,
   `applyTensionSpeed`) — a game-side motion-speed controller on the player, one level above the
@@ -348,6 +393,16 @@ Sources: `external-research/topics/2026-09-02-a-writable-speed-lever-exists-the-
   (Found by the 2026-08-31 `/sr` sweep; details in the cross-engine library's
   "silent no-ops" technique page.)
 
+- **Placing the support hand through `IkController`** (2026-09-04/05): `setArmFitTarget` accepts and
+  does nothing (the game rewrites the target from the aid joint every frame); `setEnable(ARM)`
+  never sticks by either call route; `setArmTarget` throws; `getIkTwoArm`/`getIkHand` are null.
+  The lever is the **getter the solver reads** (§8c), not the solver's own setters.
+- **Reading `Implement.updateJointConstraint` as the support-hand constraint** — it is the
+  weapon→right-hand *attach* (`AttachJoint` @+0x78), decompiled 2026-09-05. `AidJoint` @+0x80 is
+  never touched by it.
+- **A `/lm` menu route chained without a capture between steps** (2026-09-05, launch 2): an
+  "autosave feature" notice preceded the title on that boot and ate the ENTER; the run sat at the
+  title with the whole chain one step behind. Verify the title by capture before ENTER.
 - **Swapping compiled animation files on disk** to change locomotion —
   skeleton-specific binary data, and a file-level hammer for a runtime problem.
   Use the motion-bank selector (§8) instead.
