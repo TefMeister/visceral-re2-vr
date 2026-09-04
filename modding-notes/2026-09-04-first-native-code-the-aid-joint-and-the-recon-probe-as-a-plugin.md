@@ -101,14 +101,61 @@ Configures once, builds Release x64, checks the two exports, copies into
 `autorun/`, and compares hashes. Zero warnings from our code; the two `size_t` narrowing warnings
 in praydog's `API.hpp` are silenced in `CMakeLists.txt`.
 
+## Live results, same evening (four launches, flat, Claire's save with the minigun `wp8700`)
+
+Log rescued to `dev-archive/recon/2026-09-04-native-probe-first-runs/run4-latch-test.log`.
+Tags below are `[verified-live 2026-09-04, n=1]` unless stated; one weapon, one save, one PC.
+
+**Run 1 crashed in 8 s — the hand-over method, not the probe.** `System.GC.KeepAlive` is an
+internal call: REFramework resolved its "actual function" to an address outside every module,
+the hook failed (`Failed to hook 7ff8bcedfd20: unknown exception`) and the Lua shim's first call
+to it died inside the native invoker (all crash frames in `re2.exe` past the last managed
+function, one REFramework frame under them). Switched the mailbox to a compiled game method,
+`app.ropeway.RagdollControlZoneManager.set_AccessMutex(System.Object)`, with the pre-hook
+returning SKIP_ORIGINAL only for our sentinel array. **Lesson:** hook and call only methods
+whose `function` address in the dump lies inside the executable; `System.*` internals may not.
+
+**Run 2: the hook fired, the array read as length 1.** The count is not at `+0x18` on this
+build; the sentinel probe found elements at `+0x20` and the count (64) at **`+0x1c`**
+(`+0x18` holds 1 — probably the rank). `[measured 2026-09-04]` The plugin now measures the
+layout from the sentinel at hand-over and uses the measured offsets for every array.
+
+**Run 3: everything bound; floats were all zero.** `PLAYER BOUND` on the first frame after the
+load (`pl1000`, `PlayerCondition`, equipment, `IkController`, transform, motion all non-null).
+`get_Speed`/`get_BlendRate`/`get_Frame` returned 0 through the reflection invoke — XMM0
+results are not copied into `InvokeRet` by this build. **Scalar getters now go through the
+direct function-pointer route** (`Method::call<T>(vmctx, this, …)`) and read correctly
+(speed 1.000, blend 1.00, sane frame counters). Pointer and value-type returns are fine through
+invoke (positions, matrices, strings, arrays all consistent).
+
+**Run 4: the findings.**
+
+| Question | Answer |
+| --- | --- |
+| Hand joints | No `l_hand`. The palm points are **`l_weapon` / `r_weapon`**, wrists `l_arm_wrist` / `r_arm_wrist`, fingers `l_hand_<finger>_<n>` (190 joints on `pl1000`). |
+| Aid joint | **`Implement.get_AidJoint()` = weapon joint `_101`**, and `Equipment.getAidJointType()` = 2 (Narrow). The NARROW hash resolves to `_101` and the WIDE hash to `_100` on the **weapon** skeleton; neither exists on the player. Both are 2 cm apart on the minigun's fore-end. Null while the weapon was not yet equipped at bind; present from the first idle frame on. |
+| Where the left hand is | **Exactly on the aid joint**: `|l_weapon − _101| = 0.000` in idle, walking, jogging and aiming. The game's own two-hand hold pins the palm to `_101`. `AidTargetWorldMatrix` carries the same translation with a live rotation; `getIKLeftArmMatrix()` had **no value** in every state on this weapon. |
+| IK state | `IkKind` LEG and **ARMFIT** enabled; ARM, HAND, SPINE, LOOKAT disabled; `UseIkArm=0`, `UseIkWrist=1`, `UseIkArmFitAsWrist=1`; `ArmStatusList` empty; `ControlStatus` has 6 entries (one per kind). Unchanged between locomotion and aim on the minigun. |
+| Locomotion layer | **Layer 0.** Walk = `pl10_0190_KFF_GazingWalk_F_Loop`, back = `_0197_…Back_B_Loop`, jog = `pl10_0231_KFF_Jog_Straight_Loop` (start/end clips around it), idle = `pl10_0160_KFF_Gazing_Idle_F_Loop`. Layer 1 = arm (`pl10_2000_GFC_Arm`), layer 2 = fingers (`pl10_02_FIN_GG_LGT`), layers 3–5 empty. Speed 1.000 and blend 1.00 on all live layers. The `/gr` layer-0 guess holds for RE2. |
+| Aim, natively | **`InputSystem.setForce(64, true)` from the plugin raised the aim state within a frame**: `IsHold` 0→1, layer 0 → bank 2 `pl10_0140_GG_Hold_Start_L0` → `pl10_0160_GG_Hold_Idle_Loop`, layer 2 → `pl10_50_Hold_GG_LGT`, `TargetBankType` 50 → 3145778, strafing under hold (`GG_StrafeL_F`). `setForce(64, false)` dropped it all back. The 2026-08-27 Lua latch, now native. |
+| Synthetic mouse | Right-mouse via `SendInput` never raised `IsHold` (two 2 s holds). Keyboard scancodes work; numpad must be sent by virtual key. Recorded in the control profile as disproved. |
+| VR bridge | Attached on frame 182 of every launch after the fix; poses are zeros because no headset was on (`hmd=0 ctl=0`). The hand-over itself is proven; the pose path is not. |
+
+### What this means for the dock design
+
+The engine already pins the off-hand to a named weapon joint and exposes the target matrix for
+it. The dock of spec v2.3 therefore has an anchor (`_101` / `_100` by `AidJointType`) and a
+proven way in and out of the aim state (`setForce(HOLD)`), both native. What it does **not** yet
+have is the smooth-transition lever: on the minigun the arm IK kind (`ARM`) is off and the hand
+placement comes from ARMFIT + animation, so `setArmTarget` has not been exercised. That is the
+next live experiment, and it needs a **one-handed weapon** (handgun), where the aid joint may be
+absent or the hand may float, to see which kind the game switches on for two-hand aim.
+
 ## Not established
 
-- Nothing has run. Every game-side claim above is static reading.
-- Whether `getJointByHash` resolves the narrow/wide hashes on the *weapon* skeleton or the
-  *player* skeleton — the probe logs both.
-- Whether `IKLeftArmMatrix` only carries a value while aiming (the dossier's "legitimately nil
-  under some states" trap, §4) — the summary line will show it flipping.
-- Which layer index carries locomotion.
-- Whether the `KeepAlive` hook sees the array in `argv` at all (RE Engine static-method calling
-  convention) — the plugin scans every argument, and the Lua side re-sends every two seconds
-  until acknowledged, so a failure is visible, not silent.
+- All of the above is one weapon (the minigun, always two-handed) on one save. A handgun run is
+  the missing half.
+- `setArmTarget` / `setEnable(ARM, …)` have not been called — read only, no writes to IK.
+- The VR pose path (slots 3–24 of the bridge array) has never carried real values.
+- Whether `getIKLeftArmMatrix()` carries a value on any weapon, or only in the VR/first-person
+  path — every read so far said "no value".

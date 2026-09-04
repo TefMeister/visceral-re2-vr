@@ -4,8 +4,13 @@
 -- are reachable from Lua's `vrmod` only. This shim ferries them into the native
 -- core (visceral_core.dll) through one shared System.Single[64]:
 --   * created here, sentinel 12345 written to slot 63;
---   * handed over ONCE by calling System.GC.KeepAlive(arr), which the plugin
---     hooks (it reads the array pointer out of the call and add_refs it);
+--   * handed over ONCE by calling a mailbox method the plugin hooks —
+--     app.ropeway.RagdollControlZoneManager.set_AccessMutex(System.Object), a
+--     real compiled game function; the plugin's pre-hook recognises the array
+--     by type + length + sentinel, add_refs it, and SKIPS the original so the
+--     game's setter never runs with our array (System.GC.KeepAlive was the
+--     first choice on 2026-09-04 and crashed the game: it is an internal call
+--     with no resolvable body in this build);
 --   * the plugin acknowledges by writing 1.0 into slot 62; until it does, the
 --     hand-over is repeated every ~2 s;
 --   * every frame from then on this script writes poses into the array and the
@@ -52,17 +57,22 @@ local function setup()
     if not arr then log.error(TAG .. " create_managed_array failed"); return false end
     for i = 0, N - 1 do w(i, 0.0) end
     w(S_SENTINEL, 12345.0)
-    local gc = sdk.find_type_definition("System.GC")
-    keepalive = gc and gc:get_method("KeepAlive")
-    if not keepalive then log.error(TAG .. " System.GC.KeepAlive not found"); return false end
+    local t = sdk.find_type_definition("app.ropeway.RagdollControlZoneManager")
+    keepalive = t and t:get_method("set_AccessMutex")
+    if not keepalive then log.error(TAG .. " mailbox method RagdollControlZoneManager.set_AccessMutex not found"); return false end
     log.info(TAG .. " array ready (" .. tostring(arr:get_address()) .. ")")
     return true
 end
 
+local handoffs = 0
 local function handoff()
     if not keepalive then return end
+    if handoffs >= 5 then return end        -- five tries, then give up loudly rather than forever
+    handoffs = handoffs + 1
+    log.info(TAG .. " hand-over #" .. handoffs .. " at frame " .. frame .. " (mailbox call)")
     local ok, err = pcall(function() keepalive:call(nil, arr) end)
-    if not ok then log.warn(TAG .. " KeepAlive hand-over threw: " .. tostring(err)) end
+    if not ok then log.warn(TAG .. " hand-over threw: " .. tostring(err)) end
+    if handoffs == 5 then log.warn(TAG .. " five hand-overs without acknowledgement — plugin hook missing? check re2_framework_log for 'Failed to hook'") end
 end
 
 re.on_pre_application_entry("UpdateHID", function()
@@ -73,7 +83,7 @@ re.on_pre_application_entry("UpdateHID", function()
         if arr:read_float(BASE + S_ACK * 4) == 1.0 then
             attached = true
             log.info(TAG .. " plugin acknowledged the bridge at frame " .. frame)
-        elseif frame - last_handoff > 120 then
+        elseif frame - last_handoff > 180 then
             last_handoff = frame
             handoff()
         end

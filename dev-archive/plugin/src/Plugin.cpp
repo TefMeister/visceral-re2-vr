@@ -26,8 +26,14 @@
 // NUM9 = motion-layer table now.
 //
 // Lua bridge: visceral_native_bridge.lua creates a System.Single[64], writes the
-// sentinel 12345 into slot 63 and hands the array over ONCE by calling
-// System.GC.KeepAlive(arr), which this plugin hooks. After that the shim writes
+// sentinel 12345 into slot 63 and hands the array over ONCE by calling a
+// "mailbox" method this plugin hooks: app.ropeway.RagdollControlZoneManager.
+// set_AccessMutex(System.Object) — static, one object parameter, a real compiled
+// game function (System.GC.KeepAlive was tried first on 2026-09-04: it is an
+// internal call whose body REFramework cannot resolve in this build, the hook
+// failed, and invoking it from Lua crashed the game inside the native invoker).
+// The pre-hook SKIPS the original only when the argument is our sentinel array,
+// so the game's own calls to that setter pass through untouched. After that the shim writes
 // poses into the array every frame and the plugin reads them here. Slot 62 is
 // the plugin's acknowledgement (1.0). No Lua C API, no ABI assumptions beyond
 // the managed-array element offset, which the sentinel itself verifies.
@@ -121,18 +127,21 @@ API::ManagedObject* inv_ptr(API::ManagedObject* o, std::string_view name, std::v
     auto x = inv(o, name, std::move(args));
     return x.ok ? (API::ManagedObject*)x.r.ptr : nullptr;
 }
-bool inv_bool(API::ManagedObject* o, std::string_view name, std::vector<void*> args = {}) {
-    auto x = inv(o, name, std::move(args));
-    return x.ok && x.r.byte != 0;
+// Scalar getters go through the DIRECT function-pointer route (vmctx, this, args...):
+// the reflection invoke path returned 0 for every float on 2026-09-04 (XMM0 results are
+// not copied into InvokeRet by this build), and the direct route is what Lua's own
+// float returns rely on. Pointers and value types keep using invoke.
+template <typename T, typename... Args>
+T call_direct(API::ManagedObject* o, std::string_view name, T fallback, Args... args) {
+    if (o == nullptr) return fallback;
+    auto* m = find_method_deep(o->get_type_definition(), name);
+    if (m == nullptr) return fallback;
+    return m->call<T>(API::get()->get_vm_context(), (void*)o, args...);
 }
-uint32_t inv_u32(API::ManagedObject* o, std::string_view name, std::vector<void*> args = {}) {
-    auto x = inv(o, name, std::move(args));
-    return x.ok ? x.r.dword : 0xFFFFFFFFu;
-}
-float inv_f32(API::ManagedObject* o, std::string_view name) {
-    auto x = inv(o, name);
-    return x.ok ? x.r.f : NAN;
-}
+bool inv_bool(API::ManagedObject* o, std::string_view name) { return call_direct<bool>(o, name, false); }
+bool inv_bool_i(API::ManagedObject* o, std::string_view name, int arg) { return call_direct<bool>(o, name, false, arg); }
+uint32_t inv_u32(API::ManagedObject* o, std::string_view name) { return call_direct<uint32_t>(o, name, 0xFFFFFFFFu); }
+float inv_f32(API::ManagedObject* o, std::string_view name) { return call_direct<float>(o, name, NAN); }
 bool inv_vec3(API::ManagedObject* o, std::string_view name, Vec3& v) {
     auto x = inv(o, name);
     if (!x.ok) return false;
@@ -165,10 +174,47 @@ std::string sysstr(API::ManagedObject* s) {
     return out;
 }
 
-// Managed arrays: element count at +0x18, elements at +0x20 (REFramework's REArrayBase).
-uint32_t arr_count(API::ManagedObject* a) { return a != nullptr ? *(const uint32_t*)((const char*)a + 0x18) : 0; }
-API::ManagedObject* arr_ptr_at(API::ManagedObject* a, uint32_t i) { return ((API::ManagedObject**)((char*)a + 0x20))[i]; }
-float* arr_f32(API::ManagedObject* a) { return (float*)((char*)a + 0x20); }
+// Managed arrays. REFramework's REArrayBase puts the count at +0x18 and the
+// elements at +0x20 on current engines; on this RE2 build the count read as 1
+// through those offsets (2026-09-04 run 2), so the layout is MEASURED from the
+// Lua shim's sentinel array at hand-over (see pre_mailbox) and the measured
+// offsets are used everywhere. Until measured, the defaults apply and every
+// reader self-checks.
+uint32_t g_arr_count_off = 0x18;
+uint32_t g_arr_elem_off  = 0x20;
+bool     g_arr_measured  = false;
+uint32_t arr_count(API::ManagedObject* a) { return a != nullptr ? *(const uint32_t*)((const char*)a + g_arr_count_off) : 0; }
+API::ManagedObject* arr_ptr_at(API::ManagedObject* a, uint32_t i) { return ((API::ManagedObject**)((char*)a + g_arr_elem_off))[i]; }
+float* arr_f32(API::ManagedObject* a) { return (float*)((char*)a + g_arr_elem_off); }
+
+// Find the shim's sentinel inside a candidate float array and derive the layout.
+// Returns true if a sentinel was found at a plausible element offset.
+bool measure_array_layout(API::ManagedObject* a) {
+    const auto* bytes = (const uint8_t*)a;
+    const uint32_t obj_size = API::get()->sdk()->managed_object->get_size(*a);
+    LOGI("%s array layout probe: get_size=%u dwords@0x10..0x2c = %08x %08x %08x %08x %08x %08x %08x %08x", TAG, obj_size,
+         *(const uint32_t*)(bytes + 0x10), *(const uint32_t*)(bytes + 0x14), *(const uint32_t*)(bytes + 0x18), *(const uint32_t*)(bytes + 0x1c),
+         *(const uint32_t*)(bytes + 0x20), *(const uint32_t*)(bytes + 0x24), *(const uint32_t*)(bytes + 0x28), *(const uint32_t*)(bytes + 0x2c));
+    for (uint32_t off = 0x10; off + 4 <= 0x200; off += 4) {
+        if (*(const float*)(bytes + off) == 12345.0f) {
+            if (off < 0x10 + 63 * 4) continue;               // can't be slot 63 of anything
+            const uint32_t elem = off - 63 * 4;
+            // the count (64) should sit in one of the dwords between the header and the elements
+            uint32_t cnt = 0; bool found = false;
+            for (uint32_t c = 0x10; c + 4 <= elem; c += 4) {
+                if (*(const uint32_t*)(bytes + c) == 64) { cnt = c; found = true; break; }
+            }
+            g_arr_elem_off = elem;
+            if (found) g_arr_count_off = cnt;
+            g_arr_measured = true;
+            LOGI("%s ARRAY LAYOUT MEASURED: elements @+0x%x, count %s@+0x%x (sentinel found at +0x%x, get_size=%u)", TAG,
+                 g_arr_elem_off, found ? "" : "NOT FOUND, keeping default ", g_arr_count_off, off, obj_size);
+            return true;
+        }
+    }
+    LOGW("%s array layout probe: no sentinel 12345 within the first 0x200 bytes", TAG);
+    return false;
+}
 
 template <typename T> T field_at(API::ManagedObject* o, uint32_t off) { return *(const T*)((const char*)o + off); }
 
@@ -207,11 +253,15 @@ struct State {
     API::ManagedObject* l_hand{};
     API::ManagedObject* r_hand{};
     API::ManagedObject* aid_joint{};
+    API::ManagedObject* w_narrow{};     // weapon joint the NARROW hash resolves to (_101 on wp8700)
+    API::ManagedObject* w_wide{};       // weapon joint the WIDE hash resolves to (_100 on wp8700)
     API::ManagedObject* bridge{};      // System.Single[64] from the Lua shim
     uint64_t frame{};
     bool trace{false};
     bool want_dump{false};
     bool want_layers{false};
+    bool force_hold{false};          // NUM4: InputSystem.setForce(HOLD, true) — the latch proven in Lua on 2026-08-27, now native
+    int attack_pulse{0};             // NUM5: setForce(ATTACK, true) for one frame, then false
     std::vector<std::string> layer_last;   // last highest-weight motion name per layer
     uint64_t layer_lines_this_second{};
     uint64_t layer_second{};
@@ -244,9 +294,12 @@ Vec3 bridge_vec3(int slot) { const float* f = arr_f32(g.bridge); return Vec3{f[s
 // Dumps
 // ---------------------------------------------------------------------------
 
+API::ManagedObject** g_grab_named = nullptr;   // dump_joints side channel: capture the joint with this name
+std::string g_grab_name;
 void dump_joints(API::ManagedObject* transform, const char* who, bool all, API::ManagedObject** l_hand, API::ManagedObject** r_hand) {
     auto* joints = inv_ptr(transform, "get_Joints");
     if (joints == nullptr) { LOGW("%s %s: get_Joints failed", TAG, who); return; }
+    if (!g_arr_measured) LOGW("%s %s: array layout not yet measured (no bridge hand-over seen) — reading with default offsets, expect a self-check warning if they are wrong", TAG, who);
     const auto n = arr_count(joints);
     LOGI("%s %s: %u joints (array type %s)", TAG, who, n, tname(joints).c_str());
     if (n > 2048) { LOGW("%s %s: joint count implausible, array layout assumption wrong?", TAG, who); return; }
@@ -263,8 +316,10 @@ void dump_joints(API::ManagedObject* transform, const char* who, bool all, API::
             Vec3 p{}; inv_vec3(j, "get_Position", p);
             LOGI("%s   joint[%u] %-28s pos=(%.3f %.3f %.3f)", TAG, i, name.c_str(), p.x, p.y, p.z);
         }
-        if (l_hand != nullptr && *l_hand == nullptr && (ln == "l_hand" || ln == "lefthand" || ln == "l_hand_0")) *l_hand = j;
-        if (r_hand != nullptr && *r_hand == nullptr && (ln == "r_hand" || ln == "righthand" || ln == "r_hand_0")) *r_hand = j;
+        // RE2 pl1000 skeleton (verified-live 2026-09-04): no "l_hand"; the palm points are l_weapon / r_weapon, wrists l_arm_wrist / r_arm_wrist
+        if (l_hand != nullptr && *l_hand == nullptr && (ln == "l_weapon" || ln == "l_hand" || ln == "l_arm_wrist")) *l_hand = j;
+        if (r_hand != nullptr && *r_hand == nullptr && (ln == "r_weapon" || ln == "r_hand" || ln == "r_arm_wrist")) *r_hand = j;
+        if (g_grab_named != nullptr && *g_grab_named == nullptr && ln == g_grab_name) *g_grab_named = j;
     }
 }
 
@@ -324,6 +379,8 @@ void dump_weapon() {
     log_nullable_mat("IKLeftArmMatrix", inv_nullable_mat4(w, "getIKLeftArmMatrix", has, m), has, m);
     log_nullable_mat("AidTargetWorldMatrix", inv_nullable_mat4(w, "get_AidTargetWorldMatrix", has, m), has, m);
 
+    g.w_narrow = g.weapon_transform != nullptr ? inv_ptr(g.weapon_transform, "getJointByHash", {(void*)(uintptr_t)narrow}) : nullptr;
+    g.w_wide   = g.weapon_transform != nullptr ? inv_ptr(g.weapon_transform, "getJointByHash", {(void*)(uintptr_t)wide}) : nullptr;
     if (g.weapon_transform != nullptr) dump_joints(g.weapon_transform, "weapon skeleton", true, nullptr, nullptr);
     LOGI("%s ---- end weapon dump ----", TAG);
 }
@@ -337,11 +394,12 @@ void dump_ik() {
          inv_u32(ik, "get_WristKind"), inv_u32(ik, "get_WristSolveMode"));
     static const char* kinds[] = {"LEG", "SPINE", "LOOKAT", "ARM", "ARMFIT", "HAND"};
     for (int k = 0; k < 6; ++k) {
-        LOGI("%s   isEnabled(%s)=%d", TAG, kinds[k], (int)inv_bool(ik, "isEnabled", {(void*)(uintptr_t)k}));
+        LOGI("%s   isEnabled(%s)=%d", TAG, kinds[k], (int)inv_bool_i(ik, "isEnabled", k));
     }
     auto* arms = inv_ptr(ik, "get_ArmStatusList");
     const auto n = arr_count(arms);
-    LOGI("%s   ArmStatusList: %u entries", TAG, arms != nullptr ? n : 0);
+    auto* ctl = inv_ptr(ik, "get_ControlStatus");
+    LOGI("%s   ArmStatusList: %u entries; ControlStatus: %u entries", TAG, arms != nullptr ? n : 0, ctl != nullptr ? arr_count(ctl) : 0);
     for (uint32_t i = 0; arms != nullptr && i < n && i < 8; ++i) {
         auto* st = arr_ptr_at(arms, i);
         if (!is_managed(st)) { LOGW("%s   arm[%u] not managed", TAG, i); break; }
@@ -395,7 +453,14 @@ void summary_line() {
     Vec3 lh{}, rh{}, aid{};
     const bool have_lh = g.l_hand != nullptr && inv_vec3(g.l_hand, "get_Position", lh);
     const bool have_rh = g.r_hand != nullptr && inv_vec3(g.r_hand, "get_Position", rh);
+    if (g.aid_joint == nullptr && g.weapon != nullptr) {
+        g.aid_joint = inv_ptr(g.weapon, "get_AidJoint");
+        if (g.aid_joint != nullptr) LOGI("%s AidJoint appeared: %s", TAG, joint_name(g.aid_joint).c_str());
+    }
     const bool have_aid = g.aid_joint != nullptr && inv_vec3(g.aid_joint, "get_Position", aid);
+    Vec3 wn{}, ww{};
+    const bool have_wn = g.w_narrow != nullptr && inv_vec3(g.w_narrow, "get_Position", wn);
+    const bool have_ww = g.w_wide != nullptr && inv_vec3(g.w_wide, "get_Position", ww);
     const bool hold = inv_bool(g.cond, "get_IsHold");
     const auto aidtype = g.equipment != nullptr ? inv_u32(g.equipment, "getAidJointType") : 0;
 
@@ -408,6 +473,9 @@ void summary_line() {
     if (have_rh) o += snprintf(buf + o, sizeof buf - o, " Rhand=(%.2f %.2f %.2f)", rh.x, rh.y, rh.z);
     if (have_aid) o += snprintf(buf + o, sizeof buf - o, " aid=(%.2f %.2f %.2f)", aid.x, aid.y, aid.z);
     if (have_lh && have_aid) o += snprintf(buf + o, sizeof buf - o, " |Lhand-aid|=%.3f", dist(lh, aid));
+    if (have_lh && have_wn) o += snprintf(buf + o, sizeof buf - o, " |Lhand-narrow|=%.3f", dist(lh, wn));
+    if (have_lh && have_ww) o += snprintf(buf + o, sizeof buf - o, " |Lhand-wide|=%.3f", dist(lh, ww));
+    if (have_rh && have_lh) o += snprintf(buf + o, sizeof buf - o, " |Lhand-Rhand|=%.3f", dist(lh, rh));
     if (ik_ok) {
         if (ik_has) o += snprintf(buf + o, sizeof buf - o, " ikL=(%.2f %.2f %.2f)", ikm.m[12], ikm.m[13], ikm.m[14]);
         else o += snprintf(buf + o, sizeof buf - o, " ikL=none");
@@ -440,16 +508,28 @@ bool game_is_foreground() {
     return pid == GetCurrentProcessId();
 }
 
+// app.ropeway.InputDefine.Kind values learned by the Lua probes (2026-08-27): HOLD=64, ATTACK=256.
+constexpr int KIND_HOLD = 64;
+constexpr int KIND_ATTACK = 256;
+void set_force(int kind, bool on) {
+    auto* is = API::get()->get_managed_singleton("app.ropeway.InputSystem");
+    if (is == nullptr) { LOGW("%s InputSystem singleton missing", TAG); return; }
+    auto r = inv(is, "setForce", {(void*)(uintptr_t)kind, (void*)(uintptr_t)(on ? 1 : 0)});
+    LOGI("%s setForce(kind=%d, %s) %s", TAG, kind, on ? "true" : "false", r.ok ? "ok" : "THREW/NOT FOUND");
+}
+
 void poll_hotkeys() {
-    static bool prev[3] = {false, false, false};
-    const int vks[3] = {VK_NUMPAD7, VK_NUMPAD8, VK_NUMPAD9};
+    static bool prev[5] = {false, false, false, false, false};
+    const int vks[5] = {VK_NUMPAD7, VK_NUMPAD8, VK_NUMPAD9, VK_NUMPAD4, VK_NUMPAD5};
     if (!game_is_foreground()) return;
-    for (int i = 0; i < 3; ++i) {
+    for (int i = 0; i < 5; ++i) {
         const bool down = (GetAsyncKeyState(vks[i]) & 0x8000) != 0;
         if (down && !prev[i]) {
             if (i == 0) { g.want_dump = true; LOGI("%s NUM7: dump requested", TAG); }
             if (i == 1) { g.trace = !g.trace; LOGI("%s NUM8: trace %s", TAG, g.trace ? "ON (10 Hz)" : "OFF (1 Hz)"); }
             if (i == 2) { g.want_layers = true; LOGI("%s NUM9: layer table requested", TAG); }
+            if (i == 3) { g.force_hold = !g.force_hold; LOGI("%s NUM4: force HOLD %s", TAG, g.force_hold ? "ON" : "OFF"); set_force(KIND_HOLD, g.force_hold); }
+            if (i == 4) { g.attack_pulse = 2; LOGI("%s NUM5: ATTACK pulse", TAG); set_force(KIND_ATTACK, true); }
         }
         prev[i] = down;
     }
@@ -492,7 +572,7 @@ void on_frame() {
     auto* w = inv_ptr(g.equipment, "get_EquipWeapon");
     if (w != g.weapon) {
         g.weapon = w;
-        g.aid_joint = nullptr;
+        g.aid_joint = nullptr; g.w_narrow = nullptr; g.w_wide = nullptr;
         g.weapon_transform = nullptr;
         if (w != nullptr) {
             auto* wgo = inv_ptr(w, "get_GameObject");
@@ -502,6 +582,12 @@ void on_frame() {
             LOGI("%s WEAPON CHANGED -> none", TAG);
         }
         dump_weapon();
+    }
+    if (g.attack_pulse > 0 && --g.attack_pulse == 0) set_force(KIND_ATTACK, false);
+    {
+        static bool last_hold = false;
+        const bool hold = inv_bool(g.cond, "get_IsHold");
+        if (hold != last_hold) { last_hold = hold; LOGI("%s IsHold -> %d (force_hold=%d)", TAG, (int)hold, (int)g.force_hold); if (hold) { dump_weapon(); dump_ik(); } }
     }
     if (g.want_dump) { g.want_dump = false; dump_weapon(); dump_ik(); dump_layers(true); }
     if (g.want_layers) { g.want_layers = false; dump_layers(true); }
@@ -518,31 +604,36 @@ void on_frame() {
 // Lua bridge: hook System.GC.KeepAlive, catch the handed-over float array.
 // ---------------------------------------------------------------------------
 
-int pre_keepalive(int argc, void** argv, REFrameworkTypeDefinitionHandle*, unsigned long long) {
-    if (g.bridge != nullptr) return REFRAMEWORK_HOOK_CALL_ORIGINAL;
+int pre_mailbox(int argc, void** argv, REFrameworkTypeDefinitionHandle*, unsigned long long) {
+    // Identify our array on EVERY call: a second hand-over must also be swallowed,
+    // or the game's setter would be run with a float array as its argument.
+    bool ours = false;
     for (int i = 0; i < argc && i < 8; ++i) {
         auto* o = (API::ManagedObject*)argv[i];
         if (!is_managed(o)) continue;
         if (tname(o) != "System.Single[]") continue;
+        if (!g_arr_measured && !measure_array_layout(o)) continue;
         const auto n = arr_count(o);
-        if (n != 64) { LOGW("%s KeepAlive saw a System.Single[%u], expected 64", TAG, n); continue; }
         float* f = arr_f32(o);
-        if (f[S_SENTINEL] != 12345.0f) { LOGW("%s KeepAlive float[64] without sentinel (slot63=%.1f) — element offset assumption wrong?", TAG, f[S_SENTINEL]); continue; }
-        o->add_ref();
-        g.bridge = o;
-        f[S_ACK] = 1.0f;
-        LOGI("%s VR BRIDGE ATTACHED (argv[%d] of %d, array %p) — Lua shim poses are live", TAG, i, argc, (void*)o);
+        if (n != 64 || f[S_SENTINEL] != 12345.0f) { LOGW("%s mailbox saw a System.Single[%u] slot63=%.1f — not ours", TAG, n, f[S_SENTINEL]); continue; }
+        ours = true;
+        if (g.bridge == nullptr) {
+            o->add_ref();
+            g.bridge = o;
+            f[S_ACK] = 1.0f;
+            LOGI("%s VR BRIDGE ATTACHED (argv[%d] of %d, array %p) — Lua shim poses are live", TAG, i, argc, (void*)o);
+        }
         break;
     }
-    return REFRAMEWORK_HOOK_CALL_ORIGINAL;
+    return ours ? REFRAMEWORK_HOOK_SKIP_ORIGINAL : REFRAMEWORK_HOOK_CALL_ORIGINAL;
 }
 
 void install_bridge_hook() {
     auto& api = API::get();
-    auto* m = api->tdb()->find_method("System.GC", "KeepAlive");
-    if (m == nullptr) { LOGE("%s System.GC.KeepAlive not found — VR bridge unavailable", TAG); return; }
-    const auto id = m->add_hook(pre_keepalive, nullptr, false);
-    LOGI("%s bridge hook installed on System.GC.KeepAlive (id=%u)", TAG, id);
+    auto* m = api->tdb()->find_method("app.ropeway.RagdollControlZoneManager", "set_AccessMutex");
+    if (m == nullptr) { LOGE("%s mailbox method RagdollControlZoneManager.set_AccessMutex not found — VR bridge unavailable", TAG); return; }
+    const auto id = m->add_hook(pre_mailbox, nullptr, false);
+    LOGI("%s bridge mailbox hook installed on RagdollControlZoneManager.set_AccessMutex (id=%u, fn=%p) — check the HookManager lines above for 'Failed to hook'", TAG, id, m->get_function_raw());
 }
 
 void on_initialized() {
@@ -567,7 +658,7 @@ extern "C" __declspec(dllexport) bool reframework_plugin_initialize(const REFram
         fns->log_error("%s C++ SDK wrapper init failed — probe disabled", TAG);
         return true;
     }
-    fns->log_info("%s native core v0.1 loaded — reqs-1-and-3 recon probe. NUM7 dump / NUM8 trace / NUM9 layers", TAG);
+    fns->log_info("%s native core v0.1 loaded — reqs-1-and-3 recon probe. NUM7 dump / NUM8 trace / NUM9 layers / NUM4 force-HOLD toggle / NUM5 ATTACK pulse", TAG);
     // Hooks need the TDB up; register them from the game thread on the first frame.
     static std::atomic<bool> hooked{false};
     fns->on_pre_application_entry("LockScene", []() {

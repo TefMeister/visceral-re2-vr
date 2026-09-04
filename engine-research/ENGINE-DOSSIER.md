@@ -196,9 +196,26 @@ Full write-ups: `external-research/topics/2026-08-29-weapon-equipped-state-surfa
 
 ### 8c. The off-hand support surface — the game already has one (TDB dump, 2026-09-04)
 
-`[inferred-static 2026-09-04]` Read from `il2cpp_dump.json` (the game's own type database, dumped
-2026-08-29), not yet confirmed live. This is the surface the left-hand dock design (spec v2.3)
-should ride instead of inventing its own anchor and its own hand placement:
+Read from `il2cpp_dump.json` (the game's own type database, dumped 2026-08-29) and then
+**confirmed live the same evening** by the native probe on Claire's minigun save
+(`[verified-live 2026-09-04, n=1]` — one weapon, one save; ledger
+`modding-notes/2026-09-04-first-native-code-…`). This is the surface the left-hand dock design
+(spec v2.3) should ride instead of inventing its own anchor and its own hand placement:
+
+- **Live facts, minigun `wp8700`:** `get_AidJoint()` = weapon joint **`_101`**, `AidJointType` =
+  Narrow (2); NARROW hash → `_101`, WIDE hash → `_100`, both on the **weapon** skeleton, neither
+  on the player. The player's left palm joint **`l_weapon` sits exactly on `_101`** (distance
+  0.000) in idle, walk, jog and aim — the game's own two-hand hold pins the hand to the aid
+  joint. `AidTargetWorldMatrix` is live; `getIKLeftArmMatrix()` returned no value in every state.
+  `IkController`: LEG + ARMFIT enabled, ARM/HAND/SPINE/LOOKAT off, `UseIkArm=0`,
+  `UseIkWrist=1`, `UseIkArmFitAsWrist=1`, `ArmStatusList` empty, `ControlStatus` 6 entries,
+  unchanged between locomotion and aim. Player skeleton (`pl1000`, 190 joints): palms
+  `l_weapon`/`r_weapon`, wrists `l_arm_wrist`/`r_arm_wrist`, no `l_hand`.
+- **Native aim latch:** `app.ropeway.InputSystem.setForce(64 /*HOLD*/, true)` from the plugin
+  raises the full aim state within a frame (`IsHold` 0→1, layer 0 to bank 2
+  `GG_Hold_Start_L0` → `GG_Hold_Idle_Loop`, `TargetBankType` 50 → 3145778); `false` drops it
+  cleanly. `[verified-live 2026-09-04, n=1]` — the 2026-08-27 Lua result, now native.
+  `ATTACK` is kind 256 (from the Lua probes; not yet pulsed natively).
 
 - **Every weapon carries an "aid joint"** — `app.ropeway.implement.Implement.get_AidJoint()` →
   `via.Joint`, plus `setupAidJoint()`, `get_AidTargetWorldMatrix()` → `Nullable<via.mat4>` and
@@ -251,10 +268,19 @@ Nexus) writes **`set_Speed(k)` on the player's `via.motion.Motion` layer** every
   **`via.motion.TreeLayer`** (there is no `MotionLayer` type in RE2), with `get_/set_Speed`,
   `get_HighestWeightMotionNode()` → `via.motion.MotionNodeCtrl` (`get_MotionName`, `get_Weight`,
   `get_MotionID`, `get_MotionBankID`), `get_BlendRate`, `get_LayerNo`, `getLayerCount()`.
-- **Open:** which layer index carries locomotion. The public script hard-codes `getLayer(0)` for
-  Requiem; nothing public confirms it for RE2, and §8 already knows the weapon grip sits on a
-  different layer. The native probe logs every layer's highest-weight motion name on change to
-  settle it.
+- **Settled: locomotion is layer 0** `[verified-live 2026-09-04, n=1]`. Walk =
+  `pl10_0190_KFF_GazingWalk_F_Loop`, jog = `pl10_0231_KFF_Jog_Straight_Loop`, idle =
+  `pl10_0160_KFF_Gazing_Idle_F_Loop`; under HOLD the same layer plays bank 2
+  (`pl10_0160_GG_Hold_Idle_Loop`, `GG_StrafeL_F`). Layer 1 = arm (`pl10_2000_GFC_Arm`), layer 2 =
+  fingers (`pl10_02_FIN_GG_LGT`), layers 3–5 empty. `get_Speed` = 1.000 and `get_BlendRate` = 1.00
+  on every live layer. **Read floats through the direct call route** (`Method::call<T>(vmctx,
+  this, …)`), not the reflection invoke — invoke returned 0 for every float on this build.
+- **Native-plugin traps found on the way** `[verified-live 2026-09-04]`: managed arrays on this
+  build keep the count at **`+0x1c`** (`+0x18` holds 1), elements at `+0x20` — measure, do not
+  assume; `System.GC.KeepAlive` is an internal call with no resolvable body — hooking it fails
+  and invoking it crashes the game inside the native invoker, so hook/call only methods whose
+  dump `function` address lies inside `re2.exe`; synthetic mouse buttons via `SendInput` do not
+  reach the game (aim through `setForce(HOLD)` instead).
 - Enemy awareness: no public source ties RE2 enemy perception to player movement speed at all;
   enemies use the same `getLayer/set_Speed` API for their own animation, not for noticing the
   player. Treat req 4's awareness half as ours to establish, not a lead to keep searching for.

@@ -1,0 +1,305 @@
+[2026-09-04 22:01:13.117] [info] REFramework entry
+[2026-09-04 22:01:15.840] [info] [Plugin] [visceral] native core v0.1 loaded — reqs-1-and-3 recon probe. NUM7 dump / NUM8 trace / NUM9 layers / NUM4 force-HOLD toggle / NUM5 ATTACK pulse
+[2026-09-04 22:01:15.851] [info] [visceral-bridge] array ready (2481148303344)
+[2026-09-04 22:01:15.851] [info] [visceral-bridge] hand-over #1 at frame 1 (mailbox call)
+[2026-09-04 22:01:15.853] [info] [HookManager] Adding hook for 'set_AccessMutex' @ 0x7ff7bd175b40...
+[2026-09-04 22:01:15.854] [info] [HookManager] Hook 8 added for 'set_AccessMutex' @ 0x7ff7bd175b40
+[2026-09-04 22:01:15.854] [info] [Plugin] [visceral] bridge mailbox hook installed on RagdollControlZoneManager.set_AccessMutex (id=8, fn=00007FF7BD175B40) — check the HookManager lines above for 'Failed to hook'
+[2026-09-04 22:01:16.159] [info] [visceral-bridge] hand-over #2 at frame 182 (mailbox call)
+[2026-09-04 22:01:16.160] [info] [Plugin] [visceral] array layout probe: get_size=288 dwords@0x10..0x2c = c4607d60 00007ff7 00000001 00000040 43350000 00000000 00000000 00000000
+[2026-09-04 22:01:16.160] [info] [Plugin] [visceral] ARRAY LAYOUT MEASURED: elements @+0x20, count @+0x1c (sentinel found at +0x11c, get_size=288)
+[2026-09-04 22:01:16.160] [info] [Plugin] [visceral] VR BRIDGE ATTACHED (argv[1] of 5, array 00000241AFF697F0) — Lua shim poses are live
+[2026-09-04 22:01:16.161] [info] [visceral-bridge] plugin acknowledged the bridge at frame 183
+[2026-09-04 22:01:51.000] [info] [Plugin] [visceral] PLAYER BOUND: go=00000241AFAAF750 (pl1000) cond=00000241AF77D260 (app.ropeway.survivor.player.PlayerCondition) equipment=00000241AF77BF40 ik=00000241AF771050 transform=00000241AFAAF7A0 motion=00000241AFAA96F0
+[2026-09-04 22:01:51.000] [info] [Plugin] [visceral] player skeleton (hand/arm/weapon names only): 190 joints (array type via.Joint[])
+[2026-09-04 22:01:51.000] [info] [Plugin] [visceral]   joint[16] l_arm_clavicle               pos=(-19.673 -10.123 20.514)
+[2026-09-04 22:01:51.000] [info] [Plugin] [visceral]   joint[17] l_arm_humerus                pos=(-19.675 -10.141 20.389)
+[2026-09-04 22:01:51.000] [info] [Plugin] [visceral]   joint[18] l_arm_radius                 pos=(-19.738 -10.400 20.310)
+[2026-09-04 22:01:51.000] [info] [Plugin] [visceral]   joint[19] l_arm_wrist                  pos=(-19.698 -10.617 20.292)
+[2026-09-04 22:01:51.000] [info] [Plugin] [visceral]   joint[20] l_weapon                     pos=(-19.690 -10.701 20.304)
+[2026-09-04 22:01:51.000] [info] [Plugin] [visceral]   joint[21] l_hand_thumb_0               pos=(-19.682 -10.640 20.309)
+[2026-09-04 22:01:51.000] [info] [Plugin] [visceral]   joint[22] l_hand_thumb_1               pos=(-19.659 -10.675 20.336)
+[2026-09-04 22:01:51.000] [info] [Plugin] [visceral]   joint[23] l_hand_thumb_2               pos=(-19.654 -10.695 20.344)
+[2026-09-04 22:01:51.000] [info] [Plugin] [visceral]   joint[24] l_hand_index_0               pos=(-19.650 -10.691 20.299)
+[2026-09-04 22:01:51.000] [info] [Plugin] [visceral]   joint[25] l_hand_index_1               pos=(-19.643 -10.732 20.306)
+[2026-09-04 22:01:51.000] [info] [Plugin] [visceral]   joint[26] l_hand_index_2               pos=(-19.653 -10.748 20.318)
+[2026-09-04 22:01:51.000] [info] [Plugin] [visceral]   joint[27] l_hand_middle_0              pos=(-19.664 -10.697 20.284)
+[2026-09-04 22:01:51.000] [info] [Plugin] [visceral]   joint[28] l_hand_middle_1              pos=(-19.655 -10.738 20.293)
+[2026-09-04 22:01:51.000] [info] [Plugin] [visceral]   joint[29] l_hand_middle_2              pos=(-19.666 -10.753 20.314)
+[2026-09-04 22:01:51.000] [info] [Plugin] [visceral]   joint[30] l_hand_ring_0                pos=(-19.692 -10.653 20.284)
+[2026-09-04 22:01:51.000] [info] [Plugin] [visceral]   joint[31] l_hand_ring_1                pos=(-19.678 -10.697 20.278)
+[2026-09-04 22:01:51.000] [info] [Plugin] [visceral]   joint[32] l_hand_ring_2                pos=(-19.670 -10.734 20.284)
+[2026-09-04 22:01:51.000] [info] [Plugin] [visceral]   joint[33] l_hand_ring_3                pos=(-19.679 -10.746 20.306)
+[2026-09-04 22:01:51.000] [info] [Plugin] [visceral]   joint[34] l_hand_little_0              pos=(-19.703 -10.653 20.282)
+[2026-09-04 22:01:51.000] [info] [Plugin] [visceral]   joint[35] l_hand_little_1              pos=(-19.698 -10.694 20.273)
+[2026-09-04 22:01:51.000] [info] [Plugin] [visceral]   joint[36] l_hand_little_2              pos=(-19.688 -10.722 20.277)
+[2026-09-04 22:01:51.000] [info] [Plugin] [visceral]   joint[37] l_hand_little_3              pos=(-19.692 -10.732 20.294)
+[2026-09-04 22:01:51.000] [info] [Plugin] [visceral]   joint[39] r_arm_clavicle               pos=(-19.688 -10.123 20.555)
+[2026-09-04 22:01:51.000] [info] [Plugin] [visceral]   joint[40] r_arm_humerus                pos=(-19.760 -10.144 20.657)
+[2026-09-04 22:01:51.000] [info] [Plugin] [visceral]   joint[41] r_arm_radius                 pos=(-19.835 -10.409 20.698)
+[2026-09-04 22:01:51.000] [info] [Plugin] [visceral]   joint[42] r_arm_wrist                  pos=(-19.758 -10.615 20.716)
+[2026-09-04 22:01:51.000] [info] [Plugin] [visceral]   joint[43] r_weapon                     pos=(-19.770 -10.695 20.689)
+[2026-09-04 22:01:51.000] [info] [Plugin] [visceral]   joint[44] r_hand_thumb_0               pos=(-19.743 -10.642 20.705)
+[2026-09-04 22:01:51.000] [info] [Plugin] [visceral]   joint[45] r_hand_thumb_1               pos=(-19.734 -10.681 20.676)
+[2026-09-04 22:01:51.000] [info] [Plugin] [visceral]   joint[46] r_hand_thumb_2               pos=(-19.736 -10.702 20.668)
+[2026-09-04 22:01:51.000] [info] [Plugin] [visceral]   joint[47] r_hand_index_0               pos=(-19.740 -10.702 20.717)
+[2026-09-04 22:01:51.000] [info] [Plugin] [visceral]   joint[48] r_hand_index_1               pos=(-19.749 -10.729 20.686)
+[2026-09-04 22:01:51.000] [info] [Plugin] [visceral]   joint[49] r_hand_index_2               pos=(-19.751 -10.714 20.670)
+[2026-09-04 22:01:51.000] [info] [Plugin] [visceral]   joint[50] r_hand_middle_0              pos=(-19.761 -10.702 20.721)
+[2026-09-04 22:01:51.000] [info] [Plugin] [visceral]   joint[51] r_hand_middle_1              pos=(-19.769 -10.723 20.684)
+[2026-09-04 22:01:51.000] [info] [Plugin] [visceral]   joint[52] r_hand_middle_2              pos=(-19.764 -10.701 20.668)
+[2026-09-04 22:01:51.000] [info] [Plugin] [visceral]   joint[53] r_hand_ring_0                pos=(-19.769 -10.650 20.717)
+[2026-09-04 22:01:51.000] [info] [Plugin] [visceral]   joint[54] r_hand_ring_1                pos=(-19.777 -10.697 20.718)
+[2026-09-04 22:01:51.000] [info] [Plugin] [visceral]   joint[55] r_hand_ring_2                pos=(-19.782 -10.714 20.684)
+[2026-09-04 22:01:51.000] [info] [Plugin] [visceral]   joint[56] r_hand_ring_3                pos=(-19.779 -10.693 20.669)
+[2026-09-04 22:01:51.000] [info] [Plugin] [visceral]   joint[57] r_hand_little_0              pos=(-19.778 -10.646 20.713)
+[2026-09-04 22:01:51.000] [info] [Plugin] [visceral]   joint[58] r_hand_little_1              pos=(-19.794 -10.686 20.712)
+[2026-09-04 22:01:51.000] [info] [Plugin] [visceral]   joint[59] r_hand_little_2              pos=(-19.795 -10.706 20.690)
+[2026-09-04 22:01:51.000] [info] [Plugin] [visceral]   joint[60] r_hand_little_3              pos=(-19.792 -10.692 20.677)
+[2026-09-04 22:01:51.000] [info] [Plugin] [visceral]   l_hand=l_arm_wrist r_hand=r_arm_wrist
+[2026-09-04 22:01:51.000] [info] [Plugin] [visceral] ---- IK DUMP: app.ropeway.IkController ----
+[2026-09-04 22:01:51.000] [info] [Plugin] [visceral]   UseIkArm=0 UseIkWrist=1 UseIkArmFitAsWrist=1 WristKind=0 WristSolveMode=0
+[2026-09-04 22:01:51.000] [info] [Plugin] [visceral]   isEnabled(LEG)=1
+[2026-09-04 22:01:51.000] [info] [Plugin] [visceral]   isEnabled(SPINE)=0
+[2026-09-04 22:01:51.000] [info] [Plugin] [visceral]   isEnabled(LOOKAT)=0
+[2026-09-04 22:01:51.000] [info] [Plugin] [visceral]   isEnabled(ARM)=0
+[2026-09-04 22:01:51.000] [info] [Plugin] [visceral]   isEnabled(ARMFIT)=1
+[2026-09-04 22:01:51.000] [info] [Plugin] [visceral]   isEnabled(HAND)=0
+[2026-09-04 22:01:51.000] [info] [Plugin] [visceral]   ArmStatusList: 0 entries; ControlStatus: 6 entries
+[2026-09-04 22:01:51.000] [info] [Plugin] [visceral] ---- end IK dump ----
+[2026-09-04 22:01:51.000] [info] [Plugin] [visceral]   layer[0] CHG motion=pl10_0160_KFF_Gazing_Idle_F_Loop     speed=1.000 blend=1.00 bank=1 id=160 frame=0/3039
+[2026-09-04 22:01:51.000] [info] [Plugin] [visceral]   layer[1] CHG motion=dummy                                speed=1.000 blend=1.00 bank=1 id=2000 frame=0/2
+[2026-09-04 22:01:51.000] [info] [Plugin] [visceral]   layer[2] CHG motion=pl10_02_FIN_BH01                     speed=1.000 blend=1.00 bank=10000 id=2 frame=0/30
+[2026-09-04 22:01:51.000] [info] [Plugin] [visceral]   layer[3] CHG motion=-                                    speed=1.000 blend=1.00 bank=0 id=4294967295 frame=0/0
+[2026-09-04 22:01:51.000] [info] [Plugin] [visceral]   layer[4] CHG motion=-                                    speed=1.000 blend=1.00 bank=0 id=4294967295 frame=0/0
+[2026-09-04 22:01:51.000] [info] [Plugin] [visceral]   layer[5] CHG motion=-                                    speed=1.000 blend=1.00 bank=0 id=4294967295 frame=0/0
+[2026-09-04 22:01:51.000] [info] [Plugin] [visceral] f=21020 hold=0 aidT=2 Lhand=(-19.70 -10.62 20.29) Rhand=(-19.76 -10.62 20.72) |Lhand-Rhand|=0.428 | vr f=21020 hmd=0 ctl=0 stick=(0.00 0.00)
+[2026-09-04 22:01:51.027] [info] [Plugin] [visceral] WEAPON CHANGED -> app.ropeway.implement.Gun (go=wp8700)
+[2026-09-04 22:01:51.027] [info] [Plugin] [visceral] ---- WEAPON DUMP: app.ropeway.implement.Gun ----
+[2026-09-04 22:01:51.027] [info] [Plugin] [visceral]   WeaponType=252  MuzzleJointName=vfx_muzzle1  AidJointType=2 (0 None,1 ExtraNarrow,2 Narrow,3 Wide)
+[2026-09-04 22:01:51.027] [info] [Plugin] [visceral]   IsEquiped=0  EnabledHoldMainWeapon=1  ParentIkController=0000000000000000 (cond IkController=00000241AF771050)
+[2026-09-04 22:01:51.027] [info] [Plugin] [visceral]   AidJoint=null
+[2026-09-04 22:01:51.027] [info] [Plugin] [visceral]   LEFT_ARM_JOINT_NARROW=0xcf4d4c03 -> weapon:_101 player:(not on this skeleton)
+[2026-09-04 22:01:51.027] [info] [Plugin] [visceral]   LEFT_ARM_JOINT_WIDE  =0x29429d17 -> weapon:_100 player:(not on this skeleton)
+[2026-09-04 22:01:51.027] [info] [Plugin] [visceral]   AimJoint (app.ropeway.implement.VirtualJoint) pos=(-19.735 -11.499 20.514)
+[2026-09-04 22:01:51.027] [info] [Plugin] [visceral]   AimJointWorldMatrix t=(-19.735 -11.499 20.514)
+[2026-09-04 22:01:51.027] [info] [Plugin] [visceral]   MuzzleJoint (app.ropeway.ExtraJoint) pos=(-19.735 -11.499 20.514)
+[2026-09-04 22:01:51.027] [info] [Plugin] [visceral]   MuzzleJointWorldMatrix t=(-19.735 -11.499 20.514)
+[2026-09-04 22:01:51.027] [info] [Plugin] [visceral]   IKLeftArmMatrix: (no value)
+[2026-09-04 22:01:51.027] [info] [Plugin] [visceral]   AidTargetWorldMatrix: (no value)
+[2026-09-04 22:01:51.027] [info] [Plugin] [visceral] weapon skeleton: 21 joints (array type via.Joint[])
+[2026-09-04 22:01:51.027] [info] [Plugin] [visceral]   joint[0] root                         pos=(-19.735 -11.499 20.514)
+[2026-09-04 22:01:51.027] [info] [Plugin] [visceral]   joint[1] _00                          pos=(-19.735 -11.499 20.514)
+[2026-09-04 22:01:51.027] [info] [Plugin] [visceral]   joint[2] _01                          pos=(-19.213 -11.574 20.708)
+[2026-09-04 22:01:51.027] [info] [Plugin] [visceral]   joint[3] _03                          pos=(-19.693 -11.438 20.530)
+[2026-09-04 22:01:51.027] [info] [Plugin] [visceral]   joint[4] vfx_muzzle1                  pos=(-18.896 -11.573 20.823)
+[2026-09-04 22:01:51.027] [info] [Plugin] [visceral]   joint[5] vfx_muzzle2                  pos=(-19.509 -11.630 20.613)
+[2026-09-04 22:01:51.027] [info] [Plugin] [visceral]   joint[6] _100                         pos=(-19.575 -11.711 20.556)
+[2026-09-04 22:01:51.027] [info] [Plugin] [visceral]   joint[7] _101                         pos=(-19.579 -11.711 20.554)
+[2026-09-04 22:01:51.027] [info] [Plugin] [visceral]   joint[8] _20                          pos=(-19.619 -11.623 20.640)
+[2026-09-04 22:01:51.027] [info] [Plugin] [visceral]   joint[9] _21                          pos=(-19.625 -11.623 20.657)
+[2026-09-04 22:01:51.027] [info] [Plugin] [visceral]   joint[10] _22                          pos=(-19.631 -11.623 20.673)
+[2026-09-04 22:01:51.027] [info] [Plugin] [visceral]   joint[11] _23                          pos=(-19.638 -11.623 20.690)
+[2026-09-04 22:01:51.027] [info] [Plugin] [visceral]   joint[12] _24                          pos=(-19.644 -11.623 20.706)
+[2026-09-04 22:01:51.027] [info] [Plugin] [visceral]   joint[13] _25                          pos=(-19.650 -11.623 20.723)
+[2026-09-04 22:01:51.027] [info] [Plugin] [visceral]   joint[14] _26                          pos=(-19.656 -11.623 20.739)
+[2026-09-04 22:01:51.027] [info] [Plugin] [visceral]   joint[15] _27                          pos=(-19.662 -11.623 20.755)
+[2026-09-04 22:01:51.027] [info] [Plugin] [visceral]   joint[16] _28                          pos=(-19.668 -11.623 20.772)
+[2026-09-04 22:01:51.027] [info] [Plugin] [visceral]   joint[17] _29                          pos=(-19.674 -11.623 20.788)
+[2026-09-04 22:01:51.027] [info] [Plugin] [visceral]   joint[18] _30                          pos=(-19.680 -11.623 20.805)
+[2026-09-04 22:01:51.027] [info] [Plugin] [visceral]   joint[19] _10_chain00_00               pos=(-19.637 -11.643 20.759)
+[2026-09-04 22:01:51.027] [info] [Plugin] [visceral]   joint[20] _11_chain00_end              pos=(-19.663 -11.643 20.830)
+[2026-09-04 22:01:51.027] [info] [Plugin] [visceral] ---- end weapon dump ----
+[2026-09-04 22:01:52.002] [info] [Plugin] [visceral] f=21569 hold=0 aidT=2 Lhand=(-19.70 -10.62 20.29) Rhand=(-19.76 -10.62 20.72) |Lhand-narrow|=1.131 |Lhand-wide|=1.131 |Lhand-Rhand|=0.428 ikL=none | vr f=21569 hmd=0 ctl=0 stick=(0.00 0.00)
+[2026-09-04 22:01:52.048] [info] [Plugin] [visceral]   layer[1] CHG motion=pl10_2000_GFC_Arm                    speed=1.000 blend=1.00 bank=1 id=2000 frame=0/30
+[2026-09-04 22:01:52.048] [info] [Plugin] [visceral]   layer[2] CHG motion=pl10_02_FIN_GG_LGT                   speed=1.000 blend=1.00 bank=10000 id=2 frame=0/30
+[2026-09-04 22:01:53.004] [info] [Plugin] [visceral] AidJoint appeared: _101
+[2026-09-04 22:01:53.004] [info] [Plugin] [visceral] f=21895 hold=0 aidT=2 Lhand=(-19.43 -10.37 20.14) Rhand=(-19.55 -10.37 20.53) aid=(-19.43 -10.37 20.14) |Lhand-aid|=0.000 |Lhand-narrow|=0.000 |Lhand-wide|=0.019 |Lhand-Rhand|=0.408 ikL=(-19.43 -10.37 20.14) | vr f=21895 hmd=0 ctl=0 stick=(0.00 0.00)
+[2026-09-04 22:01:54.005] [info] [Plugin] [visceral] f=22245 hold=0 aidT=2 Lhand=(-19.43 -10.38 20.13) Rhand=(-19.56 -10.38 20.52) aid=(-19.43 -10.38 20.13) |Lhand-aid|=0.000 |Lhand-narrow|=0.000 |Lhand-wide|=0.019 |Lhand-Rhand|=0.408 ikL=(-19.43 -10.38 20.13) | vr f=22245 hmd=0 ctl=0 stick=(0.00 0.00)
+[2026-09-04 22:01:55.007] [info] [Plugin] [visceral] f=22624 hold=0 aidT=2 Lhand=(-19.42 -10.37 20.14) Rhand=(-19.55 -10.36 20.53) aid=(-19.42 -10.37 20.14) |Lhand-aid|=0.000 |Lhand-narrow|=0.000 |Lhand-wide|=0.019 |Lhand-Rhand|=0.408 ikL=(-19.42 -10.37 20.14) | vr f=22624 hmd=0 ctl=0 stick=(0.00 0.00)
+[2026-09-04 22:01:56.007] [info] [Plugin] [visceral] f=22999 hold=0 aidT=2 Lhand=(-19.43 -10.38 20.14) Rhand=(-19.56 -10.37 20.53) aid=(-19.43 -10.38 20.14) |Lhand-aid|=0.000 |Lhand-narrow|=0.000 |Lhand-wide|=0.019 |Lhand-Rhand|=0.408 ikL=(-19.43 -10.38 20.14) | vr f=22999 hmd=0 ctl=0 stick=(0.00 0.00)
+[2026-09-04 22:01:57.008] [info] [Plugin] [visceral] f=23371 hold=0 aidT=2 Lhand=(-19.42 -10.37 20.14) Rhand=(-19.55 -10.37 20.53) aid=(-19.42 -10.37 20.14) |Lhand-aid|=0.000 |Lhand-narrow|=0.000 |Lhand-wide|=0.019 |Lhand-Rhand|=0.408 ikL=(-19.42 -10.37 20.14) | vr f=23371 hmd=0 ctl=0 stick=(0.00 0.00)
+[2026-09-04 22:01:58.009] [info] [Plugin] [visceral] f=23736 hold=0 aidT=2 Lhand=(-19.45 -10.38 20.11) Rhand=(-19.54 -10.37 20.51) aid=(-19.45 -10.38 20.11) |Lhand-aid|=0.000 |Lhand-narrow|=0.000 |Lhand-wide|=0.019 |Lhand-Rhand|=0.408 ikL=(-19.45 -10.38 20.11) | vr f=23736 hmd=0 ctl=0 stick=(0.00 0.00)
+[2026-09-04 22:01:59.010] [info] [Plugin] [visceral] f=24098 hold=0 aidT=2 Lhand=(-19.43 -10.38 20.13) Rhand=(-19.56 -10.38 20.52) aid=(-19.43 -10.38 20.13) |Lhand-aid|=0.000 |Lhand-narrow|=0.000 |Lhand-wide|=0.019 |Lhand-Rhand|=0.408 ikL=(-19.43 -10.38 20.13) | vr f=24098 hmd=0 ctl=0 stick=(0.00 0.00)
+[2026-09-04 22:02:00.012] [info] [Plugin] [visceral] f=24453 hold=0 aidT=2 Lhand=(-19.48 -10.38 20.14) Rhand=(-19.59 -10.38 20.53) aid=(-19.48 -10.38 20.14) |Lhand-aid|=0.000 |Lhand-narrow|=0.000 |Lhand-wide|=0.019 |Lhand-Rhand|=0.408 ikL=(-19.48 -10.38 20.14) | vr f=24453 hmd=0 ctl=0 stick=(0.00 0.00)
+[2026-09-04 22:02:01.013] [info] [Plugin] [visceral] f=24821 hold=0 aidT=2 Lhand=(-19.40 -10.38 20.13) Rhand=(-19.54 -10.37 20.51) aid=(-19.40 -10.38 20.13) |Lhand-aid|=0.000 |Lhand-narrow|=0.000 |Lhand-wide|=0.019 |Lhand-Rhand|=0.408 ikL=(-19.40 -10.38 20.13) | vr f=24821 hmd=0 ctl=0 stick=(0.00 0.00)
+[2026-09-04 22:02:02.013] [info] [Plugin] [visceral] f=25187 hold=0 aidT=2 Lhand=(-19.41 -10.37 20.11) Rhand=(-19.54 -10.37 20.50) aid=(-19.41 -10.37 20.11) |Lhand-aid|=0.000 |Lhand-narrow|=0.000 |Lhand-wide|=0.019 |Lhand-Rhand|=0.408 ikL=(-19.41 -10.37 20.11) | vr f=25187 hmd=0 ctl=0 stick=(0.00 0.00)
+[2026-09-04 22:02:03.014] [info] [Plugin] [visceral] f=25558 hold=0 aidT=2 Lhand=(-19.42 -10.38 20.13) Rhand=(-19.55 -10.38 20.52) aid=(-19.42 -10.38 20.13) |Lhand-aid|=0.000 |Lhand-narrow|=0.000 |Lhand-wide|=0.019 |Lhand-Rhand|=0.408 ikL=(-19.42 -10.38 20.13) | vr f=25558 hmd=0 ctl=0 stick=(0.00 0.00)
+[2026-09-04 22:02:04.015] [info] [Plugin] [visceral] f=25918 hold=0 aidT=2 Lhand=(-19.42 -10.37 20.14) Rhand=(-19.54 -10.37 20.53) aid=(-19.42 -10.37 20.14) |Lhand-aid|=0.000 |Lhand-narrow|=0.000 |Lhand-wide|=0.019 |Lhand-Rhand|=0.408 ikL=(-19.42 -10.37 20.14) | vr f=25918 hmd=0 ctl=0 stick=(0.00 0.00)
+[2026-09-04 22:02:05.016] [info] [Plugin] [visceral] f=26291 hold=0 aidT=2 Lhand=(-19.42 -10.38 20.14) Rhand=(-19.55 -10.37 20.53) aid=(-19.42 -10.38 20.14) |Lhand-aid|=0.000 |Lhand-narrow|=0.000 |Lhand-wide|=0.019 |Lhand-Rhand|=0.408 ikL=(-19.42 -10.38 20.14) | vr f=26291 hmd=0 ctl=0 stick=(0.00 0.00)
+[2026-09-04 22:02:06.017] [info] [Plugin] [visceral] f=26663 hold=0 aidT=2 Lhand=(-19.42 -10.37 20.14) Rhand=(-19.55 -10.37 20.53) aid=(-19.42 -10.37 20.14) |Lhand-aid|=0.000 |Lhand-narrow|=0.000 |Lhand-wide|=0.019 |Lhand-Rhand|=0.408 ikL=(-19.42 -10.37 20.14) | vr f=26663 hmd=0 ctl=0 stick=(0.00 0.00)
+[2026-09-04 22:02:07.018] [info] [Plugin] [visceral] f=27035 hold=0 aidT=2 Lhand=(-19.43 -10.38 20.12) Rhand=(-19.55 -10.37 20.51) aid=(-19.43 -10.38 20.12) |Lhand-aid|=0.000 |Lhand-narrow|=0.000 |Lhand-wide|=0.019 |Lhand-Rhand|=0.408 ikL=(-19.43 -10.38 20.12) | vr f=27035 hmd=0 ctl=0 stick=(0.00 0.00)
+[2026-09-04 22:02:08.018] [info] [Plugin] [visceral] f=27405 hold=0 aidT=2 Lhand=(-19.42 -10.37 20.13) Rhand=(-19.54 -10.36 20.52) aid=(-19.42 -10.37 20.13) |Lhand-aid|=0.000 |Lhand-narrow|=0.000 |Lhand-wide|=0.019 |Lhand-Rhand|=0.408 ikL=(-19.42 -10.37 20.13) | vr f=27405 hmd=0 ctl=0 stick=(0.00 0.00)
+[2026-09-04 22:02:09.021] [info] [Plugin] [visceral] f=27772 hold=0 aidT=2 Lhand=(-19.43 -10.38 20.12) Rhand=(-19.55 -10.38 20.51) aid=(-19.43 -10.38 20.12) |Lhand-aid|=0.000 |Lhand-narrow|=0.000 |Lhand-wide|=0.019 |Lhand-Rhand|=0.408 ikL=(-19.43 -10.38 20.12) | vr f=27772 hmd=0 ctl=0 stick=(0.00 0.00)
+[2026-09-04 22:02:10.021] [info] [Plugin] [visceral] f=28136 hold=0 aidT=2 Lhand=(-19.42 -10.37 20.13) Rhand=(-19.55 -10.36 20.52) aid=(-19.42 -10.37 20.13) |Lhand-aid|=0.000 |Lhand-narrow|=0.000 |Lhand-wide|=0.019 |Lhand-Rhand|=0.408 ikL=(-19.42 -10.37 20.13) | vr f=28136 hmd=0 ctl=0 stick=(0.00 0.00)
+[2026-09-04 22:02:11.022] [info] [Plugin] [visceral] f=28501 hold=0 aidT=2 Lhand=(-19.44 -10.38 20.12) Rhand=(-19.56 -10.38 20.51) aid=(-19.44 -10.38 20.12) |Lhand-aid|=0.000 |Lhand-narrow|=0.000 |Lhand-wide|=0.019 |Lhand-Rhand|=0.408 ikL=(-19.44 -10.38 20.12) | vr f=28501 hmd=0 ctl=0 stick=(0.00 0.00)
+[2026-09-04 22:02:12.023] [info] [Plugin] [visceral] f=28866 hold=0 aidT=2 Lhand=(-19.43 -10.37 20.13) Rhand=(-19.56 -10.37 20.52) aid=(-19.43 -10.37 20.13) |Lhand-aid|=0.000 |Lhand-narrow|=0.000 |Lhand-wide|=0.019 |Lhand-Rhand|=0.408 ikL=(-19.43 -10.37 20.13) | vr f=28866 hmd=0 ctl=0 stick=(0.00 0.00)
+[2026-09-04 22:02:13.024] [info] [Plugin] [visceral] f=29230 hold=0 aidT=2 Lhand=(-19.44 -10.38 20.12) Rhand=(-19.56 -10.38 20.51) aid=(-19.44 -10.38 20.12) |Lhand-aid|=0.000 |Lhand-narrow|=0.000 |Lhand-wide|=0.019 |Lhand-Rhand|=0.408 ikL=(-19.44 -10.38 20.12) | vr f=29230 hmd=0 ctl=0 stick=(0.00 0.00)
+[2026-09-04 22:02:14.025] [info] [Plugin] [visceral] f=29594 hold=0 aidT=2 Lhand=(-19.43 -10.38 20.13) Rhand=(-19.56 -10.37 20.52) aid=(-19.43 -10.38 20.13) |Lhand-aid|=0.000 |Lhand-narrow|=0.000 |Lhand-wide|=0.019 |Lhand-Rhand|=0.408 ikL=(-19.43 -10.38 20.13) | vr f=29594 hmd=0 ctl=0 stick=(0.00 0.00)
+[2026-09-04 22:02:15.026] [info] [Plugin] [visceral] f=29966 hold=0 aidT=2 Lhand=(-19.46 -10.37 20.16) Rhand=(-19.58 -10.37 20.55) aid=(-19.46 -10.37 20.16) |Lhand-aid|=0.000 |Lhand-narrow|=0.000 |Lhand-wide|=0.019 |Lhand-Rhand|=0.408 ikL=(-19.46 -10.37 20.16) | vr f=29966 hmd=0 ctl=0 stick=(0.00 0.00)
+[2026-09-04 22:02:16.029] [info] [Plugin] [visceral] f=30338 hold=0 aidT=2 Lhand=(-19.44 -10.37 20.15) Rhand=(-19.58 -10.36 20.54) aid=(-19.44 -10.37 20.15) |Lhand-aid|=0.000 |Lhand-narrow|=0.000 |Lhand-wide|=0.019 |Lhand-Rhand|=0.408 ikL=(-19.44 -10.37 20.15) | vr f=30338 hmd=0 ctl=0 stick=(0.00 0.00)
+[2026-09-04 22:02:17.031] [info] [Plugin] [visceral] f=30711 hold=0 aidT=2 Lhand=(-19.37 -10.38 20.07) Rhand=(-19.48 -10.37 20.46) aid=(-19.37 -10.38 20.07) |Lhand-aid|=0.000 |Lhand-narrow|=0.000 |Lhand-wide|=0.019 |Lhand-Rhand|=0.408 ikL=(-19.37 -10.38 20.07) | vr f=30711 hmd=0 ctl=0 stick=(0.00 0.00)
+[2026-09-04 22:02:18.033] [info] [Plugin] [visceral] f=31082 hold=0 aidT=2 Lhand=(-19.36 -10.38 20.09) Rhand=(-19.50 -10.37 20.48) aid=(-19.36 -10.38 20.09) |Lhand-aid|=0.000 |Lhand-narrow|=0.000 |Lhand-wide|=0.019 |Lhand-Rhand|=0.408 ikL=(-19.36 -10.38 20.09) | vr f=31082 hmd=0 ctl=0 stick=(0.00 0.00)
+[2026-09-04 22:02:19.036] [info] [Plugin] [visceral] f=31444 hold=0 aidT=2 Lhand=(-19.47 -10.38 20.14) Rhand=(-19.57 -10.38 20.53) aid=(-19.47 -10.38 20.14) |Lhand-aid|=0.000 |Lhand-narrow|=0.000 |Lhand-wide|=0.019 |Lhand-Rhand|=0.408 ikL=(-19.47 -10.38 20.14) | vr f=31444 hmd=0 ctl=0 stick=(0.00 0.00)
+[2026-09-04 22:02:19.633] [info] [Plugin] [visceral]   layer[0] CHG motion=pl10_0197_KFF_GazingWalk_Back_B_Loop speed=1.000 blend=1.00 bank=1 id=196 frame=0/56
+[2026-09-04 22:02:20.038] [info] [Plugin] [visceral] f=31798 hold=0 aidT=2 Lhand=(-19.77 -10.39 20.01) Rhand=(-19.93 -10.41 20.38) aid=(-19.77 -10.39 20.01) |Lhand-aid|=0.000 |Lhand-narrow|=0.000 |Lhand-wide|=0.019 |Lhand-Rhand|=0.408 ikL=(-19.77 -10.39 20.01) | vr f=31798 hmd=0 ctl=0 stick=(0.00 0.00)
+[2026-09-04 22:02:20.570] [info] [Plugin] [visceral]   layer[0] CHG motion=pl10_0192_KFF_GazingWalk_End_LR      speed=1.000 blend=1.00 bank=1 id=192 frame=0/60
+[2026-09-04 22:02:20.968] [info] [Plugin] [visceral]   layer[0] CHG motion=pl10_0160_KFF_Gazing_Idle_F_Loop     speed=1.000 blend=1.00 bank=1 id=160 frame=0/3039
+[2026-09-04 22:02:21.040] [info] [Plugin] [visceral] f=32162 hold=0 aidT=2 Lhand=(-20.46 -10.39 19.75) Rhand=(-20.60 -10.38 20.13) aid=(-20.46 -10.39 19.75) |Lhand-aid|=0.000 |Lhand-narrow|=0.000 |Lhand-wide|=0.019 |Lhand-Rhand|=0.408 ikL=(-20.46 -10.39 19.75) | vr f=32162 hmd=0 ctl=0 stick=(0.00 0.00)
+[2026-09-04 22:02:21.746] [info] [Plugin] [visceral] NUM4: force HOLD ON
+[2026-09-04 22:02:21.747] [info] [Plugin] [visceral] setForce(kind=64, true) ok
+[2026-09-04 22:02:21.750] [info] [Plugin] [visceral] IsHold -> 1 (force_hold=1)
+[2026-09-04 22:02:21.750] [info] [Plugin] [visceral] ---- WEAPON DUMP: app.ropeway.implement.Gun ----
+[2026-09-04 22:02:21.750] [info] [Plugin] [visceral]   WeaponType=252  MuzzleJointName=vfx_muzzle1  AidJointType=2 (0 None,1 ExtraNarrow,2 Narrow,3 Wide)
+[2026-09-04 22:02:21.750] [info] [Plugin] [visceral]   IsEquiped=1  EnabledHoldMainWeapon=1  ParentIkController=00000241AF771050 (cond IkController=00000241AF771050)
+[2026-09-04 22:02:21.750] [info] [Plugin] [visceral]   AidJoint=_101 pos=(-20.417 -10.354 19.834) owner_transform=00000241AF2BC220 (weapon transform=00000241AF2BC220, player transform=00000241AFAAF7A0)
+[2026-09-04 22:02:21.750] [info] [Plugin] [visceral]   LEFT_ARM_JOINT_NARROW=0xcf4d4c03 -> weapon:_101 player:(not on this skeleton)
+[2026-09-04 22:02:21.750] [info] [Plugin] [visceral]   LEFT_ARM_JOINT_WIDE  =0x29429d17 -> weapon:_100 player:(not on this skeleton)
+[2026-09-04 22:02:21.750] [info] [Plugin] [visceral]   AimJoint (app.ropeway.implement.VirtualJoint) pos=(-20.592 -10.380 20.132)
+[2026-09-04 22:02:21.750] [info] [Plugin] [visceral]   AimJointWorldMatrix t=(-20.592 -10.380 20.132)
+[2026-09-04 22:02:21.750] [info] [Plugin] [visceral]   MuzzleJoint (app.ropeway.ExtraJoint) pos=(-20.592 -10.380 20.132)
+[2026-09-04 22:02:21.750] [info] [Plugin] [visceral]   MuzzleJointWorldMatrix t=(-20.592 -10.380 20.132)
+[2026-09-04 22:02:21.750] [info] [Plugin] [visceral]   IKLeftArmMatrix: (no value)
+[2026-09-04 22:02:21.750] [info] [Plugin] [visceral]   AidTargetWorldMatrix: t=(-20.417 -10.354 19.834) r0=(0.97 -0.23 0.03) r2=(0.20 0.89 0.41)
+[2026-09-04 22:02:21.750] [info] [Plugin] [visceral] weapon skeleton: 21 joints (array type via.Joint[])
+[2026-09-04 22:02:21.750] [info] [Plugin] [visceral]   joint[0] root                         pos=(-20.592 -10.380 20.132)
+[2026-09-04 22:02:21.750] [info] [Plugin] [visceral]   joint[1] _00                          pos=(-20.592 -10.380 20.132)
+[2026-09-04 22:02:21.750] [info] [Plugin] [visceral]   joint[2] _01                          pos=(-20.163 -10.475 19.781)
+[2026-09-04 22:02:21.750] [info] [Plugin] [visceral]   joint[3] _03                          pos=(-20.585 -10.337 20.070)
+[2026-09-04 22:02:21.750] [info] [Plugin] [visceral]   joint[4] vfx_muzzle1                  pos=(-19.923 -10.499 19.544)
+[2026-09-04 22:02:21.750] [info] [Plugin] [visceral]   joint[5] vfx_muzzle2                  pos=(-20.353 -10.488 20.033)
+[2026-09-04 22:02:21.750] [info] [Plugin] [visceral]   joint[6] _100                         pos=(-20.435 -10.350 19.834)
+[2026-09-04 22:02:21.750] [info] [Plugin] [visceral]   joint[7] _101                         pos=(-20.417 -10.354 19.834)
+[2026-09-04 22:02:21.750] [info] [Plugin] [visceral]   joint[8] _20                          pos=(-20.387 -10.434 20.128)
+[2026-09-04 22:02:21.750] [info] [Plugin] [visceral]   joint[9] _21                          pos=(-20.379 -10.422 20.138)
+[2026-09-04 22:02:21.750] [info] [Plugin] [visceral]   joint[10] _22                          pos=(-20.369 -10.409 20.145)
+[2026-09-04 22:02:21.750] [info] [Plugin] [visceral]   joint[11] _23                          pos=(-20.359 -10.397 20.152)
+[2026-09-04 22:02:21.750] [info] [Plugin] [visceral]   joint[12] _24                          pos=(-20.349 -10.385 20.160)
+[2026-09-04 22:02:21.750] [info] [Plugin] [visceral]   joint[13] _25                          pos=(-20.339 -10.377 20.172)
+[2026-09-04 22:02:21.750] [info] [Plugin] [visceral]   joint[14] _26                          pos=(-20.328 -10.379 20.185)
+[2026-09-04 22:02:21.750] [info] [Plugin] [visceral]   joint[15] _27                          pos=(-20.317 -10.385 20.197)
+[2026-09-04 22:02:21.750] [info] [Plugin] [visceral]   joint[16] _28                          pos=(-20.306 -10.393 20.208)
+[2026-09-04 22:02:21.750] [info] [Plugin] [visceral]   joint[17] _29                          pos=(-20.295 -10.402 20.219)
+[2026-09-04 22:02:21.750] [info] [Plugin] [visceral]   joint[18] _30                          pos=(-20.284 -10.411 20.229)
+[2026-09-04 22:02:21.750] [info] [Plugin] [visceral]   joint[19] _10_chain00_00               pos=(-20.295 -10.374 20.181)
+[2026-09-04 22:02:21.750] [info] [Plugin] [visceral]   joint[20] _11_chain00_end              pos=(-20.265 -10.323 20.206)
+[2026-09-04 22:02:21.750] [info] [Plugin] [visceral] ---- end weapon dump ----
+[2026-09-04 22:02:21.750] [info] [Plugin] [visceral] ---- IK DUMP: app.ropeway.IkController ----
+[2026-09-04 22:02:21.750] [info] [Plugin] [visceral]   UseIkArm=0 UseIkWrist=1 UseIkArmFitAsWrist=1 WristKind=0 WristSolveMode=0
+[2026-09-04 22:02:21.750] [info] [Plugin] [visceral]   isEnabled(LEG)=1
+[2026-09-04 22:02:21.750] [info] [Plugin] [visceral]   isEnabled(SPINE)=0
+[2026-09-04 22:02:21.750] [info] [Plugin] [visceral]   isEnabled(LOOKAT)=0
+[2026-09-04 22:02:21.750] [info] [Plugin] [visceral]   isEnabled(ARM)=0
+[2026-09-04 22:02:21.750] [info] [Plugin] [visceral]   isEnabled(ARMFIT)=1
+[2026-09-04 22:02:21.750] [info] [Plugin] [visceral]   isEnabled(HAND)=0
+[2026-09-04 22:02:21.750] [info] [Plugin] [visceral]   ArmStatusList: 0 entries; ControlStatus: 6 entries
+[2026-09-04 22:02:21.750] [info] [Plugin] [visceral] ---- end IK dump ----
+[2026-09-04 22:02:21.750] [info] [Plugin] [visceral]   layer[0] CHG motion=pl10_0140_GG_Hold_Start_L0           speed=1.000 blend=1.00 bank=2 id=140 frame=0/20
+[2026-09-04 22:02:21.750] [info] [Plugin] [visceral]   layer[1] CHG motion=dummy                                speed=1.000 blend=1.00 bank=2 id=2000 frame=0/2
+[2026-09-04 22:02:21.750] [info] [Plugin] [visceral]   layer[2] CHG motion=pl10_50_Hold_GG_LGT                  speed=1.000 blend=1.00 bank=10000 id=50 frame=0/30
+[2026-09-04 22:02:21.750] [info] [Plugin] [visceral]   layer[3] CHG motion=pl10_0140_GG_Hold_Start_L0           speed=1.000 blend=1.00 bank=2 id=140 frame=0/20
+[2026-09-04 22:02:21.947] [info] [Plugin] [visceral]   layer[3] CHG motion=-                                    speed=1.000 blend=1.00 bank=0 id=4294967295 frame=0/0
+[2026-09-04 22:02:21.980] [info] [Plugin] [visceral]   layer[0] CHG motion=pl10_0160_GG_Hold_Idle_Loop          speed=1.000 blend=1.00 bank=2 id=160 frame=0/1374
+[2026-09-04 22:02:22.041] [info] [Plugin] [visceral] f=32530 hold=1 aidT=2 Lhand=(-20.44 -10.41 20.19) Rhand=(-20.83 -10.49 20.12) aid=(-20.44 -10.41 20.19) |Lhand-aid|=0.000 |Lhand-narrow|=0.000 |Lhand-wide|=0.019 |Lhand-Rhand|=0.408 ikL=(-20.44 -10.41 20.19) | vr f=32530 hmd=0 ctl=0 stick=(0.00 0.00)
+[2026-09-04 22:02:23.043] [info] [Plugin] [visceral] f=32905 hold=1 aidT=2 Lhand=(-20.46 -10.44 20.21) Rhand=(-20.85 -10.50 20.11) aid=(-20.46 -10.44 20.21) |Lhand-aid|=0.000 |Lhand-narrow|=0.000 |Lhand-wide|=0.019 |Lhand-Rhand|=0.408 ikL=(-20.46 -10.44 20.21) | vr f=32905 hmd=0 ctl=0 stick=(0.00 0.00)
+[2026-09-04 22:02:24.044] [info] [Plugin] [visceral] f=33280 hold=1 aidT=2 Lhand=(-20.46 -10.43 20.22) Rhand=(-20.84 -10.49 20.11) aid=(-20.46 -10.43 20.22) |Lhand-aid|=0.000 |Lhand-narrow|=0.000 |Lhand-wide|=0.019 |Lhand-Rhand|=0.408 ikL=(-20.46 -10.43 20.22) | vr f=33280 hmd=0 ctl=0 stick=(0.00 0.00)
+[2026-09-04 22:02:24.444] [info] [Plugin] [visceral] NUM7: dump requested
+[2026-09-04 22:02:24.444] [info] [Plugin] [visceral] ---- WEAPON DUMP: app.ropeway.implement.Gun ----
+[2026-09-04 22:02:24.444] [info] [Plugin] [visceral]   WeaponType=252  MuzzleJointName=vfx_muzzle1  AidJointType=2 (0 None,1 ExtraNarrow,2 Narrow,3 Wide)
+[2026-09-04 22:02:24.444] [info] [Plugin] [visceral]   IsEquiped=1  EnabledHoldMainWeapon=1  ParentIkController=00000241AF771050 (cond IkController=00000241AF771050)
+[2026-09-04 22:02:24.444] [info] [Plugin] [visceral]   AidJoint=_101 pos=(-20.460 -10.439 20.218) owner_transform=00000241AF2BC220 (weapon transform=00000241AF2BC220, player transform=00000241AFAAF7A0)
+[2026-09-04 22:02:24.444] [info] [Plugin] [visceral]   LEFT_ARM_JOINT_NARROW=0xcf4d4c03 -> weapon:_101 player:(not on this skeleton)
+[2026-09-04 22:02:24.444] [info] [Plugin] [visceral]   LEFT_ARM_JOINT_WIDE  =0x29429d17 -> weapon:_100 player:(not on this skeleton)
+[2026-09-04 22:02:24.444] [info] [Plugin] [visceral]   AimJoint (app.ropeway.implement.VirtualJoint) pos=(-20.777 -10.533 20.118)
+[2026-09-04 22:02:24.444] [info] [Plugin] [visceral]   AimJointWorldMatrix t=(-20.777 -10.533 20.118)
+[2026-09-04 22:02:24.444] [info] [Plugin] [visceral]   MuzzleJoint (app.ropeway.ExtraJoint) pos=(-20.777 -10.533 20.118)
+[2026-09-04 22:02:24.444] [info] [Plugin] [visceral]   MuzzleJointWorldMatrix t=(-20.777 -10.533 20.118)
+[2026-09-04 22:02:24.444] [info] [Plugin] [visceral]   IKLeftArmMatrix: (no value)
+[2026-09-04 22:02:24.444] [info] [Plugin] [visceral]   AidTargetWorldMatrix: t=(-20.460 -10.439 20.218) r0=(0.46 -0.59 0.66) r2=(-0.55 0.39 0.74)
+[2026-09-04 22:02:24.444] [info] [Plugin] [visceral] weapon skeleton: 21 joints (array type via.Joint[])
+[2026-09-04 22:02:24.444] [info] [Plugin] [visceral]   joint[0] root                         pos=(-20.777 -10.533 20.118)
+[2026-09-04 22:02:24.444] [info] [Plugin] [visceral]   joint[1] _00                          pos=(-20.777 -10.533 20.118)
+[2026-09-04 22:02:24.444] [info] [Plugin] [visceral]   joint[2] _01                          pos=(-20.269 -10.610 20.346)
+[2026-09-04 22:02:24.444] [info] [Plugin] [visceral]   joint[3] _03                          pos=(-20.736 -10.472 20.136)
+[2026-09-04 22:02:24.444] [info] [Plugin] [visceral]   joint[4] vfx_muzzle1                  pos=(-19.960 -10.610 20.482)
+[2026-09-04 22:02:24.444] [info] [Plugin] [visceral]   joint[5] vfx_muzzle2                  pos=(-20.558 -10.665 20.232)
+[2026-09-04 22:02:24.444] [info] [Plugin] [visceral]   joint[6] _100                         pos=(-20.469 -10.428 20.205)
+[2026-09-04 22:02:24.444] [info] [Plugin] [visceral]   joint[7] _101                         pos=(-20.460 -10.439 20.218)
+[2026-09-04 22:02:24.444] [info] [Plugin] [visceral]   joint[8] _20                          pos=(-20.671 -10.657 20.252)
+[2026-09-04 22:02:24.444] [info] [Plugin] [visceral]   joint[9] _21                          pos=(-20.679 -10.656 20.268)
+[2026-09-04 22:02:24.444] [info] [Plugin] [visceral]   joint[10] _22                          pos=(-20.686 -10.654 20.284)
+[2026-09-04 22:02:24.444] [info] [Plugin] [visceral]   joint[11] _23                          pos=(-20.692 -10.652 20.300)
+[2026-09-04 22:02:24.444] [info] [Plugin] [visceral]   joint[12] _24                          pos=(-20.698 -10.651 20.316)
+[2026-09-04 22:02:24.444] [info] [Plugin] [visceral]   joint[13] _25                          pos=(-20.706 -10.655 20.331)
+[2026-09-04 22:02:24.444] [info] [Plugin] [visceral]   joint[14] _26                          pos=(-20.712 -10.668 20.341)
+[2026-09-04 22:02:24.444] [info] [Plugin] [visceral]   joint[15] _27                          pos=(-20.716 -10.683 20.349)
+[2026-09-04 22:02:24.444] [info] [Plugin] [visceral]   joint[16] _28                          pos=(-20.718 -10.699 20.356)
+[2026-09-04 22:02:24.444] [info] [Plugin] [visceral]   joint[17] _29                          pos=(-20.720 -10.716 20.362)
+[2026-09-04 22:02:24.444] [info] [Plugin] [visceral]   joint[18] _30                          pos=(-20.721 -10.732 20.367)
+[2026-09-04 22:02:24.444] [info] [Plugin] [visceral]   joint[19] _10_chain00_00               pos=(-20.696 -10.676 20.370)
+[2026-09-04 22:02:24.444] [info] [Plugin] [visceral]   joint[20] _11_chain00_end              pos=(-20.726 -10.692 20.437)
+[2026-09-04 22:02:24.444] [info] [Plugin] [visceral] ---- end weapon dump ----
+[2026-09-04 22:02:24.444] [info] [Plugin] [visceral] ---- IK DUMP: app.ropeway.IkController ----
+[2026-09-04 22:02:24.444] [info] [Plugin] [visceral]   UseIkArm=0 UseIkWrist=1 UseIkArmFitAsWrist=1 WristKind=0 WristSolveMode=0
+[2026-09-04 22:02:24.444] [info] [Plugin] [visceral]   isEnabled(LEG)=1
+[2026-09-04 22:02:24.444] [info] [Plugin] [visceral]   isEnabled(SPINE)=0
+[2026-09-04 22:02:24.444] [info] [Plugin] [visceral]   isEnabled(LOOKAT)=0
+[2026-09-04 22:02:24.444] [info] [Plugin] [visceral]   isEnabled(ARM)=0
+[2026-09-04 22:02:24.444] [info] [Plugin] [visceral]   isEnabled(ARMFIT)=1
+[2026-09-04 22:02:24.444] [info] [Plugin] [visceral]   isEnabled(HAND)=0
+[2026-09-04 22:02:24.444] [info] [Plugin] [visceral]   ArmStatusList: 0 entries; ControlStatus: 6 entries
+[2026-09-04 22:02:24.444] [info] [Plugin] [visceral] ---- end IK dump ----
+[2026-09-04 22:02:24.444] [info] [Plugin] [visceral] ---- MOTION LAYERS (6) TargetBankType=3145778 ----
+[2026-09-04 22:02:24.444] [info] [Plugin] [visceral]   layer[0]     motion=pl10_0160_GG_Hold_Idle_Loop          speed=1.000 blend=1.00 bank=2 id=160 frame=148/1374
+[2026-09-04 22:02:24.444] [info] [Plugin] [visceral]   layer[1]     motion=dummy                                speed=1.000 blend=1.00 bank=2 id=2000 frame=2/2
+[2026-09-04 22:02:24.444] [info] [Plugin] [visceral]   layer[2]     motion=pl10_50_Hold_GG_LGT                  speed=1.000 blend=1.00 bank=10000 id=50 frame=11/30
+[2026-09-04 22:02:24.444] [info] [Plugin] [visceral]   layer[3]     motion=-                                    speed=1.000 blend=1.00 bank=0 id=4294967295 frame=0/0
+[2026-09-04 22:02:24.444] [info] [Plugin] [visceral]   layer[4]     motion=-                                    speed=1.000 blend=1.00 bank=0 id=4294967295 frame=0/0
+[2026-09-04 22:02:24.444] [info] [Plugin] [visceral]   layer[5]     motion=-                                    speed=1.000 blend=1.00 bank=0 id=4294967295 frame=0/0
+[2026-09-04 22:02:25.045] [info] [Plugin] [visceral] f=33656 hold=1 aidT=2 Lhand=(-20.47 -10.44 20.21) Rhand=(-20.86 -10.50 20.10) aid=(-20.47 -10.44 20.21) |Lhand-aid|=0.000 |Lhand-narrow|=0.000 |Lhand-wide|=0.019 |Lhand-Rhand|=0.408 ikL=(-20.47 -10.44 20.21) | vr f=33656 hmd=0 ctl=0 stick=(0.00 0.00)
+[2026-09-04 22:02:26.047] [info] [Plugin] [visceral] f=34034 hold=1 aidT=2 Lhand=(-20.47 -10.45 20.21) Rhand=(-20.86 -10.50 20.09) aid=(-20.47 -10.45 20.21) |Lhand-aid|=0.000 |Lhand-narrow|=0.000 |Lhand-wide|=0.019 |Lhand-Rhand|=0.408 ikL=(-20.47 -10.45 20.21) | vr f=34034 hmd=0 ctl=0 stick=(0.00 0.00)
+[2026-09-04 22:02:26.176] [info] [Plugin] [visceral]   layer[0] CHG motion=pl10_0120_GG_StrafeL_F               speed=1.000 blend=1.00 bank=2 id=120 frame=0/74
+[2026-09-04 22:02:27.049] [info] [Plugin] [visceral] f=34409 hold=1 aidT=2 Lhand=(-19.60 -10.43 20.50) Rhand=(-19.99 -10.49 20.39) aid=(-19.60 -10.43 20.50) |Lhand-aid|=0.000 |Lhand-narrow|=0.000 |Lhand-wide|=0.019 |Lhand-Rhand|=0.408 ikL=(-19.60 -10.43 20.50) | vr f=34409 hmd=0 ctl=0 stick=(0.00 0.00)
+[2026-09-04 22:02:27.647] [info] [Plugin] [visceral]   layer[0] CHG motion=pl10_0160_GG_Hold_Idle_Loop          speed=1.000 blend=1.00 bank=2 id=160 frame=0/1374
+[2026-09-04 22:02:28.049] [info] [Plugin] [visceral] f=34783 hold=1 aidT=2 Lhand=(-18.99 -10.21 20.66) Rhand=(-19.30 -10.47 20.58) aid=(-18.99 -10.21 20.66) |Lhand-aid|=0.000 |Lhand-narrow|=0.000 |Lhand-wide|=0.019 |Lhand-Rhand|=0.408 ikL=(-18.99 -10.21 20.66) | vr f=34783 hmd=0 ctl=0 stick=(0.00 0.00)
+[2026-09-04 22:02:28.775] [info] [Plugin] [visceral] NUM4: force HOLD OFF
+[2026-09-04 22:02:28.775] [info] [Plugin] [visceral] setForce(kind=64, false) ok
+[2026-09-04 22:02:28.778] [info] [Plugin] [visceral] IsHold -> 0 (force_hold=0)
+[2026-09-04 22:02:28.778] [info] [Plugin] [visceral]   layer[0] CHG motion=pl10_0160_KFF_Gazing_Idle_F_Loop     speed=1.000 blend=1.00 bank=1 id=160 frame=0/3039
+[2026-09-04 22:02:28.778] [info] [Plugin] [visceral]   layer[1] CHG motion=pl10_2000_GFC_Arm                    speed=1.000 blend=1.00 bank=1 id=2000 frame=0/30
+[2026-09-04 22:02:28.778] [info] [Plugin] [visceral]   layer[2] CHG motion=pl10_02_FIN_GG_LGT                   speed=1.000 blend=1.00 bank=10000 id=2 frame=0/30
+[2026-09-04 22:02:29.050] [info] [Plugin] [visceral] f=35149 hold=0 aidT=2 Lhand=(-18.86 -10.38 20.15) Rhand=(-18.78 -10.38 20.55) aid=(-18.86 -10.38 20.15) |Lhand-aid|=0.000 |Lhand-narrow|=0.000 |Lhand-wide|=0.019 |Lhand-Rhand|=0.408 ikL=(-18.86 -10.38 20.15) | vr f=35149 hmd=0 ctl=0 stick=(0.00 0.00)
+[2026-09-04 22:02:30.051] [info] [Plugin] [visceral] f=35520 hold=0 aidT=2 Lhand=(-18.76 -10.37 20.25) Rhand=(-18.86 -10.37 20.65) aid=(-18.76 -10.37 20.25) |Lhand-aid|=0.000 |Lhand-narrow|=0.000 |Lhand-wide|=0.019 |Lhand-Rhand|=0.408 ikL=(-18.76 -10.37 20.25) | vr f=35520 hmd=0 ctl=0 stick=(0.00 0.00)
+[2026-09-04 22:02:31.052] [info] [Plugin] [visceral] f=35868 hold=0 aidT=2 Lhand=(-18.75 -10.38 20.26) Rhand=(-18.88 -10.38 20.65) aid=(-18.75 -10.38 20.26) |Lhand-aid|=0.000 |Lhand-narrow|=0.000 |Lhand-wide|=0.019 |Lhand-Rhand|=0.408 ikL=(-18.75 -10.38 20.26) | vr f=35868 hmd=0 ctl=0 stick=(0.00 0.00)
+[2026-09-04 22:02:32.054] [info] [Plugin] [visceral] f=36228 hold=0 aidT=2 Lhand=(-18.74 -10.37 20.28) Rhand=(-18.88 -10.37 20.66) aid=(-18.74 -10.37 20.28) |Lhand-aid|=0.000 |Lhand-narrow|=0.000 |Lhand-wide|=0.019 |Lhand-Rhand|=0.408 ikL=(-18.74 -10.37 20.28) | vr f=36228 hmd=0 ctl=0 stick=(0.00 0.00)
+[2026-09-04 22:02:33.057] [info] [Plugin] [visceral] f=36588 hold=0 aidT=2 Lhand=(-18.74 -10.37 20.27) Rhand=(-18.87 -10.36 20.66) aid=(-18.74 -10.37 20.27) |Lhand-aid|=0.000 |Lhand-narrow|=0.000 |Lhand-wide|=0.019 |Lhand-Rhand|=0.408 ikL=(-18.74 -10.37 20.27) | vr f=36588 hmd=0 ctl=0 stick=(0.00 0.00)
+[2026-09-04 22:02:34.058] [info] [Plugin] [visceral] f=36928 hold=0 aidT=2 Lhand=(-18.74 -10.38 20.27) Rhand=(-18.88 -10.37 20.66) aid=(-18.74 -10.38 20.27) |Lhand-aid|=0.000 |Lhand-narrow|=0.000 |Lhand-wide|=0.019 |Lhand-Rhand|=0.408 ikL=(-18.74 -10.38 20.27) | vr f=36928 hmd=0 ctl=0 stick=(0.00 0.00)
+[2026-09-04 22:02:35.060] [info] [Plugin] [visceral] f=37282 hold=0 aidT=2 Lhand=(-18.75 -10.38 20.26) Rhand=(-18.88 -10.37 20.65) aid=(-18.75 -10.38 20.26) |Lhand-aid|=0.000 |Lhand-narrow|=0.000 |Lhand-wide|=0.019 |Lhand-Rhand|=0.408 ikL=(-18.75 -10.38 20.26) | vr f=37282 hmd=0 ctl=0 stick=(0.00 0.00)
+[2026-09-04 22:02:36.061] [info] [Plugin] [visceral] f=37640 hold=0 aidT=2 Lhand=(-18.77 -10.38 20.25) Rhand=(-18.89 -10.38 20.65) aid=(-18.77 -10.38 20.25) |Lhand-aid|=0.000 |Lhand-narrow|=0.000 |Lhand-wide|=0.019 |Lhand-Rhand|=0.408 ikL=(-18.77 -10.38 20.25) | vr f=37640 hmd=0 ctl=0 stick=(0.00 0.00)
+[2026-09-04 22:02:37.063] [info] [Plugin] [visceral] f=37999 hold=0 aidT=2 Lhand=(-18.80 -10.38 20.26) Rhand=(-18.91 -10.38 20.66) aid=(-18.80 -10.38 20.26) |Lhand-aid|=0.000 |Lhand-narrow|=0.000 |Lhand-wide|=0.019 |Lhand-Rhand|=0.408 ikL=(-18.80 -10.38 20.26) | vr f=37999 hmd=0 ctl=0 stick=(0.00 0.00)
+[2026-09-04 22:02:38.063] [info] [Plugin] [visceral] f=38358 hold=0 aidT=2 Lhand=(-18.71 -10.38 20.25) Rhand=(-18.86 -10.38 20.63) aid=(-18.71 -10.38 20.25) |Lhand-aid|=0.000 |Lhand-narrow|=0.000 |Lhand-wide|=0.019 |Lhand-Rhand|=0.408 ikL=(-18.71 -10.38 20.25) | vr f=38358 hmd=0 ctl=0 stick=(0.00 0.00)
+[2026-09-04 22:02:39.064] [info] [Plugin] [visceral] f=38714 hold=0 aidT=2 Lhand=(-18.74 -10.37 20.25) Rhand=(-18.86 -10.37 20.64) aid=(-18.74 -10.37 20.25) |Lhand-aid|=0.000 |Lhand-narrow|=0.000 |Lhand-wide|=0.019 |Lhand-Rhand|=0.408 ikL=(-18.74 -10.37 20.25) | vr f=38714 hmd=0 ctl=0 stick=(0.00 0.00)
+[2026-09-04 22:02:40.067] [info] [Plugin] [visceral] f=39070 hold=0 aidT=2 Lhand=(-18.75 -10.38 20.26) Rhand=(-18.87 -10.38 20.65) aid=(-18.75 -10.38 20.26) |Lhand-aid|=0.000 |Lhand-narrow|=0.000 |Lhand-wide|=0.019 |Lhand-Rhand|=0.408 ikL=(-18.75 -10.38 20.26) | vr f=39070 hmd=0 ctl=0 stick=(0.00 0.00)
+[2026-09-04 22:02:41.068] [info] [Plugin] [visceral] f=39425 hold=0 aidT=2 Lhand=(-18.74 -10.37 20.27) Rhand=(-18.86 -10.37 20.66) aid=(-18.74 -10.37 20.27) |Lhand-aid|=0.000 |Lhand-narrow|=0.000 |Lhand-wide|=0.019 |Lhand-Rhand|=0.408 ikL=(-18.74 -10.37 20.27) | vr f=39425 hmd=0 ctl=0 stick=(0.00 0.00)
+[2026-09-04 22:02:42.070] [info] [Plugin] [visceral] f=39781 hold=0 aidT=2 Lhand=(-18.74 -10.38 20.28) Rhand=(-18.87 -10.37 20.66) aid=(-18.74 -10.38 20.28) |Lhand-aid|=0.000 |Lhand-narrow|=0.000 |Lhand-wide|=0.019 |Lhand-Rhand|=0.408 ikL=(-18.74 -10.38 20.28) | vr f=39781 hmd=0 ctl=0 stick=(0.00 0.00)
+[2026-09-04 22:02:43.073] [info] [Plugin] [visceral] f=40129 hold=0 aidT=2 Lhand=(-18.74 -10.37 20.26) Rhand=(-18.87 -10.37 20.65) aid=(-18.74 -10.37 20.26) |Lhand-aid|=0.000 |Lhand-narrow|=0.000 |Lhand-wide|=0.019 |Lhand-Rhand|=0.408 ikL=(-18.74 -10.37 20.26) | vr f=40129 hmd=0 ctl=0 stick=(0.00 0.00)
+[2026-09-04 22:02:44.075] [info] [Plugin] [visceral] f=40486 hold=0 aidT=2 Lhand=(-18.75 -10.38 20.25) Rhand=(-18.87 -10.37 20.64) aid=(-18.75 -10.38 20.25) |Lhand-aid|=0.000 |Lhand-narrow|=0.000 |Lhand-wide|=0.019 |Lhand-Rhand|=0.408 ikL=(-18.75 -10.38 20.25) | vr f=40486 hmd=0 ctl=0 stick=(0.00 0.00)
+[2026-09-04 22:02:45.077] [info] [Plugin] [visceral] f=40841 hold=0 aidT=2 Lhand=(-18.74 -10.38 20.25) Rhand=(-18.86 -10.37 20.64) aid=(-18.74 -10.38 20.25) |Lhand-aid|=0.000 |Lhand-narrow|=0.000 |Lhand-wide|=0.019 |Lhand-Rhand|=0.408 ikL=(-18.74 -10.38 20.25) | vr f=40841 hmd=0 ctl=0 stick=(0.00 0.00)
+[2026-09-04 22:02:46.080] [info] [Plugin] [visceral] f=41200 hold=0 aidT=2 Lhand=(-18.75 -10.38 20.25) Rhand=(-18.87 -10.38 20.64) aid=(-18.75 -10.38 20.25) |Lhand-aid|=0.000 |Lhand-narrow|=0.000 |Lhand-wide|=0.019 |Lhand-Rhand|=0.408 ikL=(-18.75 -10.38 20.25) | vr f=41200 hmd=0 ctl=0 stick=(0.00 0.00)
+[2026-09-04 22:02:47.082] [info] [Plugin] [visceral] f=41561 hold=0 aidT=2 Lhand=(-18.74 -10.37 20.26) Rhand=(-18.87 -10.37 20.65) aid=(-18.74 -10.37 20.26) |Lhand-aid|=0.000 |Lhand-narrow|=0.000 |Lhand-wide|=0.019 |Lhand-Rhand|=0.408 ikL=(-18.74 -10.37 20.26) | vr f=41561 hmd=0 ctl=0 stick=(0.00 0.00)
+[2026-09-04 22:02:48.083] [info] [Plugin] [visceral] f=41923 hold=0 aidT=2 Lhand=(-18.76 -10.38 20.25) Rhand=(-18.89 -10.38 20.64) aid=(-18.76 -10.38 20.25) |Lhand-aid|=0.000 |Lhand-narrow|=0.000 |Lhand-wide|=0.019 |Lhand-Rhand|=0.408 ikL=(-18.76 -10.38 20.25) | vr f=41923 hmd=0 ctl=0 stick=(0.00 0.00)
+[2026-09-04 22:02:49.085] [info] [Plugin] [visceral] f=42282 hold=0 aidT=2 Lhand=(-18.76 -10.38 20.25) Rhand=(-18.88 -10.37 20.64) aid=(-18.76 -10.38 20.25) |Lhand-aid|=0.000 |Lhand-narrow|=0.000 |Lhand-wide|=0.019 |Lhand-Rhand|=0.408 ikL=(-18.76 -10.38 20.25) | vr f=42282 hmd=0 ctl=0 stick=(0.00 0.00)
+[2026-09-04 22:02:50.087] [info] [Plugin] [visceral] f=42632 hold=0 aidT=2 Lhand=(-18.76 -10.37 20.25) Rhand=(-18.88 -10.37 20.64) aid=(-18.76 -10.37 20.25) |Lhand-aid|=0.000 |Lhand-narrow|=0.000 |Lhand-wide|=0.019 |Lhand-Rhand|=0.408 ikL=(-18.76 -10.37 20.25) | vr f=42632 hmd=0 ctl=0 stick=(0.00 0.00)
+[2026-09-04 22:02:51.088] [info] [Plugin] [visceral] f=42981 hold=0 aidT=2 Lhand=(-18.76 -10.38 20.27) Rhand=(-18.89 -10.37 20.66) aid=(-18.76 -10.38 20.27) |Lhand-aid|=0.000 |Lhand-narrow|=0.000 |Lhand-wide|=0.019 |Lhand-Rhand|=0.408 ikL=(-18.76 -10.38 20.27) | vr f=42981 hmd=0 ctl=0 stick=(0.00 0.00)
+[2026-09-04 22:02:52.088] [info] [Plugin] [visceral] f=43329 hold=0 aidT=2 Lhand=(-18.77 -10.37 20.31) Rhand=(-18.91 -10.37 20.69) aid=(-18.77 -10.37 20.31) |Lhand-aid|=0.000 |Lhand-narrow|=0.000 |Lhand-wide|=0.019 |Lhand-Rhand|=0.408 ikL=(-18.77 -10.37 20.31) | vr f=43329 hmd=0 ctl=0 stick=(0.00 0.00)
+[2026-09-04 22:02:53.090] [info] [Plugin] [visceral] f=43680 hold=0 aidT=2 Lhand=(-18.73 -10.38 20.27) Rhand=(-18.89 -10.37 20.65) aid=(-18.73 -10.38 20.27) |Lhand-aid|=0.000 |Lhand-narrow|=0.000 |Lhand-wide|=0.019 |Lhand-Rhand|=0.408 ikL=(-18.73 -10.38 20.27) | vr f=43680 hmd=0 ctl=0 stick=(0.00 0.00)
+[2026-09-04 22:02:54.091] [info] [Plugin] [visceral] f=44029 hold=0 aidT=2 Lhand=(-18.67 -10.38 20.20) Rhand=(-18.79 -10.38 20.59) aid=(-18.67 -10.38 20.20) |Lhand-aid|=0.000 |Lhand-narrow|=0.000 |Lhand-wide|=0.019 |Lhand-Rhand|=0.408 ikL=(-18.67 -10.38 20.20) | vr f=44029 hmd=0 ctl=0 stick=(0.00 0.00)
+[2026-09-04 22:02:55.094] [info] [Plugin] [visceral] f=44386 hold=0 aidT=2 Lhand=(-18.73 -10.37 20.25) Rhand=(-18.85 -10.37 20.64) aid=(-18.73 -10.37 20.25) |Lhand-aid|=0.000 |Lhand-narrow|=0.000 |Lhand-wide|=0.019 |Lhand-Rhand|=0.408 ikL=(-18.73 -10.37 20.25) | vr f=44386 hmd=0 ctl=0 stick=(0.00 0.00)
+[2026-09-04 22:02:56.096] [info] [Plugin] [visceral] f=44746 hold=0 aidT=2 Lhand=(-18.79 -10.38 20.28) Rhand=(-18.90 -10.37 20.68) aid=(-18.79 -10.38 20.28) |Lhand-aid|=0.000 |Lhand-narrow|=0.000 |Lhand-wide|=0.019 |Lhand-Rhand|=0.408 ikL=(-18.79 -10.38 20.28) | vr f=44746 hmd=0 ctl=0 stick=(0.00 0.00)
+[2026-09-04 22:02:57.099] [info] [Plugin] [visceral] f=45107 hold=0 aidT=2 Lhand=(-18.76 -10.39 20.28) Rhand=(-18.89 -10.38 20.66) aid=(-18.76 -10.39 20.28) |Lhand-aid|=0.000 |Lhand-narrow|=0.000 |Lhand-wide|=0.019 |Lhand-Rhand|=0.408 ikL=(-18.76 -10.39 20.28) | vr f=45107 hmd=0 ctl=0 stick=(0.00 0.00)
+[2026-09-04 22:02:58.099] [info] [Plugin] [visceral] f=45458 hold=0 aidT=2 Lhand=(-18.71 -10.38 20.23) Rhand=(-18.85 -10.37 20.61) aid=(-18.71 -10.38 20.23) |Lhand-aid|=0.000 |Lhand-narrow|=0.000 |Lhand-wide|=0.019 |Lhand-Rhand|=0.408 ikL=(-18.71 -10.38 20.23) | vr f=45458 hmd=0 ctl=0 stick=(0.00 0.00)
+[2026-09-04 22:02:59.101] [info] [Plugin] [visceral] f=45820 hold=0 aidT=2 Lhand=(-18.73 -10.38 20.23) Rhand=(-18.86 -10.38 20.62) aid=(-18.73 -10.38 20.23) |Lhand-aid|=0.000 |Lhand-narrow|=0.000 |Lhand-wide|=0.019 |Lhand-Rhand|=0.408 ikL=(-18.73 -10.38 20.23) | vr f=45820 hmd=0 ctl=0 stick=(0.00 0.00)
+[2026-09-04 22:03:00.103] [info] [Plugin] [visceral] f=46176 hold=0 aidT=2 Lhand=(-18.73 -10.37 20.25) Rhand=(-18.86 -10.37 20.64) aid=(-18.73 -10.37 20.25) |Lhand-aid|=0.000 |Lhand-narrow|=0.000 |Lhand-wide|=0.019 |Lhand-Rhand|=0.408 ikL=(-18.73 -10.37 20.25) | vr f=46176 hmd=0 ctl=0 stick=(0.00 0.00)
+[2026-09-04 22:03:01.104] [info] [Plugin] [visceral] f=46532 hold=0 aidT=2 Lhand=(-18.74 -10.38 20.24) Rhand=(-18.86 -10.37 20.63) aid=(-18.74 -10.38 20.24) |Lhand-aid|=0.000 |Lhand-narrow|=0.000 |Lhand-wide|=0.019 |Lhand-Rhand|=0.408 ikL=(-18.74 -10.38 20.24) | vr f=46532 hmd=0 ctl=0 stick=(0.00 0.00)
+[2026-09-04 22:03:02.106] [info] [Plugin] [visceral] f=46885 hold=0 aidT=2 Lhand=(-18.73 -10.37 20.25) Rhand=(-18.86 -10.37 20.64) aid=(-18.73 -10.37 20.25) |Lhand-aid|=0.000 |Lhand-narrow|=0.000 |Lhand-wide|=0.019 |Lhand-Rhand|=0.408 ikL=(-18.73 -10.37 20.25) | vr f=46885 hmd=0 ctl=0 stick=(0.00 0.00)
+[2026-09-04 22:03:03.107] [info] [Plugin] [visceral] f=47239 hold=0 aidT=2 Lhand=(-18.74 -10.38 20.24) Rhand=(-18.87 -10.38 20.63) aid=(-18.74 -10.38 20.24) |Lhand-aid|=0.000 |Lhand-narrow|=0.000 |Lhand-wide|=0.019 |Lhand-Rhand|=0.408 ikL=(-18.74 -10.38 20.24) | vr f=47239 hmd=0 ctl=0 stick=(0.00 0.00)
