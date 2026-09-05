@@ -57,7 +57,7 @@ verified before deletion** (16/16 folder sets). AC's four went that way. **Nothi
 
 Everything below is **`[measured 2026-09-05]`** unless marked otherwise — read directly out of the
 Lua and the shipped JSON, not inferred. Where the extraction inferred rather than read, the word
-`[inferred]` appears next to the claim. Player-facing behaviour taken from the shipped ReadMe is
+`[inferred-static 2026-09-05]` appears next to the claim (or `[hypothesis]` where it is a guess about intent). Player-facing behaviour taken from the shipped ReadMe is
 `[reported]`. **Nothing here is `verified-live`** — none of it has been run against the game in this
 session, and a value being correct in AC's Lua is not proof it is correct for the plugin.
 
@@ -437,7 +437,7 @@ The three-name ladder is written out in full in **four** places (`native_bullet_
 
 **Return chamber to reserve:** `Equipment:useMainWeapon(loaded)`, then if under-credited `Inventory:addSlotNumber(bullet_id, loaded - credited)`.
 
-**`setBulletNumber` is NOT the reload primitive.** The only call is `weapon:call("setBulletNumber", 0)` inside `sync_weapon_chamber_display_zero()`. `[inferred]` reason: it sets the count without updating the reload track or chamber state, so the gun still refuses to fire — which is why `executeEndReload` + `endChamberClear` are paired everywhere.
+**`setBulletNumber` is NOT the reload primitive.** The only call is `weapon:call("setBulletNumber", 0)` inside `sync_weapon_chamber_display_zero()`. `[inferred-static 2026-09-05]` reason: it sets the count without updating the reload track or chamber state, so the gun still refuses to fire — which is why `executeEndReload` + `endChamberClear` are paired everywhere.
 
 **There is no `app.ropeway.InventoryManager`.** It is `app.ropeway.gamemastering.InventoryManager`. The inventory *object* (`re2.inventory`) is not a singleton — it is an `app.ropeway.survivor.Inventory` instance from the `utility/RE2` helper. Getting this wrong is an easy port bug.
 
@@ -935,7 +935,7 @@ These are real defects verified in source, none of them commented:
 9. `weapon_entry` is defined **twice** in ext_3 (lines 190 and 1310); the second shadows the first and drops its `if not wp` guard.
 10. Gesture windows and cooldowns use `os.clock()` (wall clock) throughout — **pausing the game does not pause them.**
 11. `ensure_weapon_setup` (1174) forward-references `weapon_needs_manual_cylinder_reload` (1345) and `weapon_reload_drop_slots` (1333) — dormant only because `ensure_weapon_setup` is never called.
-12. `mag_anim_duration("slide")` has **no `"slide"` branch** and falls through to the `drop_sec` default (0.18 s). `[inferred]` intentional; make it explicit in the port.
+12. `mag_anim_duration("slide")` has **no `"slide"` branch** and falls through to the `drop_sec` default (0.18 s). `[hypothesis]` intentional (a guess about the author's intent, not a reading); make it explicit in the port.
 13. `sync_mag_holster_left_support_suppress(want)` only sets `mag_sub_suppress.active`, which nothing reads except `force_clear_*` — the `on_mag_holster_suppress_change` dep is effectively a no-op sink.
 
 **Dead code to skip:** `mesh_type`, `get_world_state_fingerprint`, `apply_tuning_snapshot`, `setup_ui`, `reload_activity_active`, `should_block_native_ammo_slot`, `should_play_shell_empty_dry_fire`, `ensure_weapon_setup`, `tuning_snapshot` (written, never read), `abort_blocked_native_reload` (body is comments only), `cylinder_open_angle_by_wp` (declared, never read — open pose comes from `slide_dock.slide_bind_by_wp`), `anim.fall_local_y` (read only by `mag_fall_local_offset_y()`, which is never called), `tick_dbg_joint_stick_check` (detection body is empty: `if gun_move > 0.02 and joint_move < 0.005 then end`), `manual_pump.pump_bind_by_wp` (the pump reads `slide_dock.slide_bind_by_wp` instead), `PLAYER_JOINT.right_wrist` in ext_1 (declared, never read), `bullet_insert_preview_remaining` (stored into `deps`, never called), `__vr_pump_pull_axis_x/y/z` (cleared, never set).
