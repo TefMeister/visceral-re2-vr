@@ -263,6 +263,14 @@ the hollow-neck problem only appears once head shadows are on.
 **G4. Scope see-through.** `[VR]` — v1 #17. Conditional on the RE Village scope project
 succeeding; if it does, the technique comes here. Last because it is gated on another project.
 
+**G5. Flashlight on the HMD, not in the hand.** `[FLAT]` then `[VR]` — NEW 23, added by Tefa
+2026-09-06 02:50. The light should follow the headset (head-mounted torch) everywhere EXCEPT in
+cutscenes, where the game's own hand-held flashlight must play as authored. Needs a cutscene
+detector to switch between the two — `visceral_cinematic_gate.lua` already publishes
+`__visceral_cinematic_blocking()` and bridge slot 30 carries it into the plugin, so the switch has
+its signal; what is missing is finding the flashlight's light object and re-parenting / re-posing
+it to the camera each frame (REFramework's ManualFlashlight is the reference for how it is toggled).
+
 ---
 
 # H. The Blender track — no game required, available at any time
