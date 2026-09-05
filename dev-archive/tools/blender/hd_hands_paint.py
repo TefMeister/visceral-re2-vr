@@ -21,7 +21,9 @@ argv = sys.argv[sys.argv.index("--") + 1:]
 ap = argparse.ArgumentParser()
 ap.add_argument("src"); ap.add_argument("work"); ap.add_argument("out")
 ap.add_argument("--size", type=int, default=4096)
-ap.add_argument("--pores", type=float, default=1.0, help="micro-relief strength (0 = none)")
+ap.add_argument("--pores", type=float, default=0.3, help="micro-relief strength (0 = none); 1.0 was the first pass, sandpaper in game")
+ap.add_argument("--veins", type=float, default=0.35, help="dorsal vein relief lifted from the original albedo (0 = none); the lift finds blobs, not lines, so it is a hint by default")
+ap.add_argument("--wrinkles", type=float, default=1.0, help="fine wrinkle networks around the joints (0 = none)")
 ap.add_argument("--crease", type=float, default=1.0, help="joint crease depth (0 = none)")
 ap.add_argument("--tone", type=float, default=1.0, help="albedo variation strength (0 = none)")
 ap.add_argument("--detail-png", default=None, help="tiling detail normal PNG (default <work>/visceral_skin_detail_NRM.png)")
@@ -148,12 +150,35 @@ h_crease = -(creaseJ ** 2) * 0.9 * a.crease
 # micro-relief from our own tiling detail map, sampled at ~4.3 tiles across the strip (~0.5 mm per texel at 4K)
 det_png = a.detail_png or os.path.join(a.work, "visceral_skin_detail_NRM.png")
 det = load_np(det_png)                                       # 1024 tile, RG = normal xy
-S = 6                                                        # tiles across the texture (matches the detail slot's UV scale 6)
+S = 10                                                       # tiles across the texture: finer than pass 1 (6), ~0.6 mm pores
 ty = (np.arange(N) * det.shape[0] * S // N) % det.shape[0]; tx = (np.arange(N) * det.shape[1] * S // N) % det.shape[1]
 det_xy = det[np.ix_(ty, tx)][..., :2] * 2.0 - 1.0
 rng = np.random.default_rng(3)
 mottle = blur(rng.standard_normal((N, N)).astype(np.float32), N / 90.0); mottle /= (mottle.std() + 1e-9)
-cx, cy = nrm_from_height(h_crease, 6.0)
+# --- veins: the original albedo already carries faint dorsal veins as darker branching lines. Lift them: luminance
+# high-pass at vein scale, keep the dark side, threshold softly -> a raised ridge in the normal + a cooler tint in colour.
+lum = alb[..., :3].mean(2)
+cool = alb[..., 2] - alb[..., 0]                              # blue minus red: veins are COOLER than skin; hair and grime are only darker
+s1, s2 = N / 1024.0 * 1.5, N / 1024.0 * 7.0                   # vein width band (1.5-7 texels at 1K)
+dog_l = blur(lum, s1) - blur(lum, s2)                         # negative on darker lines
+dog_c = blur(cool, s1) - blur(cool, s2)                       # positive on cooler lines
+veins = np.clip((-dog_l - 0.004) / 0.02, 0, 1) * np.clip((dog_c - 0.0015) / 0.006, 0, 1)
+veins = blur(veins, N / 1024.0 * 1.2) * edge * (1.0 - 0.7 * fieldF) * a.veins
+veins = np.clip(veins * 1.5, 0, 1)
+print("veins: %.1f%% of the hand mask above 0.3, %.1f%% above 0.6" % (100 * (veins[fieldK > 0] > 0.3).mean(), 100 * (veins[fieldK > 0] > 0.6).mean()))
+h_veins = veins * 0.6                                         # veins stand proud of the skin
+# --- wrinkles: fine ridged noise, only near the joints (where skin bunches), finer than the crease itself
+def fbm(octaves, base_freq, persistence=0.55):
+    out = np.zeros((N, N), np.float32); amp = 1.0
+    for o in range(octaves):
+        f = base_freq * (2 ** o); n = rng.standard_normal((N, N)).astype(np.float32)
+        n = blur(n, N / (2 * np.pi * f)); n /= (n.std() + 1e-9); out += amp * n; amp *= persistence
+    return out / (out.std() + 1e-9)
+rng = np.random.default_rng(3)
+wr = -(np.abs(fbm(2, 900.0)) ** 0.6) * 0.5                    # narrow ridged valleys ~ 4-5 texels apart at 4K
+near_joint = blur(np.clip((fieldJ - 0.45) / 0.55, 0, 1), N / 1024.0 * 3.0)
+h_wrinkle = wr * near_joint * 0.18 * a.wrinkles
+cx, cy = nrm_from_height(h_crease + h_veins + h_wrinkle, 6.0)
 nx = (nrm[..., 0] * 2 - 1) + edge * (cx + det_xy[..., 0] * 0.35 * a.pores * (0.7 + 0.3 * fieldF))
 ny = (nrm[..., 1] * 2 - 1) + edge * (cy + det_xy[..., 1] * 0.35 * a.pores * (0.7 + 0.3 * fieldF))
 nz = np.sqrt(np.clip(1.0 - nx ** 2 - ny ** 2, 0.05, 1.0))
@@ -169,6 +194,7 @@ out_alb[..., 0] = alb[..., 0] * (1.0 + 0.10 * red)
 out_alb[..., 1] = alb[..., 1] * (1.0 - 0.18 * red)
 out_alb[..., 2] = alb[..., 2] * (1.0 - 0.22 * red)
 mot = 1.0 + edge * mottle * 0.02 * a.tone
+out_alb[..., 0] *= (1.0 - veins * 0.05); out_alb[..., 1] *= (1.0 - veins * 0.03)   # veins: a touch cooler, hardly darker
 out_alb[..., :3] *= mot[..., None]
 # pores slightly darker: use the detail map's alpha (AO) very gently
 det_ao = det[np.ix_(ty, tx)][..., 3]
@@ -181,5 +207,7 @@ save_np(out_nrm, os.path.join(a.out, "pl3000_Body_NRMR.png"))
 def crop(img): return img[int(N * 0.85):, :, :]
 save_np(np.concatenate([crop(alb), crop(out_alb)], axis=0), os.path.join(a.out, "preview_albedo_strip.png"))
 save_np(np.concatenate([crop(nrm), crop(out_nrm)], axis=0), os.path.join(a.out, "preview_normal_strip.png"))
+vv = np.repeat(veins[int(N * 0.85):, :, None], 4, axis=2); vv[..., 3] = 1.0
+save_np(vv, os.path.join(a.out, "preview_veins_strip.png"))
 print("wrote 4K ALBM/NRMR + previews to", a.out)
 print("DONE")

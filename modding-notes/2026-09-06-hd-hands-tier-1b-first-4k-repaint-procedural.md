@@ -58,3 +58,24 @@ Remove: delete the two `pl3000_Body_*.tex.34` (and, for 1a, the MDF + detail tex
 - **Roughness channel** of NRMR still unidentified (A is the candidate). One in-game A/B decides it.
 - **Tier 2** (subdivide the hand mesh) and **tier 3** (sculpt) wait on 1a + 1b being judged.
 - Ada and Leon's fingertips: same scripts with the other character's prefix, once Claire's are judged.
+
+## Second pass (04:35–05:05) — after the first in-game look `[verified-live 2026-09-06, n=1, Tefa]`
+
+Tefa's screenshot (`Screenshot 2026-09-06 023323.png`, handgun raised, hands close): **"better for sure, but
+grainy and need more polish."** The pores were plainly there, so **the detail slot works and the loose textures
+are taken** — both FLAT questions answered. The grain was two layers stacked at a coarse scale (detail slot at
+UV scale 6 / intensity 1.0, plus the same relief baked into the normal map at 0.35).
+
+Changes, all deployed (game must be restarted to see them):
+
+| what | pass 1 | pass 2 |
+| --- | --- | --- |
+| tile (`make_skin_detail.py`) | 220 pores, strength 1.0 (the flag was cancelled by normalisation — fixed) | 260 pores, strength 0.45 → RG std 0.075 (was 0.145) |
+| detail slot (MDF) | UV scale 6, intensity 1.0 | UV scale 10, intensity 0.35 |
+| baked relief in NRMR | 0.35, 6 tiles | 0.30 × 0.3 default, 10 tiles |
+| joint wrinkles | — | fine ridged noise near joints, 0.18 |
+| veins | — | lifted from the original albedo, gated on cooler-than-skin colour at vein width; **finds blobs, not lines** (2.7 % of the hand above 0.3), so shipped as a hint (0.35) — real veins still need a real source |
+
+What the next look decides: grain should now read as skin, not sandpaper. If still too much, `--pores 0.15`
+and `skin_detail_build.py --normal 0.2`; if too smooth, the other way. Creases and wrinkles at the knuckles are
+the thing to look for next.
