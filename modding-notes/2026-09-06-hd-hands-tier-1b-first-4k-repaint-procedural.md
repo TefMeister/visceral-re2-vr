@@ -79,3 +79,23 @@ Changes, all deployed (game must be restarted to see them):
 What the next look decides: grain should now read as skin, not sandpaper. If still too much, `--pores 0.15`
 and `skin_detail_build.py --normal 0.2`; if too smooth, the other way. Creases and wrinkles at the knuckles are
 the thing to look for next.
+
+## Third pass (05:10–06:00) — VR verdict, forearms, and the anatomy attempt that did NOT ship
+
+- **VR verdict on pass 2 (Tefa, ~05:15): "much better going by memory of what they looked like before."**
+  `[verified-live 2026-09-06, n=1, VR]`
+- **Forearms and wrists get the full treatment** (Tefa's request): the paint mask weight on forearm skin went
+  from 0.6 to 1.0, so grain, mottling and colour variation now run all the way up the sleeve. Deployed.
+- **Rig-derived veins and tendons — built, tried twice, switched OFF by default (`--anatomy 0`).** The idea:
+  the back of each hand is the side facing away from the thumb's offset from the palm plane; four extensor
+  tendons run wrist → knuckle and three dorsal veins wrist → the gaps between knuckles; draw them in UV space.
+  Attempt 1 anchored on joint positions and straddled the seam between the hand island and the finger
+  islands, collapsing into a squiggle. Attempt 2 walked the mesh surface, snapping 3D samples to the nearest
+  dorsal vertex — only 165 candidates qualified per hand and they sat on the island edge, so the lines came out
+  as hard angular ridges (scars, not veins). Diagnosis `[hypothesis]`: the dorsal/palmar pick is inverted or
+  the dorsal skin is a different UV island than assumed; the fix is to dump `Dv` per vertex as a vertex-colour
+  preview and look at it in Blender, not to guess again at 6 a.m. Code stays in `hd_hands_paint.py` behind the
+  flag. Real veins with depth still want a scanned or painted source.
+
+Deployed set at the end of the night (`natives/stm/sectionroot/character/player/pl3000/pl3000/`): pass-2 grain
+levels + full forearms, no anatomy lines; MDF detail slot UV 10 / 0.35; tile `visceral_skin_detail_NRM.tex.34`.
