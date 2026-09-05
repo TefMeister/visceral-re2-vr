@@ -196,7 +196,29 @@ Full write-ups: `external-research/topics/2026-08-29-weapon-equipped-state-surfa
 
 ### 8c. The off-hand support surface — the game already has one (TDB dump, 2026-09-04)
 
-**⭐ 2026-09-05 — THE DOCK LEVER: the aid target is a hookable managed getter, and the wrist goes
+**⭐⭐ 2026-09-05 (morning) — THE DOCK WORKS FLAT, AND THE GETTER IS READ IN A PRE-UPDATE POSE.**
+Plugin v0.5 (`dev-archive/plugin/src/Plugin.cpp`) puts `l_arm_wrist` on a moving target with
+`|wrist − target| = 0.000` and rotation error 0° at full weight, ramped over 0.2 s, released back
+to 0.000, right wrist unmoved (`|r_arm_wrist − muzzle|` 0.085 throughout), HOLD latched with the
+dock — on the handgun and on the minigun `[verified-live 2026-09-05, n=1 launch per weapon]`.
+Spec v2.3 reqs 1–3 are met flat with a synthetic target; the controller path is untested (headset).
+**The trap that cost two launches:** the game's per-frame call of `getIKLeftArmMatrix` /
+`get_AidTargetWorldMatrix` returns the aid joint's world matrix **as it is at that point in the
+frame — 0.18–0.20 m and ~48° away from the joint's final pose** on the handgun (18° on the
+minigun); a read from a `LockScene` pre-hook returns the final pose. The solver carries the
+**offset** you add across to the final pose, not the absolute value, so an absolute target in
+final space misses by exactly that gap. Measured mapping, row-vector convention, fitted to ≤ 2 mm
+over six samples `[verified-numerically 2026-09-05, n=6]`:
+`wrist_final_rows = returned_rows · M` and `wrist_final − aid_final = (returned_t − natural_t) · M`,
+with `M = natural_rowsᵀ · aid_final_rows` (constant per weapon/stance; compute it live every frame
+from the hook's un-hooked value and `via.Joint.get_WorldMatrix` on the aid joint). So: **blend in
+final space, then map back through `Mᵀ`** — see the plugin's `update_dock`. Corollaries: the
+returned **rotation is consumed** (the wrist turns with it; NUM3 off → 0°); the "no value" reads of
+this getter on the minigun were the plugin's own dump-time reads — the game's per-frame call always
+carries one. Ledger: `modding-notes/2026-09-05-the-dock-lands-flat.md`; logs
+`dev-archive/recon/2026-09-05-dock-v04/`.
+
+**⭐ 2026-09-05 (night) — THE DOCK LEVER: the aid target is a hookable managed getter, and the wrist goes
 where it says.** `[verified-live 2026-09-05, n=1 weapon (handgun), unaimed + HOLD, 3 modes]`
 Post-hooking `Implement.get_AidTargetWorldMatrix` (or `Implement.getIKLeftArmMatrix`) and adding
 10 cm to the returned translation moved `l_arm_wrist` 10 cm off `_101` (joint-to-joint read, no
