@@ -168,6 +168,26 @@ Two field traps, both hit in practice:
   player while the OLD `via.render.Mesh` components stay writable — `set_DrawDefault` succeeds on a head that is
   plainly visible. Read the flag back after clearing it; true means these are not the meshes on screen.
 
+### 7b. Materials & textures: what the MDF exposes, and how to edit it offline (2026-09-06, `/pd`)
+- **`.mdf2.21` is fully read/written by RE Mesh Editor's `modules/mdf/file_re_mdf.py`** (NSACloud) — usable
+  outside Blender with the add-on folder on `sys.path`; `readMDF()` → `materialList[].textureList[]`
+  (`textureType`, `texturePath`) and `propertyList[]` (`propName`, `propValue`); assign and `writeMDF()` — the
+  writer rebuilds the string table `[verified-numerically 2026-09-06: re-read matches, other materials identical]`.
+  Texture paths are `natives/stm/`-relative, with `.tex` and **no version number**; the loose loader takes
+  `natives/stm/<path>.tex.34`.
+- **`.tex.34` ⇄ DDS ⇄ PNG through the same add-on** (`modules/tex/re_tex_utils.py`: `convertTexFileToDDS`,
+  `ImageListToDDS` (BC7 via DirectXTex `texconv.dll`, GPU), `DDSToTex(ddsList, 34, out)`). Headless it needs
+  `ctypes.windll.ole32.CoInitializeEx(None, 0)` first or WIC fails with `80004002`. Formats seen: ALBM BC7 sRGB
+  (dxgi 99), NRMR/detail BC7 (98), MSK1 BC4 (80), ATOS BC1 (71).
+- **Player skin shader = `MasterMaterial/Master/Record_Player.mmtr`**: 15 texture slots, 37 floats. The ones
+  that matter for skin fidelity: `DetailMap` (tiling tangent normal, alpha = AO; `Detail_UVScale`,
+  `Detail_Normal_Intensity`, `Detail_AO_Intensity`) masked by `DetailMaskMap`; `NormalRoughnessMap`;
+  `AlphaTranslucentOcclusionSSSMap` (B varies = SSS/occlusion term); `SSS_ProfileNumber`, `Translucency`.
+  **Claire's skin ships with the detail slot NULL and intensity 0** `[measured 2026-09-06]` — pores are one
+  MDF edit + one tiling texture away (tier 1a, deployed, unrun).
+- **One 1024² body texture set serves skin AND cloth on Claire; the hands are the bottom ~14 % of it** and their
+  normal map is flat — the low fidelity in first person is texture budget, not shading `[measured 2026-09-06]`.
+
 ## 8. Animation / motion system
 - Locomotion is driven by a **motion-bank selector**, not by picking different
   animation files. In RE2 the locomotion layer plays the **same motion ids from
