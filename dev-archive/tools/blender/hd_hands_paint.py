@@ -24,6 +24,7 @@ ap.add_argument("--size", type=int, default=4096)
 ap.add_argument("--pores", type=float, default=0.3, help="micro-relief strength (0 = none); 1.0 was the first pass, sandpaper in game")
 ap.add_argument("--veins", type=float, default=0.35, help="dorsal vein relief lifted from the original albedo (0 = none); the lift finds blobs, not lines, so it is a hint by default")
 ap.add_argument("--wrinkles", type=float, default=1.0, help="fine wrinkle networks around the joints (0 = none)")
+ap.add_argument("--anatomy", type=float, default=0.0, help="EXPERIMENTAL, off by default: rig-derived veins/tendons drawn along the mesh surface. 2026-09-06 05:50: the dorsal-side pick is wrong (lines hug the island edge, angular), so it draws scars, not veins")
 ap.add_argument("--crease", type=float, default=1.0, help="joint crease depth (0 = none)")
 ap.add_argument("--tone", type=float, default=1.0, help="albedo variation strength (0 = none)")
 ap.add_argument("--detail-png", default=None, help="tiling detail normal PNG (default <work>/visceral_skin_detail_NRM.png)")
@@ -89,7 +90,7 @@ for v in me.vertices:
     if not ws: continue
     top = ws[0][1]
     if top.startswith(HAND): K[v.index] = 1.0
-    elif top.startswith(FORE): K[v.index] = 0.6
+    elif top.startswith(FORE): K[v.index] = 1.0
     if len(ws) >= 2 and ws[0][1].startswith(HAND + FORE) and ws[1][1].startswith(HAND + FORE):
         J[v.index] = float(np.clip(2.0 * ws[1][0] / max(ws[0][0] + ws[1][0], 1e-6), 0, 1))
     if any(n.startswith(FINGER) and n.rsplit("_", 1)[-1].isdigit() and int(n.rsplit("_", 1)[-1]) >= 1 for w, n in ws[:2]):
@@ -178,7 +179,84 @@ rng = np.random.default_rng(3)
 wr = -(np.abs(fbm(2, 900.0)) ** 0.6) * 0.5                    # narrow ridged valleys ~ 4-5 texels apart at 4K
 near_joint = blur(np.clip((fieldJ - 0.45) / 0.55, 0, 1), N / 1024.0 * 3.0)
 h_wrinkle = wr * near_joint * 0.18 * a.wrinkles
-cx, cy = nrm_from_height(h_crease + h_veins + h_wrinkle, 6.0)
+# --- anatomy from the rig: the back of each hand gets four extensor tendons (wrist -> each knuckle) and three
+# dorsal veins (wrist -> the gaps between knuckles), drawn as curves in UV space between anchors found from the
+# bones, and masked to the DORSAL side, which is the side facing away from the thumb's offset from the palm plane.
+h_anat = np.zeros((N, N), np.float32); vein_lines = np.zeros((N, N), np.float32)
+try:
+    arm = [o for o in bpy.data.objects if o.type == "ARMATURE"][0]
+    M = skin.matrix_world; R3 = M.to_3x3()
+    vco = np.array([M @ v.co for v in me.vertices], np.float32); vno = np.array([R3 @ v.normal for v in me.vertices], np.float32)
+    vuv = np.zeros((len(me.vertices), 2), np.float32); seen = np.zeros(len(me.vertices), bool)
+    for poly in me.polygons:
+        for vi, li in zip(poly.vertices, poly.loop_indices):
+            if not seen[vi]: vuv[vi] = uv.data[li].uv; seen[vi] = True
+    def jpos(n):
+        b = arm.data.bones.get(n); return np.array(arm.matrix_world @ b.head_local, np.float32) if b else None
+    def unit(v): return v / (np.linalg.norm(v) + 1e-9)
+    Dv = np.zeros(len(me.vertices), np.float32)
+    topname = np.array([(weights(v) or [(0, "")])[0][1] for v in me.vertices])
+    is_finger = np.array([bool(F[i]) for i in range(len(me.vertices))])
+    def polyline(img, uvs):
+        """draw a UV polyline, skipping jumps across islands"""
+        for q0, q1 in zip(uvs[:-1], uvs[1:]):
+            if np.linalg.norm(q1 - q0) > 0.03: continue
+            n = max(2, int(np.linalg.norm(q1 - q0) * N))
+            t = np.linspace(0, 1, n)[:, None]; pts = (1 - t) * q0 + t * q1
+            xs = np.clip((pts[:, 0] * N).astype(int), 0, N - 1); ys = np.clip(((1 - pts[:, 1]) * N).astype(int), 0, N - 1)
+            img[ys, xs] = 1.0
+    def surface_line(img, cand, p_from, p_to, lateral, offs, wiggle_amp, seed, steps=80):
+        """sample the 3D segment p_from->p_to shifted sideways by offs (+ a gentle sine wiggle), snap each sample to the
+        nearest candidate vertex, draw the UV polyline through them"""
+        r = np.random.default_rng(seed); ph = r.uniform(0, 6.28)
+        uvs = []
+        for t in np.linspace(0, 1, steps):
+            q = p_from + (p_to - p_from) * t + lateral * (offs + wiggle_amp * np.sin(t * 7.0 + ph) * t * (1 - t) * 4)
+            j = cand[np.argmin(np.linalg.norm(vco[cand] - q, axis=1))]
+            uvs.append(vuv[j])
+        polyline(img, np.array(uvs))
+    tend = np.zeros((N, N), np.float32); vein_lines = np.zeros((N, N), np.float32)
+    fieldD = np.zeros((N, N), np.float32)
+    for side in ("l", "r"):
+        w = jpos(side + "_arm_wrist"); m0 = jpos(side + "_hand_middle_0"); t1 = jpos(side + "_hand_thumb_1"); el = jpos(side + "_arm_radius")
+        if w is None or m0 is None or t1 is None: print("anatomy: bones missing for", side); continue
+        axis = unit(m0 - w); tv = t1 - w; palm = unit(tv - axis * np.dot(tv, axis)); lat = unit(np.cross(axis, palm))
+        hidx = np.array([i for i in range(len(me.vertices)) if topname[i].startswith((side + "_hand_", side + "_arm_wrist"))])
+        Dv[hidx] = np.clip(-(vno[hidx] @ palm), 0, 1)
+        dors = hidx[(Dv[hidx] > 0.5) & (~is_finger[hidx])]                       # back of the hand, metacarpal region
+        kn = [jpos(side + "_hand_%s_0" % f) for f in ("index", "middle", "ring", "little")]
+        kn = [k for k in kn if k is not None]
+        print("anatomy %s: %d hand verts, %d dorsal metacarpal verts, %d knuckles" % (side, len(hidx), len(dors), len(kn)))
+        if len(dors) < 20 or len(kn) < 2: continue
+        for i, k in enumerate(kn):                                               # extensor tendons: wrist -> each knuckle
+            surface_line(tend, dors, w + (k - w) * 0.2, w + (k - w) * 0.9, lat, 0.0, 0.0, 11 + i)
+        for i in range(len(kn) - 1):                                              # dorsal veins: wrist -> the gaps between knuckles
+            gap = (kn[i] + kn[i + 1]) / 2
+            surface_line(vein_lines, dors, w + (gap - w) * 0.08, w + (gap - w) * 0.88, lat, 0.0, 0.006 * (1 if i % 2 else -1), 21 + i)
+        if el is not None:                                                        # forearm veins: two, along the arm, both faces
+            fidx = np.array([i for i in range(len(me.vertices)) if topname[i].startswith(side + "_arm_radius")])
+            if len(fidx) > 20:
+                Dv[fidx] = 1.0
+                for i, off in enumerate((-0.012, 0.011)):
+                    surface_line(vein_lines, fidx, w + (el - w) * 0.05, w + (el - w) * 0.85, lat, off, 0.005, 31 + i, steps=120)
+                print("anatomy %s forearm: %d verts, 2 veins" % (side, len(fidx)))
+    for poly in me.polygons:
+        vi = list(poly.vertices)
+        if max(K[i] for i in vi) <= 0: continue
+        uvs = [tuple(uv.data[li].uv) for li in poly.loop_indices]
+        for k in range(1, len(uvs) - 1):
+            raster((uvs[0], uvs[k], uvs[k + 1]), ([Dv[vi[0]], Dv[vi[k]], Dv[vi[k + 1]]],), (fieldD,))
+    dorsal = blur(np.clip((fieldD - 0.35) / 0.3, 0, 1), N / 1024.0 * 1.0) * edge
+    tend = blur(tend, N / 4096.0 * 9.0); tend = tend / (tend.max() + 1e-9)
+    vein_lines = blur(vein_lines, N / 4096.0 * 3.5); vein_lines = vein_lines / (vein_lines.max() + 1e-9)
+    vein_lines = vein_lines * dorsal * (1.0 - fieldF)
+    tend = tend * dorsal * (1.0 - fieldF)
+    h_anat = (vein_lines * 0.55 + tend * 0.22) * a.anatomy
+    print("anatomy: dorsal %.1f%% of the hand mask; veins cover %.2f%%, tendons %.2f%%" % (100 * (dorsal[fieldK > 0] > 0.5).mean(),
+          100 * (vein_lines[fieldK > 0] > 0.3).mean(), 100 * (tend[fieldK > 0] > 0.3).mean()))
+except Exception as e:
+    import traceback; traceback.print_exc(); print("anatomy: skipped:", e)
+cx, cy = nrm_from_height(h_crease + h_veins + h_wrinkle + h_anat, 6.0)
 nx = (nrm[..., 0] * 2 - 1) + edge * (cx + det_xy[..., 0] * 0.35 * a.pores * (0.7 + 0.3 * fieldF))
 ny = (nrm[..., 1] * 2 - 1) + edge * (cy + det_xy[..., 1] * 0.35 * a.pores * (0.7 + 0.3 * fieldF))
 nz = np.sqrt(np.clip(1.0 - nx ** 2 - ny ** 2, 0.05, 1.0))
@@ -194,7 +272,8 @@ out_alb[..., 0] = alb[..., 0] * (1.0 + 0.10 * red)
 out_alb[..., 1] = alb[..., 1] * (1.0 - 0.18 * red)
 out_alb[..., 2] = alb[..., 2] * (1.0 - 0.22 * red)
 mot = 1.0 + edge * mottle * 0.02 * a.tone
-out_alb[..., 0] *= (1.0 - veins * 0.05); out_alb[..., 1] *= (1.0 - veins * 0.03)   # veins: a touch cooler, hardly darker
+vt = np.clip(veins + vein_lines * 1.2, 0, 1)
+out_alb[..., 0] *= (1.0 - vt * 0.07); out_alb[..., 1] *= (1.0 - vt * 0.035)          # veins: a touch cooler, hardly darker
 out_alb[..., :3] *= mot[..., None]
 # pores slightly darker: use the detail map's alpha (AO) very gently
 det_ao = det[np.ix_(ty, tx)][..., 3]
@@ -207,7 +286,7 @@ save_np(out_nrm, os.path.join(a.out, "pl3000_Body_NRMR.png"))
 def crop(img): return img[int(N * 0.85):, :, :]
 save_np(np.concatenate([crop(alb), crop(out_alb)], axis=0), os.path.join(a.out, "preview_albedo_strip.png"))
 save_np(np.concatenate([crop(nrm), crop(out_nrm)], axis=0), os.path.join(a.out, "preview_normal_strip.png"))
-vv = np.repeat(veins[int(N * 0.85):, :, None], 4, axis=2); vv[..., 3] = 1.0
+vv = np.repeat(np.clip(veins + vein_lines + (h_anat > 0.05) * 0.3, 0, 1)[int(N * 0.85):, :, None], 4, axis=2); vv[..., 3] = 1.0
 save_np(vv, os.path.join(a.out, "preview_veins_strip.png"))
 print("wrote 4K ALBM/NRMR + previews to", a.out)
 print("DONE")
