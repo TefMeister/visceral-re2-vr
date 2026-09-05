@@ -218,6 +218,25 @@ this getter on the minigun were the plugin's own dump-time reads — the game's 
 carries one. Ledger: `modding-notes/2026-09-05-the-dock-lands-flat.md`; logs
 `dev-archive/recon/2026-09-05-dock-v04/`.
 
+**2026-09-05 (afternoon, `/pd`, static) — THE LEFT ARM'S REACH IS 50 cm, AND IT IS MEASURABLE FROM
+THE SKELETON.** The `pl1000` left arm chain is `l_arm_clavicle` → `l_arm_humerus` → `l_arm_radius`
+→ `l_arm_wrist`, so `|humerus−radius| + |radius−wrist|` is the arm, and the humerus is the pivot a
+dock target must stay inside. Recomputed from the game's own joint dump:
+**upper 0.2781 m, fore 0.2213 m, arm 0.4994 m**; the right arm gives 0.4996 m, an independent
+measurement of the same skeleton agreeing to **0.18 mm**
+`[verified-numerically 2026-09-05, n=2 limbs, 1 frame]`. **Two traps.** (1) The resting arm hangs at
+**97.4 % of its own length** — nearly straight — so any clamp fraction below ~0.99 has only
+millimetres of headroom over an ordinary standing pose. (2) The 12.6 cm clavicle segment is *not*
+part of that sum but the shoulder girdle does move, so `0.4994` is a **lower bound** on true reach,
+not the reach. Plugin v0.6 clamps a dock target to `0.98 ×` the measured length about the humerus,
+behind a **NUM2** toggle for exactly that reason, and reports `reach=` / `clamp=` in the 1 Hz
+summary. v0.6 also measures `M` every frame rather than only while docked, so `angM` is live before
+a grip is committed; an unreadable aid joint clears `M_valid` rather than leaving a stale mapping to
+be read as the current one. **Bone lengths must be re-measured on a player rebind** — a different
+playable character is a different skeleton. Ledger:
+`modding-notes/2026-09-05b-the-arm-measures-its-own-reach-and-M-is-live-every-frame.md`; evidence
+`dev-archive/recon/2026-09-05b-reach-clamp-and-live-M/`.
+
 **⭐ 2026-09-05 (night) — THE DOCK LEVER: the aid target is a hookable managed getter, and the wrist goes
 where it says.** `[verified-live 2026-09-05, n=1 weapon (handgun), unaimed + HOLD, 3 modes]`
 Post-hooking `Implement.get_AidTargetWorldMatrix` (or `Implement.getIKLeftArmMatrix`) and adding
