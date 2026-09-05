@@ -1,5 +1,10 @@
 # Visceral — roadmap v1 (user, 2026-08-27, late night)
 
+> **SUPERSEDED 2026-09-05 by [2026-09-05-visceral-roadmap-v2.md](2026-09-05-visceral-roadmap-v2.md)**,
+> which merges this list with 22 further items and puts the whole thing in working order.
+> Kept as the historical record of the first plan.
+
+
 The user's first full feature plan, dictated at the end of the night the RE Village scope
 showed its first real image. Their framing: *"I'm sure more will surface as we go along,
 but this is our playground and a plan."* Sequencing: **Visceral starts once the Village
