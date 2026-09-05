@@ -132,3 +132,43 @@ Nothing about the plan, and two things about the reading:
   the lower-bound reach is too tight, in which case the fix is to add the clavicle segment rather
   than to loosen the fraction. Press **NUM2** to settle which: if the hand's behaviour changes with
   the clamp off, the clamp was doing something.
+
+## 6. A `/gr` drop landed mid-session, and it is now one keypress from being settled
+
+`/gr` pushed to this repo at 15:25 while this session was working — a create-only drop into
+`engine-research/inbox/`, which is the modding lane's to drain. It was drained into dossier §8d and
+deleted by name.
+
+Its headline: **`via.motion.Motion` carries a `PlaySpeed` property on the component, above every
+layer** `[reported 2026-09-05, from public source]` — engine-level `via.motion`, so a global rate cap
+written there would need neither a layer index nor motion-name gating. That is a better first
+candidate for spec req 4 than `TreeLayer.set_Speed`. **But only the getter is witnessed**: the public
+dumper it came from never writes it, so `set_PlaySpeed` existing is a `[hypothesis]`.
+
+A hypothesis that a single method enumeration can settle should not sit in a document waiting for
+someone to think of it, so v0.6 adds `dump_motion()` and hangs it off the **existing NUM7 dump** —
+no new hotkey. It prints:
+
+- the `via.motion.Motion` method and field surface filtered on `speed` / `play` / `rate` / `layer`
+  — **`set_PlaySpeed` appearing in that list is the whole answer**;
+- `get_PlaySpeed` as a value, through the direct call route (§8d: the reflection invoke returns 0 for
+  every float on this build, so **`NaN` here means the method is absent**, not that the value is zero);
+- `getLayerCount`, to confirm the no-underscore spelling against the fallback;
+- **`get_Weight` per layer**, which the drop asks for because it identifies the layer driving the pose
+  by measurement rather than by string-matching `walk`/`run` in a motion name. Our own live read
+  already says locomotion is layer 0 `[verified-live 2026-09-04, n=1]`, so a weight of ~1.0 on layer 0
+  is corroboration by a second, independent method — and a weight elsewhere would be a real finding.
+
+`dump_type_surface` grew a hunt-word parameter to make that possible; its two existing callers keep
+the old word list by default and are unchanged.
+
+**Nothing here has been run.** Press NUM7 on any launch — flat or in the headset, it costs nothing
+and needs no dock — and the answer is in the log.
+
+## 7. Deployed build
+
+Final DLL of this session: **102,912 B, `sha256` prefix `7065a6c9cfb824d9`**, clean `/W4` Release
+build, zero warnings and zero errors `[compile-verified 2026-09-05]`. Deployed to
+`reframework/plugins/`. Rollback copies in the same folder: `visceral_core.dll.prev` (99,328 B, v0.6
+without the motion dump) and `visceral_core.dll.bak-2026-09-05-v05` (98,304 B, this morning's
+verified v0.5).

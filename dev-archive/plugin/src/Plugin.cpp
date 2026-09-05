@@ -551,9 +551,9 @@ void dump_weapon() {
 
 // Every method and field of an object's type (parent chain included) whose name contains one of the
 // hunt words. For the two unread IK objects — what places the support hand may be in here.
-void dump_type_surface(API::ManagedObject* o, const char* label) {
+void dump_type_surface(API::ManagedObject* o, const char* label,
+                       const std::vector<const char*>& words = {"target", "weight", "enable", "joint"}) {
     if (o == nullptr) { LOGI("%s   %s: null", TAG, label); return; }
-    static const char* words[] = {"target", "weight", "enable", "joint"};
     LOGI("%s   %s: %s", TAG, label, tname(o).c_str());
     int lines = 0;
     for (auto* td = o->get_type_definition(); td != nullptr && lines < 120; td = td->get_parent_type()) {
@@ -649,6 +649,32 @@ void dump_layers(bool force_table) {
             g.layer_last[i] = name;
         }
     }
+}
+
+// The req-4 speed hunt, from the /gr drop drained into dossier 8d on 2026-09-05. Public source
+// witnesses a GETTER for a component-wide PlaySpeed on via.motion.Motion, above every layer; whether
+// a SETTER exists is a hypothesis, and one method enumeration settles it. The same dump reads
+// get_Weight per layer, which identifies the layer driving the pose by measurement instead of by
+// matching motion-name strings. Both were asked for by the drop; neither has been run.
+void dump_motion() {
+    auto* mo = g.motion;
+    if (mo == nullptr) { LOGI("%s motion component: none (no via.motion.Motion on the player)", TAG); return; }
+    LOGI("%s ---- MOTION COMPONENT (req 4 speed hunt): %s ----", TAG, tname(mo).c_str());
+    dump_type_surface(mo, "via.motion.Motion surface", {"speed", "play", "rate", "layer"});
+    // Floats go through the DIRECT call route on this build; the reflection invoke returns 0 for every
+    // float (dossier 8d). NaN here therefore means "no such method", not "the value is zero".
+    LOGI("%s   get_PlaySpeed = %.4f   (NaN = method absent or not a float)", TAG, inv_f32(mo, "get_PlaySpeed"));
+    const auto n = inv_u32(mo, "getLayerCount");
+    LOGI("%s   getLayerCount = %u   (0xFFFFFFFF = absent; get_LayerCount is the fallback spelling)", TAG, n);
+    for (uint32_t i = 0; i < 8 && n != 0xFFFFFFFFu && i < n; ++i) {
+        auto* layer = inv_ptr(mo, "getLayer", {(void*)(uintptr_t)i});
+        if (layer == nullptr) continue;
+        auto* node = inv_ptr(layer, "get_HighestWeightMotionNode");
+        const std::string name = node != nullptr ? sysstr(inv_ptr(node, "get_MotionName")) : "-";
+        LOGI("%s   layer[%u] get_Weight=%.4f get_Speed=%.4f motion=%s", TAG, i,
+             inv_f32(layer, "get_Weight"), inv_f32(layer, "get_Speed"), name.c_str());
+    }
+    LOGI("%s ---- end motion component ----", TAG);
 }
 
 void summary_line() {
@@ -1026,7 +1052,7 @@ void on_frame() {
         const bool hold = inv_bool(g.cond, "get_IsHold");
         if (hold != last_hold) { last_hold = hold; LOGI("%s IsHold -> %d (force_hold=%d)", TAG, (int)hold, (int)g.force_hold); if (hold) { dump_weapon(); dump_ik(); } }
     }
-    if (g.want_dump) { g.want_dump = false; dump_weapon(); dump_ik(); dump_layers(true); }
+    if (g.want_dump) { g.want_dump = false; dump_weapon(); dump_ik(); dump_layers(true); dump_motion(); }
     if (g.want_layers) { g.want_layers = false; dump_layers(true); }
 
     dump_layers(false);   // logs only on change
