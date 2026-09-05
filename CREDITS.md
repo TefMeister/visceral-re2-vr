@@ -37,6 +37,25 @@ people into tiers.
   gimmicks — which is the map we needed before changing any of it. A folder
   map rather than a technique, and none of his files or data are used or
   redistributed, but it saved us the search.
+- **[NSACloud](https://github.com/NSACloud)** —
+  [RE Mesh Editor](https://github.com/NSACloud/RE-Mesh-Editor) and
+  [RE Asset Library](https://github.com/NSACloud/RE-Asset-Library), the Blender
+  add-ons that read and write RE Engine `.mesh` files. They are how Claire's
+  skeleton and neck were measured, and how the neck plug — our own 7 KB mesh —
+  was exported in the game's format. Used as tools, as intended.
+- **[Ekey](https://github.com/Ekey)** —
+  [REE.PAK.Tool](https://github.com/Ekey/REE.PAK.Tool): the public RE Engine PAK
+  format knowledge (header, entry table, hashing, compression) and the RE2 RT
+  file list. Our small pull-a-few-files script reimplements that format from
+  reading the tool; none of the tool's code is copied.
+- **[godlock2000-eng (NonRTX)](https://github.com/godlock2000-eng/ResidentEvil2_CustomAnimationFramework_NonRTX)** —
+  the RE2R Custom Animation Framework and, above all, its `docs/` folder: the
+  `.motlist` / `.mot` format guides that let us read the animation banks and
+  plan the aim-walk splice. Read as documentation; no code is used.
+- **[alphaZomega (alphazolam)](https://github.com/alphazolam)** —
+  [EMV Engine](https://github.com/alphazolam/EMV-Engine), MIT: the worked example
+  of creating a GameObject, a `via.render.Mesh` and its resources at runtime,
+  which is the pattern the neck plug follows. Studied, then written fresh in C++.
 - **The REFramework VR community** — public documentation of REFramework's VR
   behaviour, limitations, and techniques.
 - **Capcom** — Resident Evil 2 (2019) and the RE Engine. This is a

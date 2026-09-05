@@ -28,6 +28,10 @@ if [ "${1:-}" = "--deploy" ]; then
     fi
     cp "$DLL" "$GAME/reframework/plugins/visceral_core.dll"
     cp "$HERE/../reframework/autorun/visceral_native_bridge.lua" "$GAME/reframework/autorun/visceral_native_bridge.lua"
+    # v0.7: the plugin's own loose-file assets (natives/stm/visceral/...) — needs LooseFileLoader_Enabled=true in re2_fw_config.txt
+    mkdir -p "$GAME/natives/stm/visceral"
+    cp "$HERE/assets/natives/stm/visceral/"* "$GAME/natives/stm/visceral/"
+    ls -l "$GAME/natives/stm/visceral/"
     a=$(sha256sum "$DLL" | cut -c1-16); b=$(sha256sum "$GAME/reframework/plugins/visceral_core.dll" | cut -c1-16)
     [ "$a" = "$b" ] && echo "deployed OK sha256=$a" || { echo "DEPLOY HASH MISMATCH"; exit 1; }
 fi

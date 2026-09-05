@@ -362,6 +362,7 @@ struct State {
     API::ManagedObject* aid_joint{};
     API::ManagedObject* w_narrow{};     // weapon joint the NARROW hash resolves to (_101 on wp8700)
     API::ManagedObject* w_wide{};       // weapon joint the WIDE hash resolves to (_100 on wp8700)
+    API::ManagedObject* neck0{};        // v0.7: the player's neck_0 joint — what the neck plug is pinned to
     API::ManagedObject* bridge{};      // System.Single[64] from the Lua shim
     uint64_t frame{};
     bool trace{false};
@@ -415,6 +416,18 @@ struct State {
         uint32_t no_value_frames{};  // docked, but the getter returned no value (minigun at one read) — counted, logged 1/s
         Vec3 cam_t{}; Rows cam_r{}; bool cam_valid{false};   // game camera world pose (VR re-basing + logging)
     } dock;
+    // v0.7: THE NECK PLUG (roadmap v2 H1). See plug_create() for the why.
+    struct Plug {
+        API::ManagedObject* go{};
+        API::ManagedObject* transform{};
+        API::ManagedObject* mesh{};
+        bool tried{false};           // create attempted (success or not) — one attempt per binding, so a missing file logs once
+        bool created{false};
+        bool lost{false};            // the GameObject stopped being a managed object (scene wipe) — logged once, then recreated
+        bool enabled{true};          // NUM0 toggles; drives set_DrawDefault
+        bool enabled_sent{true};
+        Vec3 last_pos{};
+    } plug;
     std::vector<std::string> layer_last;   // last highest-weight motion name per layer
     uint64_t layer_lines_this_second{};
     uint64_t layer_second{};
@@ -482,6 +495,7 @@ void dump_joints(API::ManagedObject* transform, const char* who, bool all, API::
         // the joint array, and only on the player's own skeleton (dump_joints is called for the weapon too).
         if (l_hand != nullptr && g.l_humerus == nullptr && ln == "l_arm_humerus") g.l_humerus = j;
         if (l_hand != nullptr && g.l_radius  == nullptr && ln == "l_arm_radius")  g.l_radius  = j;
+        if (l_hand != nullptr && g.neck0     == nullptr && ln == "neck_0")        g.neck0     = j;   // v0.7: the plug's anchor
         if (r_hand != nullptr && *r_hand == nullptr && (ln == "r_weapon" || ln == "r_hand" || ln == "r_arm_wrist")) *r_hand = j;
         if (g_grab_named != nullptr && *g_grab_named == nullptr && ln == g_grab_name) *g_grab_named = j;
     }
@@ -771,7 +785,100 @@ void summary_line() {
     } else {
         o += snprintf(buf + o, sizeof buf - o, " | vr bridge: not attached");
     }
+    // v0.7: where the neck plug is (it should sit on neck_0, ~1.10 m over the feet when standing)
+    if (g.plug.created) o += snprintf(buf + o, sizeof buf - o, " | plug=%s @(%.2f %.2f %.2f)", g.plug.enabled ? "on" : "off", g.plug.last_pos.x, g.plug.last_pos.y, g.plug.last_pos.z);
+    else if (g.neck0 == nullptr) o += snprintf(buf + o, sizeof buf - o, " | plug: no neck_0");
+    else o += snprintf(buf + o, sizeof buf - o, " | plug: %s", g.plug.tried ? "FAILED (see log)" : "pending");
     LOGI("%s", buf);
+}
+
+// ---------------------------------------------------------------------------
+// v0.7: the neck plug (roadmap v2 H1). REFramework's first person scales the head joint to zero, so every
+// face vertex weighted to `head` collapses to a point while the neck skin — weighted to neck_0 / neck_1 —
+// stays behind as an open tube the camera looks straight down into: that is the "hollow" Claire. The plug is
+// OUR OWN mesh (7 KB, a capped cylinder r=4 cm from the collar to just under the chin, built by
+// tools/blender/build_neckplug.py in neck_0's bind frame from measurements of the real skeleton) on its own
+// GameObject, pinned to neck_0's world pose every frame and wearing Claire's own skin material BY NAME
+// (pl3000_Skin_Mat out of the game's own pl3000.mdf2, which the engine loads from its pak). Nothing of the
+// game's is shipped and no game file is replaced. Inside the neck it is invisible in third person; in first
+// person it is the skin-coloured floor the collapsed head leaves behind. [hypothesis until the first flat run]
+// ---------------------------------------------------------------------------
+constexpr const char* PLUG_MESH_PATH = "visceral/visceral_neckplug_neck0local.mesh";   // natives/stm/ + this + .2109108288, via REFramework's loose-file loader
+constexpr const char* PLUG_MDF_PATH  = "sectionroot/character/player/pl3000/pl3000/pl3000.mdf2";
+
+struct alignas(16) V4 { float x{}, y{}, z{}, w{}; };   // via.vec3 / via.Quaternion as the engine lays them out (16 bytes)
+
+API::ManagedObject* create_resource_holder(const char* res_type, const char* path, const char* holder_type) {
+    auto& api = API::get();
+    auto* res = api->resource_manager()->create_resource(res_type, path);
+    if (res == nullptr) { LOGW("%s plug: create_resource(%s, %s) returned null", TAG, res_type, path); return nullptr; }
+    auto* holder = (API::ManagedObject*)api->sdk()->resource->create_holder((REFrameworkResourceHandle)res, holder_type);
+    if (holder == nullptr) LOGW("%s plug: create_holder(%s) returned null", TAG, holder_type);
+    return holder;
+}
+
+void plug_create() {
+    auto& p = g.plug;
+    p.tried = true;
+    auto& api = API::get();
+    auto* go_t = api->tdb()->find_type("via.GameObject");
+    auto* create = go_t != nullptr ? go_t->find_method("create(System.String)") : nullptr;
+    if (create == nullptr) { LOGE("%s plug: via.GameObject.create(System.String) not found", TAG); return; }
+    auto* name = api->create_managed_string(L"visceral_neckplug");
+    auto r = create->invoke(nullptr, {name});
+    if (r.exception_thrown || r.ptr == nullptr) { LOGE("%s plug: GameObject.create threw or returned null", TAG); return; }
+    p.go = (API::ManagedObject*)r.ptr;
+    p.go->add_ref();
+    p.transform = inv_ptr(p.go, "get_Transform");
+    auto* mesh_t = api->typeof("via.render.Mesh");
+    auto* add = find_method_deep(p.go->get_type_definition(), "createComponent(System.Type)");
+    if (mesh_t == nullptr || add == nullptr) { LOGE("%s plug: createComponent(System.Type) / typeof(via.render.Mesh) missing", TAG); return; }
+    auto cr = add->invoke(p.go, {mesh_t});
+    if (cr.exception_thrown || cr.ptr == nullptr) { LOGE("%s plug: createComponent(via.render.Mesh) failed", TAG); return; }
+    p.mesh = (API::ManagedObject*)cr.ptr;
+    p.mesh->add_ref();
+    auto* mesh_holder = create_resource_holder("via.render.MeshResource", PLUG_MESH_PATH, "via.render.MeshResourceHolder");
+    auto* mdf_holder  = create_resource_holder("via.render.MeshMaterialResource", PLUG_MDF_PATH, "via.render.MeshMaterialResourceHolder");
+    if (mesh_holder == nullptr) {
+        LOGE("%s plug: mesh resource missing — is natives/stm/%s.2109108288 in the game folder, and LooseFileLoader_Enabled=true in re2_fw_config.txt?", TAG, PLUG_MESH_PATH);
+        return;
+    }
+    if (!inv(p.mesh, "setMesh", {mesh_holder}).ok) { LOGE("%s plug: setMesh threw", TAG); return; }
+    if (mdf_holder != nullptr && !inv(p.mesh, "set_Material", {mdf_holder}).ok) LOGW("%s plug: set_Material threw — the plug will draw with no material", TAG);
+    p.created = true;
+    p.enabled_sent = true;
+    LOGI("%s PLUG CREATED: go=%p transform=%p mesh=%p (mesh %s, mdf %s) — NUM0 toggles it", TAG, (void*)p.go, (void*)p.transform, (void*)p.mesh, PLUG_MESH_PATH, PLUG_MDF_PATH);
+}
+
+void plug_update() {
+    auto& p = g.plug;
+    if (g.player_go == nullptr || g.neck0 == nullptr) return;
+    if (p.created && (!is_managed(p.go) || !is_managed(p.transform) || !is_managed(p.mesh))) {
+        if (!p.lost) LOGW("%s plug: GameObject is no longer a managed object (scene wipe?) — recreating", TAG);
+        p = State::Plug{}; p.lost = true;
+    }
+    if (!p.created) {
+        if (p.tried) return;          // one attempt per binding; rebind_player() re-arms it
+        plug_create();
+        if (!p.created) return;
+    }
+    p.lost = false;
+    Vec3 jp{};
+    if (!inv_vec3(g.neck0, "get_Position", jp)) return;
+    Quat jq{};
+    { auto x = inv(g.neck0, "get_Rotation"); if (!x.ok) return; memcpy(&jq, x.r.bytes.data(), sizeof(Quat)); }
+    // via.Transform.set_Position(via.vec3) / set_Rotation(via.Quaternion): 16-byte value types, passed by reference on
+    // x64, so the direct route with a pointer is the real ABI (the reflection route mangles value-type args here).
+    V4 pos{jp.x, jp.y, jp.z, 0.f};
+    V4 rot{jq.x, jq.y, jq.z, jq.w};
+    call_void_direct(p.transform, "set_Position", &pos);
+    call_void_direct(p.transform, "set_Rotation", &rot);
+    if (p.enabled != p.enabled_sent) {
+        p.enabled_sent = p.enabled;
+        call_void_direct(p.mesh, "set_DrawDefault", p.enabled);   // dossier §7: the per-pass draw flag, not the bone
+        call_void_direct(p.mesh, "set_DrawShadowCast", p.enabled);
+    }
+    p.last_pos = jp;
 }
 
 // ---------------------------------------------------------------------------
@@ -798,10 +905,10 @@ void set_force(int kind, bool on) {
 }
 
 void poll_hotkeys() {
-    static bool prev[9] = {};
-    const int vks[9] = {VK_NUMPAD7, VK_NUMPAD8, VK_NUMPAD9, VK_NUMPAD4, VK_NUMPAD5, VK_NUMPAD6, VK_NUMPAD1, VK_NUMPAD3, VK_NUMPAD2};
+    static bool prev[10] = {};
+    const int vks[10] = {VK_NUMPAD7, VK_NUMPAD8, VK_NUMPAD9, VK_NUMPAD4, VK_NUMPAD5, VK_NUMPAD6, VK_NUMPAD1, VK_NUMPAD3, VK_NUMPAD2, VK_NUMPAD0};
     if (!game_is_foreground()) return;
-    for (int i = 0; i < 9; ++i) {
+    for (int i = 0; i < 10; ++i) {
         const bool down = (GetAsyncKeyState(vks[i]) & 0x8000) != 0;
         if (down && !prev[i]) {
             if (i == 0) { g.want_dump = true; LOGI("%s NUM7: dump requested", TAG); }
@@ -819,6 +926,7 @@ void poll_hotkeys() {
                           static const char* names[] = {"controller HMD-relative, re-based on the game camera", "bridge pose used as world directly", "as mode 0 with the camera rows transposed"};
                           LOGI("%s NUM1: VR space mode -> %d (%s)", TAG, g.dock.space_mode, names[g.dock.space_mode]); }
             if (i == 7) { g.dock.write_rot = !g.dock.write_rot; LOGI("%s NUM3: rotation write %s", TAG, g.dock.write_rot ? "ON" : "OFF (translation only)"); }
+            if (i == 9) { g.plug.enabled = !g.plug.enabled; LOGI("%s NUM0: neck plug %s", TAG, g.plug.enabled ? "ON" : "OFF"); }
         }
         prev[i] = down;
     }
@@ -999,6 +1107,7 @@ void rebind_player(API::ManagedObject* pm, API::ManagedObject* go) {
     // NOT — a different playable character is a different skeleton, and a kept reach would clamp the new arm to
     // the old one's length. Cleared here, where the joints it was measured from are also dropped.
     g.l_humerus = nullptr; g.l_radius = nullptr;
+    g.neck0 = nullptr; g.plug.tried = false;   // v0.7: re-resolve the neck on the new skeleton; the plug object itself is kept if still alive
     g.dock.reach = 0.f; g.dock.reach_raw = 0.f; g.dock.reach_valid = false; g.dock.clamp_on = false;
     g.weapon = nullptr; g.weapon_transform = nullptr;
     g.layer_last.clear();
@@ -1024,7 +1133,7 @@ void on_frame() {
         if (g.player_go != nullptr) {
             LOGI("%s player gone (scene change?) — unbinding", TAG);
             // keep what outlives the player: the bridge, the counters, the latches (a forced HOLD must stay reconcilable), the dock settings
-            g = State{.bridge = g.bridge, .frame = g.frame, .trace = g.trace, .force_hold = g.force_hold, .hold_sent = g.hold_sent, .dock = g.dock};
+            g = State{.bridge = g.bridge, .frame = g.frame, .trace = g.trace, .force_hold = g.force_hold, .hold_sent = g.hold_sent, .dock = g.dock, .plug = g.plug};
             g.dock.natural_valid = false; g.dock.target_valid = false;
         }
         return;
@@ -1053,6 +1162,7 @@ void on_frame() {
         last_t = tn;
         update_dock(tn, dt);
     }
+    plug_update();   // v0.7
     {
         static bool last_hold = false;
         const bool hold = inv_bool(g.cond, "get_IsHold");
@@ -1180,7 +1290,7 @@ extern "C" __declspec(dllexport) bool reframework_plugin_initialize(const REFram
         fns->log_error("%s C++ SDK wrapper init failed — probe disabled", TAG);
         return true;
     }
-    fns->log_info("%s native core v0.6 loaded — THE DOCK (final-space blend mapped into the getIKLeftArmMatrix hook, HOLD latched while docked, M measured every frame, target clamped to the measured arm length). NUM7 dump / NUM8 trace / NUM9 layers / NUM4 force-HOLD / NUM5 ATTACK pulse / NUM6 synthetic dock (flat) / NUM1 VR space mode / NUM3 rotation write / NUM2 reach clamp", TAG);
+    fns->log_info("%s native core v0.7 loaded — NECK PLUG (own mesh pinned to neck_0, NUM0 toggles) on top of v0.6 — THE DOCK (final-space blend mapped into the getIKLeftArmMatrix hook, HOLD latched while docked, M measured every frame, target clamped to the measured arm length). NUM7 dump / NUM8 trace / NUM9 layers / NUM4 force-HOLD / NUM5 ATTACK pulse / NUM6 synthetic dock (flat) / NUM1 VR space mode / NUM3 rotation write / NUM2 reach clamp", TAG);
     // Hooks need the TDB up; register them from the game thread on the first frame.
     static std::atomic<bool> hooked{false};
     fns->on_pre_application_entry("LockScene", []() {
