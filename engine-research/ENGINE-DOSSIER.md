@@ -395,8 +395,11 @@ file on that repo, nothing copied):
   `[reported 2026-09-05, from source]`. Engine-level `via.motion`, not `app.ropeway`, so §8d's
   confidence in the reflection route transfers to it, and a global rate cap written there needs
   neither a layer index nor motion-name gating. ⚠️ **Only the getter is witnessed — the dumper never
-  writes it.** `set_PlaySpeed` existing is `[hypothesis]` until a reflection dump lists it, which the
-  native probe can settle in the same run by enumerating that component's methods. This is the better
+  writes it.** `set_PlaySpeed` existing is `[hypothesis]` until a reflection dump lists it. **The probe
+  now settles it: plugin v0.6's `dump_motion()` hangs off the existing NUM7 dump** and prints the
+  `via.motion.Motion` surface filtered on `speed`/`play`/`rate`/`layer`, `get_PlaySpeed` as a value
+  (through the direct call route, so `NaN` means the method is absent, not that the value is zero),
+  `getLayerCount`, and `get_Weight` per layer. One keypress on any launch, flat or in the headset. This is the better
   first candidate for req 4 than `TreeLayer.set_Speed`, and than
   `app.ropeway.survivor.SurvivorMotionSpeedController` (§8c), which no public source uses at all
   `[checked 2026-09-05]` — an absence that means nobody mapped it for us, **not** that it is a bad

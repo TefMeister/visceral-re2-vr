@@ -1,0 +1,5 @@
+MSBuild version 17.14.51+25f168cee for .NET Framework
+
+  Plugin.cpp
+     Creating library C:/Users/TD3KX/github-backups-pd/visceral-re2-vr/dev-archive/plugin/build/Release/visceral_core.lib and object C:/Users/TD3KX/github-backups-pd/visceral-re2-vr/dev-archive/plugin/build/Release/visceral_core.exp
+  visceral_core.vcxproj -> C:\Users\TD3KX\github-backups-pd\visceral-re2-vr\dev-archive\plugin\build\Release\visceral_core.dll
