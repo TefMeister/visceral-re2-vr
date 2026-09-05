@@ -26,6 +26,7 @@ local S_RPOS, S_RROT = 10, 13
 local S_HPOS, S_HROT = 17, 20
 local S_LSTICK = 24
 local S_LGRIP, S_LTRIG, S_RGRIP, S_RTRIG = 26, 27, 28, 29
+local S_CINE, S_FP = 30, 31        -- v0.8: cinematic gate verdict, FirstPerson-mod-active (both Lua-only facts)
 local S_ACK, S_SENTINEL = 62, 63
 
 local arr = nil
@@ -61,6 +62,9 @@ local function setup()
     keepalive = t and t:get_method("set_AccessMutex")
     if not keepalive then log.error(TAG .. " mailbox method RagdollControlZoneManager.set_AccessMutex not found"); return false end
     log.info(TAG .. " array ready (" .. tostring(arr:get_address()) .. ")")
+    -- v0.8: the head hider's reveal logic reads slots 30/31; say once whether their Lua sources exist at all
+    log.info(TAG .. " slot sources: firstpersonmod=" .. tostring(_G.firstpersonmod ~= nil)
+        .. " cinematic_gate=" .. tostring(type(_G.__visceral_cinematic_blocking) == "function"))
     return true
 end
 
@@ -90,6 +94,12 @@ re.on_pre_application_entry("UpdateHID", function()
     end
 
     w(S_FRAME, frame)
+    -- v0.8: two facts only Lua can see, for the head hider's reveal logic. Written before the VR early-out
+    -- so they are live on a flat launch too.
+    local cine = _G.__visceral_cinematic_blocking
+    w(S_CINE, (type(cine) == "function" and safe(cine) == true) and 1 or 0)
+    local fp = _G.firstpersonmod
+    w(S_FP, (fp and safe(function() return fp:will_be_used() end) == true) and 1 or 0)
     local vr = _G.vrmod
     if not vr then w(S_HMD, 0); w(S_CTL, 0); return end
     local hmd = safe(function() return vr:is_hmd_active() end) and 1 or 0

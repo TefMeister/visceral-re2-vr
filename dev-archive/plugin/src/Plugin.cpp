@@ -427,7 +427,36 @@ struct State {
         bool enabled{true};          // NUM0 toggles; drives set_DrawDefault
         bool enabled_sent{true};
         Vec3 last_pos{};
+        bool readback_pending{false};   // v0.8: read get_DrawDefault back one frame after writing it
     } plug;
+    // v0.8: THE HEAD HIDER (roadmap v1 #4 / v2 phase H). Hides every head-ish via.render.Mesh under the player by
+    // its per-pass draw flags — DrawDefault off, DrawShadowCast on — so the head is gone from the camera but still
+    // casts its shadow. REFramework's own HideJointMesh scales the head joint to zero and takes the shadow with it,
+    // so it must be OFF for this to do anything (the head hider does not touch that setting). See head_update().
+    struct Head {
+        struct Entry {
+            API::ManagedObject* mesh{};
+            std::string label;           // GameObject name (+ " #n" for a second mesh on the same object)
+            std::string mats;            // material names, for the log and for the match
+            bool hide{false};            // decided at scan time by name / material patterns
+            bool has_rt{false};          // set_DrawRaytracing exists on this build
+            bool orig_default{true}, orig_shadow{true}, orig_rt{true};
+            bool applied{false};         // our flags are currently written on it
+        };
+        int mode{1};                     // NUM.: 0 = off (originals restored), 1 = on with reveals, 2 = on, forced (no reveals — A/B isolation)
+        std::vector<Entry> meshes;
+        bool scanned{false};
+        bool want_rescan{false};         // NUM+ : throw the list away and walk again (logs the full mesh table)
+        double last_scan_t{};
+        bool revealed{false};            // this frame the head is deliberately shown (cutscene / grab / camera off the head)
+        std::string reveal_why;
+        double last_far_t{-1e9};         // last time a reveal trigger was true — 0.3 s tail so a threshold jitter cannot strobe the head
+        API::ManagedObject* head_joint{};
+        API::ManagedObject* jack{};      // app.ropeway.JackDominator on the player (grab detector REFramework's FirstPerson.cpp reads too)
+        float head_cam_d{-1.f};          // |camera - head joint| this frame, metres; -1 = unavailable
+        int hidden_n{0};
+        bool stale_logged{false};
+    } head;
     std::vector<std::string> layer_last;   // last highest-weight motion name per layer
     uint64_t layer_lines_this_second{};
     uint64_t layer_second{};
@@ -457,6 +486,8 @@ enum Slot : int {
     S_HPOS = 17, S_HROT = 20,
     S_LSTICK = 24,                  // x, y
     S_LGRIP = 26, S_LTRIG = 27, S_RGRIP = 28, S_RTRIG = 29,
+    S_CINE = 30,                    // v0.8: 1.0 while visceral_cinematic_gate.lua says the player is not in first-person control
+    S_FP = 31,                      // v0.8: 1.0 while REFramework's FirstPerson mod reports will_be_used() (Lua-only API)
     S_ACK = 62, S_SENTINEL = 63,
 };
 
@@ -789,6 +820,8 @@ void summary_line() {
     if (g.plug.created) o += snprintf(buf + o, sizeof buf - o, " | plug=%s @(%.2f %.2f %.2f)", g.plug.enabled ? "on" : "off", g.plug.last_pos.x, g.plug.last_pos.y, g.plug.last_pos.z);
     else if (g.neck0 == nullptr) o += snprintf(buf + o, sizeof buf - o, " | plug: no neck_0");
     else o += snprintf(buf + o, sizeof buf - o, " | plug: %s", g.plug.tried ? "FAILED (see log)" : "pending");
+    o += snprintf(buf + o, sizeof buf - o, " | head=%d hid=%d/%zu d=%.2f%s%s", g.head.mode, g.head.hidden_n, g.head.meshes.size(), g.head.head_cam_d,
+                  g.head.revealed ? " REVEAL:" : "", g.head.revealed ? g.head.reveal_why.c_str() : "");
     LOGI("%s", buf);
 }
 
@@ -803,6 +836,23 @@ void summary_line() {
 // game's is shipped and no game file is replaced. Inside the neck it is invisible in third person; in first
 // person it is the skin-coloured floor the collapsed head leaves behind. [hypothesis until the first flat run]
 // ---------------------------------------------------------------------------
+// "n=K: a, b, c" from via.render.Mesh.get_MaterialNum / getMaterialName(i); "n/a" if this build lacks them.
+// Material names are the reliable identity of a mesh part (pl3000_Skin_Mat, Face_Mat, Hair_Mat, Eyelashes, Tearline
+// on Claire — 05e note), where GameObject names are not known statically.
+std::string mesh_material_names(API::ManagedObject* mesh) {
+    if (mesh == nullptr) return "null";
+    auto* td = mesh->get_type_definition();
+    if (find_method_deep(td, "get_MaterialNum") == nullptr || find_method_deep(td, "getMaterialName") == nullptr) return "n/a (no get_MaterialNum/getMaterialName)";
+    const uint32_t n = inv_u32(mesh, "get_MaterialNum");
+    if (n == 0xFFFFFFFFu || n > 64) return "n/a (count implausible)";
+    std::string out = "n=" + std::to_string(n) + ":";
+    for (uint32_t i = 0; i < n; ++i) {
+        auto* nm = inv_ptr(mesh, "getMaterialName", {(void*)(uintptr_t)i});
+        out += (i ? ", " : " ") + (nm != nullptr ? sysstr(nm) : std::string("?"));
+    }
+    return out;
+}
+
 constexpr const char* PLUG_MESH_PATH = "visceral/visceral_neckplug_neck0local.mesh";   // natives/stm/ + this + .2109108288, via REFramework's loose-file loader
 constexpr const char* PLUG_MDF_PATH  = "sectionroot/character/player/pl3000/pl3000/pl3000.mdf2";
 
@@ -848,6 +898,9 @@ void plug_create() {
     p.created = true;
     p.enabled_sent = true;
     LOGI("%s PLUG CREATED: go=%p transform=%p mesh=%p (mesh %s, mdf %s) — NUM0 toggles it", TAG, (void*)p.go, (void*)p.transform, (void*)p.mesh, PLUG_MESH_PATH, PLUG_MDF_PATH);
+    // v0.8: the 2026-09-06 run could not tell "drawing but occluded" from "not drawing" — say what the mesh itself reports.
+    LOGI("%s PLUG STATE: DrawDefault=%d DrawShadowCast=%d materials: %s", TAG,
+         (int)inv_bool(p.mesh, "get_DrawDefault"), (int)inv_bool(p.mesh, "get_DrawShadowCast"), mesh_material_names(p.mesh).c_str());
 }
 
 void plug_update() {
@@ -877,8 +930,189 @@ void plug_update() {
         p.enabled_sent = p.enabled;
         call_void_direct(p.mesh, "set_DrawDefault", p.enabled);   // dossier §7: the per-pass draw flag, not the bone
         call_void_direct(p.mesh, "set_DrawShadowCast", p.enabled);
+        p.readback_pending = true;
+    } else if (p.readback_pending) {
+        p.readback_pending = false;
+        const bool rb = inv_bool(p.mesh, "get_DrawDefault");
+        LOGI("%s plug read-back: DrawDefault=%d (wanted %d)%s", TAG, (int)rb, (int)p.enabled, rb == p.enabled ? "" : " — THE WRITE DID NOT STICK");
     }
     p.last_pos = jp;
+}
+
+// ---------------------------------------------------------------------------
+// v0.8: THE HEAD HIDER — head gone from the camera, shadow kept (roadmap v1 #4 / v2 phase H)
+//
+// Why not REFramework's HideJointMesh: it scales the "head" joint to zero, which collapses the face out of EVERY
+// pass, shadow map included — a headless shadow. via.render.Mesh has independent per-pass flags (dossier §7,
+// praydog's RE8VR.cpp fix_player_shadow): DrawDefault off + DrawShadowCast on keeps the shadow. Arcade Controls
+// proved the technique live in Lua on 2026-08-20 (re2_vr_head_shadow.lua — knowledge, not code: this is our own).
+//
+// What it walks: every via.Transform under the player's, every via.render.Mesh component on each GameObject
+// (getComponent returns only the first — eyelashes are often a second mesh on the same object), decided by name
+// AND material patterns. The body's own mesh (pl3000_Skin_Mat, cloth) is never matched.
+//
+// When it reveals the head again (mode 1): the cinematic gate says so (bridge slot 30), the player is grabbed
+// (JackDominator.get_Jacked — grabs only, an ordinary hit never sets it), the FirstPerson mod is not driving the
+// camera (bridge slot 31 — third person, menus), or the camera is > 0.35 m from the head joint. Each trigger holds
+// for 0.3 s after it drops. Mode 2 ignores all of that: hidden whatever happens, to isolate the reveal logic.
+//
+// With the head hidden this way the face file goes with it — and the face file carries the NECK (05e note), so
+// the collar opens and the v0.7 plug has something to fill. The two are one feature. [hypothesis until a flat run]
+// ---------------------------------------------------------------------------
+void update_camera();   // defined with the dock, below
+constexpr float HEAD_REVEAL_DIST_M = 0.35f;
+constexpr double HEAD_REVEAL_TAIL_S = 0.3;
+constexpr double HEAD_RESCAN_MIN_S = 2.0;
+
+bool head_pattern(const std::string& lname) {
+    static const char* pats[] = {"face", "hair", "head", "eye", "lash", "brow", "matsuge", "beard", "mustache", "hige",
+                                 "tooth", "teeth", "tongue", "tear", "pl3050", "pl3070", "pl1050", "pl1070"};
+    for (auto* p : pats) if (lname.find(p) != std::string::npos) return true;
+    return false;
+}
+
+void head_restore_all(const char* why) {
+    auto& h = g.head;
+    int n = 0;
+    for (auto& e : h.meshes) {
+        if (!e.applied) continue;
+        e.applied = false;
+        if (!is_managed(e.mesh)) continue;
+        call_void_direct(e.mesh, "set_DrawDefault", e.orig_default);
+        call_void_direct(e.mesh, "set_DrawShadowCast", e.orig_shadow);
+        if (e.has_rt) call_void_direct(e.mesh, "set_DrawRaytracing", e.orig_rt);
+        ++n;
+    }
+    if (n > 0) LOGI("%s head: restored %d mesh(es) — %s", TAG, n, why);
+    h.hidden_n = 0;
+}
+
+void head_walk(API::ManagedObject* tf, int depth, int& seen, bool verbose) {
+    auto& h = g.head;
+    if (tf == nullptr || depth > 12 || seen > 500) return;
+    ++seen;
+    if (auto* go = inv_ptr(tf, "get_GameObject"); go != nullptr) {
+        const std::string name = sysstr(inv_ptr(go, "get_Name"));
+        if (auto* comps = inv_ptr(go, "get_Components"); comps != nullptr) {
+            const uint32_t n = arr_count(comps);
+            if (n > 256) { LOGW("%s head: %s has %u components — array layout assumption wrong, skipping", TAG, name.c_str(), n); }
+            else {
+                int mesh_i = 0;
+                for (uint32_t i = 0; i < n; ++i) {
+                    auto* c = arr_ptr_at(comps, i);
+                    if (!is_managed(c) || tname(c) != "via.render.Mesh") continue;
+                    ++mesh_i;
+                    State::Head::Entry e{};
+                    e.mesh = c;
+                    e.label = mesh_i > 1 ? name + " #" + std::to_string(mesh_i) : name;
+                    e.mats = mesh_material_names(c);
+                    e.has_rt = find_method_deep(c->get_type_definition(), "set_DrawRaytracing") != nullptr;
+                    e.orig_default = inv_bool(c, "get_DrawDefault");
+                    e.orig_shadow = inv_bool(c, "get_DrawShadowCast");
+                    e.orig_rt = e.has_rt ? inv_bool(c, "get_DrawRaytracing") : true;
+                    e.hide = head_pattern(lower(name)) || head_pattern(lower(e.mats));
+                    // never the body itself, whatever else matched (its skin material is pl3000_Skin_Mat; "skin" is not a pattern)
+                    if (depth == 0 && mesh_i == 1) e.hide = false;
+                    if (verbose) LOGI("%s head:   mesh %-36s %s  DrawDefault=%d Shadow=%d%s -> %s", TAG, e.label.c_str(), e.mats.c_str(),
+                                      (int)e.orig_default, (int)e.orig_shadow, e.has_rt ? (e.orig_rt ? " RT=1" : " RT=0") : "", e.hide ? "HIDE" : "keep");
+                    h.meshes.push_back(std::move(e));
+                }
+            }
+        }
+    }
+    // via.Transform children: first child, then the sibling chain (the walk Arcade Controls' probe proved on this build)
+    int guard = 0;
+    for (auto* ch = inv_ptr(tf, "get_Child"); ch != nullptr && guard < 500; ch = inv_ptr(ch, "get_Next"), ++guard)
+        head_walk(ch, depth + 1, seen, verbose);
+}
+
+void head_scan(bool verbose) {
+    auto& h = g.head;
+    static int quiet_retries = 0;
+    head_restore_all("rescan");
+    h.meshes.clear();
+    h.scanned = true;
+    h.stale_logged = false;
+    h.last_scan_t = now_s();
+    if (g.transform == nullptr) return;
+    int seen = 0;
+    if (verbose) LOGI("%s head: scanning the player hierarchy for via.render.Mesh components", TAG);
+    head_walk(g.transform, 0, seen, verbose);
+    int to_hide = 0; for (auto& e : h.meshes) to_hide += e.hide ? 1 : 0;
+    if (verbose || to_hide > 0)
+        LOGI("%s head: %d transform(s) walked, %zu mesh(es) found, %d to hide — NUM. cycles off/on/forced, NUM+ rescans (%d quiet retries before this)",
+             TAG, seen, h.meshes.size(), to_hide, quiet_retries);
+    // Nothing head-ish yet (the face/hair objects may attach after the player binds): keep looking every 2 s, quietly.
+    if (to_hide == 0) { h.scanned = false; ++quiet_retries; } else quiet_retries = 0;
+    if (h.head_joint == nullptr && g.transform != nullptr) {
+        auto* nm = API::get()->create_managed_string(L"head");
+        h.head_joint = inv_ptr(g.transform, "getJointByName", {nm});
+        if (h.head_joint == nullptr) LOGW("%s head: joint \"head\" not found on the player skeleton — camera-distance reveal unavailable", TAG);
+    }
+    if (h.jack == nullptr && g.player_go != nullptr) {
+        h.jack = get_component(g.player_go, "app.ropeway.JackDominator");
+        if (h.jack == nullptr) LOGW("%s head: JackDominator component not found — grab reveal unavailable", TAG);
+    }
+}
+
+void head_update() {
+    auto& h = g.head;
+    if (g.player_go == nullptr || g.transform == nullptr) return;
+    if (h.want_rescan) { h.want_rescan = false; head_scan(true); }
+    if (h.mode == 0) { if (h.hidden_n > 0 || !h.reveal_why.empty()) { head_restore_all("NUM. off"); h.reveal_why.clear(); } h.revealed = false; return; }
+    if (!h.scanned && now_s() - h.last_scan_t >= HEAD_RESCAN_MIN_S) head_scan(h.meshes.empty() && h.last_scan_t == 0.0);
+    if (!h.scanned) return;
+
+    // --- reveal triggers -------------------------------------------------
+    h.head_cam_d = -1.f;
+    if (!g.dock.cam_valid) update_camera();
+    if (g.dock.cam_valid && h.head_joint != nullptr) {
+        Vec3 hp{};
+        if (inv_vec3(h.head_joint, "get_Position", hp)) h.head_cam_d = dist(g.dock.cam_t, hp);
+    }
+    std::string why;
+    if (h.mode == 1) {
+        const bool live = bridge_live();
+        const float* f = live ? arr_f32(g.bridge) : nullptr;
+        if (live && f[S_CINE] >= 0.5f) why = "cinematic";
+        else if (h.jack != nullptr && inv_bool(h.jack, "get_Jacked")) why = "grabbed";
+        else if (live && f[S_FP] < 0.5f) why = "not first person";
+        else if (h.head_cam_d > HEAD_REVEAL_DIST_M) why = "camera off the head";
+        const double t = now_s();
+        if (!why.empty()) h.last_far_t = t;
+        else if (t - h.last_far_t < HEAD_REVEAL_TAIL_S) why = "tail";
+    }
+    const bool reveal = !why.empty();
+    if (reveal != h.revealed || (reveal && why != h.reveal_why && why != "tail")) {
+        if (reveal) LOGI("%s head: REVEAL — %s (d=%.2f m)", TAG, why.c_str(), h.head_cam_d);
+        else LOGI("%s head: HIDE again (d=%.2f m)", TAG, h.head_cam_d);
+    }
+    h.revealed = reveal;
+    if (reveal) { h.reveal_why = why; head_restore_all(why.c_str()); return; }
+    h.reveal_why.clear();
+
+    // --- apply, with the read-back that catches a rebuilt player -----------
+    int hidden = 0; bool stale = false;
+    for (auto& e : h.meshes) {
+        if (!e.hide) continue;
+        if (!is_managed(e.mesh)) { stale = true; continue; }
+        if (!e.applied) {
+            call_void_direct(e.mesh, "set_DrawDefault", false);
+            call_void_direct(e.mesh, "set_DrawShadowCast", true);
+            if (e.has_rt) call_void_direct(e.mesh, "set_DrawRaytracing", false);
+            e.applied = true;
+        }
+        // Death -> Continue and save loads rebuild the player while the OLD components stay writable (Arcade Controls
+        // saw the write "succeed" on a head that was plainly visible). A flag that reads true right after we cleared it
+        // means these are not the meshes on screen.
+        if (inv_bool(e.mesh, "get_DrawDefault")) stale = true; else ++hidden;
+    }
+    if (hidden != h.hidden_n) LOGI("%s head: %d mesh(es) hidden, shadow kept", TAG, hidden);
+    h.hidden_n = hidden;
+    if (stale && now_s() - h.last_scan_t >= HEAD_RESCAN_MIN_S) {
+        if (!h.stale_logged) { LOGW("%s head: stale mesh refs (flag would not stay cleared, or component gone) — rescanning", TAG); h.stale_logged = true; }
+        h.scanned = false; h.last_scan_t = now_s() - HEAD_RESCAN_MIN_S;   // scan on the next frame
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -905,10 +1139,11 @@ void set_force(int kind, bool on) {
 }
 
 void poll_hotkeys() {
-    static bool prev[10] = {};
-    const int vks[10] = {VK_NUMPAD7, VK_NUMPAD8, VK_NUMPAD9, VK_NUMPAD4, VK_NUMPAD5, VK_NUMPAD6, VK_NUMPAD1, VK_NUMPAD3, VK_NUMPAD2, VK_NUMPAD0};
+    static bool prev[12] = {};
+    const int vks[12] = {VK_NUMPAD7, VK_NUMPAD8, VK_NUMPAD9, VK_NUMPAD4, VK_NUMPAD5, VK_NUMPAD6, VK_NUMPAD1, VK_NUMPAD3, VK_NUMPAD2, VK_NUMPAD0,
+                         VK_DECIMAL, VK_ADD};   // v0.8: NUM. head hider mode, NUM+ rescan + mesh table
     if (!game_is_foreground()) return;
-    for (int i = 0; i < 10; ++i) {
+    for (int i = 0; i < 12; ++i) {
         const bool down = (GetAsyncKeyState(vks[i]) & 0x8000) != 0;
         if (down && !prev[i]) {
             if (i == 0) { g.want_dump = true; LOGI("%s NUM7: dump requested", TAG); }
@@ -927,6 +1162,10 @@ void poll_hotkeys() {
                           LOGI("%s NUM1: VR space mode -> %d (%s)", TAG, g.dock.space_mode, names[g.dock.space_mode]); }
             if (i == 7) { g.dock.write_rot = !g.dock.write_rot; LOGI("%s NUM3: rotation write %s", TAG, g.dock.write_rot ? "ON" : "OFF (translation only)"); }
             if (i == 9) { g.plug.enabled = !g.plug.enabled; LOGI("%s NUM0: neck plug %s", TAG, g.plug.enabled ? "ON" : "OFF"); }
+            if (i == 10) { g.head.mode = (g.head.mode + 1) % 3;
+                           static const char* names[] = {"OFF (originals restored)", "ON with reveals (cutscene / grab / not first person / camera off the head)", "ON, FORCED (no reveals)"};
+                           LOGI("%s NUM.: head hider -> %d (%s)", TAG, g.head.mode, names[g.head.mode]); }
+            if (i == 11) { g.head.want_rescan = true; LOGI("%s NUM+: head hider rescan requested", TAG); }
         }
         prev[i] = down;
     }
@@ -1108,11 +1347,15 @@ void rebind_player(API::ManagedObject* pm, API::ManagedObject* go) {
     // the old one's length. Cleared here, where the joints it was measured from are also dropped.
     g.l_humerus = nullptr; g.l_radius = nullptr;
     g.neck0 = nullptr; g.plug.tried = false;   // v0.7: re-resolve the neck on the new skeleton; the plug object itself is kept if still alive
+    // v0.8: a new player is a new set of meshes — keep the mode, drop everything else (the old components may be dead)
+    g.head = State::Head{.mode = g.head.mode};
     g.dock.reach = 0.f; g.dock.reach_raw = 0.f; g.dock.reach_valid = false; g.dock.clamp_on = false;
     g.weapon = nullptr; g.weapon_transform = nullptr;
     g.layer_last.clear();
     LOGI("%s PLAYER BOUND: go=%p (%s) cond=%p (%s) equipment=%p ik=%p transform=%p motion=%p", TAG,
          (void*)go, sysstr(inv_ptr(go, "get_Name")).c_str(), (void*)g.cond, tname(g.cond).c_str(), (void*)g.equipment, (void*)g.ik, (void*)g.transform, (void*)g.motion);
+    // v0.8: who is being played — the GameObject is named pl1000 for Claire too (2026-09-06 run); the body's material names say
+    LOGI("%s   body mesh materials: %s", TAG, mesh_material_names(get_component(go, "via.render.Mesh")).c_str());
     if (g.transform != nullptr) {
         dump_joints(g.transform, "player skeleton (hand/arm/weapon names only)", false, &g.l_hand, &g.r_hand);
         LOGI("%s   l_hand=%s r_hand=%s", TAG, g.l_hand != nullptr ? joint_name(g.l_hand).c_str() : "NOT FOUND", g.r_hand != nullptr ? joint_name(g.r_hand).c_str() : "NOT FOUND");
@@ -1133,7 +1376,8 @@ void on_frame() {
         if (g.player_go != nullptr) {
             LOGI("%s player gone (scene change?) — unbinding", TAG);
             // keep what outlives the player: the bridge, the counters, the latches (a forced HOLD must stay reconcilable), the dock settings
-            g = State{.bridge = g.bridge, .frame = g.frame, .trace = g.trace, .force_hold = g.force_hold, .hold_sent = g.hold_sent, .dock = g.dock, .plug = g.plug};
+            g = State{.bridge = g.bridge, .frame = g.frame, .trace = g.trace, .force_hold = g.force_hold, .hold_sent = g.hold_sent, .dock = g.dock, .plug = g.plug,
+                      .head = State::Head{.mode = g.head.mode}};
             g.dock.natural_valid = false; g.dock.target_valid = false;
         }
         return;
@@ -1163,6 +1407,7 @@ void on_frame() {
         update_dock(tn, dt);
     }
     plug_update();   // v0.7
+    head_update();   // v0.8
     {
         static bool last_hold = false;
         const bool hold = inv_bool(g.cond, "get_IsHold");
@@ -1290,7 +1535,7 @@ extern "C" __declspec(dllexport) bool reframework_plugin_initialize(const REFram
         fns->log_error("%s C++ SDK wrapper init failed — probe disabled", TAG);
         return true;
     }
-    fns->log_info("%s native core v0.7 loaded — NECK PLUG (own mesh pinned to neck_0, NUM0 toggles) on top of v0.6 — THE DOCK (final-space blend mapped into the getIKLeftArmMatrix hook, HOLD latched while docked, M measured every frame, target clamped to the measured arm length). NUM7 dump / NUM8 trace / NUM9 layers / NUM4 force-HOLD / NUM5 ATTACK pulse / NUM6 synthetic dock (flat) / NUM1 VR space mode / NUM3 rotation write / NUM2 reach clamp", TAG);
+    fns->log_info("%s native core v0.8 loaded — HEAD HIDER (per-pass draw flags, shadow kept; NUM. off/on/forced, NUM+ rescan; needs HideJointMesh OFF) + PLUG read-back, on top of v0.7 — NECK PLUG (own mesh pinned to neck_0, NUM0 toggles) on top of v0.6 — THE DOCK (final-space blend mapped into the getIKLeftArmMatrix hook, HOLD latched while docked, M measured every frame, target clamped to the measured arm length). NUM7 dump / NUM8 trace / NUM9 layers / NUM4 force-HOLD / NUM5 ATTACK pulse / NUM6 synthetic dock (flat) / NUM1 VR space mode / NUM3 rotation write / NUM2 reach clamp", TAG);
     // Hooks need the TDB up; register them from the game thread on the first frame.
     static std::atomic<bool> hooked{false};
     fns->on_pre_application_entry("LockScene", []() {

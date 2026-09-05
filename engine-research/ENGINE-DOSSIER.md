@@ -152,6 +152,21 @@ Two field traps, both hit in practice:
   tooth, teeth, tongue`.
 - **Joint name for the head is `"head"`** — `transform:getJointByName("head")`,
   the string REFramework's own `FirstPerson.cpp` hashes for RE2.
+- **Hide Joint Mesh mode is NOT hollow; the head-shadow mode is** `[reported 2026-09-06, user; consistent with
+  n=1 live]`. With the head joint scaled to zero the neck tube (part of the FACE mesh, weighted to the neck
+  joints) stays and closes the collar; hiding the face mesh by its draw flags takes the neck with it and opens
+  the collar. So the neck plug (v0.7) and the draw-flag head hider (v0.8) are one feature — the plug fills the hole
+  the hider makes. The 05e static claim that Hide Joint Mesh leaves an open tube is `[disproved 2026-09-06]` as a
+  visible hollow (the geometry description stands).
+- **Native implementation: `visceral_core.dll` v0.8 `head_update()`** `[compile-verified 2026-09-06, unrun]` —
+  `get_Components` off every GameObject under the player's transform (`get_Child`/`get_Next` walk), match by
+  GameObject name AND `getMaterialName(i)` (material names are the reliable part identity: Claire's face file is
+  `Face_Mat`/`Hair_Mat`/`Eyelashes`/`Tearline`, body `pl3000_Skin_Mat`), reveal on cinematic / grab
+  (`app.ropeway.JackDominator.get_Jacked`) / FirstPerson inactive / camera >0.35 m from `head`. The two Lua-only
+  facts (cinematic gate, `firstpersonmod:will_be_used()`) travel through bridge slots 30/31.
+- **Stale-component trap (from Arcade Controls, live 2026-08-19):** a save load or Death → Continue rebuilds the
+  player while the OLD `via.render.Mesh` components stay writable — `set_DrawDefault` succeeds on a head that is
+  plainly visible. Read the flag back after clearing it; true means these are not the meshes on screen.
 
 ## 8. Animation / motion system
 - Locomotion is driven by a **motion-bank selector**, not by picking different
