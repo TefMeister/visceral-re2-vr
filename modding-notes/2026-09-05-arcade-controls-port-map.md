@@ -24,25 +24,34 @@ C++ reload and dock code is written from."*
   separate Nexus mod, and the only trace of it in the codebase is one line noting it belongs to the
   user, not to us.
 
-## ⚠️ SOURCE-VERSION CAVEAT — read before trusting this map (added 2026-09-05 evening)
+## ✅ SOURCE VERSION — asked, checked, and settled (2026-09-05 evening)
 
-**Tefa, after this was written:** *"i downloaded the 1.5.0 mod version, but the latest one is the
-unpublished one on github, that has many more features in it."*
+Tefa raised a worry after this was written: *"i downloaded the 1.5.0 mod version, but the latest one
+is the unpublished one on github, that has many more features in it."* **Checked, and this map is
+already built on that newer source.** No re-extraction is needed.
 
-**What that does and does not undermine.** The primary source here was **not** the 1.5.0 zip — it was
-the frozen `arcade-controls-re2-vr` repo's 39 autorun Lua files, which this extraction recorded as
-the **post-1.5.0 dev state**. The zip was the secondary cross-check, used only because the shipped
-JSON overrides the Lua defaults and is what actually runs (§0, caveat 1).
+The post-1.5.0 work lives in `arcade-controls-re2-vr/dev-archive/`, committed **after** the v1.5.0
+release of 2026-08-16 and never packaged as a Nexus zip — which is exactly why it reads as
+"unpublished":
 
-So the exposure is bounded, and the first job is to find out how bounded:
+- **2026-08-19** — HMD-relative holsters + ammo pouch, Samurai Edge rack, LT return gate, wrist
+  identity cache, ladder body-yaw fix
+- **2026-08-19** — inventory/pickup black-void root cause: REFramework VR culls `GuiBack` by name;
+  rename bypass built
+- **2026-08-20** — head shadow + invisible head, confirmed working in VR
 
-1. **Diff the newest source against that frozen repo.** No delta ⇒ this map already describes the
-   latest code, and only the shipped-JSON half of §0 needs re-reading against a newer release.
-2. **If there is a delta, fold in only the new features.** §A (two-hand), §B (reload) and §C (rack)
-   are the sections that would move; §D's traps, §E's per-weapon tables and §F's IPC bus are mostly
-   history and layout, which new features extend rather than invalidate.
+**That is the source this map read.** The extraction recorded it as the "frozen, post-1.5.0 dev
+state" at the time, and the features are verifiably in the files it used: `GuiBack`, `head_shadow`,
+`ladder_body_yaw`, `samurai_edge_rack_migrate_rev`, `hmd_fx` and `mag_holster` (7 files) all appear
+in `dev-archive/reframework/autorun/` `[verified 2026-09-05]`.
 
-**Do not re-extract all 1,222 lines by default.** Establish the delta first.
+**The only 1.5.0-based part is the shipped-JSON comparison in §0, and that is deliberate** — it
+documents what the *released* build actually runs, which is the whole point of caveat 1. It should
+stay pinned to a release, not follow the dev branch.
+
+Also checked, since the consolidation was the obvious suspect: the 2026-08-30 pass deleted 79 repos,
+but every one was a `<prefix>-<suffix>` sub-repo whose content was **imported as a folder first and
+verified before deletion** (16/16 folder sets). AC's four went that way. **Nothing was lost.**
 
 ## How much of this is known, and how
 
