@@ -69,8 +69,8 @@ c2 = fbm(3, a.pores / 4.5, aniso=(1.0, 1.0))
 creases = -(np.abs(c1) ** 0.7) * 0.55 - (np.abs(c2) ** 0.8) * 0.35   # ridged noise reads as skin lines
 # --- 3. broad micro-undulation so it is not uniform --------------------------------------------
 broad = fbm(2, a.pores / 12.0) * 0.25
-h = (height * 0.9 + creases * 0.6 + broad) * a.strength
-h = (h - h.mean()) / (h.std() + 1e-9) * 0.5                 # unit-ish amplitude, mean 0
+h = height * 0.9 + creases * 0.6 + broad
+h = (h - h.mean()) / (h.std() + 1e-9) * 0.5 * a.strength   # unit-ish amplitude, mean 0, then the user's strength
 # --- 4. height -> tangent normal (wrap-around gradients) ---------------------------------------
 dx = (np.roll(h, -1, axis=1) - np.roll(h, 1, axis=1)) * 0.5
 dy = (np.roll(h, -1, axis=0) - np.roll(h, 1, axis=0)) * 0.5
