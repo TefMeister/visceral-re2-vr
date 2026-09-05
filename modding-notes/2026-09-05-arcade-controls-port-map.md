@@ -24,6 +24,26 @@ C++ reload and dock code is written from."*
   separate Nexus mod, and the only trace of it in the codebase is one line noting it belongs to the
   user, not to us.
 
+## ⚠️ SOURCE-VERSION CAVEAT — read before trusting this map (added 2026-09-05 evening)
+
+**Tefa, after this was written:** *"i downloaded the 1.5.0 mod version, but the latest one is the
+unpublished one on github, that has many more features in it."*
+
+**What that does and does not undermine.** The primary source here was **not** the 1.5.0 zip — it was
+the frozen `arcade-controls-re2-vr` repo's 39 autorun Lua files, which this extraction recorded as
+the **post-1.5.0 dev state**. The zip was the secondary cross-check, used only because the shipped
+JSON overrides the Lua defaults and is what actually runs (§0, caveat 1).
+
+So the exposure is bounded, and the first job is to find out how bounded:
+
+1. **Diff the newest source against that frozen repo.** No delta ⇒ this map already describes the
+   latest code, and only the shipped-JSON half of §0 needs re-reading against a newer release.
+2. **If there is a delta, fold in only the new features.** §A (two-hand), §B (reload) and §C (rack)
+   are the sections that would move; §D's traps, §E's per-weapon tables and §F's IPC bus are mostly
+   history and layout, which new features extend rather than invalidate.
+
+**Do not re-extract all 1,222 lines by default.** Establish the delta first.
+
 ## How much of this is known, and how
 
 Everything below is **`[measured 2026-09-05]`** unless marked otherwise — read directly out of the
