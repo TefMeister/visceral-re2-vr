@@ -17,6 +17,17 @@ single technique, a document, or something used purely for testing counts.
 - **[cursey](https://github.com/cursey)** — the
   [REFramework Book](https://cursey.github.io/reframework-book/), the Lua API
   documentation used to establish what scripting can and cannot do.
+- **[xJustAdam](https://www.nexusmods.com/residentevil22019/mods/2516)** —
+  *Jill's Animations for Claire*. Studied as a specimen, and it corrected a
+  mistake of ours: we had recorded weapon-animation swapping as impossible,
+  having only ever tried to redirect the game's bank resolution at runtime. His
+  mod leaves resolution alone and replaces the contents of the bank instead. The
+  technique is what we learned from it; none of his files or animation data are
+  used or redistributed.
+- **[Shulian01 (Dragonleo)](https://www.nexusmods.com/residentevil22019/mods/2240)** —
+  *Claire A*, studied as a specimen for how RE2's placed scene data — enemy,
+  item and environment placement — is delivered as loose files. Structure
+  studied only; nothing of his is used or redistributed.
 - **The REFramework VR community** — public documentation of REFramework's VR
   behaviour, limitations, and techniques.
 - **Capcom** — Resident Evil 2 (2019) and the RE Engine. This is a
