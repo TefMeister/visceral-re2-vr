@@ -486,6 +486,27 @@ engine facts:
 Credit: **Andyalpa** (RE2VRMODRELOADED, the base layer, studied with permission — described only,
 no code taken), **praydog** (REFramework, FirstPerson).
 
+### 8f. The RT `.motlist.524` container, decoded enough to splice (2026-09-06, `/pd`, static)
+- **Layout** `[measured 2026-09-06, n=5 files: pl10/pl00 × hold/move originals + a modder's RT specimen]`:
+  header `0x00` u32 524 · `0x04` `mlst` · `0x10` u64 pointer table (0x50) · `0x18` u64 collection offset ·
+  `0x20` u64 name offset (0x34) · `0x30` u32 **slot** count. One u64 per slot; **two slots may share an
+  entry** (the original does it for Hold_Idle_Loop and Shoot_NoAmmo). Entries contiguous, 16-byte
+  aligned, up to the collection offset. v492 entry header: name offset u64 at **+0x58** (entry-relative),
+  frames f32 +0x60, bones/clips u16 +0x70, fps u16 +0x78, `motSize` u32 +0x0C (= blob minus padding, and
+  **0 on every file's first entry**, specimen included).
+- **No entry-relative header offset points outside its own blob** (0 of 10 fields × 165 entries), so an
+  entry moves between containers whole. CAF's "entry-relative" claim holds on RT.
+- **The collection block is 72 bytes per slot; only u32 at +8 varies and it is the motion NUMBER**
+  (`0x6e` = 110 for `pl10_0110`, `0xa0` = 160 for `pl10_0160`). Byte-identical between Claire's original
+  and the Jill replacement whose entries all differ in size → it holds no offsets or sizes. It is the
+  slot → number table the motion FSM asks by `[inferred-static; the splice's flat run is the proof]`.
+- **Splice recipe** (`dev-archive/tools/re-engine/motlist_splice.py`): header + rebuilt pointer table +
+  re-laid blobs + the original collection block verbatim; blob names left alone (renaming in place has
+  no room). Claire's and Leon's aim-walk banks with the twelve aim-walk slots replaced by their own
+  `KFF_GazingWalk_*` loops build and self-verify `[verified-numerically 2026-09-06]`, unrun.
+- **Open until one flat run:** lookup by number vs name hash; whether first-entry `motSize` must be 0;
+  whether the aim-walk blend drives phase by frame or normalised time (walk loops are 3–6× longer).
+
 ## 9. "Several lookalike systems, one is live" (a recurring RE2 trap)
 - A single weapon can carry **multiple similarly-purposed config tables** for
   what looks like one feature, and tuning the wrong one throws no error and no
