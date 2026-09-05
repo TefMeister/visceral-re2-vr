@@ -4,6 +4,10 @@ This project would not exist without other people's work, tools, and direct
 inspiration. Listed regardless of how large or small the contribution — even a
 single technique, a document, or something used purely for testing counts.
 
+Everyone is in this one list, and each entry says plainly what that person
+contributed. We would rather name a small contribution accurately than sort
+people into tiers.
+
 - **[praydog](https://github.com/praydog)** —
   [REFramework](https://github.com/praydog/REFramework): the mod framework,
   its VR support for Resident Evil 2, the FirstPerson mode, and the Lua
@@ -28,9 +32,11 @@ single technique, a document, or something used purely for testing counts.
   learned from them; none of their files or animation data are used or
   redistributed.
 - **[Shulian01 (Dragonleo)](https://www.nexusmods.com/residentevil22019/mods/2240)** —
-  *Claire A*, studied as a specimen for how RE2's placed scene data — enemy,
-  item and environment placement — is delivered as loose files. Structure
-  studied only; nothing of his is used or redistributed.
+  *Claire A*. Reading its file listing showed us where RE2 keeps its placed
+  scene data — enemy placement, item placement, environment scenes and door
+  gimmicks — which is the map we needed before changing any of it. A folder
+  map rather than a technique, and none of his files or data are used or
+  redistributed, but it saved us the search.
 - **The REFramework VR community** — public documentation of REFramework's VR
   behaviour, limitations, and techniques.
 - **Capcom** — Resident Evil 2 (2019) and the RE Engine. This is a
