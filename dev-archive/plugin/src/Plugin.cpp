@@ -354,6 +354,11 @@ struct State {
     API::ManagedObject* weapon_transform{};
     API::ManagedObject* l_hand{};
     API::ManagedObject* r_hand{};
+    // v0.6: the left arm chain above the wrist, for the reach clamp. RE2's pl1000 skeleton names them
+    // l_arm_clavicle / l_arm_humerus / l_arm_radius / l_arm_wrist (verified-live 2026-09-04); the humerus is
+    // the shoulder end the arm pivots about and radius is the elbow, so |hu-ra| + |ra-wr| is the arm's length.
+    API::ManagedObject* l_humerus{};
+    API::ManagedObject* l_radius{};
     API::ManagedObject* aid_joint{};
     API::ManagedObject* w_narrow{};     // weapon joint the NARROW hash resolves to (_101 on wp8700)
     API::ManagedObject* w_wide{};       // weapon joint the WIDE hash resolves to (_100 on wp8700)
@@ -376,6 +381,7 @@ struct State {
         float w_eased{0.f};          // smoothstep(w) — what the hook uses
         int space_mode{0};           // NUM1: 0 = controller re-based HMD-relative onto the game camera; 1 = bridge pose as world
         bool write_rot{true};        // NUM3: also blend the rotation rows (off = translation only)
+        bool use_reach_clamp{true};  // NUM2: apply the v0.6 reach clamp (off = the v0.5 behaviour exactly)
         Mat4 natural{};              // the last un-hooked getIKLeftArmMatrix value the GAME's call saw (pre-edit copy)
         bool natural_valid{false};
         // v0.4.1 instrumentation (run 10 showed the wrist 10 cm from the joint but ~0.3 m from the computed
@@ -395,6 +401,16 @@ struct State {
         Vec3 d_get{};                // translation offset to add in getter space
         Rows T_rows{};               // rotation rows to write in getter space
         Rows M{}; bool M_valid{false};
+        // v0.6 reach clamp. A target further from the shoulder than the arm is long leaves the engine's solver
+        // straining at full extension and the trace reporting a distance that can never reach zero, which reads
+        // as a broken mapping rather than an out-of-range target. reach is measured from the skeleton, not
+        // assumed, so it is this character's arm and not a constant.
+        float reach{0.f};            // usable radius = reach_raw * DOCK_REACH_FRAC
+        float reach_raw{0.f};        // running max of |humerus-radius| + |radius-wrist| over accepted frames
+        bool reach_valid{false};
+        Vec3 shoulder_t{};           // humerus world position this frame (the clamp centre)
+        float clamped_m{0.f};        // how far the raw target was pulled in this frame; 0 = it was in reach
+        bool clamp_on{false};        // edge state, so the clamp engaging is logged once and not every frame
         double orbit_t0{};           // NUM6 orbit phase origin
         uint32_t no_value_frames{};  // docked, but the getter returned no value (minigun at one read) — counted, logged 1/s
         Vec3 cam_t{}; Rows cam_r{}; bool cam_valid{false};   // game camera world pose (VR re-basing + logging)
@@ -462,6 +478,10 @@ void dump_joints(API::ManagedObject* transform, const char* who, bool all, API::
         }
         // RE2 pl1000 skeleton (verified-live 2026-09-04): no "l_hand"; the palm points are l_weapon / r_weapon, wrists l_arm_wrist / r_arm_wrist
         if (l_hand != nullptr && *l_hand == nullptr && (ln == "l_weapon" || ln == "l_hand" || ln == "l_arm_wrist")) *l_hand = j;
+        // v0.6: the reach clamp needs the two joints above the wrist. Bound here rather than by a second walk of
+        // the joint array, and only on the player's own skeleton (dump_joints is called for the weapon too).
+        if (l_hand != nullptr && g.l_humerus == nullptr && ln == "l_arm_humerus") g.l_humerus = j;
+        if (l_hand != nullptr && g.l_radius  == nullptr && ln == "l_arm_radius")  g.l_radius  = j;
         if (r_hand != nullptr && *r_hand == nullptr && (ln == "r_weapon" || ln == "r_hand" || ln == "r_arm_wrist")) *r_hand = j;
         if (g_grab_named != nullptr && *g_grab_named == nullptr && ln == g_grab_name) *g_grab_named = j;
     }
@@ -680,6 +700,10 @@ void summary_line() {
             if (d.target_valid)       o += snprintf(buf + o, sizeof buf - o, " |tgt-aid|=%.3f", dist(d.target_t, aid));
         }
         if (d.M_valid) { Rows I; o += snprintf(buf + o, sizeof buf - o, " angM=%.0f", rows_angle_deg(d.M, I)); }
+        // v0.6: the arm's measured length and whether this frame's target was outside it. clamp=0.000 with a
+        // non-zero reach means the target was in range; a reach of 0 means the two arm joints were never bound.
+        if (d.reach_valid) o += snprintf(buf + o, sizeof buf - o, " reach=%.3f clamp=%.3f%s", d.reach, d.clamped_m, d.use_reach_clamp ? "" : "(OFF)");
+        else               o += snprintf(buf + o, sizeof buf - o, " reach=none");
         if (d.natural_valid && d.natural_self_valid)
             o += snprintf(buf + o, sizeof buf - o, " |natG-natS|=%.3f rotG-S=%.0f", dist(Vec3{d.natural.m[12], d.natural.m[13], d.natural.m[14]}, Vec3{d.natural_self.m[12], d.natural_self.m[13], d.natural_self.m[14]}),
                           rows_angle_deg(rows_of(d.natural), rows_of(d.natural_self)));
@@ -748,10 +772,10 @@ void set_force(int kind, bool on) {
 }
 
 void poll_hotkeys() {
-    static bool prev[8] = {};
-    const int vks[8] = {VK_NUMPAD7, VK_NUMPAD8, VK_NUMPAD9, VK_NUMPAD4, VK_NUMPAD5, VK_NUMPAD6, VK_NUMPAD1, VK_NUMPAD3};
+    static bool prev[9] = {};
+    const int vks[9] = {VK_NUMPAD7, VK_NUMPAD8, VK_NUMPAD9, VK_NUMPAD4, VK_NUMPAD5, VK_NUMPAD6, VK_NUMPAD1, VK_NUMPAD3, VK_NUMPAD2};
     if (!game_is_foreground()) return;
-    for (int i = 0; i < 8; ++i) {
+    for (int i = 0; i < 9; ++i) {
         const bool down = (GetAsyncKeyState(vks[i]) & 0x8000) != 0;
         if (down && !prev[i]) {
             if (i == 0) { g.want_dump = true; LOGI("%s NUM7: dump requested", TAG); }
@@ -763,6 +787,8 @@ void poll_hotkeys() {
             if (i == 4) { g.attack_pulse = 8; LOGI("%s NUM5: ATTACK pulse (8 frames)", TAG); set_force(KIND_ATTACK, true); }
             if (i == 5) { g.dock.synthetic = !g.dock.synthetic; if (g.dock.synthetic) g.dock.orbit_t0 = now_s();
                           LOGI("%s NUM6: synthetic dock (flat stand-in for LG held) %s — target orbits _101 at 10 cm, yawed 45 deg", TAG, g.dock.synthetic ? "ON" : "OFF"); }
+            if (i == 8) { g.dock.use_reach_clamp = !g.dock.use_reach_clamp;
+                          LOGI("%s NUM2: reach clamp %s (off = the v0.5 target, unclamped)", TAG, g.dock.use_reach_clamp ? "ON" : "OFF"); }
             if (i == 6) { g.dock.space_mode = (g.dock.space_mode + 1) % 3;
                           static const char* names[] = {"controller HMD-relative, re-based on the game camera", "bridge pose used as world directly", "as mode 0 with the camera rows transposed"};
                           LOGI("%s NUM1: VR space mode -> %d (%s)", TAG, g.dock.space_mode, names[g.dock.space_mode]); }
@@ -780,6 +806,9 @@ constexpr float DOCK_BLEND_S = 0.2f;     // spec v2.3 req 1: smooth, not snap. T
 constexpr float DOCK_ORBIT_PERIOD_S = 4.0f;
 constexpr float DOCK_ORBIT_RADIUS = 0.10f;
 constexpr float DOCK_ORBIT_YAW_DEG = 45.f;
+// v0.6: clamp to just inside the measured arm length. A target at exactly 1.0 puts the elbow at full lock,
+// which is both an ugly pose and the point where a two-bone solver is least stable.
+constexpr float DOCK_REACH_FRAC = 0.98f;
 
 // Game camera world pose. Under REFramework's VR the camera follows the HMD, so this is the anchor the
 // controller pose is re-based on in space mode 0. Read through the TDB (via.SceneManager is a NATIVE
@@ -827,16 +856,44 @@ void update_dock(double t, double dt) {
     if (want_hold != g.hold_sent) { g.hold_sent = want_hold; set_force(KIND_HOLD, want_hold); }
 
     d.target_valid = false;
+
+    // v0.6: measure the arm's own length while it is doing nothing in particular. Bone lengths are rigid, so the
+    // running max over plausible frames IS the length; the band rejects a garbage read rather than letting one
+    // bad frame set the clamp forever. Reset on rebind, because Claire's arm is not Leon's.
+    d.reach_valid = false;
+    if (g.l_humerus != nullptr && g.l_radius != nullptr && g.l_hand != nullptr) {
+        Vec3 hu{}, ra{}, wr{};
+        if (inv_vec3(g.l_humerus, "get_Position", hu) && inv_vec3(g.l_radius, "get_Position", ra) &&
+            inv_vec3(g.l_hand, "get_Position", wr)) {
+            const float upper = dist(hu, ra), fore = dist(ra, wr);
+            if (upper > 0.05f && upper < 1.0f && fore > 0.05f && fore < 1.0f) {
+                const float sum = upper + fore;
+                if (sum > d.reach_raw) {
+                    d.reach_raw = sum; d.reach = sum * DOCK_REACH_FRAC;
+                    LOGI("%s reach measured: upper=%.3f fore=%.3f arm=%.3f clamp at %.3f m from l_arm_humerus", TAG, upper, fore, sum, d.reach);
+                }
+            }
+            d.shoulder_t = hu;
+            d.reach_valid = d.reach > 0.f;
+        }
+    }
+
+    // v0.6: M is measured EVERY frame, docked or not. It was only computed while the dock was active, so the
+    // summary's angM was whatever the last dock left behind — misleading exactly when a headset run wants to
+    // read it before docking. It costs one get_WorldMatrix per frame. A stale M is worse than none, so an
+    // unreadable joint clears M_valid rather than leaving the previous frame's mapping to be read as this one's.
+    Mat4 am{}; Vec3 a_t{}; Rows A{};
+    const bool have_frame = g.aid_joint != nullptr && d.natural_valid && inv_mat4(g.aid_joint, "get_WorldMatrix", am);
+    if (have_frame) {
+        a_t = Vec3{am.m[12], am.m[13], am.m[14]};
+        A = rows_of(am);
+        d.M = rows_mul(rows_T(rows_of(d.natural)), A); d.M_valid = true;
+    } else {
+        d.M_valid = false;
+    }
+
     if (!d.docked && d.w <= 0.f) return;      // idle: the hook leaves the matrix alone
-    if (!d.natural_valid) return;             // no natural value seen yet — nothing to blend from
-    // The aid joint's FINAL world matrix (this is LockScene-pre, so the previous frame's solve) and the getter's
-    // natural value from the game's own call give the pre-update -> final rotation M for this frame.
-    Mat4 am{};
-    if (g.aid_joint == nullptr || !inv_mat4(g.aid_joint, "get_WorldMatrix", am)) return;
-    const Vec3 a_t{am.m[12], am.m[13], am.m[14]};
-    const Rows A = rows_of(am);
-    const Rows N = rows_of(d.natural);
-    d.M = rows_mul(rows_T(N), A); d.M_valid = true;
+    if (!have_frame) return;                  // no natural value or no aid joint — nothing to blend from
     Vec3 p_f{}; Rows C{};                     // the desired FINAL wrist pose, unblended
 
     if (vr && !d.synthetic) {
@@ -868,6 +925,26 @@ void update_dock(double t, double dt) {
         p_f = vadd(a_t, vscale(dir, DOCK_ORBIT_RADIUS));
         C = rows_yaw(A, DOCK_ORBIT_YAW_DEG);
     }
+    // v0.6 reach clamp, applied BEFORE the target is published so the trace compares the wrist against a pose the
+    // arm can actually hold and |Lw-tgt| still goes to 0.000 when the mapping is right. The rotation is left
+    // alone: a wrist orientation is always reachable, it is only the position that runs out of arm.
+    d.clamped_m = 0.f;
+    float want_L = 0.f;                       // how far the UNCLAMPED target sat from the shoulder
+    if (d.reach_valid && d.use_reach_clamp) {
+        const Vec3 sd = vsub(p_f, d.shoulder_t);
+        want_L = vlen(sd);
+        if (want_L > d.reach && want_L > 1e-4f) {
+            d.clamped_m = want_L - d.reach;
+            p_f = vadd(d.shoulder_t, vscale(sd, d.reach / want_L));
+        }
+    }
+    const bool clamping = d.clamped_m > 0.001f;
+    if (clamping != d.clamp_on) {
+        d.clamp_on = clamping;
+        LOGI("%s REACH CLAMP %s (target %.3f m from l_arm_humerus, arm reaches %.3f, pulled in %.3f)", TAG,
+             clamping ? "ON" : "off", want_L, d.reach, d.clamped_m);
+    }
+
     d.target_t = p_f; d.target_r = C; d.target_valid = true;
 
     // Blend in final space, then map into getter space for the hook.
@@ -886,6 +963,11 @@ void rebind_player(API::ManagedObject* pm, API::ManagedObject* go) {
     g.transform = inv_ptr(go, "get_Transform");
     g.motion = get_component(go, "via.motion.Motion");
     g.l_hand = nullptr; g.r_hand = nullptr; g.aid_joint = nullptr;
+    // v0.6: the dock survives a rebind on purpose (its settings and latches must), but a measured arm length must
+    // NOT — a different playable character is a different skeleton, and a kept reach would clamp the new arm to
+    // the old one's length. Cleared here, where the joints it was measured from are also dropped.
+    g.l_humerus = nullptr; g.l_radius = nullptr;
+    g.dock.reach = 0.f; g.dock.reach_raw = 0.f; g.dock.reach_valid = false; g.dock.clamp_on = false;
     g.weapon = nullptr; g.weapon_transform = nullptr;
     g.layer_last.clear();
     LOGI("%s PLAYER BOUND: go=%p (%s) cond=%p (%s) equipment=%p ik=%p transform=%p motion=%p", TAG,
@@ -1066,7 +1148,7 @@ extern "C" __declspec(dllexport) bool reframework_plugin_initialize(const REFram
         fns->log_error("%s C++ SDK wrapper init failed — probe disabled", TAG);
         return true;
     }
-    fns->log_info("%s native core v0.5 loaded — THE DOCK (final-space blend mapped into the getIKLeftArmMatrix hook, HOLD latched while docked). NUM7 dump / NUM8 trace / NUM9 layers / NUM4 force-HOLD / NUM5 ATTACK pulse / NUM6 synthetic dock (flat) / NUM1 VR space mode / NUM3 rotation write", TAG);
+    fns->log_info("%s native core v0.6 loaded — THE DOCK (final-space blend mapped into the getIKLeftArmMatrix hook, HOLD latched while docked, M measured every frame, target clamped to the measured arm length). NUM7 dump / NUM8 trace / NUM9 layers / NUM4 force-HOLD / NUM5 ATTACK pulse / NUM6 synthetic dock (flat) / NUM1 VR space mode / NUM3 rotation write / NUM2 reach clamp", TAG);
     // Hooks need the TDB up; register them from the game thread on the first frame.
     static std::atomic<bool> hooked{false};
     fns->on_pre_application_entry("LockScene", []() {

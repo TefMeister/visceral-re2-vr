@@ -1,0 +1,28 @@
+segment lengths from the game's own joint dump (metres)
+
+  l  clavicle->humerus 0.1264  humerus->radius 0.2781  radius->wrist 0.2213
+     arm length (upper+fore) = 0.4994   clamp radius (x0.98) = 0.4894
+     shoulder->wrist AT REST  = 0.4863  = 97.4% of the arm length
+     both segments inside the plugin's acceptance band (0.05, 1.0): yes
+
+  r  clavicle->humerus 0.1262  humerus->radius 0.2786  radius->wrist 0.2209
+     arm length (upper+fore) = 0.4996   clamp radius (x0.98) = 0.4896
+     shoulder->wrist AT REST  = 0.4747  = 95.0% of the arm length
+     both segments inside the plugin's acceptance band (0.05, 1.0): yes
+
+cross-check, the two arms as independent measurements of one skeleton:
+  left  0.4994
+  right 0.4996
+  difference 0.00018 m (0.035 %)
+
+what the clamp ignores:
+  the clavicle segment is 0.1264 m and is NOT counted, so the measured reach is a
+  LOWER bound on true reach - the shoulder girdle can carry the pivot further out.
+  Combined with x0.98 the clamp is conservative twice over: it can fire on a target
+  the real arm could have held. clamp= in the 1 Hz summary is what settles whether it does.
+
+bound on run 12 (the flat runs already verified):
+  at full weight the wrist reached the target exactly (|Lw-tgt| = 0.000, 14 samples).
+  So |target - humerus| = |wrist - humerus| <= 0.4994, i.e. inside the RAW reach.
+  Whether it was inside 0.4894 (the clamped radius) is NOT established - the humerus
+  position was never logged at dock time. That is why the clamp has a NUM2 toggle.
