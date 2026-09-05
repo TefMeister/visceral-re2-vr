@@ -1,8 +1,23 @@
 # A writable speed lever exists: the motion layer's playback speed — and with root motion it moves the feet and the body together
 
-**Status:** 🆕 new · **Priority:** high — it answers the board's "MAIN technical risk" (does a
-writable locomotion movement-speed parameter exist?) with a public, shipping precedent, and the
-answer changes which lane req 4 lands in.
+**Status:** 👀 reviewed *(flipped 2026-09-05 from a modding-lane verdict)* · **Priority:** high — it
+answers the board's "MAIN technical risk" (does a writable locomotion movement-speed parameter
+exist?) with a public, shipping precedent, and the answer changes which lane req 4 lands in.
+
+> **Modding-lane verdict, 2026-09-04 (folded in 2026-09-05).** The lead was read, folded into
+> `engine-research/ENGINE-DOSSIER.md` as a new **§8d**, and the board's "MAIN technical risk" row is
+> **retired** on the strength of it. The layer-index caveat below is no longer a search question —
+> the native recon probe built 2026-09-04 (`dev-archive/plugin/`) logs every layer's highest-weight
+> motion name on change, so the first flat run names the locomotion layer.
+>
+> ⚠️ **One naming correction for RE2, so nobody greps for the wrong type**
+> `[inferred-static 2026-09-04, from il2cpp_dump.json]`: **RE2 has no `via.motion.MotionLayer`.**
+> `Motion.getLayer(u32)` returns **`via.motion.TreeLayer`**, which does carry `get_Speed`/`set_Speed`
+> and whose `get_HighestWeightMotionNode()` returns a `via.motion.MotionNodeCtrl` with
+> `get_MotionName`. So every mention of `MotionLayer` on this page should be read as *"the layer
+> object `getLayer` returns"*, which in RE2 is `TreeLayer`. (Consistent with the 2026-09-05 finding
+> that the public diagnostic reflects over the base type **`via.motion.Layer`** — base class, with
+> `TreeLayer` a derived type; that is why the same `set_Speed` call works across titles.)
 
 ## What was found
 
@@ -86,12 +101,20 @@ settle "which layer" rather than guess `[reported 2026-09-02, from source]`:
   awareness from measured speed" as **new ground for this project**, not something to go looking
   for again without a different angle (e.g. a live reflection dump of the enemy AI/perception
   component itself, once one is identified).
-- **No turnkey layer-dumper tool exists publicly either.** Checked alphaZomega's EMV Engine
+- ❌ **CORRECTED 2026-09-05 — the bullet below is wrong.** A public layer-dumper **does** exist:
+  `re9_layer0_diag.lua`, in the **same repository** as the script this topic reads, by the same
+  author. The 2026-09-02 check looked in the right ecosystem (EMV Engine, the REFramework book) but
+  never listed the contents of the repo it already had open. It also surfaces a speed lever *above*
+  the layers (`via.motion.Motion` `PlaySpeed`) and a better layer-identifier than name-matching
+  (`get_Weight`). Full correction, with what it changes for the native probe:
+  [`2026-09-05-the-public-layer-dumper-we-said-did-not-exist-is-in-the-repo-we-already-read.md`](2026-09-05-the-public-layer-dumper-we-said-did-not-exist-is-in-the-repo-we-already-read.md).
+  Kept verbatim below for the record:
+- ~~**No turnkey layer-dumper tool exists publicly either.**~~ Checked alphaZomega's EMV Engine
   toolkit (already known to this project, dossier §12) — its Console/Poser/Action Monitor/Hooked
   Method Inspector do not include a motion-layer enumerator; the closest is its generic managed-
-  object property panel (the same reflection technique dossier §4 already documents). So the
+  object property panel (the same reflection technique dossier §4 already documents). ~~So the
   concrete next probe below is genuinely the cheapest way to get a real answer, not a second-best
-  substitute for a public tool that exists somewhere.
+  substitute for a public tool that exists somewhere.~~
 
 **Suggested probe (3 reflection calls, read-only, no game state changed):** on the player's
 `via.motion.Motion` component, loop `i = 0..N` calling `getLayer(i)` until it returns `nil` (or use
