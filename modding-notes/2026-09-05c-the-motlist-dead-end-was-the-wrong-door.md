@@ -148,15 +148,55 @@ item 22's goal is precisely that aiming should *never* look different.
 
 ### What is still unproven
 
-- That `pl10` is Claire and what Leon's root is (`pl00`? the Claire A specimen showed
-  `pl1000`/`pl3000` at `.motlist.524` in **cutscene** paths — a different tree and a different
-  format version from this `animation/player/…` `.motlist.85` gameplay tree). Both readings
-  cannot be right; establish which is which before assuming either.
-- Whether `natives/x64/` and `natives/stm/` are interchangeable roots on this build.
+- That `pl10` is Claire, and what Leon's root is.
 - Whether these files load at all on our install alongside REFramework and the plugin.
 - Whether the replacement can be **authored** (build our own motlist from the normal walk)
   rather than **transplanted** (lift RE3R's). Authoring is the version we would ship; a
   transplant of another game's animation data is not something we can redistribute.
+
+## Finding 4 — `x64` vs `stm` and `.85` vs `.524` are the pre-RT and RT builds, and OUR INSTALL IS RT
+
+Tefa downloaded the second variant three minutes after the first, which turned the pair into a
+controlled comparison and answered the root/suffix question outright.
+
+**RT variant:** *"Jill´s Animation For Claire" v2.0 RT*, Nexus **2529**, by **Angeltitilxyz &
+xJustAdam** — a port of 2516 to the Ray Tracing build.
+
+| | non-RT (2516, xJustAdam) | RT (2529, Angeltitilxyz & xJustAdam) |
+| --- | --- | --- |
+| natives root | `natives/x64/` | `Natives/STM/` |
+| format suffix | `.motlist.85` | `.motlist.524` |
+| files | `hdg` hold + move, **`stg` move** | `hdg` hold + move only — **no shotgun** |
+
+So `x64`/`.85` and `stm`/`.524` are not alternative spellings, they are **the two game builds**
+`[inferred-static 2026-09-05]`. This also retro-explains the Claire A specimen, which is
+`natives/stm/` + `.motlist.524` throughout: it is an RT-build mod, and the pattern is
+consistent across both specimens.
+
+**Our install is the RT build** `[inferred-static 2026-09-05]` — read from the game's own
+config rather than observed running, so it is as strong as static evidence gets without a
+launch: `re2_config.ini` carries
+`TargetPlatform=DirectX12`, `PCDXver=DirectX12`, `PCRaytracingReflection=1`, and `D3D12/
+D3D12Core.dll` is present. Steam buildid 11636119.
+
+Consequences:
+- **The RT variant is the applicable specimen**; 2516's files would not have matched our tree
+  at all. Anything we author targets `Natives/STM/…/*.motlist.524`.
+- **The RT port covers less** — the shotgun move list is missing from it. If item 22 wants the
+  shotgun walk too, that is ours to author, with no ported reference to compare against.
+- Any future specimen must be checked for which build it targets **before** concluding anything
+  from its paths.
+
+### Bonus: REFramework has its own loose-file loader
+
+`reframework_accessed_files.txt` in the game folder contains one line —
+`[LooseFileLoader] [info] LooseFileLoader constructed` (2026-09-05 10:10) — so **REFramework
+itself loads loose `natives/` files**; Fluffy Mod Manager is not necessarily required to
+deliver this kind of change `[inferred-static 2026-09-05]`. That matters for packaging: it
+would let a motlist ship inside the Visceral mod folder rather than as a separate Fluffy mod.
+The log recorded no filenames, so per-file access logging is either off or needs enabling —
+worth finding out, because a log of the paths the game *actually requests* would remove the
+guesswork from every path question above, including where the RPD lights live.
 
 ⚠️ **Redistribution line:** studying this is fine and the mechanism is ours to reuse. Shipping
 RE3R animation data, or xJustAdam's files, is not. If the technique ends up in Visceral it is
