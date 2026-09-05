@@ -38,6 +38,24 @@
 // the plugin's acknowledgement (1.0). No Lua C API, no ABI assumptions beyond
 // the managed-array element offset, which the sentinel itself verifies.
 
+// v0.4 (2026-09-05): THE DOCK, built on the lever v0.3 found. The game's wrist solver reads
+// Implement.getIKLeftArmMatrix() once per frame (which reads get_AidTargetWorldMatrix(), which is
+// the aid joint _101's world matrix) and puts l_arm_wrist exactly where the returned matrix says,
+// snapping. So the dock is a post-hook on the OUTER getter that returns a BLENDED matrix:
+//   * docked   = the bridge's left grip held (S_LGRIP > 0.5 with controllers active) OR the NUM6
+//                flat stand-in (a synthetic target orbiting _101 at 10 cm, yawed 45 deg);
+//   * weight w slews 0 -> 1 over DOCK_BLEND_S (0.2 s) on dock and back on release, eased;
+//   * translation = lerp(natural, target, w); rotation = slerp(natural, target, w) (NUM3 toggles
+//     the rotation write, so a bad rotation can be ruled out in VR without a rebuild);
+//   * HOLD is latched natively (setForce(64,true)) while docked and dropped on release, reconciled
+//     with the NUM4 manual latch (spec v2.3 reqs 1-2; req 3 is the same blend run backwards).
+// The controller pose reaches world space two ways, NUM1 cycles them: mode 0 re-bases the
+// controller relative to the HMD onto the game camera's world matrix (right whichever space the
+// bridge's poses are in, as long as HMD and controller share it); mode 1 uses the bridge pose as
+// world directly. Neither has run in a headset yet. The trace logs, per sample: |Lwrist - target|,
+// |Lwrist - natural|, the wrist's rotation error against both (does the rotation follow?), and
+// |Rwrist - muzzle| (the right hand must not move on dock/undock).
+
 #include <windows.h>
 
 #include <algorithm>
@@ -72,6 +90,71 @@ struct Mat4 { float m[16]{}; };  // RE Engine mat4: row-major, translation in m[
 float dist(const Vec3& a, const Vec3& b) {
     const float dx = a.x - b.x, dy = a.y - b.y, dz = a.z - b.z;
     return std::sqrt(dx * dx + dy * dy + dz * dz);
+}
+Vec3 vsub(const Vec3& a, const Vec3& b) { return Vec3{a.x - b.x, a.y - b.y, a.z - b.z}; }
+Vec3 vadd(const Vec3& a, const Vec3& b) { return Vec3{a.x + b.x, a.y + b.y, a.z + b.z}; }
+Vec3 vscale(const Vec3& a, float s) { return Vec3{a.x * s, a.y * s, a.z * s}; }
+Vec3 vlerp(const Vec3& a, const Vec3& b, float t) { return Vec3{a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t, a.z + (b.z - a.z) * t}; }
+float vlen(const Vec3& a) { return std::sqrt(a.x * a.x + a.y * a.y + a.z * a.z); }
+
+// ---- rotation helpers. A 3x3 "rows" block is the top-left of an RE Engine row-major mat4: row i
+// is basis vector i of the frame, in world coordinates. Quaternions here are only ever produced
+// from and consumed by these helpers (rows -> quat -> rows round-trips exactly), so the blend does
+// not depend on the engine's quaternion conventions. The one place a FOREIGN quaternion enters is
+// the VR bridge (controller/HMD rotation) — see world_from_bridge(); that path is unverified.
+struct Rows { float r[9]{1, 0, 0, 0, 1, 0, 0, 0, 1}; };
+Rows rows_of(const Mat4& m) { Rows o; for (int i = 0; i < 3; ++i) for (int j = 0; j < 3; ++j) o.r[i * 3 + j] = m.m[i * 4 + j]; return o; }
+void rows_into(Mat4& m, const Rows& o) { for (int i = 0; i < 3; ++i) for (int j = 0; j < 3; ++j) m.m[i * 4 + j] = o.r[i * 3 + j]; }
+Vec3 row(const Rows& o, int i) { return Vec3{o.r[i * 3], o.r[i * 3 + 1], o.r[i * 3 + 2]}; }
+// angle in degrees between two frames: acos((tr(A^T B) - 1) / 2), pure matrix, convention-free
+float rows_angle_deg(const Rows& a, const Rows& b) {
+    float tr = 0.f;
+    for (int i = 0; i < 3; ++i) for (int j = 0; j < 3; ++j) tr += a.r[i * 3 + j] * b.r[i * 3 + j];   // tr(A^T B) = sum a_ij b_ij
+    float c = (tr - 1.f) * 0.5f; c = std::clamp(c, -1.f, 1.f);
+    return std::acos(c) * 57.29578f;
+}
+// rotate every row (a world vector) by a world yaw of `deg` about +Y
+Rows rows_yaw(const Rows& o, float deg) {
+    const float a = deg * 0.01745329f, c = std::cos(a), s = std::sin(a);
+    Rows out;
+    for (int i = 0; i < 3; ++i) { const Vec3 v = row(o, i); out.r[i * 3] = c * v.x + s * v.z; out.r[i * 3 + 1] = v.y; out.r[i * 3 + 2] = -s * v.x + c * v.z; }
+    return out;
+}
+Quat quat_of_rows(const Rows& o) {   // standard Shepperd, treating rows as the matrix R with R[i][j] = r[i*3+j]
+    const float* r = o.r; Quat q{};
+    const float tr = r[0] + r[4] + r[8];
+    if (tr > 0.f) { const float s = std::sqrt(tr + 1.f) * 2.f; q.w = 0.25f * s; q.x = (r[7] - r[5]) / s; q.y = (r[2] - r[6]) / s; q.z = (r[3] - r[1]) / s; }
+    else if (r[0] > r[4] && r[0] > r[8]) { const float s = std::sqrt(1.f + r[0] - r[4] - r[8]) * 2.f; q.w = (r[7] - r[5]) / s; q.x = 0.25f * s; q.y = (r[1] + r[3]) / s; q.z = (r[2] + r[6]) / s; }
+    else if (r[4] > r[8]) { const float s = std::sqrt(1.f + r[4] - r[0] - r[8]) * 2.f; q.w = (r[2] - r[6]) / s; q.x = (r[1] + r[3]) / s; q.y = 0.25f * s; q.z = (r[5] + r[7]) / s; }
+    else { const float s = std::sqrt(1.f + r[8] - r[0] - r[4]) * 2.f; q.w = (r[3] - r[1]) / s; q.x = (r[2] + r[6]) / s; q.y = (r[5] + r[7]) / s; q.z = 0.25f * s; }
+    return q;
+}
+Rows rows_of_quat(const Quat& q) {   // inverse of quat_of_rows
+    Rows o; const float x = q.x, y = q.y, z = q.z, w = q.w;
+    o.r[0] = 1 - 2 * (y * y + z * z); o.r[1] = 2 * (x * y - z * w);     o.r[2] = 2 * (x * z + y * w);
+    o.r[3] = 2 * (x * y + z * w);     o.r[4] = 1 - 2 * (x * x + z * z); o.r[5] = 2 * (y * z - x * w);
+    o.r[6] = 2 * (x * z - y * w);     o.r[7] = 2 * (y * z + x * w);     o.r[8] = 1 - 2 * (x * x + y * y);
+    return o;
+}
+Quat quat_norm(Quat q) { const float n = std::sqrt(q.x * q.x + q.y * q.y + q.z * q.z + q.w * q.w); if (n > 1e-6f) { q.x /= n; q.y /= n; q.z /= n; q.w /= n; } else q = Quat{0, 0, 0, 1}; return q; }
+Quat quat_slerp(Quat a, Quat b, float t) {
+    float d = a.x * b.x + a.y * b.y + a.z * b.z + a.w * b.w;
+    if (d < 0.f) { d = -d; b = Quat{-b.x, -b.y, -b.z, -b.w}; }
+    if (d > 0.9995f) return quat_norm(Quat{a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t, a.z + (b.z - a.z) * t, a.w + (b.w - a.w) * t});
+    const float th = std::acos(d), s = std::sin(th), wa = std::sin((1 - t) * th) / s, wb = std::sin(t * th) / s;
+    return quat_norm(Quat{a.x * wa + b.x * wb, a.y * wa + b.y * wb, a.z * wa + b.z * wb, a.w * wa + b.w * wb});
+}
+Rows rows_slerp(const Rows& a, const Rows& b, float t) { return rows_of_quat(quat_slerp(quat_of_rows(a), quat_of_rows(b), t)); }
+// Hamilton product and conjugate, used only on the VR path
+Quat quat_mul(const Quat& a, const Quat& b) {
+    return Quat{a.w * b.x + a.x * b.w + a.y * b.z - a.z * b.y, a.w * b.y - a.x * b.z + a.y * b.w + a.z * b.x,
+                a.w * b.z + a.x * b.y - a.y * b.x + a.z * b.w, a.w * b.w - a.x * b.x - a.y * b.y - a.z * b.z};
+}
+Quat quat_conj(const Quat& q) { return Quat{-q.x, -q.y, -q.z, q.w}; }
+Vec3 quat_rotate(const Quat& q, const Vec3& v) {
+    const Quat p{v.x, v.y, v.z, 0.f};
+    const Quat r = quat_mul(quat_mul(q, p), quat_conj(q));
+    return Vec3{r.x, r.y, r.z};
 }
 
 // ---------------------------------------------------------------------------
@@ -275,12 +358,27 @@ struct State {
     bool want_layers{false};
     bool force_hold{false};          // NUM4: InputSystem.setForce(HOLD, true) — the latch proven in Lua on 2026-08-27, now native
     int attack_pulse{0};             // NUM5: setForce(ATTACK, true) for one frame, then false
-    // NUM6 (v0.3, 2026-09-05): the AID-TARGET OVERRIDE. The ARM kind is dead (v0.2: setEnable(ARM) never
-    // sticks by either call route, setArmTarget throws on both indices, IkTwoArm/IkHand are null) and
-    // the reload test proved _101 is an anchor the wrist is solved onto. So: post-hook the two managed
-    // getters that serve the aid target and shift what they return 10 cm up. Bit 1 = get_AidTargetWorldMatrix,
-    // bit 2 = getIKLeftArmMatrix. Cycle 0 -> 1 -> 2 -> 3 -> 0. If the wrist follows, that is the dock lever.
-    int shift_mode{0};
+    bool hold_sent{false};           // what setForce(HOLD) was last told; reconciled from force_hold || dock.docked
+    // v0.4: THE DOCK. v0.3 proved the wrist goes wherever getIKLeftArmMatrix() returns (a +10 cm shift moved
+    // l_arm_wrist 10 cm, both getters additive, ~345 calls/s each, and the solver snaps). v0.4 returns a
+    // blended matrix from that hook instead of a shifted one.
+    struct Dock {
+        bool synthetic{false};       // NUM6: flat stand-in for "LG held" — target orbits _101 at 10 cm, yawed 45 deg
+        bool lg_held{false};         // bridge S_LGRIP > 0.5 while controllers are active
+        bool docked{false};          // lg_held || synthetic, evaluated once per frame
+        float w{0.f};                // raw blend weight, slews at 1 / DOCK_BLEND_S per second
+        float w_eased{0.f};          // smoothstep(w) — what the hook uses
+        int space_mode{0};           // NUM1: 0 = controller re-based HMD-relative onto the game camera; 1 = bridge pose as world
+        bool write_rot{true};        // NUM3: also blend the rotation rows (off = translation only)
+        Mat4 natural{};              // the last un-hooked getIKLeftArmMatrix value the hook saw (pre-edit copy)
+        bool natural_valid{false};
+        Vec3 target_t{};             // where the wrist should go, world
+        Rows target_r{};             // and which way it should face, world rows
+        bool target_valid{false};
+        double orbit_t0{};           // NUM6 orbit phase origin
+        uint32_t no_value_frames{};  // docked, but the getter returned no value (minigun at one read) — counted, logged 1/s
+        Vec3 cam_t{}; Rows cam_r{}; bool cam_valid{false};   // game camera world pose (VR re-basing + logging)
+    } dock;
     std::vector<std::string> layer_last;   // last highest-weight motion name per layer
     uint64_t layer_lines_this_second{};
     uint64_t layer_second{};
@@ -527,7 +625,7 @@ void summary_line() {
     Mat4 ikm{}; bool ik_has = false;
     const bool ik_ok = g.weapon != nullptr && inv_nullable_mat4(g.weapon, "getIKLeftArmMatrix", ik_has, ikm);
 
-    char buf[640];
+    char buf[1024];
     int o = snprintf(buf, sizeof buf, "%s f=%llu hold=%d aidT=%u", TAG, (unsigned long long)g.frame, (int)hold, aidtype);
     if (have_lh) o += snprintf(buf + o, sizeof buf - o, " Lhand=(%.2f %.2f %.2f)", lh.x, lh.y, lh.z);
     if (have_rh) o += snprintf(buf + o, sizeof buf - o, " Rhand=(%.2f %.2f %.2f)", rh.x, rh.y, rh.z);
@@ -540,7 +638,26 @@ void summary_line() {
         if (ik_has) o += snprintf(buf + o, sizeof buf - o, " ikL=(%.2f %.2f %.2f)", ikm.m[12], ikm.m[13], ikm.m[14]);
         else o += snprintf(buf + o, sizeof buf - o, " ikL=none");
     }
-    o += snprintf(buf + o, sizeof buf - o, " shift=%d hooks(aid=%u ikL=%u)", g.shift_mode, g_calls_aid.exchange(0), g_calls_ikl.exchange(0));
+    // v0.4 dock report: where the wrist is against the target and against the natural (un-hooked) value, whether
+    // its ROTATION followed (angle vs target and vs natural), and whether the RIGHT hand stayed on the muzzle.
+    {
+        auto& d = g.dock;
+        o += snprintf(buf + o, sizeof buf - o, " | dock=%d(syn=%d lg=%d) w=%.2f rot=%d sp=%d hooks(aid=%u ikL=%u)",
+                      (int)d.docked, (int)d.synthetic, (int)d.lg_held, d.w_eased, (int)d.write_rot, d.space_mode, g_calls_aid.exchange(0), g_calls_ikl.exchange(0));
+        if (have_lh && d.target_valid) o += snprintf(buf + o, sizeof buf - o, " |Lw-tgt|=%.3f", dist(lh, d.target_t));
+        if (have_lh && d.natural_valid) o += snprintf(buf + o, sizeof buf - o, " |Lw-nat|=%.3f", dist(lh, Vec3{d.natural.m[12], d.natural.m[13], d.natural.m[14]}));
+        Mat4 wm{};
+        if (g.l_hand != nullptr && inv_mat4(g.l_hand, "get_WorldMatrix", wm)) {
+            const Rows wr = rows_of(wm);
+            if (d.natural_valid) o += snprintf(buf + o, sizeof buf - o, " rotW-N=%.0f", rows_angle_deg(wr, rows_of(d.natural)));
+            if (d.target_valid)  o += snprintf(buf + o, sizeof buf - o, " rotW-T=%.0f", rows_angle_deg(wr, d.target_r));
+        }
+        Mat4 mz{};
+        if (have_rh && g.weapon != nullptr && inv_mat4(g.weapon, "get_MuzzleJointWorldMatrix", mz))
+            o += snprintf(buf + o, sizeof buf - o, " |Rw-muz|=%.3f", dist(rh, Vec3{mz.m[12], mz.m[13], mz.m[14]}));
+        if (d.no_value_frames != 0) { o += snprintf(buf + o, sizeof buf - o, " NOVALUE=%u", d.no_value_frames); d.no_value_frames = 0; }
+        if (d.cam_valid) o += snprintf(buf + o, sizeof buf - o, " cam=(%.2f %.2f %.2f)", d.cam_t.x, d.cam_t.y, d.cam_t.z);
+    }
     if (bridge_live()) {
         const float* f = arr_f32(g.bridge);
         o += snprintf(buf + o, sizeof buf - o, " | vr f=%.0f hmd=%.0f ctl=%.0f", f[S_FRAME], f[S_HMD_ACTIVE], f[S_USING_CTL]);
@@ -550,6 +667,8 @@ void summary_line() {
             if (have_aid) o += snprintf(buf + o, sizeof buf - o, " |Lctl-aid|=%.3f", dist(lc, aid));
             if (have_lh) o += snprintf(buf + o, sizeof buf - o, " |Lctl-Lhand|=%.3f", dist(lc, lh));
             if (have_rh) o += snprintf(buf + o, sizeof buf - o, " |Rctl-Rhand|=%.3f", dist(rc, rh));
+            const Vec3 hc = bridge_vec3(S_HPOS);
+            o += snprintf(buf + o, sizeof buf - o, " Hctl=(%.2f %.2f %.2f) LG=%.2f RG=%.2f RT=%.2f", hc.x, hc.y, hc.z, f[S_LGRIP], f[S_RGRIP], f[S_RTRIG]);
         }
         o += snprintf(buf + o, sizeof buf - o, " stick=(%.2f %.2f)", f[S_LSTICK], f[S_LSTICK + 1]);
     } else {
@@ -582,29 +701,120 @@ void set_force(int kind, bool on) {
 }
 
 void poll_hotkeys() {
-    static bool prev[5] = {false, false, false, false, false};
-    const int vks[6] = {VK_NUMPAD7, VK_NUMPAD8, VK_NUMPAD9, VK_NUMPAD4, VK_NUMPAD5, VK_NUMPAD6};
-    static bool prev6 = false;
+    static bool prev[8] = {};
+    const int vks[8] = {VK_NUMPAD7, VK_NUMPAD8, VK_NUMPAD9, VK_NUMPAD4, VK_NUMPAD5, VK_NUMPAD6, VK_NUMPAD1, VK_NUMPAD3};
     if (!game_is_foreground()) return;
-    {
-        const bool down = (GetAsyncKeyState(vks[5]) & 0x8000) != 0;
-        if (down && !prev6) {
-            g.shift_mode = (g.shift_mode + 1) % 4;
-            LOGI("%s NUM6: aid-target shift mode -> %d (bit1 AidTargetWorldMatrix, bit2 IKLeftArmMatrix; +0.10 m up)", TAG, g.shift_mode);
-        }
-        prev6 = down;
-    }
-    for (int i = 0; i < 5; ++i) {
+    for (int i = 0; i < 8; ++i) {
         const bool down = (GetAsyncKeyState(vks[i]) & 0x8000) != 0;
         if (down && !prev[i]) {
             if (i == 0) { g.want_dump = true; LOGI("%s NUM7: dump requested", TAG); }
             if (i == 1) { g.trace = !g.trace; LOGI("%s NUM8: trace %s", TAG, g.trace ? "ON (10 Hz)" : "OFF (1 Hz)"); }
             if (i == 2) { g.want_layers = true; LOGI("%s NUM9: layer table requested", TAG); }
-            if (i == 3) { g.force_hold = !g.force_hold; LOGI("%s NUM4: force HOLD %s", TAG, g.force_hold ? "ON" : "OFF"); set_force(KIND_HOLD, g.force_hold); }
+            // HOLD itself is reconciled once per frame from force_hold || dock.docked (see update_dock)
+            if (i == 3) { g.force_hold = !g.force_hold; LOGI("%s NUM4: force HOLD %s", TAG, g.force_hold ? "ON" : "OFF"); }
             // 8 frames (~130 ms): a real trigger press, long enough for the aim FSM to see it on a frame where HOLD is up.
             if (i == 4) { g.attack_pulse = 8; LOGI("%s NUM5: ATTACK pulse (8 frames)", TAG); set_force(KIND_ATTACK, true); }
+            if (i == 5) { g.dock.synthetic = !g.dock.synthetic; if (g.dock.synthetic) g.dock.orbit_t0 = now_s();
+                          LOGI("%s NUM6: synthetic dock (flat stand-in for LG held) %s — target orbits _101 at 10 cm, yawed 45 deg", TAG, g.dock.synthetic ? "ON" : "OFF"); }
+            if (i == 6) { g.dock.space_mode = (g.dock.space_mode + 1) % 3;
+                          static const char* names[] = {"controller HMD-relative, re-based on the game camera", "bridge pose used as world directly", "as mode 0 with the camera rows transposed"};
+                          LOGI("%s NUM1: VR space mode -> %d (%s)", TAG, g.dock.space_mode, names[g.dock.space_mode]); }
+            if (i == 7) { g.dock.write_rot = !g.dock.write_rot; LOGI("%s NUM3: rotation write %s", TAG, g.dock.write_rot ? "ON" : "OFF (translation only)"); }
         }
         prev[i] = down;
+    }
+}
+
+// ---------------------------------------------------------------------------
+// v0.4: the dock. Inputs -> blend weight -> HOLD reconcile -> target for the hook.
+// ---------------------------------------------------------------------------
+
+constexpr float DOCK_BLEND_S = 0.2f;     // spec v2.3 req 1: smooth, not snap. The solver snaps; this is the ramp.
+constexpr float DOCK_ORBIT_PERIOD_S = 4.0f;
+constexpr float DOCK_ORBIT_RADIUS = 0.10f;
+constexpr float DOCK_ORBIT_YAW_DEG = 45.f;
+
+// Game camera world pose. Under REFramework's VR the camera follows the HMD, so this is the anchor the
+// controller pose is re-based on in space mode 0. Read through the TDB (via.SceneManager is a NATIVE
+// singleton; via.SceneView / via.Camera are called through their type-definitions, as praydog's example
+// plugin does) so no managed-header assumption is made on the view object.
+void update_camera() {
+    auto& d = g.dock;
+    d.cam_valid = false;
+    auto& api = API::get();
+    auto* sm = api->get_native_singleton("via.SceneManager");
+    if (sm == nullptr) return;
+    static API::Method* m_view = nullptr; static API::Method* m_cam = nullptr; static API::Method* m_wm = nullptr; static bool looked = false;
+    if (!looked) {
+        looked = true;
+        if (auto* t = api->tdb()->find_type("via.SceneManager"); t != nullptr) m_view = t->find_method("get_MainView");
+        if (auto* t = api->tdb()->find_type("via.SceneView"); t != nullptr) m_cam = t->find_method("get_PrimaryCamera");
+        if (auto* t = api->tdb()->find_type("via.Camera"); t != nullptr) m_wm = t->find_method("get_WorldMatrix");
+        LOGI("%s camera path: get_MainView=%p get_PrimaryCamera=%p Camera.get_WorldMatrix=%p", TAG, (void*)m_view, (void*)m_cam, (void*)m_wm);
+    }
+    if (m_view == nullptr || m_cam == nullptr || m_wm == nullptr) return;
+    auto* view = m_view->call<API::ManagedObject*>(api->get_vm_context(), sm);
+    if (view == nullptr) return;
+    auto* cam = m_cam->call<API::ManagedObject*>(api->get_vm_context(), (void*)view);
+    if (cam == nullptr) return;
+    auto r = m_wm->invoke(cam, std::vector<void*>{});
+    if (r.exception_thrown) return;
+    Mat4 cm{}; memcpy(&cm, r.bytes.data(), sizeof(Mat4));
+    d.cam_t = Vec3{cm.m[12], cm.m[13], cm.m[14]}; d.cam_r = rows_of(cm); d.cam_valid = true;
+}
+
+void update_dock(double t, double dt) {
+    auto& d = g.dock;
+    const bool vr = bridge_live() && arr_f32(g.bridge)[S_USING_CTL] != 0.0f && arr_f32(g.bridge)[S_HMD_ACTIVE] != 0.0f;
+    d.lg_held = vr && arr_f32(g.bridge)[S_LGRIP] > 0.5f;
+    const bool was = d.docked;
+    d.docked = d.lg_held || d.synthetic;
+    if (d.docked != was) LOGI("%s DOCK %s (lg=%d synthetic=%d vr=%d) w=%.2f", TAG, d.docked ? "ENGAGED" : "RELEASED", (int)d.lg_held, (int)d.synthetic, (int)vr, d.w);
+
+    const float step = (float)(dt / DOCK_BLEND_S);
+    d.w = std::clamp(d.w + (d.docked ? step : -step), 0.f, 1.f);
+    d.w_eased = d.w * d.w * (3.f - 2.f * d.w);
+
+    // spec v2.3 req 2: HOLD rides the dock. One setForce per edge, reconciled with the NUM4 manual latch.
+    const bool want_hold = g.force_hold || d.docked;
+    if (want_hold != g.hold_sent) { g.hold_sent = want_hold; set_force(KIND_HOLD, want_hold); }
+
+    d.target_valid = false;
+    if (!d.docked && d.w <= 0.f) return;      // idle: the hook leaves the matrix alone
+    if (!d.natural_valid) return;             // no natural value seen yet — nothing to blend from
+    const Vec3 nat_t{d.natural.m[12], d.natural.m[13], d.natural.m[14]};
+    const Rows nat_r = rows_of(d.natural);
+
+    if (vr && !d.synthetic) {
+        // Real controller. Both HMD and controller poses come from the same vrmod space, so their DIFFERENCE is
+        // space-independent; re-base it on the game camera (which REFramework pins to the HMD) to get world.
+        // Space mode 1 trusts the bridge pose as world outright; mode 2 is mode 0 with the camera rows transposed
+        // (the one convention ambiguity in the rows<->quaternion path). None of the three has run in a headset.
+        update_camera();
+        const float* f = arr_f32(g.bridge);
+        const Vec3 lp = bridge_vec3(S_LPOS), hp = bridge_vec3(S_HPOS);
+        const Quat lq = quat_norm(Quat{f[S_LROT], f[S_LROT + 1], f[S_LROT + 2], f[S_LROT + 3]});
+        const Quat hq = quat_norm(Quat{f[S_HROT], f[S_HROT + 1], f[S_HROT + 2], f[S_HROT + 3]});
+        if (d.space_mode != 1 && d.cam_valid) {
+            Rows cr = d.cam_r;
+            if (d.space_mode == 2) { Rows tr; for (int i = 0; i < 3; ++i) for (int j = 0; j < 3; ++j) tr.r[i * 3 + j] = cr.r[j * 3 + i]; cr = tr; }
+            const Quat fix = quat_mul(quat_of_rows(cr), quat_conj(hq));   // tracking -> world
+            d.target_t = vadd(d.cam_t, quat_rotate(fix, vsub(lp, hp)));
+            d.target_r = rows_of_quat(quat_mul(fix, lq));
+        } else {
+            d.target_t = lp;
+            d.target_r = rows_of_quat(lq);
+        }
+        d.target_valid = true;
+    } else {
+        // Flat stand-in: a point 10 cm from _101 orbiting above it once every 4 s, facing 45 deg off the joint's
+        // frame — far enough to see, moving enough to prove the blend tracks, rotated enough to answer "does the
+        // wrist rotation follow" from rotW-T vs rotW-N in the trace.
+        const float th = (float)((t - d.orbit_t0) * 2.0 * 3.14159265 / DOCK_ORBIT_PERIOD_S);
+        const Vec3 dir{std::cos(th) * 0.7071f, 0.7071f, std::sin(th) * 0.7071f};
+        d.target_t = vadd(nat_t, vscale(dir, DOCK_ORBIT_RADIUS));
+        d.target_r = rows_yaw(nat_r, DOCK_ORBIT_YAW_DEG);
+        d.target_valid = true;
     }
 }
 
@@ -637,7 +847,12 @@ void on_frame() {
     if (pm == nullptr) return;
     auto* go = inv_ptr(pm, "get_CurrentPlayer");
     if (go == nullptr) {
-        if (g.player_go != nullptr) { LOGI("%s player gone (scene change?) — unbinding", TAG); g = State{.bridge = g.bridge, .frame = g.frame, .trace = g.trace}; }
+        if (g.player_go != nullptr) {
+            LOGI("%s player gone (scene change?) — unbinding", TAG);
+            // keep what outlives the player: the bridge, the counters, the latches (a forced HOLD must stay reconcilable), the dock settings
+            g = State{.bridge = g.bridge, .frame = g.frame, .trace = g.trace, .force_hold = g.force_hold, .hold_sent = g.hold_sent, .dock = g.dock};
+            g.dock.natural_valid = false; g.dock.target_valid = false;
+        }
         return;
     }
     if (go != g.player_go) rebind_player(pm, go);
@@ -657,6 +872,13 @@ void on_frame() {
         dump_weapon();
     }
     if (g.attack_pulse > 0 && --g.attack_pulse == 0) set_force(KIND_ATTACK, false);
+    {
+        static double last_t = 0.0;
+        const double tn = now_s();
+        const double dt = last_t > 0.0 ? std::clamp(tn - last_t, 0.0, 0.1) : 0.0;
+        last_t = tn;
+        update_dock(tn, dt);
+    }
     {
         static bool last_hold = false;
         const bool hold = inv_bool(g.cond, "get_IsHold");
@@ -702,23 +924,38 @@ int pre_mailbox(int argc, void** argv, REFrameworkTypeDefinitionHandle*, unsigne
 }
 
 // ---------------------------------------------------------------------------
-// v0.3: the aid-target override. Both getters return System.Nullable`1<via.mat4> through a hidden
+// v0.3/v0.4: the aid-target hooks. Both getters return System.Nullable`1<via.mat4> through a hidden
 // return-buffer pointer, so at return RAX holds that pointer: *ret_val -> { u8 HasValue @0, mat4 @+0x10 }.
-// The post-hook edits the buffer before the caller reads it. Call counts tell whether the GAME reads
-// these getters at all (our own summary reads them ~1/s, the game would be ~60/s).
+// The post-hook edits the buffer before the caller reads it. v0.3 shifted it (+10 cm) and proved the wrist
+// follows; v0.4 BLENDS it toward the dock target on the OUTER getter only (getIKLeftArmMatrix calls
+// get_AidTargetWorldMatrix inside itself — the two counts were always equal — so editing the outer one
+// is what the wrist solver sees, and the inner one stays honest for anything else that reads it).
 // ---------------------------------------------------------------------------
 
 int pre_passthrough(int, void**, REFrameworkTypeDefinitionHandle*, unsigned long long) { return REFRAMEWORK_HOOK_CALL_ORIGINAL; }
 
-void shift_nullable_mat4(void** ret_val, int bit) {
-    if ((g.shift_mode & bit) == 0 || ret_val == nullptr) return;
+void post_aid_target(void**, REFrameworkTypeDefinitionHandle, unsigned long long) { g_calls_aid++; }
+
+void post_ik_left_arm(void** ret_val, REFrameworkTypeDefinitionHandle, unsigned long long) {
+    g_calls_ikl++;
+    if (ret_val == nullptr) return;
     auto* nb = (uint8_t*)*ret_val;
-    if (nb == nullptr || nb[0] == 0) return;
+    if (nb == nullptr) return;
+    auto& d = g.dock;
+    if (nb[0] == 0) { if (d.docked) d.no_value_frames++; return; }   // no value: do not invent one (counted, so the minigun case shows)
     float* m = (float*)(nb + 0x10);
-    m[13] += 0.10f;
+    memcpy(d.natural.m, m, sizeof(Mat4)); d.natural_valid = true;      // the un-hooked value, for the blend origin and the trace
+    const float w = d.w_eased;
+    if (w <= 0.f || !d.target_valid) return;
+    m[12] += (d.target_t.x - m[12]) * w;
+    m[13] += (d.target_t.y - m[13]) * w;
+    m[14] += (d.target_t.z - m[14]) * w;
+    if (d.write_rot) {
+        Mat4 tmp{}; memcpy(tmp.m, m, sizeof(Mat4));
+        rows_into(tmp, rows_slerp(rows_of(tmp), d.target_r, w));
+        memcpy(m, tmp.m, sizeof(Mat4));
+    }
 }
-void post_aid_target(void** ret_val, REFrameworkTypeDefinitionHandle, unsigned long long) { g_calls_aid++; shift_nullable_mat4(ret_val, 1); }
-void post_ik_left_arm(void** ret_val, REFrameworkTypeDefinitionHandle, unsigned long long) { g_calls_ikl++; shift_nullable_mat4(ret_val, 2); }
 
 void install_shift_hooks() {
     auto& api = API::get();
@@ -761,7 +998,7 @@ extern "C" __declspec(dllexport) bool reframework_plugin_initialize(const REFram
         fns->log_error("%s C++ SDK wrapper init failed — probe disabled", TAG);
         return true;
     }
-    fns->log_info("%s native core v0.3 loaded — reqs-1-and-3 recon probe. NUM7 dump / NUM8 trace / NUM9 layers / NUM4 force-HOLD toggle / NUM5 ATTACK pulse / NUM6 aid-target shift (hooked getters, +10 cm)", TAG);
+    fns->log_info("%s native core v0.4 loaded — THE DOCK (blend in the getIKLeftArmMatrix hook, HOLD latched while docked). NUM7 dump / NUM8 trace / NUM9 layers / NUM4 force-HOLD / NUM5 ATTACK pulse / NUM6 synthetic dock (flat) / NUM1 VR space mode / NUM3 rotation write", TAG);
     // Hooks need the TDB up; register them from the game thread on the first frame.
     static std::atomic<bool> hooked{false};
     fns->on_pre_application_entry("LockScene", []() {
