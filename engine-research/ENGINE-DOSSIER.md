@@ -386,7 +386,38 @@ Nexus) writes **`set_Speed(k)` on the player's `via.motion.Motion` layer** every
 - Fallback if root motion cannot express something: praydog's `re2_smooth_movement.lua` writes
   the body transform per `UpdateMotion` instead.
 
-Sources: `external-research/topics/2026-09-02-a-writable-speed-lever-exists-the-motion-layers-playback-speed.md`.
+**2026-09-05 (`/gr` drop, drained by `/pd`) — a SECOND speed lever, one level above the layers, and
+two cheap probe upgrades.** From `Junh2x/RE9-Movement-Speed-Mod`'s `re9_layer0_diag.lua`, a public
+motion-layer property dumper in the repo the 09-02 topic was already reading (study-only: no licence
+file on that repo, nothing copied):
+
+- 🎯 **`via.motion.Motion` has a `PlaySpeed` property on the COMPONENT, above every layer**
+  `[reported 2026-09-05, from source]`. Engine-level `via.motion`, not `app.ropeway`, so §8d's
+  confidence in the reflection route transfers to it, and a global rate cap written there needs
+  neither a layer index nor motion-name gating. ⚠️ **Only the getter is witnessed — the dumper never
+  writes it.** `set_PlaySpeed` existing is `[hypothesis]` until a reflection dump lists it, which the
+  native probe can settle in the same run by enumerating that component's methods. This is the better
+  first candidate for req 4 than `TreeLayer.set_Speed`, and than
+  `app.ropeway.survivor.SurvivorMotionSpeedController` (§8c), which no public source uses at all
+  `[checked 2026-09-05]` — an absence that means nobody mapped it for us, **not** that it is a bad
+  lever, since Nexus 403s automated fetch and the type is RE2-only and game-side.
+- **Identify the driving layer by `get_Weight`, not by string-matching motion names**
+  `[inferred-static 2026-09-05]`. The shipping mod hard-codes layer 0; the string test is how it
+  decides *walk vs run*, not *which layer*. ⚠️ The `get_Weight` already listed above is on
+  `MotionNodeCtrl`; the one being suggested is on the **layer** — verify it exists on `TreeLayer`
+  before relying on it. Our own live read (layer 0 = locomotion) already agrees, so this is
+  corroboration by a second method rather than a new answer.
+- **`getLayerCount` bounds the enumeration** — no-underscore spelling first, matching `getLayer` /
+  `getComponent` on this component; `get_LayerCount` is the dumper's fallback
+  `[reported 2026-09-05, from source]`. Already listed above from our own dump.
+
+Still blocked by the same wall: **"Better Movement Speed RE2"** (Nexus 2391) is the port that had to
+solve the `app.ropeway` translation, its page 403s to automated fetch and it is not on GitHub. A
+launch-side session that can read that file locally would likely get RE2's move-speed accessor named
+outright. Credit: **Junh2x**.
+
+Sources: `external-research/topics/2026-09-02-a-writable-speed-lever-exists-the-motion-layers-playback-speed.md`,
+`external-research/topics/2026-09-05-the-public-layer-dumper-we-said-did-not-exist-is-in-the-repo-we-already-read.md`.
 
 ## 9. "Several lookalike systems, one is live" (a recurring RE2 trap)
 - A single weapon can carry **multiple similarly-purposed config tables** for
