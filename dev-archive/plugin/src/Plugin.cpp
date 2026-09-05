@@ -145,6 +145,12 @@ Quat quat_slerp(Quat a, Quat b, float t) {
     return quat_norm(Quat{a.x * wa + b.x * wb, a.y * wa + b.y * wb, a.z * wa + b.z * wb, a.w * wa + b.w * wb});
 }
 Rows rows_slerp(const Rows& a, const Rows& b, float t) { return rows_of_quat(quat_slerp(quat_of_rows(a), quat_of_rows(b), t)); }
+// plain 3x3 algebra on Rows, indices r[i*3+j] = row i, column j
+Rows rows_mul(const Rows& a, const Rows& b) { Rows o; for (int i = 0; i < 3; ++i) for (int j = 0; j < 3; ++j) { float s = 0; for (int k = 0; k < 3; ++k) s += a.r[i * 3 + k] * b.r[k * 3 + j]; o.r[i * 3 + j] = s; } return o; }
+Rows rows_T(const Rows& a) { Rows o; for (int i = 0; i < 3; ++i) for (int j = 0; j < 3; ++j) o.r[i * 3 + j] = a.r[j * 3 + i]; return o; }
+Vec3 vec_mul_rows(const Vec3& v, const Rows& R) {   // row vector times matrix: out_j = sum_i v_i R[i][j]
+    return Vec3{v.x * R.r[0] + v.y * R.r[3] + v.z * R.r[6], v.x * R.r[1] + v.y * R.r[4] + v.z * R.r[7], v.x * R.r[2] + v.y * R.r[5] + v.z * R.r[8]};
+}
 // Hamilton product and conjugate, used only on the VR path
 Quat quat_mul(const Quat& a, const Quat& b) {
     return Quat{a.w * b.x + a.x * b.w + a.y * b.z - a.z * b.y, a.w * b.y - a.x * b.z + a.y * b.w + a.z * b.x,
@@ -370,11 +376,25 @@ struct State {
         float w_eased{0.f};          // smoothstep(w) — what the hook uses
         int space_mode{0};           // NUM1: 0 = controller re-based HMD-relative onto the game camera; 1 = bridge pose as world
         bool write_rot{true};        // NUM3: also blend the rotation rows (off = translation only)
-        Mat4 natural{};              // the last un-hooked getIKLeftArmMatrix value the hook saw (pre-edit copy)
+        Mat4 natural{};              // the last un-hooked getIKLeftArmMatrix value the GAME's call saw (pre-edit copy)
         bool natural_valid{false};
-        Vec3 target_t{};             // where the wrist should go, world
-        Rows target_r{};             // and which way it should face, world rows
+        // v0.4.1 instrumentation (run 10 showed the wrist 10 cm from the joint but ~0.3 m from the computed
+        // target): the plugin's OWN summary call of the getter runs through the same hook, at a different point
+        // in the frame. Its value is kept apart (natural_self) so it never becomes the blend origin, and the INNER
+        // getter's un-hooked value (get_AidTargetWorldMatrix, captured on the game's call) is kept to compare.
+        Mat4 natural_self{}; bool natural_self_valid{false};
+        Vec3 inner_t{}; bool inner_valid{false};
+        Vec3 target_t{};             // where the wrist should go — FINAL world space (what the trace compares the wrist to)
+        Rows target_r{};             // and which way it should face, final world rows
         bool target_valid{false};
+        // v0.5: the getter-space form the hook writes. Run 11 (2026-09-05) fitted, to 2 mm over six samples:
+        //   wrist_final_rows = returned_rows * M   and   (wrist_final - aid_final) = (returned_t - natural_t) * M
+        // with M one constant rotation (~48 deg here) = natural_rows^T * aid_final_rows. So the dock blends in
+        // FINAL space and maps the result back: returned_t = natural_t + (blended - aid_final) * M^T,
+        // returned_rows = blended_rows * M^T. At zero offset that is exactly the natural value.
+        Vec3 d_get{};                // translation offset to add in getter space
+        Rows T_rows{};               // rotation rows to write in getter space
+        Rows M{}; bool M_valid{false};
         double orbit_t0{};           // NUM6 orbit phase origin
         uint32_t no_value_frames{};  // docked, but the getter returned no value (minigun at one read) — counted, logged 1/s
         Vec3 cam_t{}; Rows cam_r{}; bool cam_valid{false};   // game camera world pose (VR re-basing + logging)
@@ -388,6 +408,10 @@ struct State {
 
 // v0.3 hook call counters (the hooks themselves are defined with the bridge hook below).
 std::atomic<uint32_t> g_calls_aid{0}, g_calls_ikl{0};
+// v0.4.1: true while the plugin itself is calling the hooked getters (summary / dumps), so the hooks can tell
+// the plugin's own reads apart from the game's per-frame read and never take them as the blend origin.
+bool g_self_call = false;
+struct SelfCall { SelfCall() { g_self_call = true; } ~SelfCall() { g_self_call = false; } };
 
 double now_s() {
     static LARGE_INTEGER f{}; static bool init = false;
@@ -496,8 +520,8 @@ void dump_weapon() {
         LOGI("%s   MuzzleJoint (%s) pos=(%.3f %.3f %.3f)", TAG, tname(mj).c_str(), p.x, p.y, p.z);
     }
     if (inv_mat4(w, "get_MuzzleJointWorldMatrix", m)) LOGI("%s   MuzzleJointWorldMatrix t=(%.3f %.3f %.3f)", TAG, m.m[12], m.m[13], m.m[14]);
-    log_nullable_mat("IKLeftArmMatrix", inv_nullable_mat4(w, "getIKLeftArmMatrix", has, m), has, m);
-    log_nullable_mat("AidTargetWorldMatrix", inv_nullable_mat4(w, "get_AidTargetWorldMatrix", has, m), has, m);
+    { SelfCall sc; log_nullable_mat("IKLeftArmMatrix", inv_nullable_mat4(w, "getIKLeftArmMatrix", has, m), has, m); }
+    { SelfCall sc; log_nullable_mat("AidTargetWorldMatrix", inv_nullable_mat4(w, "get_AidTargetWorldMatrix", has, m), has, m); }
 
     g.w_narrow = g.weapon_transform != nullptr ? inv_ptr(g.weapon_transform, "getJointByHash", {(void*)(uintptr_t)narrow}) : nullptr;
     g.w_wide   = g.weapon_transform != nullptr ? inv_ptr(g.weapon_transform, "getJointByHash", {(void*)(uintptr_t)wide}) : nullptr;
@@ -623,7 +647,8 @@ void summary_line() {
     const auto aidtype = g.equipment != nullptr ? inv_u32(g.equipment, "getAidJointType") : 0;
 
     Mat4 ikm{}; bool ik_has = false;
-    const bool ik_ok = g.weapon != nullptr && inv_nullable_mat4(g.weapon, "getIKLeftArmMatrix", ik_has, ikm);
+    bool ik_ok = false;
+    { SelfCall sc; ik_ok = g.weapon != nullptr && inv_nullable_mat4(g.weapon, "getIKLeftArmMatrix", ik_has, ikm); }
 
     char buf[1024];
     int o = snprintf(buf, sizeof buf, "%s f=%llu hold=%d aidT=%u", TAG, (unsigned long long)g.frame, (int)hold, aidtype);
@@ -646,11 +671,33 @@ void summary_line() {
                       (int)d.docked, (int)d.synthetic, (int)d.lg_held, d.w_eased, (int)d.write_rot, d.space_mode, g_calls_aid.exchange(0), g_calls_ikl.exchange(0));
         if (have_lh && d.target_valid) o += snprintf(buf + o, sizeof buf - o, " |Lw-tgt|=%.3f", dist(lh, d.target_t));
         if (have_lh && d.natural_valid) o += snprintf(buf + o, sizeof buf - o, " |Lw-nat|=%.3f", dist(lh, Vec3{d.natural.m[12], d.natural.m[13], d.natural.m[14]}));
+        // v0.4.1: the four positions side by side — the game's natural (blend origin), the plugin's own read of the
+        // same getter, the inner getter's value on the game's call, and the target — each as a distance from the joint.
+        if (have_aid) {
+            if (d.natural_valid)      o += snprintf(buf + o, sizeof buf - o, " |natG-aid|=%.3f", dist(Vec3{d.natural.m[12], d.natural.m[13], d.natural.m[14]}, aid));
+            if (d.natural_self_valid) o += snprintf(buf + o, sizeof buf - o, " |natS-aid|=%.3f", dist(Vec3{d.natural_self.m[12], d.natural_self.m[13], d.natural_self.m[14]}, aid));
+            if (d.inner_valid)        o += snprintf(buf + o, sizeof buf - o, " |inner-aid|=%.3f", dist(d.inner_t, aid));
+            if (d.target_valid)       o += snprintf(buf + o, sizeof buf - o, " |tgt-aid|=%.3f", dist(d.target_t, aid));
+        }
+        if (d.M_valid) { Rows I; o += snprintf(buf + o, sizeof buf - o, " angM=%.0f", rows_angle_deg(d.M, I)); }
+        if (d.natural_valid && d.natural_self_valid)
+            o += snprintf(buf + o, sizeof buf - o, " |natG-natS|=%.3f rotG-S=%.0f", dist(Vec3{d.natural.m[12], d.natural.m[13], d.natural.m[14]}, Vec3{d.natural_self.m[12], d.natural_self.m[13], d.natural_self.m[14]}),
+                          rows_angle_deg(rows_of(d.natural), rows_of(d.natural_self)));
         Mat4 wm{};
         if (g.l_hand != nullptr && inv_mat4(g.l_hand, "get_WorldMatrix", wm)) {
             const Rows wr = rows_of(wm);
             if (d.natural_valid) o += snprintf(buf + o, sizeof buf - o, " rotW-N=%.0f", rows_angle_deg(wr, rows_of(d.natural)));
             if (d.target_valid)  o += snprintf(buf + o, sizeof buf - o, " rotW-T=%.0f", rows_angle_deg(wr, d.target_r));
+            // once per second while the dock is active: the three frames in full, for the rotation-convention check offline
+            static double last_rows_t = 0.0;
+            if ((d.docked || d.w > 0.f) && d.natural_valid && d.target_valid && now_s() - last_rows_t >= 1.0) {
+                last_rows_t = now_s();
+                const Rows nr = rows_of(d.natural);
+                LOGI("%s ROWS natG=[%.3f %.3f %.3f | %.3f %.3f %.3f | %.3f %.3f %.3f] t=(%.3f %.3f %.3f)", TAG, nr.r[0], nr.r[1], nr.r[2], nr.r[3], nr.r[4], nr.r[5], nr.r[6], nr.r[7], nr.r[8], d.natural.m[12], d.natural.m[13], d.natural.m[14]);
+                LOGI("%s ROWS tgt =[%.3f %.3f %.3f | %.3f %.3f %.3f | %.3f %.3f %.3f] t=(%.3f %.3f %.3f)", TAG, d.target_r.r[0], d.target_r.r[1], d.target_r.r[2], d.target_r.r[3], d.target_r.r[4], d.target_r.r[5], d.target_r.r[6], d.target_r.r[7], d.target_r.r[8], d.target_t.x, d.target_t.y, d.target_t.z);
+                LOGI("%s ROWS wrst=[%.3f %.3f %.3f | %.3f %.3f %.3f | %.3f %.3f %.3f] t=(%.3f %.3f %.3f)", TAG, wr.r[0], wr.r[1], wr.r[2], wr.r[3], wr.r[4], wr.r[5], wr.r[6], wr.r[7], wr.r[8], wm.m[12], wm.m[13], wm.m[14]);
+                if (have_aid) LOGI("%s ROWS aid=(%.3f %.3f %.3f) Lwrist=(%.3f %.3f %.3f)", TAG, aid.x, aid.y, aid.z, lh.x, lh.y, lh.z);
+            }
         }
         Mat4 mz{};
         if (have_rh && g.weapon != nullptr && inv_mat4(g.weapon, "get_MuzzleJointWorldMatrix", mz))
@@ -782,8 +829,15 @@ void update_dock(double t, double dt) {
     d.target_valid = false;
     if (!d.docked && d.w <= 0.f) return;      // idle: the hook leaves the matrix alone
     if (!d.natural_valid) return;             // no natural value seen yet — nothing to blend from
-    const Vec3 nat_t{d.natural.m[12], d.natural.m[13], d.natural.m[14]};
-    const Rows nat_r = rows_of(d.natural);
+    // The aid joint's FINAL world matrix (this is LockScene-pre, so the previous frame's solve) and the getter's
+    // natural value from the game's own call give the pre-update -> final rotation M for this frame.
+    Mat4 am{};
+    if (g.aid_joint == nullptr || !inv_mat4(g.aid_joint, "get_WorldMatrix", am)) return;
+    const Vec3 a_t{am.m[12], am.m[13], am.m[14]};
+    const Rows A = rows_of(am);
+    const Rows N = rows_of(d.natural);
+    d.M = rows_mul(rows_T(N), A); d.M_valid = true;
+    Vec3 p_f{}; Rows C{};                     // the desired FINAL wrist pose, unblended
 
     if (vr && !d.synthetic) {
         // Real controller. Both HMD and controller poses come from the same vrmod space, so their DIFFERENCE is
@@ -799,23 +853,29 @@ void update_dock(double t, double dt) {
             Rows cr = d.cam_r;
             if (d.space_mode == 2) { Rows tr; for (int i = 0; i < 3; ++i) for (int j = 0; j < 3; ++j) tr.r[i * 3 + j] = cr.r[j * 3 + i]; cr = tr; }
             const Quat fix = quat_mul(quat_of_rows(cr), quat_conj(hq));   // tracking -> world
-            d.target_t = vadd(d.cam_t, quat_rotate(fix, vsub(lp, hp)));
-            d.target_r = rows_of_quat(quat_mul(fix, lq));
+            p_f = vadd(d.cam_t, quat_rotate(fix, vsub(lp, hp)));
+            C = rows_of_quat(quat_mul(fix, lq));
         } else {
-            d.target_t = lp;
-            d.target_r = rows_of_quat(lq);
+            p_f = lp;
+            C = rows_of_quat(lq);
         }
-        d.target_valid = true;
     } else {
-        // Flat stand-in: a point 10 cm from _101 orbiting above it once every 4 s, facing 45 deg off the joint's
-        // frame — far enough to see, moving enough to prove the blend tracks, rotated enough to answer "does the
-        // wrist rotation follow" from rotW-T vs rotW-N in the trace.
+        // Flat stand-in: a point 10 cm from the FINAL aid joint, orbiting above it once every 4 s, facing 45 deg
+        // (world yaw) off the joint's final frame. If the mapping is right the trace shows |Lw-tgt| -> 0 and
+        // rotW-T -> 0 while docked.
         const float th = (float)((t - d.orbit_t0) * 2.0 * 3.14159265 / DOCK_ORBIT_PERIOD_S);
         const Vec3 dir{std::cos(th) * 0.7071f, 0.7071f, std::sin(th) * 0.7071f};
-        d.target_t = vadd(nat_t, vscale(dir, DOCK_ORBIT_RADIUS));
-        d.target_r = rows_yaw(nat_r, DOCK_ORBIT_YAW_DEG);
-        d.target_valid = true;
+        p_f = vadd(a_t, vscale(dir, DOCK_ORBIT_RADIUS));
+        C = rows_yaw(A, DOCK_ORBIT_YAW_DEG);
     }
+    d.target_t = p_f; d.target_r = C; d.target_valid = true;
+
+    // Blend in final space, then map into getter space for the hook.
+    const Vec3 p_b = vlerp(a_t, p_f, d.w_eased);
+    const Rows R_b = rows_slerp(A, C, d.w_eased);
+    const Rows MT = rows_T(d.M);
+    d.d_get = vec_mul_rows(vsub(p_b, a_t), MT);
+    d.T_rows = rows_mul(R_b, MT);
 }
 
 void rebind_player(API::ManagedObject* pm, API::ManagedObject* go) {
@@ -934,7 +994,14 @@ int pre_mailbox(int argc, void** argv, REFrameworkTypeDefinitionHandle*, unsigne
 
 int pre_passthrough(int, void**, REFrameworkTypeDefinitionHandle*, unsigned long long) { return REFRAMEWORK_HOOK_CALL_ORIGINAL; }
 
-void post_aid_target(void**, REFrameworkTypeDefinitionHandle, unsigned long long) { g_calls_aid++; }
+void post_aid_target(void** ret_val, REFrameworkTypeDefinitionHandle, unsigned long long) {
+    g_calls_aid++;
+    if (g_self_call || ret_val == nullptr) return;
+    auto* nb = (uint8_t*)*ret_val;
+    if (nb == nullptr || nb[0] == 0) return;
+    const float* m = (const float*)(nb + 0x10);
+    g.dock.inner_t = Vec3{m[12], m[13], m[14]}; g.dock.inner_valid = true;
+}
 
 void post_ik_left_arm(void** ret_val, REFrameworkTypeDefinitionHandle, unsigned long long) {
     g_calls_ikl++;
@@ -944,15 +1011,16 @@ void post_ik_left_arm(void** ret_val, REFrameworkTypeDefinitionHandle, unsigned 
     auto& d = g.dock;
     if (nb[0] == 0) { if (d.docked) d.no_value_frames++; return; }   // no value: do not invent one (counted, so the minigun case shows)
     float* m = (float*)(nb + 0x10);
-    memcpy(d.natural.m, m, sizeof(Mat4)); d.natural_valid = true;      // the un-hooked value, for the blend origin and the trace
-    const float w = d.w_eased;
-    if (w <= 0.f || !d.target_valid) return;
-    m[12] += (d.target_t.x - m[12]) * w;
-    m[13] += (d.target_t.y - m[13]) * w;
-    m[14] += (d.target_t.z - m[14]) * w;
+    if (g_self_call) { memcpy(d.natural_self.m, m, sizeof(Mat4)); d.natural_self_valid = true; }
+    else             { memcpy(d.natural.m, m, sizeof(Mat4)); d.natural_valid = true; }   // the game's un-hooked value: the blend origin
+    if (d.w_eased <= 0.f || !d.target_valid || !d.M_valid) return;
+    // v0.5: the blend already happened in final space (update_dock); write its getter-space form.
+    m[12] += d.d_get.x;
+    m[13] += d.d_get.y;
+    m[14] += d.d_get.z;
     if (d.write_rot) {
         Mat4 tmp{}; memcpy(tmp.m, m, sizeof(Mat4));
-        rows_into(tmp, rows_slerp(rows_of(tmp), d.target_r, w));
+        rows_into(tmp, d.T_rows);
         memcpy(m, tmp.m, sizeof(Mat4));
     }
 }
@@ -998,7 +1066,7 @@ extern "C" __declspec(dllexport) bool reframework_plugin_initialize(const REFram
         fns->log_error("%s C++ SDK wrapper init failed — probe disabled", TAG);
         return true;
     }
-    fns->log_info("%s native core v0.4 loaded — THE DOCK (blend in the getIKLeftArmMatrix hook, HOLD latched while docked). NUM7 dump / NUM8 trace / NUM9 layers / NUM4 force-HOLD / NUM5 ATTACK pulse / NUM6 synthetic dock (flat) / NUM1 VR space mode / NUM3 rotation write", TAG);
+    fns->log_info("%s native core v0.5 loaded — THE DOCK (final-space blend mapped into the getIKLeftArmMatrix hook, HOLD latched while docked). NUM7 dump / NUM8 trace / NUM9 layers / NUM4 force-HOLD / NUM5 ATTACK pulse / NUM6 synthetic dock (flat) / NUM1 VR space mode / NUM3 rotation write", TAG);
     // Hooks need the TDB up; register them from the game thread on the first frame.
     static std::atomic<bool> hooked{false};
     fns->on_pre_application_entry("LockScene", []() {
