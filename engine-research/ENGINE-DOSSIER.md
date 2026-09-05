@@ -422,6 +422,55 @@ outright. Credit: **Junh2x**.
 Sources: `external-research/topics/2026-09-02-a-writable-speed-lever-exists-the-motion-layers-playback-speed.md`,
 `external-research/topics/2026-09-05-the-public-layer-dumper-we-said-did-not-exist-is-in-the-repo-we-already-read.md`.
 
+### 8e. What Arcade Controls already paid for (port map, 2026-09-05, `/pd`, static)
+
+Full map: `modding-notes/2026-09-05-arcade-controls-port-map.md` — every managed method, field,
+joint name, constant and recorded trap behind AC's two-hand grip, manual reload and slide/pump rack,
+read out of our own frozen source. All `[measured 2026-09-05]` unless the body says otherwise; four
+cited claims were spot-checked against the source by hand and matched to the line. The durable
+engine facts:
+
+- **⚠️ Reach is bought by STRETCHING THE CLAVICLE, not by clamping the target.**
+  `l_arm_clavicle` is written through **`get_BaseLocalPosition`** — deliberately, so the write is
+  idempotent within a frame; re-reading the base after writing it compounds the stretch, and the
+  base is reset per frame for that reason. Live budget `max_m = 0.16` m, **plus up to `0.08` m more
+  for large weapons, left arm only**, total clamped to `0.60` m, bone lengths sanity-clamped to
+  `[0.18, 0.45]` m. **This is more permissive than §8c's measured 0.4994 m arm**, so a hard reach
+  clamp will refuse poses AC already ships and has tuned live. Treat a clamp as the fallback and the
+  stretch as the destination.
+- **Structural arm identity, and the single biggest thing a native port buys.** Hook
+  `app.ropeway.IkArmFit::updateIk` **once**, read `<ApplyJoint>k__BackingField` → `get_NameHash()`,
+  and compare against `via.murmur_hash::calc32("l_arm_wrist" / "r_arm_wrist", 0)` (a **static**
+  method — first argument `nil`, seed `0`); cache by `get_address()`. AC's Lua needs an eight-tier
+  ladder because it hooks `updateIk` from two files whose relative order is undefined and because
+  `ApplyJoint` sometimes fails to resolve; its lower tiers guess from camera-relative hand positions,
+  and **that guessing is the sole unfixed bug that keeps AC's two-hand latch shipped OFF**. One hook
+  plus a persistent map deletes the problem.
+- **⚠️ A joint's cached `WorldMatrix` is STALE if read in the same frame as a write to that joint.**
+  AC reads it fresh at `LateUpdateBehavior` and stale at `UpdateMotion`, and the resulting alternating
+  pose *was* a hand-teleport bug. Our own plugin reads `via.Joint.get_WorldMatrix` at `LockScene`-pre
+  and writes no joints, so it is unaffected — but any future joint write makes this immediate.
+- **Nothing chambers a round without the finalize pair.** After every ammo write:
+  `Gun::executeEndReload()` then `Gun::endChamberClear()` (the pump path adds `executeEndEject()`).
+  Skipping it leaves the round in the slot with the gun refusing to fire — recorded as a live
+  finding, not a guess. `setBulletNumber` is **not** the reload primitive; it updates the count
+  without the reload track and the gun still will not fire.
+- **A mod that hooks the reload pipeline must carry a re-entrancy token**, because its own commits
+  call the methods it blocks. AC uses `ammo.internal_commit` plus two globals, and **it is not
+  refcounted** — a nested commit clears the flag early. In C++ this wants RAII with a depth count.
+- **The engine's own misspelling is load-bearing:** `setInhibitPetient`, enum
+  `SurvivorDefine.ActionOrder.Petient`. So are the overload suffixes
+  `getComponent(System.Type)` and `setPartsEnable(System.UInt64, System.Boolean)`.
+- **`app.ropeway.InventoryManager` does not exist** — it is `app.ropeway.gamemastering.InventoryManager`,
+  and the inventory *object* is an `app.ropeway.survivor.Inventory` instance, not a singleton.
+- **Config shape trap:** the shipped JSON in `reframework/data/re2_vr/` overrides the Lua defaults
+  **wholesale at load**, and `merge_cfg` deep-merges only a named handful of tables — `slide_dock`
+  and `manual_pump` are replaced entirely by a nested JSON table. Eleven confirmed divergences are
+  tabulated in the note; port against the JSON.
+
+Credit: **Andyalpa** (RE2VRMODRELOADED, the base layer, studied with permission — described only,
+no code taken), **praydog** (REFramework, FirstPerson).
+
 ## 9. "Several lookalike systems, one is live" (a recurring RE2 trap)
 - A single weapon can carry **multiple similarly-purposed config tables** for
   what looks like one feature, and tuning the wrong one throws no error and no
