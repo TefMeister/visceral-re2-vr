@@ -886,8 +886,13 @@ void update_dock(double t, double dt) {
     // v0.6: measure the arm's own length while it is doing nothing in particular. Bone lengths are rigid, so the
     // running max over plausible frames IS the length; the band rejects a garbage read rather than letting one
     // bad frame set the clamp forever. Reset on rebind, because Claire's arm is not Leon's.
-    d.reach_valid = false;
-    if (g.l_humerus != nullptr && g.l_radius != nullptr && g.l_hand != nullptr) {
+    // Self-review, same session: this ran every frame, docked included, for three extra get_Position calls
+    // per frame on the one path where latency matters. Bone lengths do not change, so measuring only while
+    // UNDOCKED costs nothing and keeps the dock frame as cheap as it was in v0.5. If a dock somehow happens
+    // before any measurement lands, reach_valid stays false and the clamp simply does not apply — the v0.5
+    // behaviour, which is the right thing to fall back to.
+    d.reach_valid = d.reach > 0.f;
+    if (!d.docked && g.l_humerus != nullptr && g.l_radius != nullptr && g.l_hand != nullptr) {
         Vec3 hu{}, ra{}, wr{};
         if (inv_vec3(g.l_humerus, "get_Position", hu) && inv_vec3(g.l_radius, "get_Position", ra) &&
             inv_vec3(g.l_hand, "get_Position", wr)) {
@@ -900,7 +905,8 @@ void update_dock(double t, double dt) {
                 }
             }
             d.shoulder_t = hu;
-            d.reach_valid = d.reach > 0.f;
+        } else {
+            d.reach_valid = false;   // could not read the chain this frame: clamp about a stale shoulder is worse than no clamp
         }
     }
 

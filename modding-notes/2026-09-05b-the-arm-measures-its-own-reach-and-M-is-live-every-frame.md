@@ -167,8 +167,23 @@ and needs no dock — and the answer is in the log.
 
 ## 7. Deployed build
 
-Final DLL of this session: **102,912 B, `sha256` prefix `7065a6c9cfb824d9`**, clean `/W4` Release
+Final DLL of this session: **102,912 B, `sha256` prefix `d9cc6caac6002506`**, clean `/W4` Release
 build, zero warnings and zero errors `[compile-verified 2026-09-05]`. Deployed to
-`reframework/plugins/`. Rollback copies in the same folder: `visceral_core.dll.prev` (99,328 B, v0.6
-without the motion dump) and `visceral_core.dll.bak-2026-09-05-v05` (98,304 B, this morning's
-verified v0.5).
+`reframework/plugins/`. Rollback copies in the same folder: `visceral_core.dll.prev` (the build
+before the self-review fix below) and **`visceral_core.dll.bak-2026-09-05-v05` (98,304 B, this
+morning's verified v0.5)** — that second one is the file to copy back if anything about v0.6
+misbehaves.
+
+### The self-review pass changed one thing
+
+The reach measurement was written to run **every** frame, docked included: three extra
+`get_Position` calls per frame on the one path where latency actually matters. Bone lengths do not
+change, so it now measures **only while undocked**, which costs nothing and leaves the docked frame
+exactly as cheap as v0.5's. If a dock somehow lands before any measurement, `reach_valid` stays false
+and the clamp does not apply — the v0.5 behaviour, which is the right fallback.
+
+One assumption is worth naming rather than burying: the running maximum is the arm's length **only
+if the engine's solver never stretches a bone**. Most two-bone solvers extend to full length and stop,
+but a stretching solver would let the maximum creep upward and quietly loosen the clamp
+`[hypothesis]`. The 1 m per-segment band caps how far that could ever go, and measuring only while
+undocked means our own blend is no longer part of the sample.
