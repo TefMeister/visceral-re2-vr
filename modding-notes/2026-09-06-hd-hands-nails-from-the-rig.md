@@ -323,3 +323,25 @@ divided by the 3D distance each texel step covers, making the slope a property o
 agree across a seam, and now does.
 
 `--gutter 0` restores the old padding behaviour. Nails unchanged again: 28,346 plate texels.
+
+## The seam, part three: the palm/back split (2026-09-06 23:04, deployed)
+
+The line that survived padding and the 3D pore slope runs **along the forearm's length** — which is exactly where
+the palm-versus-back split falls. Pore strength is 30 % on the palm side and 100 % on the back, and the transition
+between them was feathered by a **blur in UV**: so the two sides of a seam, being different islands, got different
+amounts of feathering and the strength stepped at the join. A note from 14:35 already recorded this same mechanism
+drawing a line at the wrist; the 4 mm feather reduced it without removing the cause.
+
+The split is now smoothed **over the mesh** instead — each vertex averaged with its neighbours, 14 passes over
+5,015 hand and forearm vertices, then rasterised. The transition is a property of the surface, so it is identical
+on both sides of every seam by construction, and the UV blur is gone entirely.
+
+That is the third and last UV-locked thing in the skin path. In order, the seam had three causes, all ours:
+
+| # | cause | fix |
+| --- | --- | --- |
+| 1 | pore pattern sampled by texel, so it belonged to the atlas | 3D value noise sampled at each texel's surface position |
+| 2 | every field stopped at the island border, leaving an untreated hairline | 6 texels of padding grown into the gutter |
+| 3 | palm/back pore strength feathered by a UV blur | smoothed over the mesh instead |
+
+Nails unchanged throughout: 28,346 plate texels in all three builds.
