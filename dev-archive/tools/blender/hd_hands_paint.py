@@ -1,6 +1,6 @@
 """HD hands tier 1b (first, procedural pass): re-author Claire's body textures at 4K with real hand detail baked in.
 Headless Blender 5.2 + RE Mesh Editor:
-  blender -b --python hd_hands_paint.py -- <pl3000 folder> <work_dir> <out_dir> [--size 4096] [--pores 1.0] [--crease 1.0] [--tone 1.0]
+  blender -b --python hd_hands_paint.py -- <plXXXX folder> <work_dir> <out_dir> [--character pl1000 --skin-mat Body_Mat --tex-base pl1000_Jacket] [--size 4096] [--pores 1.0] [--crease 1.0] [--tone 1.0]
 
 What it does, only inside the skin material's hand + forearm UV region (everything else is a clean upscale):
   1. upscales pl3000_Body_ALBM / _NRMR from 1024 to <size> (Blender's image scaler);
@@ -15,12 +15,16 @@ ALBM alpha = metallic, NRMR alpha left as shipped). Conversion to .tex.34 is too
 Outputs are derivatives of game textures: keep out of git; the player's copy is rebuilt by the scripts.
 """
 import bpy, sys, os, importlib, ctypes, argparse
+from mathutils import Vector
 import numpy as np
 
 argv = sys.argv[sys.argv.index("--") + 1:]
 ap = argparse.ArgumentParser()
 ap.add_argument("src"); ap.add_argument("work"); ap.add_argument("out")
 ap.add_argument("--size", type=int, default=4096)
+# 2026-09-06 13:15: pl3000 is SHERRY. Claire is pl1000, skin material pl1000_Body_Mat, textures pl1000_Jacket_* (shared atlas).
+ap.add_argument("--character", default="pl1000"); ap.add_argument("--skin-mat", default="Body_Mat", help="substring of the skin material name")
+ap.add_argument("--tex-base", default="pl1000_Jacket", help="texture base name: inputs <base>_albm/_nrmr(.tex.34 or .png in work), outputs <base>_ALBM/_NRMR.png")
 ap.add_argument("--pores", type=float, default=0.3, help="micro-relief strength (0 = none); 1.0 was the first pass, sandpaper in game")
 ap.add_argument("--veins", type=float, default=0.35, help="dorsal vein relief lifted from the original albedo (0 = none); the lift finds blobs, not lines, so it is a hint by default")
 ap.add_argument("--wrinkles", type=float, default=1.0, help="fine wrinkle networks around the joints (0 = none)")
@@ -59,22 +63,23 @@ tex_utils = importlib.import_module("RE-Mesh-Editor.modules.tex.re_tex_utils")
 Texconv = importlib.import_module("RE-Mesh-Editor.modules.ddsconv.directx.texconv").Texconv
 tc = Texconv()
 src_png = {}
-for base in ("pl3000_body_albm", "pl3000_body_nrmr"):
+TB = a.tex_base.lower()
+for base in (TB + "_albm", TB + "_nrmr"):
     png = os.path.join(a.work, base + ".png")
     if not os.path.exists(png):
         dds = os.path.join(a.work, base + ".dds")
         tex_utils.convertTexFileToDDS(os.path.join(a.src, base + ".tex.34"), dds)
         png = tc.convert_to_png(dds, out=a.work, verbose=False)
     src_png[base] = png
-alb = load_np(src_png["pl3000_body_albm"], N)          # Blender gives sRGB PNG pixels back as linear floats
-nrm = load_np(src_png["pl3000_body_nrmr"], N)          # normal map: treated as data (we only nudge RG)
+alb = load_np(src_png[TB + "_albm"], N)          # Blender gives sRGB PNG pixels back as linear floats
+nrm = load_np(src_png[TB + "_nrmr"], N)          # normal map: treated as data (we only nudge RG)
 print("upscaled to %dx%d: albedo mean %s, nrmr mean %s" % (N, N, np.round(alb.mean((0, 1)), 3), np.round(nrm.mean((0, 1)), 3)))
 
 # ---- 2. mesh -> per-pixel fields in UV space ----------------------------------------------------------
-mesh_path = os.path.join(a.src, "pl3000.mesh.2109108288")
+mesh_path = os.path.join(a.src, a.character + ".mesh.2109108288")
 bpy.ops.re_mesh.importfile(filepath=mesh_path, directory=a.src, files=[{"name": os.path.basename(mesh_path)}],
                            clearScene=True, loadMaterials=False, loadMDFData=False)
-skin = [o for o in bpy.data.objects if o.type == "MESH" and any("Skin" in (m.name if m else "") for m in o.data.materials)][0]
+skin = [o for o in bpy.data.objects if o.type == "MESH" and any(a.skin_mat in (m.name if m else "") for m in o.data.materials)][0]
 me = skin.data; names = [g.name for g in skin.vertex_groups]; uv = me.uv_layers.active
 HAND = ("l_hand_", "r_hand_", "l_arm_wrist", "r_arm_wrist"); FORE = ("l_arm_radius", "r_arm_radius")
 FINGER = ("l_hand_", "r_hand_")
@@ -223,7 +228,8 @@ try:
         if not tris: return None
         verts = [tuple(map(float, vco[i])) for i in range(len(me.vertices))]
         return BVHTree.FromPolygons(verts, tris, all_triangles=True), tris, tuv
-    def surface_line(img, surf, p_from, p_to, lateral, offs, wiggle_amp, seed, steps=80, taper=(0.15, 0.15), lift=None, max_dist=0.010):
+    hits = [0, 0]                                                          # ray hits / nearest-point fallbacks, printed per side
+    def surface_line(img, surf, p_from, p_to, lateral, offs, wiggle_amp, seed, steps=80, taper=(0.15, 0.15), lift=None, max_dist=0.015, scale=1.0):
         """sample the 3D segment p_from->p_to shifted sideways by offs (+ a gentle sine wiggle), project each sample onto the
         one-sided surface, draw the UV polyline through the interpolated UVs"""
         if surf is None: return
@@ -236,8 +242,16 @@ try:
             u = min(t / e0, (1 - t) / e1, 1.0); return u * u * (3 - 2 * u)
         for t in np.linspace(0, 1, steps):
             q = p_from + (p_to - p_from) * t + lateral * (offs + wiggle_amp * np.sin(t * 7.0 + ph) * t * (1 - t) * 4)
-            if lift is not None: q = q + lift                                  # bones run mid-hand; lift the sample toward the skin being drawn on
-            loc, nrm, idx, dist = bvh.find_nearest(Vector(tuple(map(float, q))))
+            loc = None
+            if lift is not None:
+                # bones run mid-hand: cast a ray from the sample OUT through the back of the hand (13:35: lifting by a fixed vector and
+                # snapping to the nearest point drifted sideways whenever that vector was tilted, which squashed Claire's fan by half)
+                d = Vector(tuple(map(float, lift))).normalized()
+                loc, nrm, idx, dist = bvh.ray_cast(Vector(tuple(map(float, q))), d, 0.05)     # from INSIDE the hand (the bone) outward: first exit = the back
+                if loc is not None: hits[0] += 1
+            if loc is None:
+                hits[1] += 1
+                loc, nrm, idx, dist = bvh.find_nearest(Vector(tuple(map(float, q + (lift if lift is not None else 0)))))
             if loc is None or dist > max_dist:                                # too far off the one-sided surface = it would snap to the island edge
                 if len(uvs) >= 2: polyline(img, np.array(uvs), np.array(vals, np.float32))
                 uvs = []; vals = []; continue
@@ -248,14 +262,26 @@ try:
             if abs(den) < 1e-12: continue
             l1 = (d11 * d20 - d01 * d21) / den; l2 = (d00 * d21 - d01 * d20) / den; l0 = 1 - l1 - l2
             ua, ub, uc = (np.array(x, np.float32) for x in tuv[idx])
-            uvs.append(l0 * ua + l1 * ub + l2 * uc); vals.append(ramp(t))
+            uvs.append(l0 * ua + l1 * ub + l2 * uc); vals.append(ramp(t) * scale)
         if len(uvs) >= 2: polyline(img, np.array(uvs), np.array(vals, np.float32))
     tend = np.zeros((N, N), np.float32); vein_lines = np.zeros((N, N), np.float32)
     fieldD = np.zeros((N, N), np.float32)
     for side in ("l", "r"):
         w = jpos(side + "_arm_wrist"); m0 = jpos(side + "_hand_middle_0"); t1 = jpos(side + "_hand_thumb_1"); el = jpos(side + "_arm_radius")
         if w is None or m0 is None or t1 is None: print("anatomy: bones missing for", side); continue
-        axis = unit(m0 - w); tv = t1 - w; palm = unit(tv - axis * np.dot(tv, axis)); lat = unit(np.cross(axis, palm))
+        axis = unit(m0 - w); tv = t1 - w; palm = unit(tv - axis * np.dot(tv, axis))
+        # palm plane from the KNUCKLE ROW, not the thumb (14:05): Claire's thumb is abducted forward out of the palm plane, which tilted the
+        # thumb-derived normal ~45 deg sideways; rays from the bones then exited the back displaced and the fan came out 3.6 cm wide for
+        # 5.4 cm of knuckles. The knuckle row (index -> little proximal phalanx heads) always lies in the palm plane.
+        krow = []
+        for f in ("index", "little"):
+            for k in range(4):
+                pk = jpos(side + "_hand_%s_%d" % (f, k))
+                if pk is not None and np.dot(pk - w, axis) > 0.04: krow.append(pk); break
+        if len(krow) == 2:
+            lat = unit(np.cross(axis, unit(krow[1] - krow[0])))
+        else:
+            lat = unit(np.cross(axis, palm))
         hidx = np.array([i for i in range(len(me.vertices)) if topname[i].startswith((side + "_hand_", side + "_arm_wrist"))])
         # dorsal side (fixed 2026-09-06 12:00, hd_hands_dorsal_preview.py): `palm` points AT the thumb, in the palm plane, so
         # -(n . palm) picked the little-finger EDGE. The plane's normal is `lat`; its sign flips per hand, so it is fixed by
@@ -266,11 +292,41 @@ try:
             j0, j1, j2 = jpos(side + "_hand_%s_0" % f), jpos(side + "_hand_%s_1" % f), jpos(side + "_hand_%s_2" % f)
             if j0 is not None and j1 is not None and j2 is not None: curl += float(np.dot(unit(j2 - j1) - unit(j1 - j0), lat))
         dsign = -1.0 if curl > 0 else 1.0
-        Dv[hidx] = np.clip(dsign * (vno[hidx] @ lat), 0, 1)
         print("anatomy %s: finger curl %+.3f along lat -> dorsal = %s lat" % (side, curl, "-" if dsign < 0 else "+"))
+        # dorsal weight, geometric (13:55): a vertex is on the BACK of the hand if a short ray from it toward the back meets no more hand.
+        # (The normal test dropped the domed index side of Claire's flatter hand; a per-bone mid-plane test misclassified the wrist-driven
+        # back-of-hand verts because that bone sits 5 cm up the forearm.) Fingers use the back direction bent perpendicular to their own bone.
+        nrm_dir = dsign * lat
+        hmeta = hidx[~is_finger[hidx]]; hback = hmeta[(vno[hmeta] @ nrm_dir) > 0.3]
+        ddir0 = unit(vno[hback].mean(0)) if len(hback) > 10 else nrm_dir
+        hset = set(int(i) for i in hidx); htris = []
+        for poly in me.polygons:
+            vi = list(poly.vertices)
+            if all(i in hset for i in vi):
+                for k in range(1, len(vi) - 1): htris.append((vi[0], vi[k], vi[k + 1]))
+        from mathutils.bvhtree import BVHTree as _BVH
+        hbvh = _BVH.FromPolygons([tuple(map(float, vco[i])) for i in range(len(me.vertices))], htris, all_triangles=True)
+        n_dorsal = 0
+        for bn in set(topname[hidx]):
+            idx = hidx[topname[hidx] == bn]; b = arm.data.bones.get(bn)
+            dd = ddir0
+            if b is not None and is_finger[idx[0]]:
+                ax = unit(np.array(arm.matrix_world @ b.tail_local, np.float32) - np.array(arm.matrix_world @ b.head_local, np.float32))
+                dd = unit(ddir0 - ax * np.dot(ddir0, ax))
+            D = Vector(tuple(map(float, dd)))
+            for i in idx:
+                o = Vector(tuple(map(float, vco[i]))) + D * 0.0015
+                hit = hbvh.ray_cast(o, D, 0.04)[0]
+                Dv[i] = 0.0 if hit is not None else 1.0; n_dorsal += Dv[i] > 0.5
+        print("anatomy %s: geometric dorsal pick: %d of %d hand verts on the back" % (side, n_dorsal, len(hidx)))
         dors = hidx[(Dv[hidx] > 0.5) & (~is_finger[hidx])]                       # back of the hand, metacarpal region
-        dsurf = make_surface(hidx[(Dv[hidx] > 0.3) & (~is_finger[hidx])])       # the dorsal surface as triangles (slightly wider than the vertex pick so edge triangles survive)
-        dlift = dsign * lat * 0.010                                              # 1 cm toward the back of the hand: the bone segments run mid-hand
+        dsurf = make_surface(hidx[~is_finger[hidx]])                             # the whole metacarpal surface, both faces: the lift below makes the nearest point the dorsal one
+        # dorsal direction refined from the mesh: the mean normal of the metacarpal vertices on the back half (the thumb-derived `lat`
+        # can be tilted by the thumb's pose; on Claire it is)
+        ddir = ddir0
+        print("anatomy %s: lat-vs-mesh dorsal tilt %.1f deg (%d back verts)" % (side, np.degrees(np.arccos(np.clip(np.dot(ddir, dsign * lat), -1, 1))), len(hback)))
+        dlift = ddir * 0.012                                              # 1.2 cm toward the back of the hand: the bone segments run mid-hand (on Claire's flatter hand a
+                                                                                 # dorsal-only triangle set lost the index side and squashed the fan toward the centre, 13:25)
         # knuckles = the head of each finger's PROXIMAL PHALANX. In this rig index_0/middle_0 start at the knuckle (6.8 cm along
         # the hand) but ring_0/little_0 are metacarpals starting 2 cm from the wrist `[measured 2026-09-06]`, so pick per finger
         # the first bone that lies more than 4 cm along the wrist->middle axis.
@@ -279,18 +335,18 @@ try:
             for k in range(4):
                 p = jpos(side + "_hand_%s_%d" % (f, k))
                 if p is not None and np.dot(p - w, axis) > 0.04: kn.append(p); break
-        print("anatomy %s: %d hand verts, %d dorsal metacarpal verts, %d knuckles" % (side, len(hidx), len(dors), len(kn)))
+        print("anatomy %s: %d hand verts, %d dorsal metacarpal verts, %d knuckles; projection so far: %d ray hits, %d fallbacks" % (side, len(hidx), len(dors), len(kn), hits[0], hits[1]))
         if len(dors) < 20 or len(kn) < 2: continue
         for i, k in enumerate(kn):                                               # extensor tendons: from under the wrist retinaculum -> each knuckle
             surface_line(tend, dsurf, w + (k - w) * 0.15, w + (k - w) * 0.93, lat, 0.0, 0.0, 11 + i, lift=dlift)
         for i in range(len(kn) - 1):                                              # dorsal veins: the gaps between knuckles -> down between the tendons
             gap = (kn[i] + kn[i + 1]) / 2
-            surface_line(vein_lines, dsurf, w + (gap - w) * 0.12, w + (gap - w) * 0.9, lat, 0.0, 0.004 * (1 if i % 2 else -1), 21 + i, lift=dlift)
+            surface_line(vein_lines, dsurf, w + (gap - w) * 0.22, w + (gap - w) * 0.9, lat, 0.0, 0.004 * (1 if i % 2 else -1), 21 + i, lift=dlift, taper=(0.25, 0.15))
         if len(kn) >= 4:                                                          # the dorsal venous arch, joining them a third of the way up
             arch = [w + (k - w) * 0.36 for k in kn]
-            for i in range(3): surface_line(vein_lines, dsurf, arch[i], arch[i + 1], lat, 0.0, 0.003, 41 + i, steps=30, taper=(0.3, 0.3), lift=dlift)
+            for i in range(3): surface_line(vein_lines, dsurf, arch[i], arch[i + 1], lat, 0.0, 0.003, 41 + i, steps=30, taper=(0.3, 0.3), lift=dlift, scale=0.45)   # the arch is fainter than the veins it joins
             web = (kn[0] + t1) / 2                                                # the cephalic vein: from the thumb/index web toward the wrist, thumb side
-            surface_line(vein_lines, dsurf, w + (web - w) * 0.85, arch[0], lat, 0.0, 0.004, 51, steps=60, taper=(0.2, 0.05), lift=dlift)
+            surface_line(vein_lines, dsurf, w + (web - w) * 0.85, arch[0], lat, 0.0, 0.004, 51, steps=60, taper=(0.2, 0.3), lift=dlift, scale=0.8)
         if el is not None:                                                        # forearm veins: two, along the arm, both faces
             fidx = np.array([i for i in range(len(me.vertices)) if topname[i].startswith(side + "_arm_radius")])
             if len(fidx) > 20:
@@ -353,7 +409,7 @@ out_alb[..., :3] *= (1.0 - edge * (1.0 - det_ao) * 0.06 * a.pores)[..., None]   
 out_alb[..., 3] = alb[..., 3]                                 # metallic untouched
 
 # detail mask (MSK1, BC4 2048, white over the hands): scale it down on the palms so the material's TILED pores follow the same rule
-msk_png = os.path.join(a.work, "pl3000_body_msk1.png")
+msk_png = os.path.join(a.work, TB + "_msk1.png")
 if os.path.exists(msk_png):
     msk = load_np(msk_png); Wm = msk.shape[0]
     step = N // Wm
@@ -361,10 +417,10 @@ if os.path.exists(msk_png):
     ed = edge[::step, ::step] if step > 1 else edge
     m = msk[..., 0] * (1.0 - ed) + msk[..., 0] * pp * ed
     msk_out = np.repeat(m[..., None], 4, axis=2); msk_out[..., 3] = 1.0
-    save_np(msk_out, os.path.join(a.out, "pl3000_Body_MSK1.png"))
+    save_np(msk_out, os.path.join(a.out, a.tex_base + "_MSK1.png"))
     print("detail mask: hand mean %.2f (was %.2f)" % (m[ed > 0.5].mean(), msk[..., 0][ed > 0.5].mean()))
-save_np(out_alb, os.path.join(a.out, "pl3000_Body_ALBM.png"))
-save_np(out_nrm, os.path.join(a.out, "pl3000_Body_NRMR.png"))
+save_np(out_alb, os.path.join(a.out, a.tex_base + "_ALBM.png"))
+save_np(out_nrm, os.path.join(a.out, a.tex_base + "_NRMR.png"))
 # preview crops of the hand strip (bottom 15%), original vs new, for eyes
 def crop(img): return img[int(N * 0.85):, :, :]
 save_np(np.concatenate([crop(alb), crop(out_alb)], axis=0), os.path.join(a.out, "preview_albedo_strip.png"))

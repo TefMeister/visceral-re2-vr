@@ -3,7 +3,7 @@ Headless Blender 5.2 + RE Mesh Editor:
   blender -b --python hd_hands_render.py -- <pl3000 folder> <render_out> <label>=<png folder> [<label>=<png folder> ...]
       [--side l|r] [--view dorsal|palm] [--size 1400] [--flip-green]
 
-Each <png folder> must hold pl3000_Body_ALBM.png + pl3000_Body_NRMR.png (hd_hands_paint.py output).
+Each <png folder> must hold <tex-base>_ALBM.png + _NRMR.png (Claire: pl1000_Jacket_*) (hd_hands_paint.py output).
 For every set: EEVEE render of the hand from the dorsal (default) or palm side, raking sun so the normal map reads,
 written as <render_out>/<label>_<side>_<view>.png.  Read-only on the inputs; outputs are derivatives, keep out of git.
 Dorsal side per hand is the finger-curl rule from hd_hands_dorsal_preview.py (verified on the nails 2026-09-06).
@@ -18,14 +18,15 @@ ap.add_argument("src"); ap.add_argument("out"); ap.add_argument("sets", nargs="+
 ap.add_argument("--side", default="l"); ap.add_argument("--view", default="dorsal"); ap.add_argument("--size", type=int, default=1400)
 ap.add_argument("--flip-green", action="store_true", help="treat the NRMR as DirectX-style (Y down)")
 ap.add_argument("--zoom", type=float, default=1.0, help=">1 = closer on the metacarpal region")
+ap.add_argument("--character", default="pl1000"); ap.add_argument("--skin-mat", default="Body_Mat"); ap.add_argument("--tex-base", default="pl1000_Jacket")
 a = ap.parse_args(argv)
 os.makedirs(a.out, exist_ok=True)
 ctypes.windll.ole32.CoInitializeEx(None, 0)
 
-mesh_path = os.path.join(a.src, "pl3000.mesh.2109108288")
+mesh_path = os.path.join(a.src, a.character + ".mesh.2109108288")
 bpy.ops.re_mesh.importfile(filepath=mesh_path, directory=a.src, files=[{"name": os.path.basename(mesh_path)}],
                            clearScene=True, loadMaterials=False, loadMDFData=False)
-skin = [o for o in bpy.data.objects if o.type == "MESH" and any("Skin" in (m.name if m else "") for m in o.data.materials)][0]
+skin = [o for o in bpy.data.objects if o.type == "MESH" and any(a.skin_mat in (m.name if m else "") for m in o.data.materials)][0]
 arm = [o for o in bpy.data.objects if o.type == "ARMATURE"][0]
 me = skin.data; names = [g.name for g in skin.vertex_groups]
 for o in bpy.data.objects:
@@ -43,7 +44,13 @@ def jpos(n):
 def unit(v): return v / (np.linalg.norm(v) + 1e-9)
 side = a.side
 w = jpos(side + "_arm_wrist"); m0 = jpos(side + "_hand_middle_0"); t1 = jpos(side + "_hand_thumb_1")
-axis = unit(m0 - w); tv = t1 - w; palm = unit(tv - axis * np.dot(tv, axis)); lat = unit(np.cross(axis, palm))
+axis = unit(m0 - w); tv = t1 - w; palm = unit(tv - axis * np.dot(tv, axis))
+krow = []                                                   # palm plane from the knuckle row (the thumb leaves the plane on Claire)
+for f in ("index", "little"):
+    for k in range(4):
+        pk = jpos(side + "_hand_%s_%d" % (f, k))
+        if pk is not None and np.dot(pk - w, axis) > 0.04: krow.append(pk); break
+lat = unit(np.cross(axis, unit(krow[1] - krow[0]))) if len(krow) == 2 else unit(np.cross(axis, palm))
 curl = 0.0
 for f in ("index", "middle", "ring", "little"):
     j0, j1, j2 = jpos(side + "_hand_%s_0" % f), jpos(side + "_hand_%s_1" % f), jpos(side + "_hand_%s_2" % f)
@@ -84,8 +91,8 @@ def material(label, folder):
     mat = bpy.data.materials.new("skin_" + label); mat.use_nodes = True; nt = mat.node_tree
     bsdf = nt.nodes["Principled BSDF"]; bsdf.inputs["Roughness"].default_value = 0.55
     if "Subsurface Weight" in bsdf.inputs: bsdf.inputs["Subsurface Weight"].default_value = 0.15
-    alb = nt.nodes.new("ShaderNodeTexImage"); alb.image = bpy.data.images.load(os.path.join(folder, "pl3000_Body_ALBM.png")); alb.image.alpha_mode = "NONE"
-    nrm = nt.nodes.new("ShaderNodeTexImage"); nrm.image = bpy.data.images.load(os.path.join(folder, "pl3000_Body_NRMR.png")); nrm.image.alpha_mode = "NONE"
+    alb = nt.nodes.new("ShaderNodeTexImage"); alb.image = bpy.data.images.load(os.path.join(folder, a.tex_base + "_ALBM.png")); alb.image.alpha_mode = "NONE"
+    nrm = nt.nodes.new("ShaderNodeTexImage"); nrm.image = bpy.data.images.load(os.path.join(folder, a.tex_base + "_NRMR.png")); nrm.image.alpha_mode = "NONE"
     nrm.image.colorspace_settings.name = "Non-Color"
     nmap = nt.nodes.new("ShaderNodeNormalMap"); nmap.inputs["Strength"].default_value = 1.0
     if a.flip_green:
