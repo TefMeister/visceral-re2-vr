@@ -26,10 +26,11 @@ NAME = "visceral_neckplug_neck0local" if "local" in sys.argv else "visceral_neck
 MAT = "pl1000_Body_Mat"            # Claire's skin material (pl1000.mdf2); the game supplies the material. Was pl3000_Skin_Mat = Sherry's
 UV_C = (0.9597, 0.5125)            # a dense forearm-skin patch on pl1000_Jacket_ALBM (densest 1/40 UV cell of l_arm_radius loops, 2026-09-06)
 UV_R = 0.004
-CENTRE_Y = 0.025
-_DZ = 1.41573 - 1.10038            # Sherry -> Claire neck_0 height; the ring radii below are still Sherry's `[hypothesis]` until pl1050 is measured
-Z_BOTTOM, Z_CYL_TOP, Z_TOP = 1.095 + _DZ, 1.145 + _DZ, 1.165 + _DZ
-R_CYL = 0.040
+CENTRE_Y = 0.012                   # Claire (Sherry's was 0.025)
+# Claire's neck ring, measured on pl1050.mesh (Face_Mat, neck-weighted skin) 2026-09-06 15:00 `[measured]`: skin from z 1.45 to
+# 1.54, half-width 0.043 at 1.50 and 0.040 at 1.48, axis ~0.012 forward of the bone; jaw (head-weighted) begins at 1.467.
+Z_BOTTOM, Z_CYL_TOP, Z_TOP = 1.440, 1.500, 1.520
+R_CYL = 0.038                      # inside Claire's 0.040-0.043 half-width
 SEGS, RINGS_DOME = 32, 5
 
 # --- optional: read neck bone bind matrices from the real body mesh (for the runtime attach math)
