@@ -20,6 +20,10 @@ historical record of the first plan; from here on this file is the list.
   3. **NEW 25 — manual item pick-up, fully specified.** Replaces the one-line F2. Left hand
      grabs, hold to carry, release to bank it into the inventory; a right-hand grab only when
      no gun is in that hand, and only if it does not mean re-wiring RG again. Detail in F2.
+- **2026-09-06 12:15 — flashlight-in-hand rules added to G5:** no two-handing a long weapon
+  while the flashlight is held (holster it first); the handgun dock becomes a wrist-to-wrist
+  dock (position locked to the right controller, each hand keeps its own rotation); no item
+  pick-up while the flashlight is held. Detail under G5.
 
 ## The source rule, restated by the user tonight (unchanged)
 
@@ -85,7 +89,10 @@ Gate tags per item: `[PD]` needs nothing running · `[FLAT]` needs a flat-screen
 
 **A1. Left-hand dock / two-handed hold.** `[VR]` — v1 #8 (RG+LG→RG keeps holding) and v1 #9
 (smooth snap-on two-handing). Plugin v0.6 is deployed and proven flat; the first headset run
-is the current OPEN row on the status board. Everything in section F waits on this.
+is the current OPEN row on the status board. Everything in section F waits on this. **Design
+note for later (2026-09-06):** G5 adds a second dock shape — with the flashlight in the left
+hand the dock is wrist-to-wrist (position locked, rotations free) and long-weapon two-handing is
+refused. Keep the engage test and the "what is locked" choice as data, not hard-coded.
 
 **A2. Manual reloads + reload animations.** `[FLAT]` then `[VR]` — v1 #11. Fully specified in
 port map §B (magazine state machine, HMD-yaw ammo pouch, the four suppression layers, the
@@ -258,6 +265,8 @@ and the one that fits the mod. The spec:
     point: releasing LG still triggers the placement, and the pick-up screen follows. The hold-
     and-walk part stays exactly the same either way — the item can be held and carried for as
     long as LG is down.
+- **A hand holding the flashlight cannot pick up items** (G5 rule 3, 2026-09-06) — holster the
+  light on the left shoulder first.
 - Shares F1's open question: whether interaction is reachable at all from the aim state, and
   whether C++ changes that.
 
@@ -315,6 +324,35 @@ its signal; what is missing is finding the flashlight's light object and re-pare
 it each frame to a shoulder anchor (REFramework's ManualFlashlight is the reference for how it is
 toggled). The head-mounted version is the natural first build step — same code, different
 anchor — but it is a step, not the target.
+
+**Flashlight-in-hand rules (Tefa 2026-09-06 12:15).** When the flashlight is OUT of its
+shoulder holster and in the left hand, three things change:
+1. **No two-handing a long weapon.** The two-hand grip on a shotgun pump handle, a fore-end, or
+   any long-weapon dock is suppressed while the flashlight is held. The player either shoots
+   one-handed or puts the flashlight back in the left-shoulder holster first, and only then can
+   the left hand grab the pump handle. Ties into A1 (the dock) and A3 (pump/slide racking): the
+   dock's engage test gains a "left hand is empty" condition.
+2. **The handgun dock becomes a WRIST dock, not a grip dock.** Today the left hand AND the
+   flashlight would dock onto the gun's handle, which points the flashlight backwards with the
+   light still showing forward — wrong. Instead, with the flashlight held, the dock is the
+   classic wrist-over-wrist flashlight hold (reference: the RE2 Leon promotional pose — right
+   hand on the handgun, left hand holding the flashlight forward and pressed under the right
+   wrist, both pointing the same way; local copy of the picture at
+   `Pictures\Screenshots\Screenshot 2026-09-06 121435.png`, not committed — it is Capcom's
+   image). Mechanically: **the left wrist locks to the right wrist in POSITION, so moving the
+   right controller moves the whole assembly exactly as it does when the left hand is docked on
+   the grip — but both hands keep their own ROTATION**, so the player can freely angle the
+   flashlight and the gun independently while docked. Position follows the right controller;
+   orientation of each item follows its own controller.
+3. **No item pick-up while the flashlight is held.** If manual pick-up (F2) is implemented at
+   all, a hand holding the flashlight cannot grab items — holster the light first. (If F2 never
+   ships, this rule is moot.)
+
+Note the standing two-hand rule (left controller stacked ABOVE the right, never behind, so the
+headset keeps sight of both): the wrist dock puts the flashlight hand *under* the gun hand,
+which is the opposite stacking. Whether the Quest 3 tracks it cleanly is a `[VR]` judgement on
+the first run; if occlusion bites, the fallback is the same wrist lock with the flashlight hand
+beside the gun hand rather than under it.
 
 ---
 
