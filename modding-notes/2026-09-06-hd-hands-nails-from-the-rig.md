@@ -300,3 +300,26 @@ Deployed 22:34. Unchanged in this build: the nails (plate coverage identical, 28
 **If the line survives a restart** the remaining UV-locked things are the joint-wrinkle noise (near joints only,
 small) and — the more likely one — a mismatch in the *artist's own* albedo across that island, which we would have
 to blend across rather than avoid. `[hypothesis]`
+
+## The seam, part two: padding and pore depth (2026-09-06 22:50, deployed)
+
+Tefa on the 3D-pore build: *"you managed to make the seam blend in a lot better, even the line where wrist and hand
+meet... but still there are these triangle areas, where the seam is really visible"*. Two further causes, both
+independent of the first and both ours:
+
+**1. No padding past the island edge.** Every field here is rasterised from FACES, so it stops dead at an island's
+border and the masks derived from it fade out over the last texel or two. That leaves a hairline of *untreated*
+skin along every seam, and because the two sides of a seam are different islands the hairline falls somewhere
+different on each — which is what drew the triangles. Fixed the standard way for an atlas: the paint mask, the 3D
+positions and the joint fields are now grown **6 texels** (1.1 mm at 4K) into the gutter, so the fade happens
+outside anything the surface shows. 115,693 texels of padding, mask 11.0 % → 11.7 %. Kept deliberately small: this
+atlas is shared with the jacket, and 6 texels cannot reach a neighbouring island's interior.
+
+**2. Pore depth scaled with island size.** The relief was the gradient of the height *per texel*, so the same
+physical bump reads deeper on an island with fewer texels per millimetre. Measured over the hand mask, texel size
+runs **0.131 to 0.382 mm — a 2.9× spread** `[measured 2026-09-06]`, so pore depth was varying by nearly threefold
+across the hand and, worse, stepping at every seam between islands of different density. The gradient is now
+divided by the 3D distance each texel step covers, making the slope a property of the surface. That is what has to
+agree across a seam, and now does.
+
+`--gutter 0` restores the old padding behaviour. Nails unchanged again: 28,346 plate texels.
