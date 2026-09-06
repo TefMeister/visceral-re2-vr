@@ -36,6 +36,8 @@ ap.add_argument("--detail-png", default=None, help="tiling detail normal PNG (de
 ap.add_argument("--nails", type=float, default=1.0, help="redraw the nails from the rig (0 = leave the artist's 14-px blobs as upscaled): plate, lunula, free edge, cuticle + side folds, no pores on the plate. Added 2026-09-06 evening")
 ap.add_argument("--nail-length", type=float, default=0.58, help="nail plate length as a fraction of the distal phalanx (cuticle sits at 1 - this)")
 ap.add_argument("--nail-face-from-art", action="store_true", help="take each nail's facing direction from the mean normal of the artist's nail pixels. OFF by default: it moves every nail 12-16 deg, and Tefa judged the pass-16 nails (this off) perfect in VR on 2026-09-06. It was written because a Blender thumb render seemed to show the plate on the thumb's flank -- but that render's CAMERA uses the same hand-wide guess, so it may have been looking at the flank rather than the plate being on it. Unverified either way")
+ap.add_argument("--pores-uv", action="store_true", help="sample the micro-relief from the tiling 2D detail map by TEXEL, the pre-2026-09-06-22:30 behaviour. Off by default because that locks the pore pattern to the texture grid, so it cannot match across a UV seam -- which is the hard line Tefa found at the base of the thumb, and the same mechanism behind the straight lines on the forearms")
+ap.add_argument("--pore-mm", type=float, default=0.62, help="pore size in millimetres for the 3D-coherent micro-relief")
 ap.add_argument("--nail-min-px", type=int, default=400, help="drop any connected nail-plate blob smaller than this (the ten real nails are 1391-3683 texels at 4K)")
 ap.add_argument("--nail-tip", type=float, default=1.0, help="where the nail's FREE EDGE sits along the distal phalanx (1.0 = the fingertip). Every pass before 16 ended at 0.92 and left a bare pad beyond the nail")
 ap.add_argument("--nail-lunula", type=float, default=0.6, help="strength of the lighter crescent at the base of each nail (0 = none). Tefa liked the 16:53 look, which was 0.6")
@@ -141,6 +143,38 @@ for poly in me.polygons:
 print("rasterised %d skin faces: paint mask %.1f%% of texture, joint field max %.2f, mean over mask %.3f" % (
     n_faces, 100 * (fieldK > 0).mean(), fieldJ.max(), fieldJ[fieldK > 0].mean()))
 
+# ---- 2b. the same faces again, but writing each texel's 3D POSITION (assign, not max: coordinates are signed).
+# This is what lets the micro-relief below be a function of where a texel is ON THE HAND rather than where it is in the
+# texture, so two islands that meet in 3D get the same pores whatever the atlas does with them.
+Mw = skin.matrix_world
+vco_all = np.array([Mw @ v.co for v in me.vertices], np.float32)
+fieldP3 = np.zeros((N, N, 3), np.float32)
+def raster_assign_xyz(tri_uv, tri_vals, fields):
+    pts = [(u * N, (1.0 - v) * N) for u, v in tri_uv]
+    xs = [q[0] for q in pts]; ys = [q[1] for q in pts]
+    x0, x1 = max(int(min(xs)) - 1, 0), min(int(max(xs)) + 2, N); y0, y1 = max(int(min(ys)) - 1, 0), min(int(max(ys)) + 2, N)
+    if x1 <= x0 or y1 <= y0: return
+    gx, gy = np.meshgrid(np.arange(x0, x1) + 0.5, np.arange(y0, y1) + 0.5)
+    (ax_, ay_), (bx, by), (cx_, cy_) = pts
+    det_ = (bx - ax_) * (cy_ - ay_) - (cx_ - ax_) * (by - ay_)
+    if abs(det_) < 1e-9: return
+    l1 = ((bx - gx) * (cy_ - gy) - (cx_ - gx) * (by - gy)) / det_
+    l2 = ((cx_ - gx) * (ay_ - gy) - (ax_ - gx) * (cy_ - gy)) / det_
+    l3 = 1.0 - l1 - l2
+    inside = (l1 >= -0.003) & (l2 >= -0.003) & (l3 >= -0.003)
+    for fld, vals in zip(fields, tri_vals):
+        val = l1 * vals[0] + l2 * vals[1] + l3 * vals[2]
+        sub = fld[y0:y1, x0:x1]; sub[inside] = val[inside]
+for poly in me.polygons:
+    vi = list(poly.vertices)
+    if max(K[i] for i in vi) <= 0: continue
+    uvs = [tuple(uv.data[li].uv) for li in poly.loop_indices]
+    for k in range(1, len(uvs) - 1):
+        tri = (uvs[0], uvs[k], uvs[k + 1]); idx = (vi[0], vi[k], vi[k + 1])
+        raster_assign_xyz(tri, ([vco_all[i][0] for i in idx], [vco_all[i][1] for i in idx], [vco_all[i][2] for i in idx]),
+                          (fieldP3[..., 0], fieldP3[..., 1], fieldP3[..., 2]))
+print("rasterised 3D positions over the paint mask: %.1f%% of texture carries a position" % (100 * (np.abs(fieldP3).sum(2) > 0).mean()))
+
 def blur(img, sigma):
     if sigma <= 0: return img
     y = np.fft.fftfreq(N)[:, None]; x = np.fft.fftfreq(N)[None, :]
@@ -164,12 +198,57 @@ def nrm_from_height(h, scale):
 h_crease = -(creaseJ ** 2) * 0.9 * a.crease
 # micro-relief from our own tiling detail map, sampled at ~4.3 tiles across the strip (~0.5 mm per texel at 4K)
 det_png = a.detail_png or os.path.join(a.work, "visceral_skin_detail_NRM.png")
-det = load_np(det_png)                                       # 1024 tile, RG = normal xy
+det = load_np(det_png)                                       # 1024 tile, RG = normal xy (only used by --pores-uv now)
 S = 10                                                       # tiles across the texture: finer than pass 1 (6), ~0.6 mm pores
 ty = (np.arange(N) * det.shape[0] * S // N) % det.shape[0]; tx = (np.arange(N) * det.shape[1] * S // N) % det.shape[1]
-det_xy = det[np.ix_(ty, tx)][..., :2] * 2.0 - 1.0
+
+# ---- MICRO-RELIEF FROM 3D POSITION (2026-09-06 22:30). Tefa found a hard line at the base of the thumb and read it
+# exactly right: "it looks like this is where two layers of skin meet and the line clearly separates pores on the skin".
+# It is a UV seam. The pore tile was sampled by TEXEL, so its pattern, orientation and scale are properties of the atlas,
+# not of the hand: two islands that touch in 3D but sit apart in the atlas get unrelated pores, and the join between them
+# is a visible edge. The vanilla normal map over the hands is flat `[measured 2026-09-06]`, so every pore there is ours and
+# so is the seam. Same mechanism as the straight lines on the forearms.
+# The fix is to make the relief a function of the surface point. A value noise on a 3D lattice is sampled at each texel's
+# rasterised position, then the tangent-space normal is taken as the gradient of that height IN TEXEL SPACE -- so it stays
+# a correct tangent-space normal for whatever the UV does locally, while the height itself is continuous across every seam.
+def noise3(P, cell_m, seed, L=128):
+    """value noise on a periodic 3D lattice of `cell_m` metre cells, trilinear, smoothstepped"""
+    g = np.random.default_rng(seed).standard_normal((L, L, L)).astype(np.float32)
+    q = P / cell_m
+    i0 = np.floor(q).astype(np.int64)
+    fr = (q - i0).astype(np.float32); fr = fr * fr * (3.0 - 2.0 * fr)
+    ix = i0[..., 0] % L; iy = i0[..., 1] % L; iz = i0[..., 2] % L
+    jx = (ix + 1) % L; jy = (iy + 1) % L; jz = (iz + 1) % L
+    fx, fy, fz = fr[..., 0], fr[..., 1], fr[..., 2]
+    c00 = g[ix, iy, iz] * (1 - fx) + g[jx, iy, iz] * fx
+    c10 = g[ix, jy, iz] * (1 - fx) + g[jx, jy, iz] * fx
+    c01 = g[ix, iy, jz] * (1 - fx) + g[jx, iy, jz] * fx
+    c11 = g[ix, jy, jz] * (1 - fx) + g[jx, jy, jz] * fx
+    return ((c00 * (1 - fy) + c10 * fy) * (1 - fz) + (c01 * (1 - fy) + c11 * fy) * fz).astype(np.float32)
+
+if a.pores_uv:
+    det_xy = det[np.ix_(ty, tx)][..., :2] * 2.0 - 1.0
+    pore_h = None
+else:
+    _cell = a.pore_mm / 1000.0
+    pore_h = noise3(fieldP3, _cell, 11) * 0.62 + noise3(fieldP3, _cell * 0.5, 12) * 0.38
+    _m = fieldK > 0
+    pore_h = (pore_h - float(pore_h[_m].mean())) / (float(pore_h[_m].std()) + 1e-9)
+    _gx, _gy = nrm_from_height(pore_h, 1.0)
+    # match the amplitude the tiling map produced, so nothing about the look changes except that the seams go
+    _ref = det[np.ix_(ty, tx)][..., :2] * 2.0 - 1.0
+    _sc = float(np.sqrt((_ref[_m] ** 2).mean()) / (np.sqrt((np.stack([_gx, _gy], -1)[_m] ** 2).mean()) + 1e-9))
+    det_xy = np.stack([_gx * _sc, _gy * _sc], axis=-1).astype(np.float32)
+    print("pores: 3D-coherent, %.2f mm cells, gradient scaled x%.1f to match the old tile's RMS tilt" % (a.pore_mm, _sc))
 rng = np.random.default_rng(3)
-mottle = blur(rng.standard_normal((N, N)).astype(np.float32), N / 90.0); mottle /= (mottle.std() + 1e-9)
+# the low-frequency colour mottling was UV-locked too, so it also stepped across every seam. Same cure: a 3D noise,
+# ~8 mm cells (2026-09-06 22:35). With --pores-uv it falls back to the old UV noise.
+if a.pores_uv:
+    mottle = blur(rng.standard_normal((N, N)).astype(np.float32), N / 90.0)
+else:
+    mottle = noise3(fieldP3, 0.008, 21)
+_mm = fieldK > 0
+mottle = (mottle - float(mottle[_mm].mean())) / (float(mottle[_mm].std()) + 1e-9)
 # --- veins: the original albedo already carries faint dorsal veins as darker branching lines. Lift them: luminance
 # high-pass at vein scale, keep the dark side, threshold softly -> a raised ridge in the normal + a cooler tint in colour.
 lum = alb[..., :3].mean(2)
@@ -759,8 +838,11 @@ vt = np.clip(veins * 0.6 + vein_lines * 1.4 + tint_lines * 1.1, 0, 1)
 out_alb[..., 0] *= (1.0 - vt * 0.07); out_alb[..., 1] *= (1.0 - vt * 0.035)                                       # veins: a cool ~5 % (14:20: still a touch visible at 7 %)
 out_alb[..., :3] *= mot[..., None]
 # pores slightly darker: use the detail map's alpha (AO) very gently
-det_ao = det[np.ix_(ty, tx)][..., 3]
-out_alb[..., :3] *= (1.0 - edge * (1.0 - det_ao) * 0.06 * a.pores * no_plate)[..., None]   # barely-there: pores read as relief, not dirt
+if pore_h is None:
+    det_pit = 1.0 - det[np.ix_(ty, tx)][..., 3]
+else:
+    det_pit = np.clip(-pore_h * 0.5 + 0.5, 0, 1)                # pits (low height) darker, same field as the relief
+out_alb[..., :3] *= (1.0 - edge * det_pit * 0.06 * a.pores * no_plate)[..., None]   # barely-there: pores read as relief, not dirt
 # ---- nails in colour: wipe the artist's nail back to this finger's own skin, then lay one pale-pink plate over it.
 if a.nails > 0 and nail_plate.any():
     # 1. the wipe. Pass 9: `nail_wipe` carries "differs from this finger's skin" in BOTH directions, so the artist's DARK
