@@ -20,6 +20,9 @@ historical record of the first plan; from here on this file is the list.
   3. **NEW 25 — manual item pick-up, fully specified.** Replaces the one-line F2. Left hand
      grabs, hold to carry, release to bank it into the inventory; a right-hand grab only when
      no gun is in that hand, and only if it does not mean re-wiring RG again. Detail in F2.
+- **2026-09-06 14:12 — NEW 26 added by Tefa: a main-menu background for VR.** In the headset the
+  menu is black with a blue smear; the Raccoon City image that fills the flat screen sits far
+  back as a tiny picture nobody can make out. New G6.
 - **2026-09-06 12:15 — flashlight-in-hand rules added to G5:** no two-handing a long weapon
   while the flashlight is held (holster it first); the handgun dock becomes a wrist-to-wrist
   dock (position locked to the right controller, each hand keeps its own rotation); no item
@@ -61,6 +64,16 @@ Two need a note about what they replace:
 One is a genuine fork, not a duplicate: **new 21 (physical item grabbing)** and **v1 #6
 (automatic item pick-up)** are two different answers to the same problem. Both are kept, F2
 and F3 below, and only one will ship.
+
+**G6. A main-menu background in VR.** `[FLAT]` then `[VR]` — NEW 26, Tefa 2026-09-06 14:12.
+Flat, the title menu sits on a full-screen image of Raccoon City; in the headset that image is
+a small quad far behind the menu, unreadable, and the menu floats in black with the blue smear
+of the shipped fog. Wanted: the city image readable behind the menu at a comfortable distance
+and size — either the shipped background quad brought forward and scaled to the view, or a
+replacement panel/skybox placed by the mod when the title scene is up. Recon first
+(`[FLAT]`): which GameObject carries the image (a `via.gui` element, or a scene quad under the
+title level) and whether its transform is writable from Lua/the plugin; then the placement is a
+headset judgement. Low risk, high first-impression value; belongs with G2's menu work.
 
 ## Why this order
 
