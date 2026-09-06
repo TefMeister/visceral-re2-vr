@@ -18,6 +18,7 @@ ap.add_argument("src"); ap.add_argument("out"); ap.add_argument("sets", nargs="+
 ap.add_argument("--side", default="l"); ap.add_argument("--view", default="dorsal"); ap.add_argument("--size", type=int, default=1400)
 ap.add_argument("--flip-green", action="store_true", help="treat the NRMR as DirectX-style (Y down)")
 ap.add_argument("--zoom", type=float, default=1.0, help=">1 = closer on the metacarpal region")
+ap.add_argument("--focus", default="hand", help="hand (default) or fingers = frame the distal phalanges (nails)")
 ap.add_argument("--character", default="pl1000"); ap.add_argument("--skin-mat", default="Body_Mat"); ap.add_argument("--tex-base", default="pl1000_Jacket")
 a = ap.parse_args(argv)
 os.makedirs(a.out, exist_ok=True)
@@ -60,6 +61,15 @@ hidx = np.where(np.char.startswith(topname, side + "_hand_") | (topname == side 
 meta = np.array([i for i in hidx if topname[i].endswith("_0") or topname[i] == side + "_arm_wrist"])
 c = vco[hidx].mean(0) if a.zoom <= 1.0 else vco[meta].mean(0)
 radius = float(np.linalg.norm(vco[hidx] - c, axis=1).max()) / a.zoom
+if a.focus in ("fingers", "thumb"):                          # the distal phalanges only (nails, 2026-09-06 evening)
+    want = (side + "_hand_thumb_2",) if a.focus == "thumb" else (side + "_hand_index_2", side + "_hand_middle_2", side + "_hand_ring_3", side + "_hand_little_3")
+    tips = np.array([i for i in hidx if topname[i] in want])
+    c = vco[tips].mean(0); radius = float(np.linalg.norm(vco[tips] - c, axis=1).max()) * 1.05
+    if a.focus == "thumb":                                   # look at the thumb's own back: radially (away from the little finger) + dorsally, bent perpendicular to its distal bone
+        t2 = jpos(side + "_hand_thumb_2"); tax = unit(t2 - t1)
+        across = unit(krow[1] - krow[0]) if len(krow) == 2 else unit(np.cross(dorsal, axis))
+        tb = unit(dorsal * 0.6 - across * 0.8); tb = unit(tb - tax * np.dot(tb, tax))
+        dorsal = tb; axis = tax
 d = Vector(tuple(map(float, dorsal if a.view == "dorsal" else -dorsal)))
 
 scene = bpy.context.scene

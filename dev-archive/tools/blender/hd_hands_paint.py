@@ -33,6 +33,9 @@ ap.add_argument("--crease", type=float, default=1.0, help="joint crease depth (0
 ap.add_argument("--palm-pores", type=float, default=0.3, help="pore relief on the PALM side as a fraction of the back (baked relief AND the detail-mask texture)")
 ap.add_argument("--tone", type=float, default=1.0, help="albedo variation strength (0 = none)")
 ap.add_argument("--detail-png", default=None, help="tiling detail normal PNG (default <work>/visceral_skin_detail_NRM.png)")
+ap.add_argument("--nails", type=float, default=1.0, help="redraw the nails from the rig (0 = leave the artist's 14-px blobs as upscaled): plate, lunula, free edge, cuticle + side folds, no pores on the plate. Added 2026-09-06 evening")
+ap.add_argument("--nail-length", type=float, default=0.58, help="nail plate length as a fraction of the distal phalanx (cuticle sits at 1 - this)")
+ap.add_argument("--nail-width", type=float, default=0.62, help="plate width as a fraction of the finger's width at the distal phalanx (0.85 read as a cap over the whole tip)")
 a = ap.parse_args(argv)
 N = a.size
 os.makedirs(a.out, exist_ok=True)
@@ -191,6 +194,9 @@ h_wrinkle = wr * near_joint * 0.18 * a.wrinkles
 h_anat = np.zeros((N, N), np.float32); vein_lines = np.zeros((N, N), np.float32)
 dorsal = np.ones((N, N), np.float32)                          # 1 on the back of the hands + forearms, 0 on the palms (set below)
 fieldD = np.zeros((N, N), np.float32)
+nail_plate = np.zeros((N, N), np.float32); nail_h = np.zeros((N, N), np.float32); nail_clean = np.zeros((N, N), np.float32)   # filled by paint_nail() below
+nail_lun = np.zeros((N, N), np.float32); nail_free = np.zeros((N, N), np.float32); nail_cut = np.zeros((N, N), np.float32)
+nail_shadow = np.zeros((N, N), np.float32); nail_groove = np.zeros((N, N), np.float32); nail_base = np.zeros((N, N, 3), np.float32)
 try:
     arm = [o for o in bpy.data.objects if o.type == "ARMATURE"][0]
     M = skin.matrix_world; R3 = M.to_3x3()
@@ -306,6 +312,151 @@ try:
         if len(uvs) >= 2: polyline(img, np.array(uvs), np.array(vals, np.float32))
     tend = np.zeros((N, N), np.float32); vein_lines = np.zeros((N, N), np.float32); tint_lines = np.zeros((N, N), np.float32)
     fieldD = np.zeros((N, N), np.float32)
+    # ---- nails (2026-09-06 evening): per-pixel 3D POSITION over the finger islands, so each nail can be cut analytically in the
+    # distal phalanx's own frame (t along the bone, angle round it) instead of upscaling the artist's 14-px blob.
+    FINGERS = ("thumb", "index", "middle", "ring", "little")
+    def raster_assign(tri_uv, tri_vals, fields):
+        """like raster() but overwrites (coordinates are signed, so max() would clobber them)"""
+        pts = [(u * N, (1.0 - v) * N) for u, v in tri_uv]
+        xs = [p[0] for p in pts]; ys = [p[1] for p in pts]
+        x0, x1 = max(int(min(xs)) - 1, 0), min(int(max(xs)) + 2, N); y0, y1 = max(int(min(ys)) - 1, 0), min(int(max(ys)) + 2, N)
+        if x1 <= x0 or y1 <= y0: return
+        gx, gy = np.meshgrid(np.arange(x0, x1) + 0.5, np.arange(y0, y1) + 0.5)
+        (ax_, ay_), (bx, by), (cx_, cy_) = pts
+        det = (bx - ax_) * (cy_ - ay_) - (cx_ - ax_) * (by - ay_)
+        if abs(det) < 1e-9: return
+        l1 = ((bx - gx) * (cy_ - gy) - (cx_ - gx) * (by - gy)) / det
+        l2 = ((cx_ - gx) * (ay_ - gy) - (ax_ - gx) * (cy_ - gy)) / det
+        l3 = 1.0 - l1 - l2
+        inside = (l1 >= -0.003) & (l2 >= -0.003) & (l3 >= -0.003)
+        for fld, vals in zip(fields, tri_vals):
+            val = l1 * vals[0] + l2 * vals[1] + l3 * vals[2]
+            sub = fld[y0:y1, x0:x1]; sub[inside] = val[inside]
+    fid = np.zeros(len(me.vertices), np.int32)                          # finger id per vertex: 1..5 left, 6..10 right, 0 = not a finger
+    for i in range(len(me.vertices)):
+        tn = topname[i]
+        for si, sd in enumerate(("l", "r")):
+            for fi, f in enumerate(FINGERS):
+                if tn.startswith("%s_hand_%s_" % (sd, f)): fid[i] = si * 5 + fi + 1
+    fieldP = np.zeros((N, N, 3), np.float32); fieldID = np.zeros((N, N), np.float32); fieldNm = np.zeros((N, N, 3), np.float32)
+    for poly in me.polygons:
+        vi = list(poly.vertices)
+        if max(fid[i] for i in vi) == 0: continue
+        uvs = [tuple(uv.data[li].uv) for li in poly.loop_indices]
+        tid = float(max(fid[i] for i in vi))
+        for k in range(1, len(uvs) - 1):
+            tri = (uvs[0], uvs[k], uvs[k + 1]); idx = (vi[0], vi[k], vi[k + 1])
+            raster_assign(tri, ([vco[i][0] for i in idx], [vco[i][1] for i in idx], [vco[i][2] for i in idx], [tid] * 3,
+                                [vno[i][0] for i in idx], [vno[i][1] for i in idx], [vno[i][2] for i in idx]),
+                          (fieldP[..., 0], fieldP[..., 1], fieldP[..., 2], fieldID, fieldNm[..., 0], fieldNm[..., 1], fieldNm[..., 2]))
+    def smooth_on_pixels(vals, ys_, xs_, sigma):
+        """gaussian-smooth a per-pixel field over the pixels' own bbox, normalised by the pixel mask (facets of the coarse finger mesh
+        put a 2-6 texel wobble on the plate outline in pass 5)"""
+        y0, x0 = ys_.min(), xs_.min(); h, w = ys_.max() - y0 + 1, xs_.max() - x0 + 1
+        img = np.zeros((h, w), np.float32); msk = np.zeros((h, w), np.float32)
+        img[ys_ - y0, xs_ - x0] = vals; msk[ys_ - y0, xs_ - x0] = 1.0
+        r = int(3 * sigma) + 1; k = np.exp(-0.5 * (np.arange(-r, r + 1) / sigma) ** 2); k /= k.sum()
+        def g(m):
+            m = np.apply_along_axis(lambda row: np.convolve(row, k, mode="same"), 1, m)
+            return np.apply_along_axis(lambda col: np.convolve(col, k, mode="same"), 0, m)
+        out = g(img) / (g(msk) + 1e-6)
+        return out[ys_ - y0, xs_ - x0]
+    nail_plate = np.zeros((N, N), np.float32); nail_h = np.zeros((N, N), np.float32); nail_clean = np.zeros((N, N), np.float32)
+    nail_lun = np.zeros((N, N), np.float32); nail_free = np.zeros((N, N), np.float32); nail_cut = np.zeros((N, N), np.float32)
+    nail_shadow = np.zeros((N, N), np.float32); nail_groove = np.zeros((N, N), np.float32); nail_base = np.zeros((N, N, 3), np.float32)
+    def paint_nail(side, f, ddir0, across_h):
+        """one nail: frame from the distal phalanx bone (axis = previous joint -> distal joint, back = the hand's dorsal direction bent
+        perpendicular to the bone), plate = rounded rectangle in (arc length round the finger, distance along the bone), in TEXELS"""
+        chain = [n for n in names if n.startswith("%s_hand_%s_" % (side, f)) and n.rsplit("_", 1)[-1].isdigit()]
+        chain.sort(key=lambda n: int(n.rsplit("_", 1)[-1]))
+        if len(chain) < 2: print("nails: no chain for", side, f); return
+        dist, prev = chain[-1], chain[-2]
+        hd, pv = jpos(dist), jpos(prev)
+        if hd is None or pv is None: return
+        ax = unit(hd - pv)
+        base = ddir0
+        if f == "thumb": base = unit(ddir0 * 0.6 - across_h * 0.8)          # same rule as the dorsal pick above: the thumb's back faces radially + dorsally
+        dd = unit(base - ax * np.dot(base, ax))
+        my = fid == (("l", "r").index(side) * 5 + FINGERS.index(f) + 1)
+        dv = np.array([i for i in range(len(me.vertices)) if my[i] and topname[i] == dist])
+        if len(dv) < 4: print("nails: %s %s: only %d distal verts" % (side, f, len(dv))); return
+        # refine the back direction from THIS finger's own mesh (pass 2: the little finger sits rolled ~40 deg in Claire's pose, so the
+        # hand-wide dorsal put its plate on the side): mean normal of the distal verts facing the hand's back, re-orthogonalised to the bone
+        # pass 8: the mean-normal refinement moved nothing (it is biased toward its own start), and the little finger's plate stayed on
+        # its side. A fingertip is wider than it is tall, so the cross-section's MAJOR axis is the lateral axis and the nail lies on the
+        # face perpendicular to it: 2D PCA of the distal verts' radial offsets, sign from the hand-wide dorsal direction.
+        lt0 = np.cross(ax, dd)
+        dvs0 = (vco[dv] - hd) @ ax; dvr0 = (vco[dv] - hd) - np.outer(dvs0, ax)
+        midv = (dvs0 > 0.25 * L0) if (L0 := float(dvs0.max())) > 0 else np.ones(len(dv), bool)
+        pts2 = np.stack([dvr0[midv] @ lt0, dvr0[midv] @ dd], 1)
+        if len(pts2) >= 8:
+            c2 = pts2 - pts2.mean(0); w2, v2 = np.linalg.eigh(c2.T @ c2); major = v2[:, 1]
+            lat_new = unit(lt0 * major[0] + dd * major[1]); dd_new = unit(np.cross(lat_new, ax))
+            if np.dot(dd_new, dd) < 0: dd_new = -dd_new
+            print("nails %s %-6s: cross-section %.1f x %.1f mm, back turned %.0f deg by its shape" % (side, f, 2 * np.sqrt(w2[1] / len(c2)) * 1000, 2 * np.sqrt(w2[0] / len(c2)) * 1000, np.degrees(np.arccos(np.clip(np.dot(dd_new, dd), -1, 1)))))
+            dd = dd_new
+        lt = np.cross(ax, dd)
+        L = float(((vco[dv] - hd) @ ax).max())                                # tip of the mesh along the bone
+        sel = fieldID == float(("l", "r").index(side) * 5 + FINGERS.index(f) + 1)
+        ys_, xs_ = np.nonzero(sel)
+        if len(ys_) == 0: return
+        P = fieldP[ys_, xs_]; rel = P - hd; s = rel @ ax; t = s / max(L, 1e-6)
+        rad = rel - np.outer(s, ax); rn = np.linalg.norm(rad, axis=1) + 1e-9
+        xl = rad @ lt; xd = rad @ dd                                           # lateral offset from the bone's sagittal plane / height toward the back
+        inplate = (t > 0.35) & (t < 0.95)
+        R = float(np.median(rn[inplate])) if inplate.sum() > 20 else float(np.median(rn))
+        # the finger's half-width, from the distal verts themselves (pass 3: an ANGLE round the bone put the little finger's plate on its
+        # side, because that bone runs off-centre in a flattened segment; a lateral distance does not care where the bone sits)
+        dvs = (vco[dv] - hd) @ ax; dvrad = (vco[dv] - hd) - np.outer(dvs, ax)
+        mid = (dvs > 0.3 * L) & (dvs < 0.9 * L)
+        halfw = float(np.percentile(np.abs(dvrad[mid] @ lt), 90)) if mid.sum() > 6 else R
+        mm = N / 4096.0 / 0.183                                                # texels per mm (back of the hand, measured 2026-09-06)
+        wfrac = a.nail_width * (0.95 if f == "thumb" else 1.0)                 # plate width as a fraction of the finger width
+        t0, t1 = 1.0 - a.nail_length * (0.85 if f == "thumb" else 1.0), 0.92   # 0.97 reached the tip cap, where the angle round the bone is meaningless (a wedge)
+        wx = wfrac * halfw * 1000.0 * mm; wy = 0.5 * (t1 - t0) * L * 1000.0 * mm  # plate half-width / half-length in texels
+        X = smooth_on_pixels(xl * 1000.0 * mm, ys_, xs_, 2.5); Y = smooth_on_pixels(((t - t0) / (t1 - t0) * 2.0 - 1.0) * wy, ys_, xs_, 2.5)
+        ang = np.arctan2(xl / rn, xd / rn)                                     # still used for the skin-colour reference ring
+        nmp = fieldNm[ys_, xs_]; nd = (nmp @ dd) / (np.linalg.norm(nmp, axis=1) + 1e-9)   # surface normal vs the back direction (pass 6: the little finger's bone hugs its back, so xd faded its plate)
+        # rounded-rectangle SDF, proximal corners rounder (the lunula end), distal corners tighter (the free edge); radius continuous in Y
+        rc = wx * (0.5 + 0.25 * np.clip(-Y / max(wy, 1e-6), 0, 1))
+        qx = np.abs(X) - (wx - rc); qy = np.abs(Y) - (wy - rc)
+        sdf = np.sqrt(np.maximum(qx, 0) ** 2 + np.maximum(qy, 0) ** 2) + np.minimum(np.maximum(qx, qy), 0) - rc
+        # keep everything to the back half of the finger (the SDF is periodic in nothing: the angle is, so clamp the far side)
+        backside = np.clip((nd - 0.1) / 0.25, 0, 1) * np.clip((rn / max(R, 1e-6) - 0.2) / 0.15, 0, 1)   # faces the back (by surface normal), and not the tip cap where rad -> 0 (a hairline spike on the thumb in pass 2)
+        plate = np.clip(0.5 - sdf, 0, 1) * backside
+        yn = Y / max(wy, 1e-6); xn = X / max(wx, 1e-6)
+        distal = np.clip((yn - 0.45) / 0.4, 0, 1)                              # 1 toward the free edge
+        groove = np.exp(-(sdf ** 2) / (2 * 1.1 ** 2)) * (1.0 - distal) * backside          # the plate's outline: cuticle + side folds
+        fold = np.exp(-((sdf - 2.0) ** 2) / (2 * 1.6 ** 2)) * (1.0 - distal) * backside   # the skin fold rising over the plate edge
+        cut = np.exp(-((sdf - 1.5) ** 2) / (2 * 2.0 ** 2)) * np.clip((-yn - 0.55) / 0.3, 0, 1) * backside   # eponychium band, proximal only
+        free = np.clip((yn - 0.55) / 0.3, 0, 1) * plate                          # free edge: the plate past the bed
+        shadow = np.exp(-(sdf ** 2) / (2 * 2.2 ** 2)) * (sdf > 0) * distal * backside      # hyponychium shadow under the free edge
+        lun = np.clip((-yn - 0.45 - 0.35 * xn ** 2) / 0.18, 0, 1) * plate         # lunula: crescent at the base
+        ridges = 0.5 + 0.5 * np.sin(X * (2 * np.pi / 5.0))                        # longitudinal ridges, 5 texels apart (~0.9 mm)
+        dome = 1.0 - np.clip(xn, -1, 1) ** 2
+        h = (0.05 * plate + 0.05 * dome * plate + 0.08 * free - 0.12 * groove + 0.08 * fold + 0.004 * ridges * plate) * a.nails   # ridges at 0.01 read as stripes in the render
+        # clean-up zone for the artist's blob: a 12-texel ring round the plate (the first pass wiped the whole distal segment to the
+        # proximal skin colour and darkened every fingertip: the tip skin is painted lighter than the finger)
+        clean = np.clip((14.0 - sdf) / 3.0, 0, 1) * (t < 1.1) * np.clip((nd + 0.3) / 0.3, 0, 1)   # back half + the tip cap (xd ~ 0 there), never the pad: the artist's white free edge sits ON the cap (pass 2 left a sliver); pass 4's lateral X made the pad look "inside" the plate too
+        # base skin colour for this finger: the LOCAL skin ring just outside the blob, from the (upscaled) original albedo
+        ref = (sdf > 6) & (sdf < 16) & (nd > 0.2)
+        if ref.sum() < 20: ref = (t > 0.0) & (t < 0.3) & (np.abs(ang) < 1.0)
+        if ref.sum() < 20: ref = (t < 0.35)
+        col = np.median(alb[ys_[ref], xs_[ref], :3], axis=0)
+        for arr, v in ((nail_plate, plate), (nail_h, h), (nail_clean, clean), (nail_lun, lun), (nail_free, free), (nail_cut, cut),
+                       (nail_shadow, shadow), (nail_groove, groove + 0.5 * fold)):
+            arr[ys_, xs_] = np.maximum(arr[ys_, xs_], v.astype(np.float32))
+        nail_base[ys_, xs_] = col
+        # proof in the static domain: where does the artist's nail blob sit relative to our plate? (bright, low-saturation pixels
+        # in the clean-up zone of the ORIGINAL albedo vs the plate's centroid, in texels)
+        lumf = alb[ys_, xs_, :3].mean(1); satf = alb[ys_, xs_, :3].max(1) - alb[ys_, xs_, :3].min(1)
+        blob = (clean > 0.5) & (lumf > lumf[ref].mean() + 0.06) & (satf < np.median(satf[ref]) * 0.85)
+        if plate.sum() > 0:
+            pc = (np.average(xs_, weights=plate), np.average(ys_, weights=plate))
+            bc = (np.average(xs_[blob]), np.average(ys_[blob])) if blob.sum() > 10 else None
+            print("nails %s %-6s: distal %d verts, L %.1f mm, R %.1f mm, plate %dx%d texels (%d px), centroid (%d,%d)%s" % (
+                side, f, len(dv), L * 1000, R * 1000, 2 * wx, 2 * wy, int(plate.sum()), pc[0], pc[1],
+                "" if bc is None else ", artist blob %d px at (%d,%d): offset %.0f texels" % (blob.sum(), bc[0], bc[1], np.hypot(pc[0] - bc[0], pc[1] - bc[1]))))
     for side in ("l", "r"):
         w = jpos(side + "_arm_wrist"); m0 = jpos(side + "_hand_middle_0"); t1 = jpos(side + "_hand_thumb_1"); el = jpos(side + "_arm_radius")
         if w is None or m0 is None or t1 is None: print("anatomy: bones missing for", side); continue
@@ -345,6 +496,8 @@ try:
                 pk = jpos(side + "_hand_%s_%d" % (f, k))
                 if pk is not None and np.dot(pk - w, axis) > 0.04: kr.append(pk); break
         across_h = unit(kr[1] - kr[0]) if len(kr) == 2 else unit(np.cross(ddir0, axis))   # index -> little
+        if a.nails > 0:
+            for f in FINGERS: paint_nail(side, f, ddir0, across_h)
         hset = set(int(i) for i in hidx); htris = []
         for poly in me.polygons:
             vi = list(poly.vertices)
@@ -472,17 +625,18 @@ try:
           100 * (vein_lines[fieldK > 0] > 0.3).mean(), 100 * (tend[fieldK > 0] > 0.3).mean(), 100 * (tint_lines[fieldK > 0] > 0.3).mean()))
 except Exception as e:
     import traceback; traceback.print_exc(); print("anatomy: skipped:", e)
-cx, cy = nrm_from_height(h_crease + h_veins + h_wrinkle + h_anat, 6.0)
+no_plate = 1.0 - nail_plate                                   # nails: no wrinkles, pores or grain on the plate itself
+cx, cy = nrm_from_height(h_crease + h_veins + h_wrinkle * no_plate + h_anat + nail_h, 6.0)
 _fs = 4.0 * (N / 4096.0 / 0.183)
 dorsal_soft = (blur(np.clip((fieldD - 0.35) / 0.3, 0, 1) * (fieldK > 0), _fs) / (blur((fieldK > 0).astype(np.float32), _fs) + 1e-3)) if fieldD.any() else dorsal   # ~4 mm feather, normalised inside the islands (14:35)
-palm_pore = a.palm_pores + (1.0 - a.palm_pores) * np.clip(dorsal_soft, 0, 1)   # palms: 30 % of the pore relief
+palm_pore = (a.palm_pores + (1.0 - a.palm_pores) * np.clip(dorsal_soft, 0, 1)) * no_plate   # palms: 30 % of the pore relief; nail plates: none
 nx = (nrm[..., 0] * 2 - 1) + edge * (cx + det_xy[..., 0] * 0.35 * a.pores * (0.7 + 0.3 * fieldF) * palm_pore)
 ny = (nrm[..., 1] * 2 - 1) + edge * (cy + det_xy[..., 1] * 0.35 * a.pores * (0.7 + 0.3 * fieldF) * palm_pore)
 nz = np.sqrt(np.clip(1.0 - nx ** 2 - ny ** 2, 0.05, 1.0))
 out_nrm = nrm.copy()
 out_nrm[..., 0] = nx * 0.5 + 0.5; out_nrm[..., 1] = ny * 0.5 + 0.5; out_nrm[..., 2] = nz
-# roughness (alpha, hypothesis): slightly lower in creases/knuckles where skin is tighter and moister
-out_nrm[..., 3] = np.clip(nrm[..., 3] - edge * creaseJ * 0.06, 0, 1)
+# roughness (alpha, hypothesis): slightly lower in creases/knuckles where skin is tighter and moister; lower again on the nail plates (gloss)
+out_nrm[..., 3] = np.clip(nrm[..., 3] - edge * creaseJ * 0.06 - nail_plate * 0.18 * a.nails, 0, 1)
 
 # ---- 4. albedo: joint redness + mottling ----------------------------------------------------------------
 out_alb = alb.copy()
@@ -496,7 +650,29 @@ out_alb[..., 0] *= (1.0 - vt * 0.07); out_alb[..., 1] *= (1.0 - vt * 0.035)     
 out_alb[..., :3] *= mot[..., None]
 # pores slightly darker: use the detail map's alpha (AO) very gently
 det_ao = det[np.ix_(ty, tx)][..., 3]
-out_alb[..., :3] *= (1.0 - edge * (1.0 - det_ao) * 0.06 * a.pores)[..., None]   # barely-there: pores read as relief, not dirt
+out_alb[..., :3] *= (1.0 - edge * (1.0 - det_ao) * 0.06 * a.pores * no_plate)[..., None]   # barely-there: pores read as relief, not dirt
+# ---- nails in colour: first wipe the artist's blob (only where it is BRIGHTER than this finger's skin, so the baked shading
+# along the finger sides survives), then the plate: bed pink, lunula, translucent free edge, cuticle band, side folds, shadow.
+if a.nails > 0 and nail_plate.any():
+    lum = out_alb[..., :3].mean(2); base_lum = nail_base.mean(2)
+    wipe = nail_clean * np.clip((lum - base_lum - 0.03) / 0.10, 0, 1) * a.nails
+    fill = nail_base * mot[..., None]
+    out_alb[..., :3] = out_alb[..., :3] * (1.0 - wipe)[..., None] + fill * wipe[..., None]
+    # the plate is LIGHTER than the skin round it (the first pass's skin-times-pink read as a dark brown sticker)
+    bed = (fill + (1.0 - fill) * 0.20) * np.array([1.0, 0.94, 0.95], np.float32)                     # pale pink: skin lifted a fifth toward white, a touch pinker
+    g = np.clip(fill.mean(2) * 1.45, 0, 1)[..., None]
+    white = fill + (1.0 - fill) * 0.50                                                                # lunula: skin lifted halfway to white
+    fe_col = np.concatenate([g * 0.99, g * 0.97, g * 0.95], axis=2)                                   # free edge: greyish white
+    nail_col = bed * (1.0 - nail_lun[..., None] * 0.6) + white * (nail_lun[..., None] * 0.6)
+    nail_col = nail_col * (1.0 - nail_free[..., None] * 0.7) + fe_col * (nail_free[..., None] * 0.7)
+    pl = nail_plate * a.nails
+    out_alb[..., :3] = out_alb[..., :3] * (1.0 - pl)[..., None] + nail_col * pl[..., None]
+    dark = (1.0 - 0.06 * nail_cut) * (1.0 - 0.05 * nail_groove) * (1.0 - 0.18 * nail_shadow)
+    dark = 1.0 - (1.0 - dark) * a.nails
+    out_alb[..., :3] *= dark[..., None]
+    dbg = np.zeros((N, N, 4), np.float32); dbg[..., 0] = nail_plate; dbg[..., 1] = nail_clean; dbg[..., 2] = nail_groove + nail_shadow; dbg[..., 3] = 1.0
+    save_np(dbg, os.path.join(a.out, "nail_mask.png"))
+    print("nails: plate covers %d texels, clean-up zone %d, wiped %.0f texel-equivalents" % ((nail_plate > 0.5).sum(), (nail_clean > 0.5).sum(), wipe.sum()))
 out_alb[..., 3] = alb[..., 3]                                 # metallic untouched
 
 # detail mask (MSK1, BC4 2048, white over the hands): scale it down on the palms so the material's TILED pores follow the same rule
@@ -504,7 +680,7 @@ msk_png = os.path.join(a.work, TB + "_msk1.png")
 if os.path.exists(msk_png):
     msk = load_np(msk_png); Wm = msk.shape[0]
     step = N // Wm
-    pp = palm_pore[::step, ::step] if step > 1 else palm_pore
+    pp = palm_pore[::step, ::step] if step > 1 else palm_pore              # palm_pore already carries (1 - nail plate): no tiled pores on the nails
     ed = edge[::step, ::step] if step > 1 else edge
     m = msk[..., 0] * (1.0 - ed) + msk[..., 0] * pp * ed
     msk_out = np.repeat(m[..., None], 4, axis=2); msk_out[..., 3] = 1.0
