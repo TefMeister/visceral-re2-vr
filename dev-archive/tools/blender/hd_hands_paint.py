@@ -26,7 +26,7 @@ ap.add_argument("--size", type=int, default=4096)
 ap.add_argument("--character", default="pl1000"); ap.add_argument("--skin-mat", default="Body_Mat", help="substring of the skin material name")
 ap.add_argument("--tex-base", default="pl1000_Jacket", help="texture base name: inputs <base>_albm/_nrmr(.tex.34 or .png in work), outputs <base>_ALBM/_NRMR.png")
 ap.add_argument("--pores", type=float, default=0.3, help="micro-relief strength (0 = none); 1.0 was the first pass, sandpaper in game")
-ap.add_argument("--veins", type=float, default=0.35, help="dorsal vein relief lifted from the original albedo (0 = none); the lift finds blobs, not lines, so it is a hint by default")
+ap.add_argument("--veins", type=float, default=0.0, help="dorsal vein relief lifted from the original albedo. OFF by default since 14:35: its high-pass fires along UV island borders (a crisp line round the wrist, a plate outline on the thumb); the rig-drawn veins replaced it")
 ap.add_argument("--wrinkles", type=float, default=1.0, help="fine wrinkle networks around the joints (0 = none)")
 ap.add_argument("--anatomy", type=float, default=0.0, help="rig-derived veins/tendons drawn along the mesh surface (off by default until judged in VR). The 2026-09-06 02:50 attempts picked the little-finger edge instead of the back of the hand; fixed 12:00 via the finger-curl sign")
 ap.add_argument("--crease", type=float, default=1.0, help="joint crease depth (0 = none)")
@@ -458,7 +458,7 @@ try:
         blurred by sigma peaks at 1/(sigma*sqrt(2*pi))); overlaps are soft-clipped rather than cut into plateaus"""
         out = blur(img, sigma) * (sigma * np.sqrt(2 * np.pi))
         return 1.0 - np.exp(-1.2 * out)                                      # 0.70 for one line, eases toward 1 where lines cross (no plateau)
-    tint_lines = line_blur(tint_lines, 0.9 * mm) * (1.0 - fieldF)       # inner-wrist veins: colour only, never relief
+    tint_lines = line_blur(tint_lines, 2.0 * mm) * (1.0 - fieldF) * 0.6   # inner-wrist veins: colour only, a soft ~4 mm band (14:35: 0.9 mm read as sharp scratches)
     tend = line_blur(tend, 1.3 * mm)                                     # ~3 mm wide, faint
     vein_lines = line_blur(vein_lines, 0.75 * mm)                        # ~1.8 mm wide (14:00: "too wide" at 2.8 mm on a female hand)
     vein_lines = vein_lines * dorsal * (1.0 - fieldF)
@@ -473,7 +473,8 @@ try:
 except Exception as e:
     import traceback; traceback.print_exc(); print("anatomy: skipped:", e)
 cx, cy = nrm_from_height(h_crease + h_veins + h_wrinkle + h_anat, 6.0)
-dorsal_soft = blur(np.clip((fieldD - 0.35) / 0.3, 0, 1), 4.0 * (N / 4096.0 / 0.183)) if fieldD.any() else dorsal   # ~4 mm feather (14:20: a hard step drew a line round the wrist)
+_fs = 4.0 * (N / 4096.0 / 0.183)
+dorsal_soft = (blur(np.clip((fieldD - 0.35) / 0.3, 0, 1) * (fieldK > 0), _fs) / (blur((fieldK > 0).astype(np.float32), _fs) + 1e-3)) if fieldD.any() else dorsal   # ~4 mm feather, normalised inside the islands (14:35)
 palm_pore = a.palm_pores + (1.0 - a.palm_pores) * np.clip(dorsal_soft, 0, 1)   # palms: 30 % of the pore relief
 nx = (nrm[..., 0] * 2 - 1) + edge * (cx + det_xy[..., 0] * 0.35 * a.pores * (0.7 + 0.3 * fieldF) * palm_pore)
 ny = (nrm[..., 1] * 2 - 1) + edge * (cy + det_xy[..., 1] * 0.35 * a.pores * (0.7 + 0.3 * fieldF) * palm_pore)
