@@ -37,6 +37,7 @@ ap.add_argument("--nails", type=float, default=1.0, help="redraw the nails from 
 ap.add_argument("--nail-length", type=float, default=0.58, help="nail plate length as a fraction of the distal phalanx (cuticle sits at 1 - this)")
 ap.add_argument("--nail-face-from-art", action="store_true", help="take each nail's facing direction from the mean normal of the artist's nail pixels. OFF by default: it moves every nail 12-16 deg, and Tefa judged the pass-16 nails (this off) perfect in VR on 2026-09-06. It was written because a Blender thumb render seemed to show the plate on the thumb's flank -- but that render's CAMERA uses the same hand-wide guess, so it may have been looking at the flank rather than the plate being on it. Unverified either way")
 ap.add_argument("--pores-uv", action="store_true", help="sample the micro-relief from the tiling 2D detail map by TEXEL, the pre-2026-09-06-22:30 behaviour. Off by default because that locks the pore pattern to the texture grid, so it cannot match across a UV seam -- which is the hard line Tefa found at the base of the thumb, and the same mechanism behind the straight lines on the forearms")
+ap.add_argument("--gutter", type=int, default=6, help="texels of padding grown past every UV island edge. Our treatment used to stop exactly at the island border, leaving an untreated strip along every seam; the strip is what was left of the thumb line after the 3D pores went in. 0 = the old behaviour")
 ap.add_argument("--pore-mm", type=float, default=0.62, help="pore size in millimetres for the 3D-coherent micro-relief")
 ap.add_argument("--nail-min-px", type=int, default=400, help="drop any connected nail-plate blob smaller than this (the ten real nails are 1391-3683 texels at 4K)")
 ap.add_argument("--nail-tip", type=float, default=1.0, help="where the nail's FREE EDGE sits along the distal phalanx (1.0 = the fingertip). Every pass before 16 ended at 0.92 and left a bare pad beyond the nail")
@@ -181,6 +182,32 @@ def blur(img, sigma):
     g = np.exp(-2 * (np.pi ** 2) * (sigma ** 2) * (x ** 2 + y ** 2))
     return np.real(np.fft.ifft2(np.fft.fft2(img) * g)).astype(np.float32)
 
+# ---- 2c. PAD PAST EVERY ISLAND EDGE (2026-09-06 22:50). Tefa, after the 3D pores went in: the seam "blends in a lot
+# better ... but still there are these triangle areas, where the seam is really visible". Second cause, independent of the
+# first: every field here is rasterised from FACES, so it stops dead at an island's border, and the masks derived from it
+# fade to nothing over the last texel or two. That leaves a hairline of UNTREATED skin along every seam -- and the two
+# sides of a seam are different islands, so the hairline lands somewhere different on each, which is what draws the
+# triangles. The cure is the standard one for atlases: grow the painted content a few texels into the gutter so the
+# fade happens outside anything the surface actually shows. Kept small (6 texels at 4K = 1.1 mm) so it cannot reach a
+# neighbouring island's interior -- this atlas is shared with the jacket.
+if a.gutter > 0:
+    _base = fieldK > 0
+    _grown = _base.copy()
+    for _ in range(a.gutter):
+        _grown |= np.roll(_grown, 1, 0) | np.roll(_grown, -1, 0) | np.roll(_grown, 1, 1) | np.roll(_grown, -1, 1)
+    _new = _grown & ~_base
+    _w = _base.astype(np.float32); _den = blur(_w, float(a.gutter) * 0.6) + 1e-6
+    for _c in range(3):
+        _f = blur(fieldP3[..., _c] * _w, float(a.gutter) * 0.6) / _den
+        fieldP3[..., _c] = np.where(_new, _f, fieldP3[..., _c])
+    for _fld in (fieldJ, fieldF):
+        _f = blur(_fld * _w, float(a.gutter) * 0.6) / _den
+        _fld[...] = np.where(_new, _f, _fld)
+    fieldK[...] = np.where(_new, 1.0, fieldK)
+    print("gutter: grew the paint mask by %d texels, %d texels of padding added (%.1f%% -> %.1f%% of the texture)"
+          % (a.gutter, int(_new.sum()), 100 * _base.mean(), 100 * (fieldK > 0).mean()))
+
+
 maskK = blur(fieldK, 1.5)                                    # soft edge so seams do not show
 edge = np.clip(maskK, 0, 1)
 # smooth skinning blends almost everywhere (mean J 0.44 over the hand), so keep only the near-50/50 core of each
@@ -234,7 +261,20 @@ else:
     pore_h = noise3(fieldP3, _cell, 11) * 0.62 + noise3(fieldP3, _cell * 0.5, 12) * 0.38
     _m = fieldK > 0
     pore_h = (pore_h - float(pore_h[_m].mean())) / (float(pore_h[_m].std()) + 1e-9)
+    # ...and the slope must be measured in METRES, not texels. The gradient of a height field taken per texel makes a
+    # bump look deeper on an island with fewer texels per millimetre, so two islands of different density show different
+    # pore depth even when the height itself matches perfectly. Dividing by the 3D distance each texel step covers makes
+    # the slope a property of the surface, which is what has to agree across a seam.
+    _dPx = (np.roll(fieldP3, -1, axis=1) - np.roll(fieldP3, 1, axis=1)) * 0.5
+    _dPy = (np.roll(fieldP3, -1, axis=0) - np.roll(fieldP3, 1, axis=0)) * 0.5
+    _sx = np.linalg.norm(_dPx, axis=2); _sy = np.linalg.norm(_dPy, axis=2)
+    _mk = fieldK > 0
+    _med = float(np.median(np.concatenate([_sx[_mk], _sy[_mk]])))
+    _sx = np.where((_sx > 1e-7) & _mk, _sx, _med); _sy = np.where((_sy > 1e-7) & _mk, _sy, _med)
     _gx, _gy = nrm_from_height(pore_h, 1.0)
+    _gx = _gx * (_med / _sx); _gy = _gy * (_med / _sy)
+    print("pores: texel size over the mask %.3f-%.3f mm (median %.3f), gradient normalised to it"
+          % (1000 * float(np.percentile(_sx[_mk], 5)), 1000 * float(np.percentile(_sx[_mk], 95)), 1000 * _med))
     # match the amplitude the tiling map produced, so nothing about the look changes except that the seams go
     _ref = det[np.ix_(ty, tx)][..., :2] * 2.0 - 1.0
     _sc = float(np.sqrt((_ref[_m] ** 2).mean()) / (np.sqrt((np.stack([_gx, _gy], -1)[_m] ** 2).mean()) + 1e-9))
