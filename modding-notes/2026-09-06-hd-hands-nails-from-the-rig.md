@@ -172,3 +172,21 @@ pass 13 (the rim fix is in this build too). Deployed 18:37; `.tex.34.prev` still
 Tefa also reported the nails "still like they were before" on the second look. The 18:12 build needed a game
 restart to show (textures load at boot); whether they had restarted is not known, so the pass-13 rim fix is
 **unseen** until this build is looked at.
+
+---
+
+# Pass 15 — back to the 16:53 shape, centred on the artist's nail (2026-09-06 20:04, deployed, UNSEEN)
+
+Tefa's 21 screenshots of pass 14: the plates fitted to the artist's blob read as **teardrops / gel blobs** in VR; the
+16:53 build (pass 8) was "the most accurate, only the fingertips are wrong, nearly everything else really good".
+So pass 15 = pass 8's frame, shape and size (3D bone frame, rounded rectangle 62 % of the finger's width, 58 % of
+the phalanx, corners 0.75/0.5), with only the CENTRE taken from the artist's nail; the pass-12 wipe, no grey tips,
+the lunula and the cut-down fold all stay. A UV-Jacobian rescale of the bone sizes was tried first and produced
+28×14 and 34×149 — discarded. Session ended at Tefa's 3 % usage; renders not made.
+
+**Bracelets, from the 19:51 log:** every loose file loaded (both meshes, the MDF, all six textures), `BRACELET l/r
+CREATED`, `DrawDefault=1`, `brac=on` — and nothing visible. `materials: n=0` on both, **but the neck plug reports
+n=0 too and has never been visibly confirmed either** (2026-09-06 01:10: "no visible change"). Two hypotheses: the
+material read-back at creation is too early and something else hides both; or a mesh with an unresolved material
+does not draw at all, plug included. `twist l=` swung to ±90° while Tefa moved: **the wrist twist relative to the
+radius joint is the full pronation, so the radius joint carries none of it** — k must be ~1 once the bands show.
