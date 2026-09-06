@@ -24,7 +24,7 @@ ap.add_argument("--size", type=int, default=4096)
 ap.add_argument("--pores", type=float, default=0.3, help="micro-relief strength (0 = none); 1.0 was the first pass, sandpaper in game")
 ap.add_argument("--veins", type=float, default=0.35, help="dorsal vein relief lifted from the original albedo (0 = none); the lift finds blobs, not lines, so it is a hint by default")
 ap.add_argument("--wrinkles", type=float, default=1.0, help="fine wrinkle networks around the joints (0 = none)")
-ap.add_argument("--anatomy", type=float, default=0.0, help="EXPERIMENTAL, off by default: rig-derived veins/tendons drawn along the mesh surface. 2026-09-06 05:50: the dorsal-side pick is wrong (lines hug the island edge, angular), so it draws scars, not veins")
+ap.add_argument("--anatomy", type=float, default=0.0, help="rig-derived veins/tendons drawn along the mesh surface (off by default until judged in VR). The 2026-09-06 02:50 attempts picked the little-finger edge instead of the back of the hand; fixed 12:00 via the finger-curl sign")
 ap.add_argument("--crease", type=float, default=1.0, help="joint crease depth (0 = none)")
 ap.add_argument("--tone", type=float, default=1.0, help="albedo variation strength (0 = none)")
 ap.add_argument("--detail-png", default=None, help="tiling detail normal PNG (default <work>/visceral_skin_detail_NRM.png)")
@@ -197,24 +197,57 @@ try:
     Dv = np.zeros(len(me.vertices), np.float32)
     topname = np.array([(weights(v) or [(0, "")])[0][1] for v in me.vertices])
     is_finger = np.array([bool(F[i]) for i in range(len(me.vertices))])
-    def polyline(img, uvs):
-        """draw a UV polyline, skipping jumps across islands"""
-        for q0, q1 in zip(uvs[:-1], uvs[1:]):
+    def polyline(img, uvs, vals=None):
+        """draw a UV polyline (value per sample, so the ends can taper), skipping jumps across islands"""
+        if vals is None: vals = np.ones(len(uvs), np.float32)
+        for (q0, q1), (v0, v1) in zip(zip(uvs[:-1], uvs[1:]), zip(vals[:-1], vals[1:])):
             if np.linalg.norm(q1 - q0) > 0.03: continue
             n = max(2, int(np.linalg.norm(q1 - q0) * N))
-            t = np.linspace(0, 1, n)[:, None]; pts = (1 - t) * q0 + t * q1
+            t = np.linspace(0, 1, n)[:, None]; pts = (1 - t) * q0 + t * q1; vv = ((1 - t) * v0 + t * v1)[:, 0]
             xs = np.clip((pts[:, 0] * N).astype(int), 0, N - 1); ys = np.clip(((1 - pts[:, 1]) * N).astype(int), 0, N - 1)
-            img[ys, xs] = 1.0
-    def surface_line(img, cand, p_from, p_to, lateral, offs, wiggle_amp, seed, steps=80):
-        """sample the 3D segment p_from->p_to shifted sideways by offs (+ a gentle sine wiggle), snap each sample to the
-        nearest candidate vertex, draw the UV polyline through them"""
+            img[ys, xs] = np.maximum(img[ys, xs], vv)
+    from mathutils.bvhtree import BVHTree
+    def make_surface(cand):
+        """BVH over the triangles whose vertices all belong to `cand` (one side of the hand), plus each triangle's UVs, so a 3D
+        point projects to a UV by barycentric interpolation INSIDE the triangle -- smooth curves, not vertex-to-vertex stairs
+        (the 2026-09-06 02:50 attempts snapped to the nearest vertex and drew zigzags)"""
+        cset = set(int(i) for i in cand); tris = []; tuv = []
+        for poly in me.polygons:
+            vi = list(poly.vertices)
+            if not all(i in cset for i in vi): continue
+            uvs = [tuple(uv.data[li].uv) for li in poly.loop_indices]
+            for k in range(1, len(vi) - 1):
+                tris.append((vi[0], vi[k], vi[k + 1])); tuv.append((uvs[0], uvs[k], uvs[k + 1]))
+        if not tris: return None
+        verts = [tuple(map(float, vco[i])) for i in range(len(me.vertices))]
+        return BVHTree.FromPolygons(verts, tris, all_triangles=True), tris, tuv
+    def surface_line(img, surf, p_from, p_to, lateral, offs, wiggle_amp, seed, steps=80, taper=(0.15, 0.15), lift=None, max_dist=0.010):
+        """sample the 3D segment p_from->p_to shifted sideways by offs (+ a gentle sine wiggle), project each sample onto the
+        one-sided surface, draw the UV polyline through the interpolated UVs"""
+        if surf is None: return
+        bvh, tris, tuv = surf
         r = np.random.default_rng(seed); ph = r.uniform(0, 6.28)
-        uvs = []
+        uvs = []; vals = []
+        from mathutils import Vector
+        def ramp(t):                                                      # 0 at the ends, 1 in the middle, smooth
+            e0, e1 = max(taper[0], 1e-3), max(taper[1], 1e-3)
+            u = min(t / e0, (1 - t) / e1, 1.0); return u * u * (3 - 2 * u)
         for t in np.linspace(0, 1, steps):
             q = p_from + (p_to - p_from) * t + lateral * (offs + wiggle_amp * np.sin(t * 7.0 + ph) * t * (1 - t) * 4)
-            j = cand[np.argmin(np.linalg.norm(vco[cand] - q, axis=1))]
-            uvs.append(vuv[j])
-        polyline(img, np.array(uvs))
+            if lift is not None: q = q + lift                                  # bones run mid-hand; lift the sample toward the skin being drawn on
+            loc, nrm, idx, dist = bvh.find_nearest(Vector(tuple(map(float, q))))
+            if loc is None or dist > max_dist:                                # too far off the one-sided surface = it would snap to the island edge
+                if len(uvs) >= 2: polyline(img, np.array(uvs), np.array(vals, np.float32))
+                uvs = []; vals = []; continue
+            a, b, c = (vco[i] for i in tris[idx]); P = np.array(loc, np.float32)
+            v0, v1, v2 = b - a, c - a, P - a
+            d00, d01, d11, d20, d21 = v0 @ v0, v0 @ v1, v1 @ v1, v2 @ v0, v2 @ v1
+            den = d00 * d11 - d01 * d01
+            if abs(den) < 1e-12: continue
+            l1 = (d11 * d20 - d01 * d21) / den; l2 = (d00 * d21 - d01 * d20) / den; l0 = 1 - l1 - l2
+            ua, ub, uc = (np.array(x, np.float32) for x in tuv[idx])
+            uvs.append(l0 * ua + l1 * ub + l2 * uc); vals.append(ramp(t))
+        if len(uvs) >= 2: polyline(img, np.array(uvs), np.array(vals, np.float32))
     tend = np.zeros((N, N), np.float32); vein_lines = np.zeros((N, N), np.float32)
     fieldD = np.zeros((N, N), np.float32)
     for side in ("l", "r"):
@@ -222,23 +255,47 @@ try:
         if w is None or m0 is None or t1 is None: print("anatomy: bones missing for", side); continue
         axis = unit(m0 - w); tv = t1 - w; palm = unit(tv - axis * np.dot(tv, axis)); lat = unit(np.cross(axis, palm))
         hidx = np.array([i for i in range(len(me.vertices)) if topname[i].startswith((side + "_hand_", side + "_arm_wrist"))])
-        Dv[hidx] = np.clip(-(vno[hidx] @ palm), 0, 1)
+        # dorsal side (fixed 2026-09-06 12:00, hd_hands_dorsal_preview.py): `palm` points AT the thumb, in the palm plane, so
+        # -(n . palm) picked the little-finger EDGE. The plane's normal is `lat`; its sign flips per hand, so it is fixed by
+        # the finger curl: fingers flex toward the palm, so the bend of each finger chain along lat points palmward.
+        # Verified on renders: the -sign face carries the nails (left hand: dorsal = -lat, curl +1.69; right: +lat, -1.69).
+        curl = 0.0
+        for f in ("index", "middle", "ring", "little"):
+            j0, j1, j2 = jpos(side + "_hand_%s_0" % f), jpos(side + "_hand_%s_1" % f), jpos(side + "_hand_%s_2" % f)
+            if j0 is not None and j1 is not None and j2 is not None: curl += float(np.dot(unit(j2 - j1) - unit(j1 - j0), lat))
+        dsign = -1.0 if curl > 0 else 1.0
+        Dv[hidx] = np.clip(dsign * (vno[hidx] @ lat), 0, 1)
+        print("anatomy %s: finger curl %+.3f along lat -> dorsal = %s lat" % (side, curl, "-" if dsign < 0 else "+"))
         dors = hidx[(Dv[hidx] > 0.5) & (~is_finger[hidx])]                       # back of the hand, metacarpal region
-        kn = [jpos(side + "_hand_%s_0" % f) for f in ("index", "middle", "ring", "little")]
-        kn = [k for k in kn if k is not None]
+        dsurf = make_surface(hidx[(Dv[hidx] > 0.3) & (~is_finger[hidx])])       # the dorsal surface as triangles (slightly wider than the vertex pick so edge triangles survive)
+        dlift = dsign * lat * 0.010                                              # 1 cm toward the back of the hand: the bone segments run mid-hand
+        # knuckles = the head of each finger's PROXIMAL PHALANX. In this rig index_0/middle_0 start at the knuckle (6.8 cm along
+        # the hand) but ring_0/little_0 are metacarpals starting 2 cm from the wrist `[measured 2026-09-06]`, so pick per finger
+        # the first bone that lies more than 4 cm along the wrist->middle axis.
+        kn = []
+        for f in ("index", "middle", "ring", "little"):
+            for k in range(4):
+                p = jpos(side + "_hand_%s_%d" % (f, k))
+                if p is not None and np.dot(p - w, axis) > 0.04: kn.append(p); break
         print("anatomy %s: %d hand verts, %d dorsal metacarpal verts, %d knuckles" % (side, len(hidx), len(dors), len(kn)))
         if len(dors) < 20 or len(kn) < 2: continue
-        for i, k in enumerate(kn):                                               # extensor tendons: wrist -> each knuckle
-            surface_line(tend, dors, w + (k - w) * 0.2, w + (k - w) * 0.9, lat, 0.0, 0.0, 11 + i)
-        for i in range(len(kn) - 1):                                              # dorsal veins: wrist -> the gaps between knuckles
+        for i, k in enumerate(kn):                                               # extensor tendons: from under the wrist retinaculum -> each knuckle
+            surface_line(tend, dsurf, w + (k - w) * 0.15, w + (k - w) * 0.93, lat, 0.0, 0.0, 11 + i, lift=dlift)
+        for i in range(len(kn) - 1):                                              # dorsal veins: the gaps between knuckles -> down between the tendons
             gap = (kn[i] + kn[i + 1]) / 2
-            surface_line(vein_lines, dors, w + (gap - w) * 0.08, w + (gap - w) * 0.88, lat, 0.0, 0.006 * (1 if i % 2 else -1), 21 + i)
+            surface_line(vein_lines, dsurf, w + (gap - w) * 0.12, w + (gap - w) * 0.9, lat, 0.0, 0.004 * (1 if i % 2 else -1), 21 + i, lift=dlift)
+        if len(kn) >= 4:                                                          # the dorsal venous arch, joining them a third of the way up
+            arch = [w + (k - w) * 0.36 for k in kn]
+            for i in range(3): surface_line(vein_lines, dsurf, arch[i], arch[i + 1], lat, 0.0, 0.003, 41 + i, steps=30, taper=(0.3, 0.3), lift=dlift)
+            web = (kn[0] + t1) / 2                                                # the cephalic vein: from the thumb/index web toward the wrist, thumb side
+            surface_line(vein_lines, dsurf, w + (web - w) * 0.85, arch[0], lat, 0.0, 0.004, 51, steps=60, taper=(0.2, 0.05), lift=dlift)
         if el is not None:                                                        # forearm veins: two, along the arm, both faces
             fidx = np.array([i for i in range(len(me.vertices)) if topname[i].startswith(side + "_arm_radius")])
             if len(fidx) > 20:
                 Dv[fidx] = 1.0
+                fsurf = make_surface(fidx)
                 for i, off in enumerate((-0.012, 0.011)):
-                    surface_line(vein_lines, fidx, w + (el - w) * 0.05, w + (el - w) * 0.85, lat, off, 0.005, 31 + i, steps=120)
+                    surface_line(vein_lines, fsurf, w + (el - w) * 0.05, w + (el - w) * 0.85, lat, off, 0.005, 31 + i, steps=120, max_dist=0.035)
                 print("anatomy %s forearm: %d verts, 2 veins" % (side, len(fidx)))
     for poly in me.polygons:
         vi = list(poly.vertices)
@@ -247,11 +304,23 @@ try:
         for k in range(1, len(uvs) - 1):
             raster((uvs[0], uvs[k], uvs[k + 1]), ([Dv[vi[0]], Dv[vi[k]], Dv[vi[k + 1]]],), (fieldD,))
     dorsal = blur(np.clip((fieldD - 0.35) / 0.3, 0, 1), N / 1024.0 * 1.0) * edge
-    tend = blur(tend, N / 4096.0 * 9.0); tend = tend / (tend.max() + 1e-9)
-    vein_lines = blur(vein_lines, N / 4096.0 * 3.5); vein_lines = vein_lines / (vein_lines.max() + 1e-9)
+    # widths in millimetres: the back of the hand runs at 0.18 mm per texel at 4K `[measured 2026-09-06]`; a tendon reads ~3 mm
+    # wide, a vein ~2.5 mm. Normalised per line family by a high percentile, not the max, so overlaps do not dim the rest.
+    mm = N / 4096.0 / 0.183
+    def line_blur(img, sigma):
+        """blur a 1-texel-wide drawn line into a Gaussian ridge whose peak is 1.0 for an isolated line (analytic: a unit line
+        blurred by sigma peaks at 1/(sigma*sqrt(2*pi))); overlaps are soft-clipped rather than cut into plateaus"""
+        out = blur(img, sigma) * (sigma * np.sqrt(2 * np.pi))
+        return 1.0 - np.exp(-1.2 * out)                                      # 0.70 for one line, eases toward 1 where lines cross (no plateau)
+    tend = line_blur(tend, 1.7 * mm)                                     # ~4 mm wide ridge
+    vein_lines = line_blur(vein_lines, 1.2 * mm)                         # ~2.8 mm wide
     vein_lines = vein_lines * dorsal * (1.0 - fieldF)
     tend = tend * dorsal * (1.0 - fieldF)
-    h_anat = (vein_lines * 0.55 + tend * 0.22) * a.anatomy
+    # amplitudes chosen for a max normal tilt of ~0.25 (veins) / ~0.12 (tendons) at nrm_from_height scale 6: A = tilt*sigma/(6*0.61)
+    h_anat = (vein_lines * 0.55 + tend * 0.40) * a.anatomy               # line_blur peaks at 0.70, so these are ~0.39 / 0.28 effective
+    if a.anatomy > 0:                                         # full-res masks for hd_hands_debug_render.py (where do the lines land in 3D?)
+        dbg = np.zeros((N, N, 4), np.float32); dbg[..., 0] = tend; dbg[..., 1] = vein_lines; dbg[..., 2] = dorsal; dbg[..., 3] = 1.0
+        save_np(dbg, os.path.join(a.out, "anat_mask.png"))
     print("anatomy: dorsal %.1f%% of the hand mask; veins cover %.2f%%, tendons %.2f%%" % (100 * (dorsal[fieldK > 0] > 0.5).mean(),
           100 * (vein_lines[fieldK > 0] > 0.3).mean(), 100 * (tend[fieldK > 0] > 0.3).mean()))
 except Exception as e:
