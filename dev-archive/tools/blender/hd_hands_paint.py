@@ -444,25 +444,24 @@ try:
         sol = np.linalg.lstsq(Mfit, np.stack([xs_.astype(np.float64), ys_.astype(np.float64)], 1), rcond=None)[0]
         uY = sol[1] / (np.linalg.norm(sol[1]) + 1e-9)                          # +1 = toward the fingertip, in texels
         uX = np.array([-uY[1], uY[0]])
-        if orig.sum() >= 120:                                                  # the artist's nail, found: fit the plate to it
-            cx0 = float(np.mean(xs_[orig])); cy0 = float(np.mean(ys_[orig]))
-            px = (xs_ - cx0) * uX[0] + (ys_ - cy0) * uX[1]
-            py = (xs_ - cx0) * uY[0] + (ys_ - cy0) * uY[1]
-            wx = float(np.percentile(np.abs(px[orig]), 90)) + 2.0
-            y_lo = float(np.percentile(py[orig], 5)) - 1.0; y_hi = float(np.percentile(py[orig], 95)) + 2.5
-            fit = "fitted to %d px, %.0fx%.0f texels in UV" % (int(orig.sum()), 2 * wx, y_hi - y_lo)
-        else:                                                                  # fallback: the pass-8 fractions, in the bone frame
-            cx0 = float(np.mean(xs_)); cy0 = float(np.mean(ys_))
-            px = smooth_on_pixels(X0, ys_, xs_, 2.5); py = smooth_on_pixels(Y0, ys_, xs_, 2.5)
-            wx = a.nail_width * (0.95 if f == "thumb" else 1.0) * halfw_tex
-            t0, t1 = 1.0 - a.nail_length * (0.85 if f == "thumb" else 1.0), 0.92
-            y_lo, y_hi = t0 * L * 1000.0 * mm, t1 * L * 1000.0 * mm
-            fit = "FALLBACK (only %d px read as nail)" % int(orig.sum())
-        wy = max(0.5 * (y_hi - y_lo), 4.0); yc = 0.5 * (y_lo + y_hi)
-        X = px; Y = py - yc
+        # pass 15 (Tefa, 21 screenshots): the plate SIZED from the blob's extents read as a teardrop / gel blob in VR; the 16:53
+        # build's plate -- a rounded rectangle from the finger's own width and the phalanx's length, in the 3D bone frame -- was
+        # "nearly everything right" apart from its grey tips. So: pass 8's frame, shape and size again, and only the CENTRE
+        # taken from the artist's nail. (A UV-Jacobian rescale of the bone sizes was tried first and gave 28x14 and 34x149.)
+        Xb = smooth_on_pixels(X0, ys_, xs_, 2.5); Yb = smooth_on_pixels(Y0, ys_, xs_, 2.5)
+        wx = a.nail_width * (0.95 if f == "thumb" else 1.0) * halfw_tex
+        t0, t1 = 1.0 - a.nail_length * (0.85 if f == "thumb" else 1.0), 0.92
+        wy = 0.5 * (t1 - t0) * L * 1000.0 * mm
+        if orig.sum() >= 120:
+            xc = float(np.mean(X0[orig])); yc = float(np.mean(Y0[orig]))
+            fit = "centred on the artist's %d px at (%.0f, %.0f) in the bone frame" % (int(orig.sum()), xc, yc)
+        else:
+            xc = 0.0; yc = 0.5 * (t0 + t1) * L * 1000.0 * mm
+            fit = "FALLBACK centre (only %d px read as nail)" % int(orig.sum())
+        X = Xb - xc; Y = Yb - yc
         # rounded-rectangle SDF. The DISTAL end gets the big radius: a real free edge is a strong arc bulging toward the
         # fingertip (Tefa's green curve); pass 8's flat distal edge with small corners is the red one.
-        rc = wx * (0.55 + 0.30 * np.clip(Y / wy, 0, 1))
+        rc = wx * (0.50 + 0.25 * np.clip(-Y / wy, 0, 1))   # pass 15: pass 8's corners again (rounder at the cuticle, 0.5 at the free edge); the big distal radius made a teardrop
         qx = np.abs(X) - (wx - rc); qy = np.abs(Y) - (wy - rc)
         sdf = np.sqrt(np.maximum(qx, 0) ** 2 + np.maximum(qy, 0) ** 2) + np.minimum(np.maximum(qx, qy), 0) - rc
         # the plate keeps the shape it was fitted to: `backside` is what decides WHERE a nail may be drawn, and the fit already
