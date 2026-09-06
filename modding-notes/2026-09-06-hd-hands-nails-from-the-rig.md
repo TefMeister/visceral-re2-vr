@@ -268,3 +268,35 @@ guess the paint script uses**, so if that guess is wrong for the thumb, the rend
 correctly-placed nail appears to be on it. The render could not have told those two apart, and I treated it as
 evidence against a build the person holding the headset had just called perfect. `[hypothesis]` either way — the
 thumb's true facing is still unmeasured, and the flag is there if it ever matters.
+
+---
+
+# The line on the thumb is a UV seam, and it was our pores (2026-09-06 22:34, deployed)
+
+Tefa, after the fragment guard had removed the two 74/55-texel specks and the line was still there on both hands:
+
+> *"it looks like this is where two layers of skin meet and the line clearly separates pores on the skin as well when
+> looked at it up close in vr"* … *"the clear line running all throughout the thumb, like 2 different sheets of skin
+> material were side by side"*
+
+That is the diagnosis, and it was not the nails at all. **The micro-relief was sampled by TEXEL** — a 1024 tile
+stepped across the atlas at 10 tiles wide — so the pore pattern, its orientation and its scale were properties of
+the *texture*, not of the hand. Two UV islands that touch in 3D but sit apart in the atlas therefore get unrelated
+pores, and the join between them is a visible edge with different skin either side. The vanilla normal map over the
+hands is flat `[measured 2026-09-06]`, so every pore there is ours and so was the seam. **This is almost certainly
+the same mechanism as the straight lines on the forearms**, which the disproved submesh theory never explained.
+
+**The fix: make the relief a function of the surface point, not the texel.** Each texel's 3D position is now
+rasterised over the whole paint mask (`fieldP3`, 11.0 % of the texture), a two-octave value noise on a periodic 3D
+lattice is sampled there (0.62 mm cells), and the tangent-space normal is the gradient of that height **in texel
+space** — so it remains a correct tangent-space normal for whatever the UV does locally, while the height itself is
+identical on both sides of every seam **by construction**: same 3D point, same height, no measurement needed. The
+gradient is rescaled to the old tile's RMS tilt (×0.3), so the amount of pore is unchanged and only the seams go.
+The low-frequency colour mottling was UV-locked too and is now the same 3D noise at 8 mm cells. `--pores-uv` puts
+both back the old way.
+
+Deployed 22:34. Unchanged in this build: the nails (plate coverage identical, 28 346 texels), the wipe, the lunula.
+
+**If the line survives a restart** the remaining UV-locked things are the joint-wrinkle noise (near joints only,
+small) and — the more likely one — a mismatch in the *artist's own* albedo across that island, which we would have
+to blend across rather than avoid. `[hypothesis]`
