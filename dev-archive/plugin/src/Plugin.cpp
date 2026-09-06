@@ -832,13 +832,15 @@ void summary_line() {
 // OUR OWN mesh (7 KB, a capped cylinder r=4 cm from the collar to just under the chin, built by
 // tools/blender/build_neckplug.py in neck_0's bind frame from measurements of the real skeleton) on its own
 // GameObject, pinned to neck_0's world pose every frame and wearing Claire's own skin material BY NAME
-// (pl3000_Skin_Mat out of the game's own pl3000.mdf2, which the engine loads from its pak). Nothing of the
+// (pl1000_Body_Mat out of the game's own pl1000.mdf2, which the engine loads from its pak; v0.8 said pl3000_Skin_Mat, which is
+// SHERRY's — the plug drew in her skin material, colour-matched by luck). Nothing of the
 // game's is shipped and no game file is replaced. Inside the neck it is invisible in third person; in first
 // person it is the skin-coloured floor the collapsed head leaves behind. [hypothesis until the first flat run]
 // ---------------------------------------------------------------------------
 // "n=K: a, b, c" from via.render.Mesh.get_MaterialNum / getMaterialName(i); "n/a" if this build lacks them.
-// Material names are the reliable identity of a mesh part (pl3000_Skin_Mat, Face_Mat, Hair_Mat, Eyelashes, Tearline
-// on Claire — 05e note), where GameObject names are not known statically.
+// Material names are the reliable identity of a mesh part (Claire: pl1000_Body_Mat; face pl1050_Face_Mat / pl1050_Eyelash_Mat /
+// pl1050_Eyes_In_Mat / pl1050_Eyes_Out_Mat / pl1050_Tearline_Mat; hair pl1070_Hair_Mat/_Hair2_/_Hair3_ — measured from her MDFs
+// 2026-09-06), where GameObject names are not known statically.
 std::string mesh_material_names(API::ManagedObject* mesh) {
     if (mesh == nullptr) return "null";
     auto* td = mesh->get_type_definition();
@@ -854,7 +856,7 @@ std::string mesh_material_names(API::ManagedObject* mesh) {
 }
 
 constexpr const char* PLUG_MESH_PATH = "visceral/visceral_neckplug_neck0local.mesh";   // natives/stm/ + this + .2109108288, via REFramework's loose-file loader
-constexpr const char* PLUG_MDF_PATH  = "sectionroot/character/player/pl3000/pl3000/pl3000.mdf2";
+constexpr const char* PLUG_MDF_PATH  = "sectionroot/character/player/pl1000/pl1000/pl1000.mdf2";   // v0.9: CLAIRE is pl1000 (pl3000 is Sherry, found 2026-09-06 13:15); her skin material is pl1000_Body_Mat
 
 struct alignas(16) V4 { float x{}, y{}, z{}, w{}; };   // via.vec3 / via.Quaternion as the engine lays them out (16 bytes)
 
@@ -949,7 +951,7 @@ void plug_update() {
 //
 // What it walks: every via.Transform under the player's, every via.render.Mesh component on each GameObject
 // (getComponent returns only the first — eyelashes are often a second mesh on the same object), decided by name
-// AND material patterns. The body's own mesh (pl3000_Skin_Mat, cloth) is never matched.
+// AND material patterns. The body's own mesh (pl1000_Body_Mat, cloth) is never matched.
 //
 // When it reveals the head again (mode 1): the cinematic gate says so (bridge slot 30), the player is grabbed
 // (JackDominator.get_Jacked — grabs only, an ordinary hit never sets it), the FirstPerson mod is not driving the
@@ -1011,7 +1013,7 @@ void head_walk(API::ManagedObject* tf, int depth, int& seen, bool verbose) {
                     e.orig_shadow = inv_bool(c, "get_DrawShadowCast");
                     e.orig_rt = e.has_rt ? inv_bool(c, "get_DrawRaytracing") : true;
                     e.hide = head_pattern(lower(name)) || head_pattern(lower(e.mats));
-                    // never the body itself, whatever else matched (its skin material is pl3000_Skin_Mat; "skin" is not a pattern)
+                    // never the body itself, whatever else matched (its skin material is pl1000_Body_Mat; "body" is not a pattern)
                     if (depth == 0 && mesh_i == 1) e.hide = false;
                     if (verbose) LOGI("%s head:   mesh %-36s %s  DrawDefault=%d Shadow=%d%s -> %s", TAG, e.label.c_str(), e.mats.c_str(),
                                       (int)e.orig_default, (int)e.orig_shadow, e.has_rt ? (e.orig_rt ? " RT=1" : " RT=0") : "", e.hide ? "HIDE" : "keep");

@@ -1,5 +1,5 @@
 """Build Visceral's neck plug (our own geometry, no game data) and export it as an RE2 RT .mesh.
-Usage: blender -b --python blender_build_neckplug.py -- <out_dir> [<pl3000.mesh path for bone matrices>]
+Usage: blender -b --python build_neckplug.py -- <out_dir> [<pl1000.mesh path for bone matrices>] [local]
 Blender space here = the RE-Mesh-Editor import space: Z up, character faces -Y, metres, origin at the feet.
 Measured on Claire (pl3050 face mesh, 2026-09-05): neck skin ring centre ~(0, +0.025), radius 0.063 @ z1.10,
 0.057 @ 1.12, 0.045 @ 1.14; chin begins ~1.16; back of the neck y<=0.061 @ 1.16. Collar cloth ring z1.09..1.14 r0.061.
@@ -11,20 +11,24 @@ argv = sys.argv[sys.argv.index("--") + 1:]
 out_dir = argv[0]
 bone_src = argv[1] if len(argv) > 1 and argv[1] != "local" else None
 LOCAL = "local" in argv
-# neck_0 bind pose in RE space (row-major, rows = joint axes in world, last row = translation), read from pl3000.mesh 2026-09-05
-BIND_R = ((1.0, 0.0, 0.0), (0.0, 0.95217, 0.30558), (0.0, -0.30558, 0.95217))
-BIND_T = (0.0, 1.10038, -0.04075)
+# neck_0 bind pose in RE space (row-major, rows = joint axes in world, last row = translation).
+# 2026-09-06 15:05: CLAIRE is pl1000 (pl3000, measured on 2026-09-05, is SHERRY - a child: neck_0 at 1.100 vs Claire's 1.416).
+# Claire's values, read from pl1000.mesh `[measured 2026-09-06]`; the Sherry ones are kept below for the record.
+BIND_R = ((1.0, 0.0, 0.0), (0.0, 0.91525, 0.40289), (0.0, -0.40289, 0.91525))
+BIND_T = (0.0, 1.41573, -0.03468)
+# SHERRY_BIND_R = ((1.0, 0.0, 0.0), (0.0, 0.95217, 0.30558), (0.0, -0.30558, 0.95217)); SHERRY_BIND_T = (0.0, 1.10038, -0.04075)
 def to_local_blender(x, y, z):
     # Blender (x,y,z) -> RE (x, z, -y); local = (w - t) . rows; back to Blender (x, -z, y)
     d = (x - BIND_T[0], z - BIND_T[1], -y - BIND_T[2])
     l = [sum(d[j] * BIND_R[i][j] for j in range(3)) for i in range(3)]
     return (l[0], -l[2], l[1])
 NAME = "visceral_neckplug_neck0local" if "local" in sys.argv else "visceral_neckplug"
-MAT = "pl3000_Skin_Mat"            # matches Claire's body MDF; the game supplies the material
-UV_C = (0.8497, 0.3468)            # centre of the shoulder-top skin patch on pl3000_Body_ALBM
+MAT = "pl1000_Body_Mat"            # Claire's skin material (pl1000.mdf2); the game supplies the material. Was pl3000_Skin_Mat = Sherry's
+UV_C = (0.9597, 0.5125)            # a dense forearm-skin patch on pl1000_Jacket_ALBM (densest 1/40 UV cell of l_arm_radius loops, 2026-09-06)
 UV_R = 0.004
 CENTRE_Y = 0.025
-Z_BOTTOM, Z_CYL_TOP, Z_TOP = 1.095, 1.145, 1.165
+_DZ = 1.41573 - 1.10038            # Sherry -> Claire neck_0 height; the ring radii below are still Sherry's `[hypothesis]` until pl1050 is measured
+Z_BOTTOM, Z_CYL_TOP, Z_TOP = 1.095 + _DZ, 1.145 + _DZ, 1.165 + _DZ
 R_CYL = 0.040
 SEGS, RINGS_DOME = 32, 5
 
