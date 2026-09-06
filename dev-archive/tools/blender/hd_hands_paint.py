@@ -35,6 +35,8 @@ ap.add_argument("--tone", type=float, default=1.0, help="albedo variation streng
 ap.add_argument("--detail-png", default=None, help="tiling detail normal PNG (default <work>/visceral_skin_detail_NRM.png)")
 ap.add_argument("--nails", type=float, default=1.0, help="redraw the nails from the rig (0 = leave the artist's 14-px blobs as upscaled): plate, lunula, free edge, cuticle + side folds, no pores on the plate. Added 2026-09-06 evening")
 ap.add_argument("--nail-length", type=float, default=0.58, help="nail plate length as a fraction of the distal phalanx (cuticle sits at 1 - this)")
+ap.add_argument("--nail-face-from-art", action="store_true", help="take each nail's facing direction from the mean normal of the artist's nail pixels. OFF by default: it moves every nail 12-16 deg, and Tefa judged the pass-16 nails (this off) perfect in VR on 2026-09-06. It was written because a Blender thumb render seemed to show the plate on the thumb's flank -- but that render's CAMERA uses the same hand-wide guess, so it may have been looking at the flank rather than the plate being on it. Unverified either way")
+ap.add_argument("--nail-min-px", type=int, default=400, help="drop any connected nail-plate blob smaller than this (the ten real nails are 1391-3683 texels at 4K)")
 ap.add_argument("--nail-tip", type=float, default=1.0, help="where the nail's FREE EDGE sits along the distal phalanx (1.0 = the fingertip). Every pass before 16 ended at 0.92 and left a bare pad beyond the nail")
 ap.add_argument("--nail-lunula", type=float, default=0.6, help="strength of the lighter crescent at the base of each nail (0 = none). Tefa liked the 16:53 look, which was 0.6")
 ap.add_argument("--nail-fold", type=float, default=0.022, help="height of the raised skin fold just outside the plate (0 = none). 0.08 read as a swollen rim round every nail in VR, 2026-09-06")
@@ -400,13 +402,33 @@ try:
             if np.dot(dd_new, dd) < 0: dd_new = -dd_new
             print("nails %s %-6s: cross-section %.1f x %.1f mm, back turned %.0f deg by its shape" % (side, f, 2 * np.sqrt(w2[1] / len(c2)) * 1000, 2 * np.sqrt(w2[0] / len(c2)) * 1000, np.degrees(np.arccos(np.clip(np.dot(dd_new, dd), -1, 1)))))
             dd = dd_new
-        lt = np.cross(ax, dd)
         L = float(((vco[dv] - hd) @ ax).max())                                # tip of the mesh along the bone
         sel = fieldID == float(("l", "r").index(side) * 5 + FINGERS.index(f) + 1)
         ys_, xs_ = np.nonzero(sel)
         if len(ys_) == 0: return
         P = fieldP[ys_, xs_]; rel = P - hd; s = rel @ ax; t = s / max(L, 1e-6)
         rad = rel - np.outer(s, ax); rn = np.linalg.norm(rad, axis=1) + 1e-9
+        nmp = fieldNm[ys_, xs_]; nml = nmp / (np.linalg.norm(nmp, axis=1, keepdims=True) + 1e-9)
+        rgb = alb[ys_, xs_, :3]; lum = rgb.mean(1); sat = rgb.max(1) - rgb.min(1)
+        # ---- pass 18 (Tefa: "that patch of skin on the thumb, like a little corner coming loose"): THE ARTIST'S NAIL SAYS
+        # WHICH WAY THE FINGER FACES. A Blender render of the thumb showed its plate laid down the thumb's FLANK, its lower
+        # corner running off the silhouette -- the cross-section PCA had turned the back direction 47 deg the wrong way on the
+        # one digit whose distal segment is broadest. Guessing the orientation from the bone or the mesh shape has now been
+        # wrong three times (normals in pass 3, occlusion in pass 5, PCA here). The artist painted the nail on the correct
+        # face, so the MEAN SURFACE NORMAL over their nail pixels IS the back direction. Detected with no orientation gate at
+        # all -- colour and distance along the bone only -- so nothing circular is assumed.
+        sref0 = (t > 0.05) & (t < 0.32)
+        if sref0.sum() < 20: sref0 = t < 0.35
+        s_lum0 = float(np.median(lum[sref0])); s_sat0 = float(np.median(sat[sref0]))
+        orig0 = (sat < s_sat0 - 0.022) & (lum > s_lum0 - 0.03) & (t > 0.30) & (t < 1.05)
+        if a.nail_face_from_art and orig0.sum() >= 120:
+            dm = nml[orig0].mean(0)
+            if np.linalg.norm(dm) > 0.25:                                     # a coherent face, not a ring of normals cancelling out
+                dm = unit(dm - ax * np.dot(dm, ax))
+                turn = np.degrees(np.arccos(np.clip(np.dot(dm, dd), -1, 1)))
+                print("nails %s %-6s: back direction from the artist's %d nail px, turned %.0f deg off the shape guess" % (side, f, int(orig0.sum()), turn))
+                dd = dm
+        lt = np.cross(ax, dd)
         xl = rad @ lt; xd = rad @ dd                                           # lateral offset from the bone's sagittal plane / height toward the back
         inplate = (t > 0.35) & (t < 0.95)
         R = float(np.median(rn[inplate])) if inplate.sum() > 20 else float(np.median(rn))
@@ -416,25 +438,20 @@ try:
         mid = (dvs > 0.3 * L) & (dvs < 0.9 * L)
         halfw = float(np.percentile(np.abs(dvrad[mid] @ lt), 90)) if mid.sum() > 6 else R
         mm = N / 4096.0 / 0.183                                                # texels per mm (back of the hand, measured 2026-09-06)
-        nmp = fieldNm[ys_, xs_]; nd = (nmp @ dd) / (np.linalg.norm(nmp, axis=1) + 1e-9)   # surface normal vs the back direction (pass 6: the little finger's bone hugs its back, so xd faded its plate)
-        backside = np.clip((nd - 0.1) / 0.25, 0, 1) * np.clip((rn / max(R, 1e-6) - 0.2) / 0.15, 0, 1)   # faces the back (by surface normal), and not the tip cap where rad -> 0 (a hairline spike on the thumb in pass 2)
-        # ---- pass 9 (Tefa, first VR look at the nails): FIT THE PLATE TO THE ARTIST'S OWN NAIL ------------------
-        # Every finger showed a dark grey-brown band of the original nail past the distal edge of ours, and the wipe could
-        # not take it: the wipe fired only where a pixel was BRIGHTER than the skin, and the artist's free edge is DARKER.
-        # So find the artist's nail as everything that DIFFERS from the local skin, and size the plate to cover it, instead
-        # of trusting fractions of the bone. The skin reference must come from proximal of any nail, not from a ring round
-        # a plate we have not placed yet.
+        nd = nml @ dd                                                          # surface normal vs the back direction
+        # ...and ON THE DISTAL SEGMENT. Pass 18b (Tefa circled a "loose triangular bit of skin" on the BACK OF THE HAND near the
+        # thumb): a finger's pixel set is everything weighted to that finger, which for the thumb reaches down its metacarpal
+        # onto the back of the hand. Nothing gated the nail by distance ALONG the bone, so where the smoothed coordinates
+        # drifted near a UV island edge, a few of those far-away pixels fell inside the plate and got painted as nail.
+        backside = np.clip((nd - 0.1) / 0.25, 0, 1) * np.clip((rn / max(R, 1e-6) - 0.2) / 0.15, 0, 1) * np.clip((t - 0.10) / 0.12, 0, 1)   # faces the back, not the tip cap where rad -> 0, and not the rest of the hand
         X0 = xl * 1000.0 * mm                                                  # lateral offset from the bone, texels
         Y0 = s * 1000.0 * mm                                                   # distance along the bone from the joint, texels
         skin_ref = (t > 0.05) & (t < 0.32) & (nd > 0.2)
         if skin_ref.sum() < 20: skin_ref = t < 0.35
         col = np.median(alb[ys_[skin_ref], xs_[skin_ref], :3], axis=0)
-        rgb = alb[ys_, xs_, :3]
-        lum = rgb.mean(1); sat = rgb.max(1) - rgb.min(1)
         s_lum = float(np.median(lum[skin_ref])); s_sat = float(np.median(sat[skin_ref]))
         # SATURATION is the clean signal: the painted nail is pale grey-pink on pink skin, so it desaturates by 0.03-0.06
-        # while its luminance overlaps the skin's own shading `[measured 2026-09-06, n=4 nails]`. Pass 9's first try used
-        # overall colour distance, caught the whole shaded fingertip, and the plate swallowed the tip.
+        # while its luminance overlaps the skin's own shading `[measured 2026-09-06, n=4 nails]`.
         d_col = np.clip((s_sat - sat) / 0.045, 0, 1) * np.clip((lum - s_lum + 0.06) / 0.05, 0, 1)
         orig = (sat < s_sat - 0.022) & (lum > s_lum - 0.03) & (t > 0.30) & (backside > 0.2)
         halfw_tex = halfw * 1000.0 * mm
@@ -464,6 +481,16 @@ try:
         else:
             xc = 0.0
             fit = "FALLBACK centre (only %d px read as nail)" % int(orig.sum())
+        # pass 17 (Tefa: "a patch of skin on the thumb, like a little corner coming loose"): `orig` is a pure colour test, so on
+        # the thumb -- whose distal segment is broad and pale -- it also caught skin well away from the nail (2 461 px against the
+        # index's 1 194). Those pixels were inside `clean`, so the wipe flattened them to one colour and left a hard-edged patch.
+        # The plate no longer depends on `orig` for anything but the across-finger centre, so confine it to the plate's own
+        # neighbourhood first, then take the centre from what is left.
+        near = (np.abs(Yb - yc) < 1.5 * wy) & (np.abs(X0) < 2.0 * wx)
+        n_before = int(orig.sum()); orig = orig & near
+        if n_before - int(orig.sum()) > 0:
+            print("nails %s %-6s: %d of %d px dropped as too far from the nail" % (side, f, n_before - int(orig.sum()), n_before))
+        if orig.sum() >= 120: xc = float(np.mean(X0[orig]))
         X = Xb - xc; Y = Yb - yc
         # rounded-rectangle SDF. The DISTAL end gets the big radius: a real free edge is a strong arc bulging toward the
         # fingertip (Tefa's green curve); pass 8's flat distal edge with small corners is the red one.
@@ -490,7 +517,7 @@ try:
         h = (0.05 * plate + 0.035 * dome * plate + 0.04 * free - 0.11 * groove + a.nail_fold * fold + 0.004 * ridges * plate) * a.nails   # ridges at 0.01 read as stripes in the render
         # clean-up zone: a ring round the plate PLUS every pixel the artist painted as nail, so nothing of the original can
         # survive past our edge. Never the pad; the tip cap is included (the artist's free edge sits on it).
-        clean = np.maximum(np.clip((14.0 - sdf) / 3.0, 0, 1), orig.astype(np.float32)) * (t < 1.1) * np.clip((nd + 0.3) / 0.3, 0, 1)
+        clean = np.maximum(np.clip((14.0 - sdf) / 3.0, 0, 1), orig.astype(np.float32)) * (t < 1.1) * (t > 0.15) * np.clip((nd + 0.3) / 0.3, 0, 1)
         # the wipe itself, per pixel: how far this pixel is from its own finger's skin (both brighter AND darker, which is the
         # whole point of pass 9), inside the clean-up zone. Section 4 just applies it.
         wipe_here = clean * d_col                                              # d_col: 1 where this pixel is nail-coloured, 0 on true skin
@@ -675,6 +702,39 @@ try:
           100 * (vein_lines[fieldK > 0] > 0.3).mean(), 100 * (tend[fieldK > 0] > 0.3).mean(), 100 * (tint_lines[fieldK > 0] > 0.3).mean()))
 except Exception as e:
     import traceback; traceback.print_exc(); print("anatomy: skipped:", e)
+# ---- pass 19: DROP ANY PLATE FRAGMENT TOO SMALL TO BE A NAIL. Tefa, 2026-09-06: "ONLY that patch of skin on the back of
+# the hand at the base of thumb" -- a 55-74 texel speck, one per hand, mirrored, sitting well away from any fingertip. A
+# finger's pixel set is every texel its vertices cover, which reaches far down the hand, and where the smoothed coordinates
+# drift near a UV island edge a few of those texels can fall inside the plate. Confining the paint to the distal segment by
+# `t` removed most of it; this removes the rest by the one property no real nail can have -- ten nails here run 1 391 to
+# 3 683 texels, so anything under a few hundred is not one. Cause of the drift itself not identified `[hypothesis]`.
+if a.nails > 0 and nail_plate.any():
+    import collections
+    _pl = nail_plate > 0.5
+    _seen = np.zeros_like(_pl); _keep = np.zeros_like(_pl)
+    _ys, _xs = np.nonzero(_pl); _H, _W = _pl.shape
+    _dropped = 0
+    for _y0, _x0 in zip(_ys, _xs):
+        if _seen[_y0, _x0]: continue
+        _q = collections.deque([(_y0, _x0)]); _seen[_y0, _x0] = True; _pix = []
+        while _q:
+            _y, _x = _q.popleft(); _pix.append((_y, _x))
+            for _dy in (-1, 0, 1):
+                for _dx in (-1, 0, 1):
+                    _yy, _xx = _y + _dy, _x + _dx
+                    if 0 <= _yy < _H and 0 <= _xx < _W and _pl[_yy, _xx] and not _seen[_yy, _xx]:
+                        _seen[_yy, _xx] = True; _q.append((_yy, _xx))
+        if len(_pix) >= a.nail_min_px:
+            for _y, _x in _pix: _keep[_y, _x] = True
+        else:
+            _dropped += len(_pix)
+    _grow = _keep.astype(np.float32)
+    _grow = (blur(_grow, 3.0) > 0.02)                       # a little margin so the relief and wipe round each kept nail survive
+    _m = _grow.astype(np.float32)
+    for _arr in (nail_plate, nail_h, nail_clean, nail_wipe, nail_lun, nail_free, nail_cut, nail_shadow, nail_groove):
+        _arr *= _m
+    nail_base *= _m[..., None]
+    print("nails: fragment guard dropped %d texels in specks under %d" % (_dropped, a.nail_min_px))
 no_plate = 1.0 - nail_plate                                   # nails: no wrinkles, pores or grain on the plate itself
 cx, cy = nrm_from_height(h_crease + h_veins + h_wrinkle * no_plate + h_anat + nail_h, 6.0)
 _fs = 4.0 * (N / 4096.0 / 0.183)

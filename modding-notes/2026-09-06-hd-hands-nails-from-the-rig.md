@@ -234,3 +234,37 @@ n=3` says the material resolved late rather than never. Still nothing with `set_
 cause; next suspect is the material, so try binding the MDF before `setMesh`, or an existing game MDF, to separate
 "our MDF" from "any MDF". `twist l/r` swung to ±90° on the last run, so the radius joint carries no pronation:
 once the bands show, **NUM- to k = 1.0** and NUM/ through the four conventions until they turn with the skin.
+
+---
+
+# Passes 17–19 — the nails are done; the last speck removed (2026-09-06 22:12, deployed)
+
+**Tefa on pass 16: "fingernails are perfect now!!!"** `[verified-live 2026-09-06]` — the nails are closed. Then one
+thing left, twice narrowed by Tefa to be exact: *"ONLY that patch of skin on the back of the hand at the base of
+thumb"*, a small triangle they circled.
+
+What it was: **two plate fragments of 74 and 55 texels, one per hand, mirrored**, sitting 110 texels away from the
+little finger's nail in the atlas and nowhere near a fingertip in 3D. A finger's pixel set is every texel its
+vertices cover, which reaches far down the hand; where the smoothed coordinates drift near a UV island edge, a few
+of those texels can fall inside the plate's signed distance and get painted. Two guards now:
+
+- **pass 18b** — all nail drawing is gated by distance ALONG the distal bone (`t > ~0.15`), so nothing on the rest
+  of the hand can be painted whatever the coordinates do;
+- **pass 19** — a connected-component pass drops any plate blob under `--nail-min-px` (400). The ten real nails run
+  **1 391 to 3 683 texels in matched left/right pairs**, so the threshold is not close to anything real.
+
+Static check after: **10 plate blobs, 0 strays, 129 texels dropped** — exactly the 74 + 55 seen before
+`[verified-numerically 2026-09-06]`.
+
+## A change I made and took back
+
+Between those, a Blender render of the thumb appeared to show its plate lying on the thumb's **flank**, so pass 18
+started taking each nail's facing direction from the mean surface normal of the artist's own nail pixels — a good
+idea in itself, and it moved every nail 12–16°. Tefa: *"the nails were perfect, no need to change them"*. Reverted
+to opt-in (`--nail-face-from-art`, default off) and the ten plates are back within 5 texels of the pass-16 build.
+
+The lesson is worth keeping: **`hd_hands_render.py --focus thumb` aims its camera with the same hand-wide dorsal
+guess the paint script uses**, so if that guess is wrong for the thumb, the render looks at the thumb's flank and a
+correctly-placed nail appears to be on it. The render could not have told those two apart, and I treated it as
+evidence against a build the person holding the headset had just called perfect. `[hypothesis]` either way — the
+thumb's true facing is still unmeasured, and the flag is there if it ever matters.
