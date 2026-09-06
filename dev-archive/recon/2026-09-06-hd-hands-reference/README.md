@@ -34,3 +34,13 @@ Claire's body mesh (`pl3000.mesh`, 27 k verts including the arms) uses `pl3000_b
 3. **Full sculpt** — new hands, retopo, rebake. The roadmap's "largest single asset job"; only if 1 + 2 fall short.
 
 Same three tiers apply to Ada (`pl5xxx`) and, for the bare fingertips, Leon.
+
+## Result, 2026-09-06 ~03:00 (Tefa, in VR, after pass 2 + forearms) `[verified-live, n=1]`
+
+`vr-result-*.jpg` — three of Tefa's ten headset captures. Verdict: **"this looks really good!!! unbelievable."**
+Remaining notes from the same look, in Tefa's words:
+- "still a bit grainy" — one number each way (`--pores`, `skin_detail_build.py --normal`);
+- "nails need more definable lines" — nail bed / cuticle edges: a paint job on the nail UV islands (Blender);
+- "the grime on hands is very low resolution up close" — that is the game's Record system dirt overlay
+  (`Rec_Mud_Map`, `Record_Injury_Map`, `VFX/RecordSystem/RecordTexture/BaseTextures/*`, listed in the MDF),
+  not our textures. Higher-res replacements for those masks are the same loose-file trick, one more `[PD]`.
