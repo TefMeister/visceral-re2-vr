@@ -1,6 +1,6 @@
 # 2026-09-06 — HD hands: the nails, drawn from the rig
 
-**Status:** built, deployed 16:53 local, unseen in game. Previous texture set kept as `.tex.34.prev` beside each file.
+**Status:** deployed 17:48 local after Tefa's first VR look (pass 12). The section at the foot of this note supersedes the grey free edge, the shadow and the plate sizing described above. Previous texture set kept as `.tex.34.prev` beside each file.
 **Character:** Claire, `pl1000`, skin material `pl1000_Body_Mat` on the `pl1000_Jacket_*` atlas.
 **Tools:** `dev-archive/tools/blender/hd_hands_paint.py` (nail pass added), `hd_hands_render.py` (`--focus fingers|thumb`),
 `dev-archive/tools/re-engine/body_tex_build.py` (unchanged).
@@ -71,3 +71,59 @@ distinct plate, side folds, cuticle and a pale free edge; the thumb a plate on i
 | nails invisible | the plate/skin contrast is below the game's lighting; raise the lift toward white |
 
 Restore: rename the three `.prev` files back. Rebuild ≈ 4 min (paint 2 min, convert 1 min, copy).
+
+---
+
+# Pass 9–12 — Tefa's first VR look, and what it changed (2026-09-06 17:00–17:48)
+
+Deployed 17:48. The `.tex.34.prev` files still hold the pre-nails set, so they remain the restore point.
+
+## What Tefa saw, in their own marks
+
+Five annotated 4K screenshots (`Desktop\Claire hands\`). Every nail on both hands was circled at the same place:
+a **dark grey-brown band across the distal end**, and on one nail a green curve was drawn over the shape the
+boundary should have, against a red curve over the shape it had. Tefa's own reading of the fix:
+
+> "i think the fix to fingernails is not painting the tips grey at all"
+
+That is the whole of it, and it was right.
+
+## Three causes, all ours
+
+1. **We painted the tips grey.** The greyish free edge (`fe_col`) plus a hyponychium shadow beyond the plate. Both
+   are gone from pass 12; the free edge now reads by relief alone. A static count over the nail zone finds **0 px**
+   that are both desaturated and dark, before OR after `[verified-numerically 2026-09-06]` — so the "original nail
+   underneath" in the screenshots was in fact our own grey, not the artist's.
+2. **The wipe could only see brighter pixels.** It fired on `lum > skin + 0.03`, so anything of the artist's nail
+   that was darker than skin survived and sat just past our edge. Pass 12 wipes on how far a pixel is from *its own
+   finger's* skin, in both directions. Over the nail zone: **1,252 pale pixels before, 0 after** `[verified-numerically
+   2026-09-06]`, and peak luminance drops 0.872 → 0.767.
+3. **The plate was sized from fractions of the bone**, so it stopped short of what the artist had painted. Pass 12
+   **fits the plate to the artist's own nail**, which is the thing that has been right all along.
+
+## How the fit works, and why in UV
+
+- **Detect** the artist's nail by **saturation**, not brightness: it is pale grey-pink on pink skin, so it desaturates
+  by 0.03–0.06 while its luminance overlaps the skin's own shading `[measured 2026-09-06, n=4 nails]`. The first try at
+  pass 9 used overall colour distance, caught the whole shaded fingertip, and the plate swallowed the tip.
+- **Fit in texture space.** The artist drew in UV, so measuring and drawing in UV cancels the island's stretch exactly
+  where a 3D-projected box does not. The only thing still taken from the rig is which way the finger runs: a
+  least-squares fit of pixel coordinates against along-bone distance gives that as a UV direction.
+- **Result:** plate centroids land **0–4 texels** from the artist's nail centroid, against 7–23 before
+  `[verified-numerically 2026-09-06, n=10 nails]`. About 12–22 % of the artist's nail still falls outside the rounded
+  rectangle at the corners; that part is wiped to skin rather than covered, which is the intended outcome.
+- The distal end now carries the **large** corner radius, so the free edge is a strong arc bulging toward the
+  fingertip — Tefa's green curve. Pass 8's flat distal edge with small corners was the red one.
+- The plate is no longer clamped a second time by the back-of-finger mask; that was biting notches out of an outline
+  that had already been fitted inside it.
+
+## Still open
+
+- **Contrast.** The plate is skin lifted a third toward white with a pink tint. It reads in the Blender renders; if it
+  disappears under RPD lighting the number to raise is that 0.30.
+- **The straight lines on the forearm** (Tefa's other two screenshots) are a different fault and are NOT fixed here.
+  Cause found while reading the recon dump: the skin submesh `Group_0_Sub_0__pl1000_Body_Mat` carries only **798
+  forearm faces**, while **`pl1000_Jacket_Mat` carries 8,125** `[measured 2026-09-06, recon dump]`. Most of the bare
+  forearm is drawn by the *jacket* submesh, which our paint has never touched — so our treatment stops dead at the
+  submesh boundary and that boundary is the straight band across the arm. The fix is to rasterise the jacket
+  submesh's forearm-bone faces into the same paint mask. Queued, not attempted.
