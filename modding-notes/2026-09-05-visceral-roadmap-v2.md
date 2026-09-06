@@ -6,6 +6,21 @@ Tefa dictated 22 further items this evening. This file is **v1 plus those 22, de
 and put into an order to actually start working through**. v1 is left in place as the
 historical record of the first plan; from here on this file is the list.
 
+## Changes since 2026-09-05 (this file is edited in place; each change is dated)
+
+- **2026-09-06 02:50 — NEW 23 added:** G5, the flashlight off the hand.
+- **2026-09-06 12:10 — three additions/changes dictated by Tefa:**
+  1. **G5 revised (NEW 23 → shoulder lamp, not headlamp).** The flashlight's holster zone is
+     the **left shoulder, reached with the left hand** — not the head. And, if possible, the
+     light itself should be offset so it shines from the player's **left shoulder**, not from
+     the headset. The cutscene exception is unchanged.
+  2. **NEW 24 — tutorial prompts for everything the mod changes** (movement, holsters, item
+     pick-up, reloads, and so on). Deliberately one of the LAST things to build, once the final
+     feature set is known. New phase I.
+  3. **NEW 25 — manual item pick-up, fully specified.** Replaces the one-line F2. Left hand
+     grabs, hold to carry, release to bank it into the inventory; a right-hand grab only when
+     no gun is in that hand, and only if it does not mean re-wiring RG again. Detail in F2.
+
 ## The source rule, restated by the user tonight (unchanged)
 
 > "We do not copy any code. Arcade Controls, now with Andyalpa's mod files, is ours to
@@ -225,8 +240,26 @@ is to redo it natively and see whether C++ changes the outcome. ⚠️ Read
 its aim state at all**, vanilla RMB included, so the blocker was never our latch. Whether C++
 changes that is exactly the open question, and it is a shared blocker with F3.
 
-**F2. Physical item grabbing.** `[VR]` — NEW 21. Reach out and take the item. The more
-interesting of the two pick-up answers and the one that fits the mod.
+**F2. Manual item pick-up, by hand.** `[VR]` — NEW 21, fully specified as NEW 25 by Tefa
+2026-09-06 12:10. Reach out and take the item. The more interesting of the two pick-up answers
+and the one that fits the mod. The spec:
+- **Which hand.** The **left hand (LG) is the baseline** and is enough on its own. The right hand
+  too, **when no gun is in it**, would be excellent — but it may be too much hassle, because RG
+  is already re-wired (RG = equip sub-weapon) and a right-hand grab means re-wiring a system
+  that has already been re-wired once. Build left first; add right only if it comes cheap.
+- **Hold to carry.** While LG is held the item stays in the hand and the player can **walk
+  around carrying it**. Nothing is banked until the grip opens.
+- **Release to bank.** Releasing LG puts the item **into the inventory**.
+- **Two possible shapes of that moment, decided by what the engine allows:**
+  - **If an RE3-style straight-to-inventory route exists** (no pick-up screen — RE3 remake takes
+    items directly), then on release the item should **visibly and quickly shrink in the
+    player's hand** rather than just disappearing.
+  - **If the inventory screen has to play out**, there is no difference from vanilla at that
+    point: releasing LG still triggers the placement, and the pick-up screen follows. The hold-
+    and-walk part stays exactly the same either way — the item can be held and carried for as
+    long as LG is down.
+- Shares F1's open question: whether interaction is reachable at all from the aim state, and
+  whether C++ changes that.
 
 **F3. Automatic item pick-up.** `[VR]` — v1 #6. The fallback if F2 proves impractical, and it
 runs into the same aim-state interaction block as F1. Only one of F2/F3 ships.
@@ -243,7 +276,9 @@ reason it sits here is that the latch drags the aim-state bundle along, which is
 F1's problem.
 
 **F6. Holsters, HMD-relative.** `[VR]` — v1 #12. Last: it is the item most dependent on
-everything else in the phase feeling right first.
+everything else in the phase feeling right first. **Flashlight slot (Tefa 2026-09-06 12:10):
+the flashlight's holster zone is the LEFT SHOULDER, reached with the LEFT hand** — not the
+head. Pairs with G5, where the light itself is offset to that same shoulder.
 
 ---
 
@@ -263,13 +298,23 @@ the hollow-neck problem only appears once head shadows are on.
 **G4. Scope see-through.** `[VR]` — v1 #17. Conditional on the RE Village scope project
 succeeding; if it does, the technique comes here. Last because it is gated on another project.
 
-**G5. Flashlight on the HMD, not in the hand.** `[FLAT]` then `[VR]` — NEW 23, added by Tefa
-2026-09-06 02:50. The light should follow the headset (head-mounted torch) everywhere EXCEPT in
-cutscenes, where the game's own hand-held flashlight must play as authored. Needs a cutscene
-detector to switch between the two — `visceral_cinematic_gate.lua` already publishes
+**G5. Flashlight on the LEFT SHOULDER, not in the hand and not a headlamp.** `[FLAT]` then
+`[VR]` — NEW 23, added by Tefa 2026-09-06 02:50 as a head-mounted torch, **revised by Tefa
+2026-09-06 12:10: the light should read as coming from the player's LEFT SHOULDER** (a
+shoulder-mounted lamp, the way a police radio or body torch sits), not from the headset. Two
+parts: (a) the **holster zone** for the flashlight is the left shoulder, reached with the left
+hand (recorded on F6 too); (b) **if possible, the light's actual origin is offset to the left
+shoulder** — the emitter sits at the shoulder and points where the body/head faces, so the
+beam visibly comes from beside the head rather than out of the eyes. Which direction it follows
+(HMD yaw, body yaw, or a blend) is a headset judgement, not a design decision made here.
+Everything else is unchanged: the light is taken off the hand everywhere EXCEPT in cutscenes,
+where the game's own hand-held flashlight must play as authored. Needs a cutscene detector to
+switch between the two — `visceral_cinematic_gate.lua` already publishes
 `__visceral_cinematic_blocking()` and bridge slot 30 carries it into the plugin, so the switch has
 its signal; what is missing is finding the flashlight's light object and re-parenting / re-posing
-it to the camera each frame (REFramework's ManualFlashlight is the reference for how it is toggled).
+it each frame to a shoulder anchor (REFramework's ManualFlashlight is the reference for how it is
+toggled). The head-mounted version is the natural first build step — same code, different
+anchor — but it is a step, not the target.
 
 ---
 
@@ -286,6 +331,21 @@ having the same problem — check her too.
 **H2. HD hands for all playable characters.** `[PD]` — NEW 13. The hands are what you look at
 for the entire game in VR, so this has an outsized effect for asset work. Largest single
 asset job on the list.
+
+---
+
+# I. Release polish — deliberately last
+
+**I1. Tutorial prompts for everything the mod changes.** `[FLAT]` to build and see them fire,
+`[VR]` to judge readability and timing — NEW 24, added by Tefa 2026-09-06 12:10. The game
+teaches its own controls; it does not teach ours. Every behaviour the mod changes needs a
+prompt of its own, shown where the player first needs it: movement, holsters (including the
+left-shoulder flashlight slot from F6/G5), item pick-up (F2), manual reload and slide racking
+(A2/A3), the dodge binding (E3), no-grip-to-shoot (F5), the two-handed dock (A1), and whatever
+else lands by then. **This is one of the LAST things to build, on purpose:** it can only be
+written once Visceral's final feature set is known, or the prompts will teach a version of the
+mod that no longer exists. Keep a running list of "changed behaviours" as items close, so the
+prompt set can be written in one pass.
 
 ---
 
