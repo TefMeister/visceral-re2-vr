@@ -158,3 +158,17 @@ So the rim now sits within a hair of ordinary skin instead of dominating it `[ve
 The plate's own outline groove still peaks near 0.9, which is intended — that is what makes the nail read.
 
 Deployed 18:12. `.tex.34.prev` still holds the pre-nails set.
+
+---
+
+# Pass 14 — the lighter base comes back (2026-09-06 18:25–18:37, deployed)
+
+Tefa's reference for the nails was a 17:17 screenshot — the **16:53 build** — and what they liked in it is the faint
+lighter crescent at the base of each nail, with the instruction to keep the tips as they are now (no grey). That
+crescent is the lunula the nail pass has always drawn; it was at 0.6 in the 16:53 build and was cut to 0.35 in pass
+12 when everything else was being tamed. Back to **0.6**, now the knob `--nail-lunula`. Nothing else changed from
+pass 13 (the rim fix is in this build too). Deployed 18:37; `.tex.34.prev` still holds the pre-nails set.
+
+Tefa also reported the nails "still like they were before" on the second look. The 18:12 build needed a game
+restart to show (textures load at boot); whether they had restarted is not known, so the pass-13 rim fix is
+**unseen** until this build is looked at.
