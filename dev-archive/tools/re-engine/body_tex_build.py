@@ -16,6 +16,7 @@ ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDe
 ap.add_argument("--in", dest="inp", required=True); ap.add_argument("--out", required=True)
 ap.add_argument("--character", default="pl3000"); ap.add_argument("--remesh-dir", default=REMESH_DIR)
 ap.add_argument("--tex-base", default=None, help="texture base name, default <character>_Body; Claire (pl1000) is pl1000_Jacket (her skin shares the jacket atlas)")
+ap.add_argument("--msk1-ref", default=None, help="a shipped 2048 BC4 .tex.34 whose 160-byte header is reused for MSK1 (Claire ships no MSK1: use Sherry's pl3000_body_msk1.tex.34)")
 ap.add_argument("--src", default=None, help="extracted <pl> folder holding the shipped .tex.34 files (needed for MSK1: its header is reused)")
 a = ap.parse_args()
 sys.path.insert(0, a.remesh_dir)
@@ -44,10 +45,11 @@ for name, fmt, dxgi in plan:
         TU.ImageListToDDS([(png, fmt)], outDir=work, generateMipMaps=True)
     if not os.path.exists(dds): raise SystemExit("DDS conversion failed for " + name)
     out = os.path.join(dest, name + ".tex.34")
-    if fmt == "BC4_UNORM" and a.src:
+    if fmt == "BC4_UNORM" and (a.src or a.msk1_ref):
         # DDSToTex segfaults on BC4 (2026-09-06). The shipped MSK1 has the same size/format/mip chain, so transplant its
         # 160-byte tex header onto the new DDS payload (header sizes verified equal: 2796376 - 2796216).
-        orig = open(os.path.join(a.src, name.lower() + ".tex.34"), "rb").read(); payload = open(dds, "rb").read()[128:]
+        ref_path = a.msk1_ref or os.path.join(a.src, name.lower() + ".tex.34")
+        orig = open(ref_path, "rb").read(); payload = open(dds, "rb").read()[128:]
         hdr = len(orig) - len(payload)
         if hdr <= 0 or hdr > 4096: raise SystemExit("MSK1: payload size does not match the shipped texture (%d vs %d)" % (len(payload), len(orig)))
         open(out, "wb").write(orig[:hdr] + payload)

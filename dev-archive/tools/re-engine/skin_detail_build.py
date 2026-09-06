@@ -22,7 +22,7 @@ TEX_VERSION = 34
 MDF_PATH = "natives/stm/sectionroot/character/player/%s/%s/%s.mdf2.21"
 
 ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-ap.add_argument("--png", required=True)
+ap.add_argument("--png", required=False, default=None)
 ap.add_argument("--out", required=True)
 ap.add_argument("--game-dir")
 ap.add_argument("--mdf")
@@ -33,6 +33,7 @@ ap.add_argument("--normal", type=float, default=1.0)
 ap.add_argument("--ao", type=float, default=0.0)
 ap.add_argument("--tex-name", default="visceral_skin_detail_NRM")
 ap.add_argument("--remesh-dir", default=REMESH_DIR)
+ap.add_argument("--mask-only", default=None, help="MDF-relative path of a DetailMaskMap texture (e.g. SectionRoot/Character/Player/pl1000/pl1000/pl1000_Jacket_MSK1.tex): patch ONLY that slot, keep DetailMap and the Detail_* floats as shipped, skip the tile build")
 a = ap.parse_args()
 
 sys.path.insert(0, a.remesh_dir)
@@ -41,22 +42,24 @@ from modules.tex import re_tex_utils as TU            # noqa: E402
 from modules.mdf import file_re_mdf as M              # noqa: E402
 
 # ---- 1. PNG -> DDS (BC7, mips) -> .tex.34 ---------------------------------------------------------
+if a.mask_only and not a.png: a.png = None
 tex_dir = os.path.join(a.out, "natives", "stm", "visceral")
 os.makedirs(tex_dir, exist_ok=True)
 work = os.path.join(a.out, "_work"); os.makedirs(work, exist_ok=True)
-png_copy = os.path.join(work, a.tex_name + ".png")
-shutil.copyfile(a.png, png_copy)
-TU.ImageListToDDS([(png_copy, "BC7_UNORM")], outDir=work, generateMipMaps=True)
-dds = os.path.join(work, a.tex_name + ".dds")
-if not os.path.exists(dds):
-    raise SystemExit("DDS conversion produced nothing (expected %s)" % dds)
-tex_out = os.path.join(tex_dir, a.tex_name + ".tex.%d" % TEX_VERSION)
-TU.DDSToTex([dds], TEX_VERSION, tex_out)
-hdr = open(tex_out, "rb").read(0x20)
-import struct
-w, h = struct.unpack_from("<HH", hdr, 8); fmt = struct.unpack_from("<I", hdr, 0x10)[0]
-print("tex: %s  %dx%d dxgi=%d (98 = BC7_UNORM, same as the game's own detail normals) %d bytes" % (tex_out, w, h, fmt, os.path.getsize(tex_out)))
-if fmt != 98: print("WARNING: format is not BC7_UNORM")
+if not a.mask_only:
+    png_copy = os.path.join(work, a.tex_name + ".png")
+    shutil.copyfile(a.png, png_copy)
+    TU.ImageListToDDS([(png_copy, "BC7_UNORM")], outDir=work, generateMipMaps=True)
+    dds = os.path.join(work, a.tex_name + ".dds")
+    if not os.path.exists(dds):
+        raise SystemExit("DDS conversion produced nothing (expected %s)" % dds)
+    tex_out = os.path.join(tex_dir, a.tex_name + ".tex.%d" % TEX_VERSION)
+    TU.DDSToTex([dds], TEX_VERSION, tex_out)
+    hdr = open(tex_out, "rb").read(0x20)
+    import struct
+    w, h = struct.unpack_from("<HH", hdr, 8); fmt = struct.unpack_from("<I", hdr, 0x10)[0]
+    print("tex: %s  %dx%d dxgi=%d (98 = BC7_UNORM, same as the game's own detail normals) %d bytes" % (tex_out, w, h, fmt, os.path.getsize(tex_out)))
+    if fmt != 98: print("WARNING: format is not BC7_UNORM")
 
 # ---- 2. the MDF ----------------------------------------------------------------------------------
 rel = MDF_PATH % (a.character, a.character, a.character)
@@ -76,13 +79,15 @@ mat = mats[0]
 tex_path = "visceral/%s.tex" % a.tex_name           # MDF paths are natives/stm-relative, with .tex and no version number
 changed = []
 for tb in mat.textureList:
-    if tb.textureType == "DetailMap":
+    if a.mask_only and tb.textureType == "DetailMaskMap":
+        changed.append("DetailMaskMap: %s -> %s" % (tb.texturePath, a.mask_only)); tb.texturePath = a.mask_only
+    if not a.mask_only and tb.textureType == "DetailMap":
         changed.append("DetailMap: %s -> %s" % (tb.texturePath, tex_path)); tb.texturePath = tex_path
-for pr in mat.propertyList:
+for pr in ([] if a.mask_only else mat.propertyList):
     if pr.propName == "Detail_UVScale": changed.append("Detail_UVScale: %s -> %s" % (pr.propValue, [a.uv_scale])); pr.propValue = [a.uv_scale]
     if pr.propName == "Detail_Normal_Intensity": changed.append("Detail_Normal_Intensity: %s -> %s" % (pr.propValue, [a.normal])); pr.propValue = [a.normal]
     if pr.propName == "Detail_AO_Intensity": changed.append("Detail_AO_Intensity: %s -> %s" % (pr.propValue, [a.ao])); pr.propValue = [a.ao]
-if len(changed) != 4: raise SystemExit("expected to change 4 things on %s, changed %d: %s" % (mat_name, len(changed), changed))
+if len(changed) != (1 if a.mask_only else 4): raise SystemExit("expected to change 4 things on %s, changed %d: %s" % (mat_name, len(changed), changed))
 for c in changed: print("  " + c)
 mdf_out = os.path.join(a.out, rel.replace("/", os.sep))
 os.makedirs(os.path.dirname(mdf_out), exist_ok=True)
