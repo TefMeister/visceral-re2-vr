@@ -42,6 +42,7 @@ ap.add_argument("--right-width", type=float, default=4.0, help="total span of th
 ap.add_argument("--lift", type=float, default=0.0018, help="clearance above the skin, m (leather sits proud)")
 ap.add_argument("--segs", type=int, default=48, help="segments round the arm")
 ap.add_argument("--preview", action="store_true", help="also write .obj + keep the scene for rendering")
+ap.add_argument("--export", action="store_true", help="also export one RE2 RT .mesh per side in the ARM_RADIUS joint's local frame, for the plugin (like the neck plug)")
 a = ap.parse_args(argv)
 os.makedirs(a.out, exist_ok=True)
 ctypes.windll.ole32.CoInitializeEx(None, 0)
@@ -220,6 +221,11 @@ def add_ring(bm, uv_layer, w, up, back, side_v, grid, prof, d_c, ang, half_len, 
             for lp in f.loops: lp[uv_layer].uv = (0.5, 0.5)
 
 
+# material slot -> name, per side. These names are what visceral_bracelets.mdf2 (mdf_build_bracelets.py) defines.
+MAT_NAMES = {"r": ("visceral_bracelet_leather", "visceral_bracelet_metal", "visceral_bracelet_leather"),
+             "l": ("visceral_bracelet_leather_red", "visceral_bracelet_metal", "visceral_bracelet_leather_purple")}
+
+
 def build(side, centre_cm, width_cm, design):
     w, up, back, side_v = arm_frame(side)
     d_c = centre_cm / 100.0; half = width_cm / 200.0
@@ -259,7 +265,7 @@ def build(side, centre_cm, width_cm, design):
         add_plate(bm, uvl, w, up, back, side_v, grid, prof, hi_c, hi_w * 0.72, 0.30, 0.0034, slot=1)
     bm.normal_update()
     m = bpy.data.meshes.new("visceral_bracelet_" + side)
-    for mn in ("visceral_bracelet_leather", "visceral_bracelet_metal", "visceral_bracelet_leather2"):
+    for mn in MAT_NAMES[side]:
         m.materials.append(bpy.data.materials.get(mn) or bpy.data.materials.new(mn))
     bm.to_mesh(m); bm.free()
     ob = bpy.data.objects.new("visceral_bracelet_" + side, m)
@@ -280,4 +286,53 @@ if a.preview:
     bpy.ops.wm.obj_export(filepath=path, export_selected_objects=True, export_materials=False)
     print("preview OBJ ->", path)
     bpy.ops.wm.save_as_mainfile(filepath=os.path.join(a.out, "visceral_bracelets.blend"))
+
+def export_re_mesh(ob, side):
+    """Write <out>/visceral_bracelet_<side>_radiuslocal.mesh.2109108288: the object's vertices moved into the
+    <side>_arm_radius joint's LOCAL bind frame, split into one object per material (LOD_0_Group_0_Sub_N__<mat>), in a
+    collection tagged for RE Mesh Editor's exporter -- the same recipe as build_neckplug.py, whose hard-coded neck_0
+    numbers this conversion reproduces exactly `[verified 2026-09-06]`:
+      RE-space bind rows  = the Blender bone matrix's COLUMNS, each converted (x, y, z)_B -> (x, z, -y)_RE
+      RE-space bind T     = the bone's translation, converted the same way
+      RE local            = rows . (w_RE - T);  written back to Blender as (x, -z, y) so the exporter's own
+                            Blender->RE conversion lands on the RE-local coordinates.
+    The plugin then pins a GameObject to the live joint's world position + rotation every frame (plug_update())."""
+    b = arm_obj.data.bones[side + "_arm_radius"]
+    Mb = arm_obj.matrix_world @ b.matrix_local
+    def to_re(v): return (v[0], v[2], -v[1])
+    rows = [to_re((Mb[0][c], Mb[1][c], Mb[2][c])) for c in range(3)]
+    T = to_re((Mb[0][3], Mb[1][3], Mb[2][3]))
+    def to_local_blender(p):
+        w = to_re(p); d = (w[0] - T[0], w[1] - T[1], w[2] - T[2])
+        l = [sum(d[j] * rows[i][j] for j in range(3)) for i in range(3)]
+        return (l[0], -l[2], l[1])
+    name = "visceral_bracelet_%s_radiuslocal" % side
+    coll = bpy.data.collections.new(name + ".mesh"); bpy.context.scene.collection.children.link(coll); coll["~TYPE"] = "RE_MESH_COLLECTION"
+    me = ob.data
+    for slot, mat_name in enumerate(MAT_NAMES[side]):
+        polys = [p for p in me.polygons if p.material_index == slot]
+        if not polys: continue
+        bm = bmesh.new(); uvl = bm.loops.layers.uv.new("UVMap0")
+        src_uv = me.uv_layers.active.data
+        vmap = {}
+        for p in polys:
+            vs = []
+            for vi in p.vertices:
+                if vi not in vmap: vmap[vi] = bm.verts.new(to_local_blender(ob.matrix_world @ me.vertices[vi].co))
+                vs.append(vmap[vi])
+            try: f = bm.faces.new(vs)
+            except ValueError: continue
+            for lp, li in zip(f.loops, p.loop_indices): lp[uvl].uv = tuple(src_uv[li].uv)
+        bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+        sub = bpy.data.meshes.new("LOD_0_Group_0_Sub_%d__%s" % (slot, mat_name)); bm.to_mesh(sub); bm.free()
+        sub.materials.append(bpy.data.materials.get(mat_name) or bpy.data.materials.new(mat_name))
+        o = bpy.data.objects.new("LOD_0_Group_0_Sub_%d__%s" % (slot, mat_name), sub); coll.objects.link(o)
+        print("   %s: sub %d %-34s %d verts %d faces" % (side, slot, mat_name, len(sub.vertices), len(sub.polygons)))
+    out = os.path.join(a.out, name + ".mesh.2109108288")
+    r = bpy.ops.re_mesh.exportfile(filepath=out, filename_ext=".2109108288", targetCollection=name + ".mesh", selectedOnly=False)
+    print("   EXPORT %s -> %s (%s bytes)" % (r, out, os.path.getsize(out) if os.path.exists(out) else "MISSING"))
+    print("   bind T (RE) = (%.4f, %.4f, %.4f)" % T)
+
+if a.export:
+    for ob in objs: export_re_mesh(ob, "l" if ob.name.endswith("_l") else "r")
 print("DONE")

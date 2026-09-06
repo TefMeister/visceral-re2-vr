@@ -82,6 +82,10 @@ std::atomic<bool> g_api_ok{false};
 #define LOGE(...) do { if (g_param != nullptr && g_param->functions != nullptr && g_param->functions->log_error != nullptr) g_param->functions->log_error(__VA_ARGS__); } while (0)
 
 constexpr const char* TAG = "[visceral]";
+// v0.10: the forearm bracelets' loose assets (natives/stm/ + path) and the twist-blend steps NUM- cycles through
+constexpr const char* BRACELET_MDF_PATH = "visceral/visceral_bracelets.mdf2";
+constexpr const char* BRACELET_MESH_PATH[2] = {"visceral/visceral_bracelet_l_radiuslocal.mesh", "visceral/visceral_bracelet_r_radiuslocal.mesh"};
+constexpr float BRACELET_K[4] = {0.f, 0.5f, 0.8f, 1.f};
 
 struct Vec3 { float x{}, y{}, z{}; };
 struct Quat { float x{}, y{}, z{}, w{}; };
@@ -363,6 +367,10 @@ struct State {
     API::ManagedObject* w_narrow{};     // weapon joint the NARROW hash resolves to (_101 on wp8700)
     API::ManagedObject* w_wide{};       // weapon joint the WIDE hash resolves to (_100 on wp8700)
     API::ManagedObject* neck0{};        // v0.7: the player's neck_0 joint — what the neck plug is pinned to
+    // v0.10: the bracelets ride the radius joints; the wrist joints supply the forearm axis and the twist to blend
+    API::ManagedObject* r_radius{};
+    API::ManagedObject* l_wrist{};
+    API::ManagedObject* r_wrist{};
     API::ManagedObject* bridge{};      // System.Single[64] from the Lua shim
     uint64_t frame{};
     bool trace{false};
@@ -429,6 +437,24 @@ struct State {
         Vec3 last_pos{};
         bool readback_pending{false};   // v0.8: read get_DrawDefault back one frame after writing it
     } plug;
+    // v0.10: FOREARM BRACELETS (Tefa's idea, 2026-09-06). See bracelets_update() for the why.
+    struct Bracelet {
+        API::ManagedObject* go{};
+        API::ManagedObject* transform{};
+        API::ManagedObject* mesh{};
+        bool tried{false};
+        bool created{false};
+        bool lost{false};
+        bool enabled_sent{true};
+        Vec3 last_pos{};
+        float theta{0.f};        // wrist twist about the forearm axis, relative to the radius joint (radians)
+    };
+    struct Bracelets {
+        Bracelet l, r;
+        bool enabled{true};      // NUM* toggles both
+        int k_idx{0};            // NUM- cycles the twist blend: 0 = rigid to the radius joint (safe baseline)
+        int conv{0};             // NUM/ cycles the quaternion convention used to APPLY the blend (order x sign, 4 combos)
+    } bracelets;
     // v0.8: THE HEAD HIDER (roadmap v1 #4 / v2 phase H). Hides every head-ish via.render.Mesh under the player by
     // its per-pass draw flags — DrawDefault off, DrawShadowCast on — so the head is gone from the camera but still
     // casts its shadow. REFramework's own HideJointMesh scales the head joint to zero and takes the shadow with it,
@@ -527,6 +553,9 @@ void dump_joints(API::ManagedObject* transform, const char* who, bool all, API::
         if (l_hand != nullptr && g.l_humerus == nullptr && ln == "l_arm_humerus") g.l_humerus = j;
         if (l_hand != nullptr && g.l_radius  == nullptr && ln == "l_arm_radius")  g.l_radius  = j;
         if (l_hand != nullptr && g.neck0     == nullptr && ln == "neck_0")        g.neck0     = j;   // v0.7: the plug's anchor
+        if (l_hand != nullptr && g.r_radius  == nullptr && ln == "r_arm_radius")  g.r_radius  = j;   // v0.10: bracelets
+        if (l_hand != nullptr && g.l_wrist   == nullptr && ln == "l_arm_wrist")   g.l_wrist   = j;
+        if (l_hand != nullptr && g.r_wrist   == nullptr && ln == "r_arm_wrist")   g.r_wrist   = j;
         if (r_hand != nullptr && *r_hand == nullptr && (ln == "r_weapon" || ln == "r_hand" || ln == "r_arm_wrist")) *r_hand = j;
         if (g_grab_named != nullptr && *g_grab_named == nullptr && ln == g_grab_name) *g_grab_named = j;
     }
@@ -820,6 +849,12 @@ void summary_line() {
     if (g.plug.created) o += snprintf(buf + o, sizeof buf - o, " | plug=%s @(%.2f %.2f %.2f)", g.plug.enabled ? "on" : "off", g.plug.last_pos.x, g.plug.last_pos.y, g.plug.last_pos.z);
     else if (g.neck0 == nullptr) o += snprintf(buf + o, sizeof buf - o, " | plug: no neck_0");
     else o += snprintf(buf + o, sizeof buf - o, " | plug: %s", g.plug.tried ? "FAILED (see log)" : "pending");
+    // v0.10: the bracelets — created or not, the twist blend, and the live wrist-vs-radius twist per arm (deg)
+    if (g.bracelets.l.created || g.bracelets.r.created)
+        o += snprintf(buf + o, sizeof buf - o, " | brac=%s k=%.1f conv=%d twist l=%.0f r=%.0f", g.bracelets.enabled ? "on" : "off", BRACELET_K[g.bracelets.k_idx], g.bracelets.conv,
+                      g.bracelets.l.theta * 57.29578f, g.bracelets.r.theta * 57.29578f);
+    else if (g.l_radius == nullptr) o += snprintf(buf + o, sizeof buf - o, " | brac: no radius joints");
+    else o += snprintf(buf + o, sizeof buf - o, " | brac: %s", (g.bracelets.l.tried || g.bracelets.r.tried) ? "FAILED (see log)" : "pending");
     o += snprintf(buf + o, sizeof buf - o, " | head=%d hid=%d/%zu d=%.2f%s%s", g.head.mode, g.head.hidden_n, g.head.meshes.size(), g.head.head_cam_d,
                   g.head.revealed ? " REVEAL:" : "", g.head.revealed ? g.head.reveal_why.c_str() : "");
     LOGI("%s", buf);
@@ -939,6 +974,118 @@ void plug_update() {
         LOGI("%s plug read-back: DrawDefault=%d (wanted %d)%s", TAG, (int)rb, (int)p.enabled, rb == p.enabled ? "" : " — THE WRITE DID NOT STICK");
     }
     p.last_pos = jp;
+}
+
+// ---------------------------------------------------------------------------
+// v0.10: FOREARM BRACELETS (Tefa, 2026-09-06): "cover over these exact straight lines so they can stay under the
+// bracelets ... metal and leather combined, different on both hands". Two meshes of our own (tools/blender/
+// build_bracelets.py, wrapped onto Claire's sampled arm cross-section, exported in the ARM_RADIUS joint's bind frame),
+// four materials of our own (tools/re-engine/mdf_build_bracelets.py: leather tinted brown / dark red / red-purple and
+// brushed steel, on our own 512^2 tiles) — the same runtime recipe as the neck plug: a GameObject each, a
+// via.render.Mesh, a MeshResourceHolder on a loose file under natives/stm/visceral/, a MeshMaterialResourceHolder
+// on our MDF, and the Transform pinned to a joint every frame.
+//
+// Which joint: the live skeleton has NO twist helpers (l_arm_radius -> l_arm_wrist -> l_weapon, verified in the
+// 2026-09-06 joint dump), and the wrist joint carries the hand's flexion, which a bracelet must not follow. So the
+// bracelet is pinned to the RADIUS joint (elbow end) and, optionally, rotated about the forearm axis by a FRACTION k
+// of the wrist's twist relative to the radius. k = 0 is the safe baseline (rigid to the radius). Whether the radius
+// joint already carries the pronation, and which quaternion convention the engine wants for the extra rotation, are
+// unknown statically: `theta` is logged so the first run can read the split, NUM- cycles k, NUM/ cycles the
+// convention. [hypothesis until the first run]
+// ---------------------------------------------------------------------------
+
+void bracelet_create(State::Bracelet& b, int side) {
+    b.tried = true;
+    auto& api = API::get();
+    auto* go_t = api->tdb()->find_type("via.GameObject");
+    auto* create = go_t != nullptr ? go_t->find_method("create(System.String)") : nullptr;
+    if (create == nullptr) { LOGE("%s bracelet: via.GameObject.create(System.String) not found", TAG); return; }
+    auto* name = api->create_managed_string(side == 0 ? L"visceral_bracelet_l" : L"visceral_bracelet_r");
+    auto r = create->invoke(nullptr, {name});
+    if (r.exception_thrown || r.ptr == nullptr) { LOGE("%s bracelet %c: GameObject.create threw or returned null", TAG, side == 0 ? 'l' : 'r'); return; }
+    b.go = (API::ManagedObject*)r.ptr; b.go->add_ref();
+    b.transform = inv_ptr(b.go, "get_Transform");
+    auto* mesh_t = api->typeof("via.render.Mesh");
+    auto* add = find_method_deep(b.go->get_type_definition(), "createComponent(System.Type)");
+    if (mesh_t == nullptr || add == nullptr) { LOGE("%s bracelet: createComponent(System.Type) / typeof(via.render.Mesh) missing", TAG); return; }
+    auto cr = add->invoke(b.go, {mesh_t});
+    if (cr.exception_thrown || cr.ptr == nullptr) { LOGE("%s bracelet: createComponent(via.render.Mesh) failed", TAG); return; }
+    b.mesh = (API::ManagedObject*)cr.ptr; b.mesh->add_ref();
+    auto* mesh_holder = create_resource_holder("via.render.MeshResource", BRACELET_MESH_PATH[side], "via.render.MeshResourceHolder");
+    auto* mdf_holder  = create_resource_holder("via.render.MeshMaterialResource", BRACELET_MDF_PATH, "via.render.MeshMaterialResourceHolder");
+    if (mesh_holder == nullptr) { LOGE("%s bracelet %c: mesh resource missing — is natives/stm/%s.2109108288 in the game folder?", TAG, side == 0 ? 'l' : 'r', BRACELET_MESH_PATH[side]); return; }
+    if (!inv(b.mesh, "setMesh", {mesh_holder}).ok) { LOGE("%s bracelet %c: setMesh threw", TAG, side == 0 ? 'l' : 'r'); return; }
+    if (mdf_holder == nullptr) LOGW("%s bracelet: MDF resource missing (natives/stm/%s.21) — it will draw with no material", TAG, BRACELET_MDF_PATH);
+    else if (!inv(b.mesh, "set_Material", {mdf_holder}).ok) LOGW("%s bracelet %c: set_Material threw", TAG, side == 0 ? 'l' : 'r');
+    b.created = true; b.enabled_sent = true;
+    LOGI("%s BRACELET %c CREATED: go=%p mesh=%p (%s + %s) — NUM* toggles both, NUM- cycles the twist blend, NUM/ the convention", TAG,
+         side == 0 ? 'l' : 'r', (void*)b.go, (void*)b.mesh, BRACELET_MESH_PATH[side], BRACELET_MDF_PATH);
+    LOGI("%s BRACELET %c STATE: DrawDefault=%d DrawShadowCast=%d materials: %s", TAG, side == 0 ? 'l' : 'r',
+         (int)inv_bool(b.mesh, "get_DrawDefault"), (int)inv_bool(b.mesh, "get_DrawShadowCast"), mesh_material_names(b.mesh).c_str());
+}
+
+void bracelets_update() {
+    auto& B = g.bracelets;
+    if (g.player_go == nullptr) return;
+    API::ManagedObject* rad[2] = {g.l_radius, g.r_radius};
+    API::ManagedObject* wri[2] = {g.l_wrist, g.r_wrist};
+    for (int side = 0; side < 2; ++side) {
+        auto& b = side == 0 ? B.l : B.r;
+        if (rad[side] == nullptr) continue;
+        if (b.created && (!is_managed(b.go) || !is_managed(b.transform) || !is_managed(b.mesh))) {
+            if (!b.lost) LOGW("%s bracelet %c: GameObject is no longer a managed object (scene wipe?) — recreating", TAG, side == 0 ? 'l' : 'r');
+            b = State::Bracelet{}; b.lost = true;
+        }
+        if (!b.created) {
+            if (b.tried) continue;
+            bracelet_create(b, side);
+            if (!b.created) continue;
+        }
+        b.lost = false;
+        Vec3 pr{};
+        if (!inv_vec3(rad[side], "get_Position", pr)) continue;
+        Quat qr{};
+        { auto x = inv(rad[side], "get_Rotation"); if (!x.ok) continue; memcpy(&qr, x.r.bytes.data(), sizeof(Quat)); }
+        Quat q = qr;
+        float theta = 0.f;
+        const float k = BRACELET_K[B.k_idx];
+        Mat4 mr{}, mw{};
+        if (wri[side] != nullptr && inv_mat4(rad[side], "get_WorldMatrix", mr) && inv_mat4(wri[side], "get_WorldMatrix", mw)) {
+            // the wrist's twist about the forearm axis, relative to the radius joint: pure vector algebra on the two
+            // world frames (rows = basis vectors in world, the convention the dock already relies on), so it does not
+            // depend on any quaternion convention. Take the radius row least parallel to the axis, strip the axis
+            // component, compare with the same row of the wrist.
+            const Vec3 pw{mw.m[12], mw.m[13], mw.m[14]};
+            Vec3 a = vsub(pw, pr); const float al = vlen(a);
+            if (al > 1e-4f) {
+                a = vscale(a, 1.f / al);
+                const Rows Rr = rows_of(mr), Rw = rows_of(mw);
+                int best = 0; float bd = 2.f;
+                for (int i = 0; i < 3; ++i) { const Vec3 v = row(Rr, i); const float d = std::fabs(v.x * a.x + v.y * a.y + v.z * a.z); if (d < bd) { bd = d; best = i; } }
+                auto perp = [&](Vec3 v) { const float d = v.x * a.x + v.y * a.y + v.z * a.z; v = vsub(v, vscale(a, d)); const float l = vlen(v); return l > 1e-5f ? vscale(v, 1.f / l) : Vec3{}; };
+                const Vec3 ur = perp(row(Rr, best)), uw = perp(row(Rw, best));
+                const Vec3 c{ur.y * uw.z - ur.z * uw.y, ur.z * uw.x - ur.x * uw.z, ur.x * uw.y - ur.y * uw.x};
+                theta = std::atan2(c.x * a.x + c.y * a.y + c.z * a.z, ur.x * uw.x + ur.y * uw.y + ur.z * uw.z);
+                if (k > 0.f) {
+                    const float sign = (B.conv & 2) ? -1.f : 1.f;
+                    const float h = 0.5f * k * theta * sign; const float sn = std::sin(h);
+                    const Quat qa{a.x * sn, a.y * sn, a.z * sn, std::cos(h)};
+                    q = quat_norm((B.conv & 1) ? quat_mul(qa, qr) : quat_mul(qr, qa));
+                }
+            }
+        }
+        b.theta = theta;
+        V4 pos{pr.x, pr.y, pr.z, 0.f};
+        V4 rot{q.x, q.y, q.z, q.w};
+        call_void_direct(b.transform, "set_Position", &pos);
+        call_void_direct(b.transform, "set_Rotation", &rot);
+        if (B.enabled != b.enabled_sent) {
+            b.enabled_sent = B.enabled;
+            call_void_direct(b.mesh, "set_DrawDefault", B.enabled);
+            call_void_direct(b.mesh, "set_DrawShadowCast", B.enabled);
+        }
+        b.last_pos = pr;
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -1141,11 +1288,11 @@ void set_force(int kind, bool on) {
 }
 
 void poll_hotkeys() {
-    static bool prev[12] = {};
-    const int vks[12] = {VK_NUMPAD7, VK_NUMPAD8, VK_NUMPAD9, VK_NUMPAD4, VK_NUMPAD5, VK_NUMPAD6, VK_NUMPAD1, VK_NUMPAD3, VK_NUMPAD2, VK_NUMPAD0,
-                         VK_DECIMAL, VK_ADD};   // v0.8: NUM. head hider mode, NUM+ rescan + mesh table
+    static bool prev[15] = {};
+    const int vks[15] = {VK_NUMPAD7, VK_NUMPAD8, VK_NUMPAD9, VK_NUMPAD4, VK_NUMPAD5, VK_NUMPAD6, VK_NUMPAD1, VK_NUMPAD3, VK_NUMPAD2, VK_NUMPAD0,
+                         VK_DECIMAL, VK_ADD, VK_SUBTRACT, VK_MULTIPLY, VK_DIVIDE};   // v0.8: NUM. head hider mode, NUM+ rescan; v0.10: NUM- NUM* NUM/ bracelets
     if (!game_is_foreground()) return;
-    for (int i = 0; i < 12; ++i) {
+    for (int i = 0; i < 15; ++i) {
         const bool down = (GetAsyncKeyState(vks[i]) & 0x8000) != 0;
         if (down && !prev[i]) {
             if (i == 0) { g.want_dump = true; LOGI("%s NUM7: dump requested", TAG); }
@@ -1168,6 +1315,11 @@ void poll_hotkeys() {
                            static const char* names[] = {"OFF (originals restored)", "ON with reveals (cutscene / grab / not first person / camera off the head)", "ON, FORCED (no reveals)"};
                            LOGI("%s NUM.: head hider -> %d (%s)", TAG, g.head.mode, names[g.head.mode]); }
             if (i == 11) { g.head.want_rescan = true; LOGI("%s NUM+: head hider rescan requested", TAG); }
+            if (i == 12) { g.bracelets.k_idx = (g.bracelets.k_idx + 1) % 4;
+                           LOGI("%s NUM-: bracelet twist blend k -> %.1f (0 = rigid to the radius joint; 1 = the wrist's full twist about the forearm)", TAG, BRACELET_K[g.bracelets.k_idx]); }
+            if (i == 13) { g.bracelets.enabled = !g.bracelets.enabled; LOGI("%s NUM*: bracelets %s", TAG, g.bracelets.enabled ? "ON" : "OFF"); }
+            if (i == 14) { g.bracelets.conv = (g.bracelets.conv + 1) % 4;
+                           LOGI("%s NUM/: bracelet twist convention -> %d (order=%s sign=%s); only matters when k > 0", TAG, g.bracelets.conv, (g.bracelets.conv & 1) ? "qa*qr" : "qr*qa", (g.bracelets.conv & 2) ? "-" : "+"); }
         }
         prev[i] = down;
     }
@@ -1349,6 +1501,7 @@ void rebind_player(API::ManagedObject* pm, API::ManagedObject* go) {
     // the old one's length. Cleared here, where the joints it was measured from are also dropped.
     g.l_humerus = nullptr; g.l_radius = nullptr;
     g.neck0 = nullptr; g.plug.tried = false;   // v0.7: re-resolve the neck on the new skeleton; the plug object itself is kept if still alive
+    g.r_radius = nullptr; g.l_wrist = nullptr; g.r_wrist = nullptr; g.bracelets.l.tried = false; g.bracelets.r.tried = false;   // v0.10
     // v0.8: a new player is a new set of meshes — keep the mode, drop everything else (the old components may be dead)
     g.head = State::Head{.mode = g.head.mode};
     g.dock.reach = 0.f; g.dock.reach_raw = 0.f; g.dock.reach_valid = false; g.dock.clamp_on = false;
@@ -1409,6 +1562,7 @@ void on_frame() {
         update_dock(tn, dt);
     }
     plug_update();   // v0.7
+    bracelets_update();   // v0.10
     head_update();   // v0.8
     {
         static bool last_hold = false;
