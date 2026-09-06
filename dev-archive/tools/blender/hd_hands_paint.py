@@ -792,6 +792,29 @@ try:
                     j = 2; fork = pts[j] + (a1 - pts[j]) * 0.6 + across_h * (rf.uniform(0.006, 0.012) * (-1 if i == 0 else 1))
                     surface_path(tint_lines, fsurf, [pts[j], fork], lift=plift, max_dist=0.03, taper=(0.05, 0.5), scale=0.7)
                 print("anatomy %s forearm: %d verts, 2 veins" % (side, len(fidx)))
+    # SMOOTH THE PALM/BACK SPLIT ON THE MESH, NOT IN THE TEXTURE (2026-09-06 23:00). Pore strength runs 30 % on the palm
+    # side and 100 % on the back, and the transition between them used to be feathered by a blur IN UV -- so the two sides
+    # of a seam, being different islands, got different amounts of feathering and the strength stepped at the join. On the
+    # forearm that split runs along its length, which is exactly where Tefa's remaining line is, and a note from 14:35
+    # already recorded the same mechanism producing a line at the wrist. Averaging over each vertex's neighbours instead
+    # makes the transition a property of the surface, so it is identical on both sides of every seam by construction.
+    _adj = [[] for _ in range(len(me.vertices))]
+    for poly in me.polygons:
+        vi = list(poly.vertices)
+        for _a in range(len(vi)):
+            _adj[vi[_a]].append(vi[(_a + 1) % len(vi)]); _adj[vi[(_a + 1) % len(vi)]].append(vi[_a])
+    _sm = Dv.astype(np.float32).copy()
+    # BOTH hands: this block runs once, after the per-side loop has filled Dv for each, so the mask must not be one side's
+    _mask_v = np.array([1.0 if topname[i].startswith(("l_hand_", "r_hand_", "l_arm_", "r_arm_")) else 0.0 for i in range(len(me.vertices))], np.float32)
+    for _ in range(14):
+        _nxt = _sm.copy()
+        for _i in range(len(me.vertices)):
+            if _mask_v[_i] <= 0 or not _adj[_i]: continue
+            _n = [_sm[j] for j in _adj[_i] if _mask_v[j] > 0]
+            if _n: _nxt[_i] = 0.35 * _sm[_i] + 0.65 * (sum(_n) / len(_n))
+        _sm = _nxt
+    print("palm/back split smoothed over the mesh, both hands (14 passes, %d verts), range %.2f-%.2f" % (int((_mask_v > 0).sum()), float(_sm[_mask_v > 0].min()), float(_sm[_mask_v > 0].max())))
+    Dv = _sm
     for poly in me.polygons:
         vi = list(poly.vertices)
         if max(K[i] for i in vi) <= 0: continue
@@ -857,7 +880,8 @@ if a.nails > 0 and nail_plate.any():
 no_plate = 1.0 - nail_plate                                   # nails: no wrinkles, pores or grain on the plate itself
 cx, cy = nrm_from_height(h_crease + h_veins + h_wrinkle * no_plate + h_anat + nail_h, 6.0)
 _fs = 4.0 * (N / 4096.0 / 0.183)
-dorsal_soft = (blur(np.clip((fieldD - 0.35) / 0.3, 0, 1) * (fieldK > 0), _fs) / (blur((fieldK > 0).astype(np.float32), _fs) + 1e-3)) if fieldD.any() else dorsal   # ~4 mm feather, normalised inside the islands (14:35)
+# no UV blur here any more: the split is smoothed on the MESH above, so it is already gradual and already seam-safe.
+dorsal_soft = np.clip((fieldD - 0.25) / 0.5, 0, 1) if fieldD.any() else dorsal
 palm_pore = (a.palm_pores + (1.0 - a.palm_pores) * np.clip(dorsal_soft, 0, 1)) * no_plate   # palms: 30 % of the pore relief; nail plates: none
 nx = (nrm[..., 0] * 2 - 1) + edge * (cx + det_xy[..., 0] * 0.35 * a.pores * (0.7 + 0.3 * fieldF) * palm_pore)
 ny = (nrm[..., 1] * 2 - 1) + edge * (cy + det_xy[..., 1] * 0.35 * a.pores * (0.7 + 0.3 * fieldF) * palm_pore)
