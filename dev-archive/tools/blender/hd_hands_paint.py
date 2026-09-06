@@ -35,6 +35,7 @@ ap.add_argument("--tone", type=float, default=1.0, help="albedo variation streng
 ap.add_argument("--detail-png", default=None, help="tiling detail normal PNG (default <work>/visceral_skin_detail_NRM.png)")
 ap.add_argument("--nails", type=float, default=1.0, help="redraw the nails from the rig (0 = leave the artist's 14-px blobs as upscaled): plate, lunula, free edge, cuticle + side folds, no pores on the plate. Added 2026-09-06 evening")
 ap.add_argument("--nail-length", type=float, default=0.58, help="nail plate length as a fraction of the distal phalanx (cuticle sits at 1 - this)")
+ap.add_argument("--nail-fold", type=float, default=0.022, help="height of the raised skin fold just outside the plate (0 = none). 0.08 read as a swollen rim round every nail in VR, 2026-09-06")
 ap.add_argument("--nail-width", type=float, default=0.62, help="plate width as a fraction of the finger's width at the distal phalanx (0.85 read as a cap over the whole tip)")
 a = ap.parse_args(argv)
 N = a.size
@@ -470,14 +471,17 @@ try:
         yn = Y / max(wy, 1e-6); xn = X / max(wx, 1e-6)
         distal = np.clip((yn - 0.45) / 0.4, 0, 1)                              # 1 toward the free edge
         groove = np.exp(-(sdf ** 2) / (2 * 1.1 ** 2)) * (1.0 - distal) * backside          # the plate's outline: cuticle + side folds
-        fold = np.exp(-((sdf - 2.0) ** 2) / (2 * 1.6 ** 2)) * (1.0 - distal) * backside   # the skin fold rising over the plate edge
+        # the skin fold outside the plate. Pass 13: at +0.08 over a 1.6-texel spread this was the biggest positive relief in the
+        # whole nail -- taller than the plate itself -- and in VR it read as a swollen rim of skin round every nail, which is the
+        # only fault left on Tefa's second look. Narrower, pushed further out so it does not merge with the groove, and much lower.
+        fold = np.exp(-((sdf - 2.6) ** 2) / (2 * 1.1 ** 2)) * (1.0 - distal) * backside
         cut = np.exp(-((sdf - 1.5) ** 2) / (2 * 2.0 ** 2)) * np.clip((-yn - 0.55) / 0.3, 0, 1) * backside   # eponychium band, proximal only
         free = np.clip((yn - 0.55) / 0.3, 0, 1) * plate                          # free edge: RELIEF ONLY from pass 9 (see below)
         shadow = np.zeros_like(plate)                                            # hyponychium shadow retired: it read as dirt under every nail
         lun = np.clip((-yn - 0.45 - 0.35 * xn ** 2) / 0.18, 0, 1) * plate         # lunula: crescent at the base
         ridges = 0.5 + 0.5 * np.sin(X * (2 * np.pi / 5.0))                        # longitudinal ridges, 5 texels apart (~0.9 mm)
         dome = 1.0 - np.clip(xn, -1, 1) ** 2
-        h = (0.05 * plate + 0.05 * dome * plate + 0.05 * free - 0.12 * groove + 0.08 * fold + 0.004 * ridges * plate) * a.nails   # ridges at 0.01 read as stripes in the render
+        h = (0.05 * plate + 0.035 * dome * plate + 0.04 * free - 0.11 * groove + a.nail_fold * fold + 0.004 * ridges * plate) * a.nails   # ridges at 0.01 read as stripes in the render
         # clean-up zone: a ring round the plate PLUS every pixel the artist painted as nail, so nothing of the original can
         # survive past our edge. Never the pad; the tip cap is included (the artist's free edge sits on it).
         clean = np.maximum(np.clip((14.0 - sdf) / 3.0, 0, 1), orig.astype(np.float32)) * (t < 1.1) * np.clip((nd + 0.3) / 0.3, 0, 1)
@@ -485,7 +489,7 @@ try:
         # whole point of pass 9), inside the clean-up zone. Section 4 just applies it.
         wipe_here = clean * d_col                                              # d_col: 1 where this pixel is nail-coloured, 0 on true skin
         for arr, v in ((nail_plate, plate), (nail_h, h), (nail_clean, clean), (nail_wipe, wipe_here), (nail_lun, lun),
-                       (nail_free, free), (nail_cut, cut), (nail_shadow, shadow), (nail_groove, groove + 0.5 * fold)):
+                       (nail_free, free), (nail_cut, cut), (nail_shadow, shadow), (nail_groove, groove + 0.2 * fold)):
             arr[ys_, xs_] = np.maximum(arr[ys_, xs_], v.astype(np.float32))
         nail_base[ys_, xs_] = col
         # proof in the static domain: is the artist's nail entirely INSIDE our plate now? (that is the fault this pass exists
@@ -676,7 +680,7 @@ nz = np.sqrt(np.clip(1.0 - nx ** 2 - ny ** 2, 0.05, 1.0))
 out_nrm = nrm.copy()
 out_nrm[..., 0] = nx * 0.5 + 0.5; out_nrm[..., 1] = ny * 0.5 + 0.5; out_nrm[..., 2] = nz
 # roughness (alpha, hypothesis): slightly lower in creases/knuckles where skin is tighter and moister; lower again on the nail plates (gloss)
-out_nrm[..., 3] = np.clip(nrm[..., 3] - edge * creaseJ * 0.06 - nail_plate * 0.10 * a.nails, 0, 1)
+out_nrm[..., 3] = np.clip(nrm[..., 3] - edge * creaseJ * 0.06 - nail_plate * 0.06 * a.nails, 0, 1)
 
 # ---- 4. albedo: joint redness + mottling ----------------------------------------------------------------
 out_alb = alb.copy()
