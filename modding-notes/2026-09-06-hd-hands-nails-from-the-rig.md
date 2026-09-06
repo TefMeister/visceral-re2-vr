@@ -190,3 +190,47 @@ n=0 too and has never been visibly confirmed either** (2026-09-06 01:10: "no vis
 material read-back at creation is too early and something else hides both; or a mesh with an unresolved material
 does not draw at all, plug included. `twist l=` swung to ±90° while Tefa moved: **the wrist twist relative to the
 radius joint is the full pronation, so the radius joint carries none of it** — k must be ~1 once the bands show.
+
+---
+
+# Pass 16 — the free edge reaches the fingertip (2026-09-06 21:49, deployed)
+
+Tefa on pass 8: *"only the fingertips are wrong, but nearly everything else about these nails is really good"*. Every
+pass up to 15 ended the plate at **92 % of the distal phalanx** and left a bare pad of skin beyond it — that gap is
+what read as wrong up close. Pass 16 **anchors the free edge at the fingertip** (`--nail-tip`, default 1.0) and
+extends the plate back from there; the tip cap is cut by the surface-normal test, which is why 0.97 could not be
+used back in pass 2 when the cut still came from this number. Across the finger the centre still comes from the
+artist's nail; the shape, width and length are pass 8's, and the pass-12 wipe, the lunula and the cut-down rim stay.
+
+Static check over the nail zone after the change: **0 pale pixels, 0 dark desaturated pixels, peak luminance 0.790**
+`[verified-numerically 2026-09-06]` — no grey anywhere, and nothing of the artist's nail left outside ours.
+
+# Bracelets — why nothing drew, and what v0.11 changes
+
+The 19:51 log said everything worked: all nine loose files taken by the loader, `BRACELET l/r CREATED`,
+`DrawDefault=1`, `brac=on`, positions tracking the arm. And `materials: n=0` on both — **which the neck plug also
+reports, and the plug has never been visibly confirmed either** (2026-09-06 01:10: "no visible change"). One cause,
+two symptoms.
+
+The difference was found by reading the only REFramework mod that provably draws a spawned mesh in an RE Engine
+game — **Universal Lasers** (abarkera4, RE4). Its recipe is ours with one extra line, immediately after creating the
+GameObject and before the mesh work:
+
+```lua
+laser_transform:set_Parent(gun_obj:get_Transform())
+```
+
+A spawned GameObject parented to nothing is in no hierarchy the renderer walks, so it never draws however correct
+its mesh, material and draw flags are. **v0.11 parents both bracelets AND the neck plug to the player's Transform**
+and logs whether the call took. It also re-reads `get_MaterialNum` about four seconds after creation (the read at
+creation may simply be too early) and puts the left band's world position in the 1 Hz line. `[hypothesis until the
+next run]` — but it explains both silences with one missing call.
+
+Deployed 21:46, sha256 `8869267013596566`, previous DLL kept as `.prev`.
+
+**First run reads, flat is enough:** `bracelet l: Transform.set_Parent(player) ok` in the log; then bands on the
+forearms = solved, and the neck plug should become visible for the first time too. `BRACELET l LATER: … materials:
+n=3` says the material resolved late rather than never. Still nothing with `set_Parent ok` = parenting was not the
+cause; next suspect is the material, so try binding the MDF before `setMesh`, or an existing game MDF, to separate
+"our MDF" from "any MDF". `twist l/r` swung to ±90° on the last run, so the radius joint carries no pronation:
+once the bands show, **NUM- to k = 1.0** and NUM/ through the four conventions until they turn with the skin.

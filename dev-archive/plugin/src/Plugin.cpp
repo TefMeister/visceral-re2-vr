@@ -448,6 +448,8 @@ struct State {
         bool enabled_sent{true};
         Vec3 last_pos{};
         float theta{0.f};        // wrist twist about the forearm axis, relative to the radius joint (radians)
+        uint64_t created_frame{};   // v0.11: get_MaterialNum read 0 at creation on 2026-09-06 (so did the plug's); re-read once, later
+        bool relogged{false};
     };
     struct Bracelets {
         Bracelet l, r;
@@ -851,8 +853,8 @@ void summary_line() {
     else o += snprintf(buf + o, sizeof buf - o, " | plug: %s", g.plug.tried ? "FAILED (see log)" : "pending");
     // v0.10: the bracelets — created or not, the twist blend, and the live wrist-vs-radius twist per arm (deg)
     if (g.bracelets.l.created || g.bracelets.r.created)
-        o += snprintf(buf + o, sizeof buf - o, " | brac=%s k=%.1f conv=%d twist l=%.0f r=%.0f", g.bracelets.enabled ? "on" : "off", BRACELET_K[g.bracelets.k_idx], g.bracelets.conv,
-                      g.bracelets.l.theta * 57.29578f, g.bracelets.r.theta * 57.29578f);
+        o += snprintf(buf + o, sizeof buf - o, " | brac=%s k=%.1f conv=%d twist l=%.0f r=%.0f L@(%.2f %.2f %.2f)", g.bracelets.enabled ? "on" : "off", BRACELET_K[g.bracelets.k_idx], g.bracelets.conv,
+                      g.bracelets.l.theta * 57.29578f, g.bracelets.r.theta * 57.29578f, g.bracelets.l.last_pos.x, g.bracelets.l.last_pos.y, g.bracelets.l.last_pos.z);
     else if (g.l_radius == nullptr) o += snprintf(buf + o, sizeof buf - o, " | brac: no radius joints");
     else o += snprintf(buf + o, sizeof buf - o, " | brac: %s", (g.bracelets.l.tried || g.bracelets.r.tried) ? "FAILED (see log)" : "pending");
     o += snprintf(buf + o, sizeof buf - o, " | head=%d hid=%d/%zu d=%.2f%s%s", g.head.mode, g.head.hidden_n, g.head.meshes.size(), g.head.head_cam_d,
@@ -932,6 +934,15 @@ void plug_create() {
     }
     if (!inv(p.mesh, "setMesh", {mesh_holder}).ok) { LOGE("%s plug: setMesh threw", TAG); return; }
     if (mdf_holder != nullptr && !inv(p.mesh, "set_Material", {mdf_holder}).ok) LOGW("%s plug: set_Material threw — the plug will draw with no material", TAG);
+    // v0.11: JOIN THE SCENE. A spawned GameObject that is parented to nothing is in no hierarchy the renderer walks; the one
+    // REFramework mod found that provably draws a spawned mesh (Universal Lasers, RE4) parents its Transform to an existing
+    // object's right after createComponent, then sets world position/rotation each frame exactly as we do. The plug has
+    // never been seen since v0.7, and the bracelets were created but invisible on 2026-09-06 19:51 — this is the one
+    // difference. [hypothesis until the next run]
+    if (g.transform != nullptr) {
+        const auto pr = inv(p.transform, "set_Parent", {g.transform});
+        LOGI("%s plug: Transform.set_Parent(player) %s", TAG, pr.ok ? "ok" : "THREW / NOT FOUND");
+    }
     p.created = true;
     p.enabled_sent = true;
     LOGI("%s PLUG CREATED: go=%p transform=%p mesh=%p (mesh %s, mdf %s) — NUM0 toggles it", TAG, (void*)p.go, (void*)p.transform, (void*)p.mesh, PLUG_MESH_PATH, PLUG_MDF_PATH);
@@ -1017,7 +1028,11 @@ void bracelet_create(State::Bracelet& b, int side) {
     if (!inv(b.mesh, "setMesh", {mesh_holder}).ok) { LOGE("%s bracelet %c: setMesh threw", TAG, side == 0 ? 'l' : 'r'); return; }
     if (mdf_holder == nullptr) LOGW("%s bracelet: MDF resource missing (natives/stm/%s.21) — it will draw with no material", TAG, BRACELET_MDF_PATH);
     else if (!inv(b.mesh, "set_Material", {mdf_holder}).ok) LOGW("%s bracelet %c: set_Material threw", TAG, side == 0 ? 'l' : 'r');
-    b.created = true; b.enabled_sent = true;
+    if (g.transform != nullptr) {                                            // v0.11: join the player's hierarchy (see plug_create)
+        const auto pr = inv(b.transform, "set_Parent", {g.transform});
+        LOGI("%s bracelet %c: Transform.set_Parent(player) %s", TAG, side == 0 ? 'l' : 'r', pr.ok ? "ok" : "THREW / NOT FOUND");
+    }
+    b.created = true; b.enabled_sent = true; b.created_frame = g.frame;
     LOGI("%s BRACELET %c CREATED: go=%p mesh=%p (%s + %s) — NUM* toggles both, NUM- cycles the twist blend, NUM/ the convention", TAG,
          side == 0 ? 'l' : 'r', (void*)b.go, (void*)b.mesh, BRACELET_MESH_PATH[side], BRACELET_MDF_PATH);
     LOGI("%s BRACELET %c STATE: DrawDefault=%d DrawShadowCast=%d materials: %s", TAG, side == 0 ? 'l' : 'r',
@@ -1042,6 +1057,12 @@ void bracelets_update() {
             if (!b.created) continue;
         }
         b.lost = false;
+        if (!b.relogged && g.frame > b.created_frame + 240) {               // ~4 s after creation: has the material resolved by now?
+            b.relogged = true;
+            Vec3 tp{}; inv_vec3(b.transform, "get_Position", tp);
+            LOGI("%s BRACELET %c LATER: DrawDefault=%d materials: %s | transform @(%.2f %.2f %.2f)", TAG, side == 0 ? 'l' : 'r',
+                 (int)inv_bool(b.mesh, "get_DrawDefault"), mesh_material_names(b.mesh).c_str(), tp.x, tp.y, tp.z);
+        }
         Vec3 pr{};
         if (!inv_vec3(rad[side], "get_Position", pr)) continue;
         Quat qr{};

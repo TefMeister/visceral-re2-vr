@@ -35,6 +35,7 @@ ap.add_argument("--tone", type=float, default=1.0, help="albedo variation streng
 ap.add_argument("--detail-png", default=None, help="tiling detail normal PNG (default <work>/visceral_skin_detail_NRM.png)")
 ap.add_argument("--nails", type=float, default=1.0, help="redraw the nails from the rig (0 = leave the artist's 14-px blobs as upscaled): plate, lunula, free edge, cuticle + side folds, no pores on the plate. Added 2026-09-06 evening")
 ap.add_argument("--nail-length", type=float, default=0.58, help="nail plate length as a fraction of the distal phalanx (cuticle sits at 1 - this)")
+ap.add_argument("--nail-tip", type=float, default=1.0, help="where the nail's FREE EDGE sits along the distal phalanx (1.0 = the fingertip). Every pass before 16 ended at 0.92 and left a bare pad beyond the nail")
 ap.add_argument("--nail-lunula", type=float, default=0.6, help="strength of the lighter crescent at the base of each nail (0 = none). Tefa liked the 16:53 look, which was 0.6")
 ap.add_argument("--nail-fold", type=float, default=0.022, help="height of the raised skin fold just outside the plate (0 = none). 0.08 read as a swollen rim round every nail in VR, 2026-09-06")
 ap.add_argument("--nail-width", type=float, default=0.62, help="plate width as a fraction of the finger's width at the distal phalanx (0.85 read as a cap over the whole tip)")
@@ -450,13 +451,18 @@ try:
         # taken from the artist's nail. (A UV-Jacobian rescale of the bone sizes was tried first and gave 28x14 and 34x149.)
         Xb = smooth_on_pixels(X0, ys_, xs_, 2.5); Yb = smooth_on_pixels(Y0, ys_, xs_, 2.5)
         wx = a.nail_width * (0.95 if f == "thumb" else 1.0) * halfw_tex
-        t0, t1 = 1.0 - a.nail_length * (0.85 if f == "thumb" else 1.0), 0.92
-        wy = 0.5 * (t1 - t0) * L * 1000.0 * mm
+        wy = 0.5 * a.nail_length * (0.85 if f == "thumb" else 1.0) * L * 1000.0 * mm
+        # pass 16 (Tefa: "only the fingertips are wrong"): ANCHOR THE FREE EDGE AT THE FINGERTIP. Every pass so far ended the
+        # plate at 92 % of the phalanx and left a bare pad beyond it, which is what reads as wrong up close -- a real nail runs
+        # out to the tip. The distal edge now sits at `--nail-tip` of the phalanx and the plate extends BACK from there; the tip
+        # cap is cut by the surface-normal test (`backside`), not by this number, which is why 0.97 could not be used in pass 2.
+        y_hi = a.nail_tip * L * 1000.0 * mm
+        yc = y_hi - wy
         if orig.sum() >= 120:
-            xc = float(np.mean(X0[orig])); yc = float(np.mean(Y0[orig]))
-            fit = "centred on the artist's %d px at (%.0f, %.0f) in the bone frame" % (int(orig.sum()), xc, yc)
+            xc = float(np.mean(X0[orig]))                                   # across the finger: the artist's nail is the truth
+            fit = "free edge at %.0f%% of the phalanx, centred across on the artist's %d px (x=%.0f)" % (100 * a.nail_tip, int(orig.sum()), xc)
         else:
-            xc = 0.0; yc = 0.5 * (t0 + t1) * L * 1000.0 * mm
+            xc = 0.0
             fit = "FALLBACK centre (only %d px read as nail)" % int(orig.sum())
         X = Xb - xc; Y = Yb - yc
         # rounded-rectangle SDF. The DISTAL end gets the big radius: a real free edge is a strong arc bulging toward the
