@@ -368,3 +368,33 @@ map after everything else, so it repairs whatever else may have collected at a r
 **Unverified.** Built and deployed at 23:31 with no VR look; Tefa stopped for the night. If the sliver is still
 there tomorrow, this hypothesis is wrong and the next step is to find that exact wedge in the vanilla 1024 by
 brightness and map it back to the 3D surface, rather than reasoning about it. `--edge-repair 0` reverts.
+
+## Where it stands at 23:45 — the fringe is gone, a soft seam remains
+
+Tefa, after the rim repair: *"The sharp lifted edges are finally gone! awesome work, but the seams are still
+visible."* So cause 4 was right — the bright hard-edged sliver came from the 4× upscale dragging gutter content
+into each island's rim, and repairing the rim removed it. `[verified-live 2026-09-06, n=1]`
+
+What is left, in the two screenshots taken after that build, is a different thing and worth naming precisely
+before anyone spends time on it: **a soft tonal boundary, no hard edge, no lifted corner.** At the right wrist it
+reads as a faint band running across the arm; at the base of the left thumb as a faint diagonal. Both are broad,
+gradual, and visible mainly as a slight difference in overall *lightness* between two areas of skin, not as a line.
+
+That signature points somewhere new. A relief mismatch is now excluded three ways over, and the hard fringe is
+excluded by the fix that just worked. A broad lightness step between neighbouring islands is what you get when the
+two islands carry slightly different **average colour** — which the artist's 1024 may well have had all along
+(their texture never had to survive close VR inspection), and which our upscale and repaint preserve faithfully.
+
+**Next session, do not reason further — measure.** Three things, all static, in this order:
+
+1. **Map the seam.** Rasterise island identity into UV, find every pair of texels that are neighbours in 3D but
+   in different islands, and print the mean albedo either side of each such boundary. That gives the size of the
+   step in numbers and says immediately whether it is colour, and how much.
+2. **If it is colour**, the cure is a low-frequency colour equalisation across the boundary: measure each island's
+   mean over the skin mask, then add a smooth, 3D-coherent correction field that brings neighbouring islands into
+   agreement without touching detail. The 3D noise machinery for that already exists here.
+3. **Only then look at the normal map's tangent handedness** across the seam, which is the remaining structural
+   candidate and needs the mesh's tangents rather than guesswork.
+
+Everything needed for step 1 is already in this script: `fieldP3` (per-texel 3D position), `fieldK`, and the
+rasteriser. Nothing here needs the game running.
