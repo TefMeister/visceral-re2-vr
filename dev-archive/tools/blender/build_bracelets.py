@@ -9,8 +9,10 @@ Two different designs, both wrapped onto the arm's REAL cross-section (sampled f
 so they never pinch or float):
   RIGHT arm -- "strap and plate": one wide leather cuff, a brushed metal plate across the back of the arm, two
       rivets either side of it, and a raised leather edge-welt top and bottom.
-  LEFT arm -- "cord and rings": two narrow leather cords with a gap between them, three small metal rings threaded
-      on the upper cord, sitting above the WATCH with thin leather straps Claire already wears on that wrist (Tefa, 2026-09-06) -- the 0.1-2.2 cm of jacket-submesh geometry at her left wrist is that watch.
+  LEFT arm -- two THIN separate bands (Tefa, 2026-09-06): a DARK RED one low with three metal rings threaded on it, and a
+      RED-PURPLE one higher, nearest the jacket, with a small metal clasp. Both clear of the watch she already wears --
+      that watch is the 0.3-2.2 cm of jacket-submesh geometry at her left wrist, and it is built from separate detached
+      islands, so it could be moved or widened in a mesh edit if we ever want to.
 
 Measured on Claire `[measured 2026-09-06]`: bare forearm skin runs from the wrist joint to 12.6 cm (right) /
 13.7 cm (left); the rolled jacket sleeve starts at 10-11 cm; the existing left wrist band occupies 0.1-2.2 cm at
@@ -29,8 +31,12 @@ argv = sys.argv[sys.argv.index("--") + 1:]
 ap = argparse.ArgumentParser()
 ap.add_argument("src"); ap.add_argument("out")
 ap.add_argument("--character", default="pl1000")
-ap.add_argument("--left-at", type=float, default=6.0, help="centre of the left band, cm from the wrist joint")
-ap.add_argument("--left-width", type=float, default=3.4, help="total span of the left design, cm")
+ap.add_argument("--left-at", type=float, default=6.0, help="(unused since the two-band redesign; kept so old command lines still parse)")
+ap.add_argument("--left-width", type=float, default=3.4, help="(unused since the two-band redesign)")
+ap.add_argument("--left-low", type=float, default=4.6, help="centre of the LOWER left band (dark red), cm from the wrist joint")
+ap.add_argument("--left-low-width", type=float, default=0.9, help="width of the lower left band, cm")
+ap.add_argument("--left-high", type=float, default=7.6, help="centre of the UPPER left band (red-purple, nearest the jacket), cm")
+ap.add_argument("--left-high-width", type=float, default=0.8, help="width of the upper left band, cm")
 ap.add_argument("--right-at", type=float, default=6.0, help="centre of the right band, cm from the wrist joint")
 ap.add_argument("--right-width", type=float, default=4.0, help="total span of the right design, cm")
 ap.add_argument("--lift", type=float, default=0.0018, help="clearance above the skin, m (leather sits proud)")
@@ -217,7 +223,13 @@ def add_ring(bm, uv_layer, w, up, back, side_v, grid, prof, d_c, ang, half_len, 
 def build(side, centre_cm, width_cm, design):
     w, up, back, side_v = arm_frame(side)
     d_c = centre_cm / 100.0; half = width_cm / 200.0
-    grid, prof = arm_radius_profile(side, w, up, back, side_v, d_c - half, d_c + half, a.segs)
+    if design == "cord_and_rings":            # the two left bands sit far apart: sample the arm across the whole span
+        lo = a.left_low / 100.0 - a.left_low_width / 200.0
+        hi = a.left_high / 100.0 + a.left_high_width / 200.0
+        grid, prof = arm_radius_profile(side, w, up, back, side_v, lo, hi, a.segs)
+        d_c, half = 0.5 * (lo + hi), 0.5 * (hi - lo)
+    else:
+        grid, prof = arm_radius_profile(side, w, up, back, side_v, d_c - half, d_c + half, a.segs)
     print("   %s arm: band centred %.1f cm up, span %.1f cm; arm radius round it %.2f-%.2f cm (mean %.2f)"
           % (side, centre_cm, width_cm, prof.min() * 100, prof.max() * 100, prof.mean() * 100))
     bm = bmesh.new(); uvl = bm.loops.layers.uv.new("UVMap")
@@ -232,30 +244,34 @@ def build(side, centre_cm, width_cm, design):
             for dz in (-0.55, 0.55):
                 add_stud(bm, uvl, w, up, back, side_v, grid, prof, d_c + half * dz, s * 1.05, 0.0034, 0.0032, slot=1)
     else:
-        # two narrow cords with a gap, three small rings threaded on the upper one
-        gap = width_cm / 100.0 * 0.22
-        wcord = (2 * half - gap) / 2.0
-        add_band(bm, uvl, w, up, back, side_v, grid, prof, d_c - half, d_c - half + wcord, 0.0030, (0.0, 1.0), rings=3, slot=0)
-        add_band(bm, uvl, w, up, back, side_v, grid, prof, d_c + half - wcord, d_c + half, 0.0028, (0.0, 1.0), rings=3, slot=0)
-        # three metal rings threaded on the upper cord, and one small tag on the lower
+        # Tefa's brief (2026-09-06): "the left arm ones should be thinner and one dark red, the other one, closest to
+        # the jacket, something between red and purple". Two independent thin bands rather than a paired cuff, placed to
+        # leave clear skin either side of them: her watch occupies 0.3-2.2 cm and the rolled sleeve starts at 10-11 cm
+        # `[measured 2026-09-06]`, so there is 7.8 cm of free arm to spread across.
+        lo_c, lo_w = a.left_low / 100.0, a.left_low_width / 200.0
+        hi_c, hi_w = a.left_high / 100.0, a.left_high_width / 200.0
+        # lower band, closer to the hand: DARK RED (slot 0), with three small metal rings threaded on it
+        add_band(bm, uvl, w, up, back, side_v, grid, prof, lo_c - lo_w, lo_c + lo_w, 0.0026, (0.0, 1.0), rings=3, slot=0)
         for ang in (-0.70, 0.0, 0.70):
-            add_ring(bm, uvl, w, up, back, side_v, grid, prof, d_c - half + wcord * 0.5, ang, wcord * 0.62, 0.0026, slot=1)
-        add_plate(bm, uvl, w, up, back, side_v, grid, prof, d_c + half - wcord * 0.5, wcord * 0.40, 0.34, 0.0040, slot=1)
+            add_ring(bm, uvl, w, up, back, side_v, grid, prof, lo_c, ang, lo_w * 1.15, 0.0022, slot=1)
+        # upper band, closest to the jacket: RED-PURPLE (slot 2), with one small metal clasp plate on the back
+        add_band(bm, uvl, w, up, back, side_v, grid, prof, hi_c - hi_w, hi_c + hi_w, 0.0024, (0.0, 1.0), rings=3, slot=2)
+        add_plate(bm, uvl, w, up, back, side_v, grid, prof, hi_c, hi_w * 0.72, 0.30, 0.0034, slot=1)
     bm.normal_update()
     m = bpy.data.meshes.new("visceral_bracelet_" + side)
-    for mn in ("visceral_bracelet_leather", "visceral_bracelet_metal"):
+    for mn in ("visceral_bracelet_leather", "visceral_bracelet_metal", "visceral_bracelet_leather2"):
         m.materials.append(bpy.data.materials.get(mn) or bpy.data.materials.new(mn))
     bm.to_mesh(m); bm.free()
     ob = bpy.data.objects.new("visceral_bracelet_" + side, m)
     bpy.context.scene.collection.objects.link(ob)
-    nmet = sum(1 for p in m.polygons if p.material_index == 1)
-    print("      -> %d verts, %d faces (%d leather, %d metal)" % (len(m.vertices), len(m.polygons), len(m.polygons) - nmet, nmet))
+    counts = [sum(1 for p in m.polygons if p.material_index == k) for k in range(3)]
+    print("      -> %d verts, %d faces (leather %d, metal %d, leather-2 %d)" % (len(m.vertices), len(m.polygons), *counts))
     return ob
 
 
 print("\n==== building ====")
 objs = [build("r", a.right_at, a.right_width, "strap_and_plate"),
-        build("l", a.left_at, a.left_width, "cord_and_rings")]
+        build("l", a.left_low, a.left_low_width, "cord_and_rings")]
 if a.preview:
     for ob in objs:
         ob.select_set(True)
