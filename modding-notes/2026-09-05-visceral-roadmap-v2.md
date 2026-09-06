@@ -348,11 +348,12 @@ shoulder holster and in the left hand, three things change:
    all, a hand holding the flashlight cannot grab items — holster the light first. (If F2 never
    ships, this rule is moot.)
 
-Note the standing two-hand rule (left controller stacked ABOVE the right, never behind, so the
-headset keeps sight of both): the wrist dock puts the flashlight hand *under* the gun hand,
-which is the opposite stacking. Whether the Quest 3 tracks it cleanly is a `[VR]` judgement on
-the first run; if occlusion bites, the fallback is the same wrist lock with the flashlight hand
-beside the gun hand rather than under it.
+Tracking is not a worry here, per Tefa (2026-09-06 12:25): with the wrists docked this way
+both controllers stay in the headset's view — they have played like this before `[reported]` —
+and in any case, once the dock is engaged and LG is held, **the dock stays docked regardless of
+where the left controller actually is**, so a momentary tracking loss on the left cannot break
+the hold. The standing stack-above rule is about the two-hand grip on a long weapon, not this
+pose. All of this is theoretical until the dock runs in the headset; judge it then.
 
 ---
 
