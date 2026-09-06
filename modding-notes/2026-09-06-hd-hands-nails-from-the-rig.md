@@ -127,3 +127,34 @@ That is the whole of it, and it was right.
   forearm is drawn by the *jacket* submesh, which our paint has never touched — so our treatment stops dead at the
   submesh boundary and that boundary is the straight band across the arm. The fix is to rasterise the jacket
   submesh's forearm-bone faces into the same paint mask. Queued, not attempted.
+
+---
+
+# Pass 13 — the swollen rim (2026-09-06 18:00–18:12, deployed)
+
+Tefa's second VR look: *"they look much better now but still have faulty areas"*. Four screenshots, and every mark
+on both hands circles the same thing — **a raised lip of skin standing proud around the outside of each nail**,
+strongest on whichever side the room light rakes across. Nothing else was marked.
+
+**Cause, ours again.** The nail pass draws a skin fold just outside the plate, at `sdf ≈ 2` texels, and it was
+weighted **+0.08** in the height field — taller than the nail plate itself at +0.05, and the largest positive
+relief anywhere in the nail. It was meant to be the soft ridge of skin that a nail sits in; at that height it is a
+swelling.
+
+**Fix.** The fold drops to **0.022**, its spread narrows from 1.6 to 1.1 texels, and it moves out from 2.0 to 2.6
+so it stops merging with the plate's own groove. Its contribution to the albedo darkening drops from 0.5 to 0.2.
+The transverse dome eases 0.05 → 0.035, the free edge 0.05 → 0.04 and the plate gloss 0.10 → 0.06, because next to
+that rim the plates were reading a little wet. New knob: `--nail-fold`.
+
+**Static check.** Normal-map tilt in the ring of texels just outside each plate, which is where the fold lives:
+
+| region | mean tilt | 95th percentile |
+| --- | --- | --- |
+| the rim ring, after | 0.111 | 0.274 |
+| the nail plate | 0.100 | 0.266 |
+| ordinary hand skin, for scale | 0.076 | 0.255 |
+
+So the rim now sits within a hair of ordinary skin instead of dominating it `[verified-numerically 2026-09-06]`.
+The plate's own outline groove still peaks near 0.9, which is intended — that is what makes the nail read.
+
+Deployed 18:12. `.tex.34.prev` still holds the pre-nails set.
