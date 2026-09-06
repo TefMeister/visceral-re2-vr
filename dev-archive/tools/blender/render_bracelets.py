@@ -25,8 +25,13 @@ bpy.ops.re_mesh.importfile(filepath=mesh_path, directory=a.src, files=[{"name": 
                            clearScene=True, loadMaterials=False, loadMDFData=False)
 arm_obj = [o for o in bpy.data.objects if o.type == "ARMATURE"][0]
 skin = [o for o in bpy.data.objects if o.type == "MESH" and o.data.materials and "Body_Mat" in o.data.materials[0].name][0]
+jacket = None
 for o in bpy.data.objects:
-    if o.type == "MESH" and o is not skin: o.hide_render = True
+    if o.type != "MESH" or o is skin: continue
+    if o.data.materials and o.data.materials[0] and "Jacket_Mat" in o.data.materials[0].name:
+        jacket = o                       # holds Claire's WATCH at the left wrist and the rolled sleeve: keep it, or the
+        continue                         # preview cannot show whether our bands crowd the watch (they could not, before)
+    o.hide_render = True
 
 with bpy.data.libraries.load(a.blend) as (src, dst):
     dst.objects = [n for n in src.objects if n.startswith("visceral_bracelet")]
@@ -43,21 +48,31 @@ def mat(name, base, rough, metal):
     b.inputs["Roughness"].default_value = rough
     b.inputs["Metallic"].default_value = metal
     return m
-leather = mat("leather", (0.055, 0.032, 0.022, 1), 0.62, 0.0)
+leather = mat("leather", (0.055, 0.032, 0.022, 1), 0.62, 0.0)          # right arm: plain brown leather
 metal = mat("metal", (0.62, 0.60, 0.56, 1), 0.28, 1.0)
+dark_red = mat("leather_dark_red", (0.115, 0.016, 0.020, 1), 0.55, 0.0)      # left, lower band (Tefa)
+red_purple = mat("leather_red_purple", (0.105, 0.020, 0.062, 1), 0.52, 0.0)  # left, upper band, nearest the jacket
+jacket_m = mat("jacket", (0.045, 0.040, 0.042, 1), 0.70, 0.0)
 skin_m = mat("skin", (0.52, 0.36, 0.32, 1), 0.55, 0.0)
 if a.tex:
     nt = skin_m.node_tree; bsdf = nt.nodes["Principled BSDF"]
     img = nt.nodes.new("ShaderNodeTexImage"); img.image = bpy.data.images.load(os.path.join(a.tex, a.tex_base + "_ALBM.png")); img.image.alpha_mode = "NONE"
     nt.links.new(img.outputs["Color"], bsdf.inputs["Base Color"])
 skin.data.materials.clear(); skin.data.materials.append(skin_m)
+if jacket is not None:
+    for i in range(max(len(jacket.data.materials), 1)):
+        if i < len(jacket.data.materials): jacket.data.materials[i] = jacket_m
+        else: jacket.data.materials.append(jacket_m)
 
 # the builder tags every face leather (slot 0) or metal (slot 1), so the preview just swaps the two materials in.
 for o in brac:
     # replace the two slots IN PLACE. materials.clear() resets every polygon's material_index to 0, which silently
     # threw the build-time leather/metal split away (2026-09-06: the first preview rendered 0 metal faces).
-    while len(o.data.materials) < 2: o.data.materials.append(None)
-    o.data.materials[0] = leather; o.data.materials[1] = metal
+    while len(o.data.materials) < 3: o.data.materials.append(None)
+    if o.name.endswith("_l"):
+        o.data.materials[0] = dark_red; o.data.materials[1] = metal; o.data.materials[2] = red_purple
+    else:
+        o.data.materials[0] = leather; o.data.materials[1] = metal; o.data.materials[2] = leather
     nmet = sum(1 for p in o.data.polygons if p.material_index == 1)
     print("  %s: %d leather, %d metal faces (tagged at build time)" % (o.name, len(o.data.polygons) - nmet, nmet))
 
@@ -97,11 +112,11 @@ for side in ("l", "r"):
         curl += float(np.dot(unit(j2 - j1) - unit(j1 - j0), lat))
     back = unit(lat * (-1.0 if curl > 0 else 1.0))
     sidev = unit(np.cross(up, back))
-    centre = w + up * 0.06
+    centre = w + up * 0.055
     for view, d in (("back", back), ("side", sidev)):
         for o in bpy.data.objects:
             if o.type == "LIGHT": bpy.data.objects.remove(o, do_unlink=True)
-        radius = 0.075
+        radius = 0.095
         cam.location = Vector(tuple(map(float, centre + d * 0.4)))
         zax = Vector(tuple(map(float, d))); upv = Vector(tuple(map(float, up)))
         yax = (upv - zax * upv.dot(zax)).normalized(); xax = yax.cross(zax)
