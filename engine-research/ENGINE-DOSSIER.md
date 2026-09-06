@@ -161,7 +161,9 @@ Two field traps, both hit in practice:
 - **Native implementation: `visceral_core.dll` v0.8 `head_update()`** `[compile-verified 2026-09-06, unrun]` —
   `get_Components` off every GameObject under the player's transform (`get_Child`/`get_Next` walk), match by
   GameObject name AND `getMaterialName(i)` (material names are the reliable part identity: Claire's face file is
-  `Face_Mat`/`Hair_Mat`/`Eyelashes`/`Tearline`, body `pl3000_Skin_Mat`), reveal on cinematic / grab
+  `Face_Mat`/`Hair_Mat`/`Eyelashes`/`Tearline`, body `pl3000_Skin_Mat` — ⚠️ **`pl3000` is SHERRY; Claire's body
+  material is `pl1000_Body_Mat` and her face lives under `pl1050`, so v0.8's material match must be re-checked against
+  `pl1000`/`pl1050` MDFs before its FLAT read `[measured 2026-09-06]`**), reveal on cinematic / grab
   (`app.ropeway.JackDominator.get_Jacked`) / FirstPerson inactive / camera >0.35 m from `head`. The two Lua-only
   facts (cinematic gate, `firstpersonmod:will_be_used()`) travel through bridge slots 30/31.
 - **Stale-component trap (from Arcade Controls, live 2026-08-19):** a save load or Death → Continue rebuilds the
@@ -183,10 +185,24 @@ Two field traps, both hit in practice:
   that matter for skin fidelity: `DetailMap` (tiling tangent normal, alpha = AO; `Detail_UVScale`,
   `Detail_Normal_Intensity`, `Detail_AO_Intensity`) masked by `DetailMaskMap`; `NormalRoughnessMap`;
   `AlphaTranslucentOcclusionSSSMap` (B varies = SSS/occlusion term); `SSS_ProfileNumber`, `Translucency`.
-  **Claire's skin ships with the detail slot NULL and intensity 0** `[measured 2026-09-06]` — pores are one
-  MDF edit + one tiling texture away (tier 1a, deployed, unrun).
-- **One 1024² body texture set serves skin AND cloth on Claire; the hands are the bottom ~14 % of it** and their
-  normal map is flat — the low fidelity in first person is texture budget, not shading `[measured 2026-09-06]`.
+  ⚠️ **Character IDs `[verified-live 2026-09-06, access log + 4 restarts]`: `pl1000` = Claire (skin material
+  `pl1000_Body_Mat`, sampling the shared `pl1000_Jacket_*` atlas; face `pl1050`, hair `pl1070`); `pl3000` = Sherry
+  (chain + pendant), preloaded for cutscenes.** Everything below that said "Claire, pl3000" before 13:15 on 2026-09-06
+  was measured on Sherry. Claire's skin ships **with** a detail tile: `SectionRoot/Character/Textures/Detail_Skin.tex`,
+  128×128, `Detail_UVScale` 0.5, `Detail_Normal_Intensity` 0.5, `DetailMaskMap` = `NullWhite` `[measured 2026-09-06]`;
+  Sherry's is the one with the slot NULL. **A loose 4K `pl1000_Jacket_ALBM.tex.34` is sampled at its top mips** (green
+  bands at 9 mm spacing, crisp in the headset) — 4K authoring is worth it; a loose texture for a character not on screen
+  is opened by the loader and changes nothing, so the first deploy on any new path is a loud diagnostic.
+- **One 1024² atlas serves Claire's skin, jacket, tank top and shirt; the hands are the bottom ~14 % of it**, left hand
+  u 0.52–0.99, right u 0.005–0.49, and their normal map is flat — the low fidelity in first person is texture budget, not
+  shading `[measured 2026-09-06]`. Same UV strip layout and bone names as Sherry's `pl3000_Body_*`; Claire's bind pose is
+  flatter (finger curl +0.48 vs +1.69) with the thumb abducted out of the palm plane, which broke every thumb-derived
+  "back of hand" vector — the paint script now uses the knuckle row for the palm plane and ray occlusion for the dorsal
+  pick (`modding-notes/2026-09-06-hd-hands-were-on-sherry-claire-is-pl1000.md`).
+- **Record system (dirt/blood) resolution**: `Rec_RTT` = `VFX/RecordSystem/RecordTexture/<pl>/<pl>_body.rtex.5`, a
+  64-byte asset with the runtime target's size at +0x10/+0x14 (**512×512** for the whole body, sampled through
+  `UVMap1` where both hands share ~a quarter of it); mud = `Record_Mad_Map_MSK4` 256² tiling at `Rec_Mud_UVScale` 3;
+  injury = 512² ALBA + NRM `[measured 2026-09-06]`. A loose rtex with a larger size is the untested lever `[hypothesis]`.
 
 ## 8. Animation / motion system
 - Locomotion is driven by a **motion-bank selector**, not by picking different

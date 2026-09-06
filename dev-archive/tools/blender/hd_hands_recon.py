@@ -1,8 +1,8 @@
 """HD hands (roadmap H2), step 1: where are Claire's hands in her body texture, and what do the textures hold?
 Runs headless in Blender 5.2 with RE Mesh Editor installed:
-  blender -b --python hd_hands_recon.py -- <pl3000 folder with .mesh/.tex.34> <work_dir>
+  blender -b --python hd_hands_recon.py -- <plXXXX folder with .mesh/.tex.34> <work_dir> [pl1000 Body_Mat pl1000_jacket]
 Writes into <work_dir> (game-data derivatives: keep OUT of git):
-  pl3000_body_albm.png / pl3000_body_nrmr.png   the two textures, decoded via the add-on's own converter
+  <tex>_albm.png / <tex>_nrmr.png               the two textures, decoded via the add-on's own converter
   hand_mask_1024.png, hand_mask_4096.png        white where hand+forearm UV faces land (skin submesh only)
   hd_hands_recon.txt                            the numbers printed below
 Nothing here modifies the game. Read-only on the inputs.
@@ -12,6 +12,9 @@ import numpy as np
 
 argv = sys.argv[sys.argv.index("--") + 1:]
 SRC, WORK = argv[0], argv[1]
+# character prefix, skin material substring, texture base name. 2026-09-06 13:15: pl3000 is SHERRY (chain + pendant), Claire is pl1000
+# with skin material pl1000_Body_Mat sampling the pl1000_Jacket_* atlas. Defaults are Claire now.
+CHAR = argv[2] if len(argv) > 2 else "pl1000"; SKIN_MAT = argv[3] if len(argv) > 3 else "Body_Mat"; TEX = argv[4] if len(argv) > 4 else "pl1000_jacket"
 os.makedirs(WORK, exist_ok=True)
 report = []
 def say(*a):
@@ -23,7 +26,7 @@ ctypes.windll.ole32.CoInitializeEx(None, 0)   # texconv.dll writes PNG through W
 tex_utils = importlib.import_module("RE-Mesh-Editor.modules.tex.re_tex_utils")
 Texconv = importlib.import_module("RE-Mesh-Editor.modules.ddsconv.directx.texconv").Texconv
 tc = Texconv()
-for base in ("pl3000_body_albm", "pl3000_body_nrmr"):
+for base in (TEX + "_albm", TEX + "_nrmr"):
     tex = os.path.join(SRC, base + ".tex.34")
     dds = os.path.join(WORK, base + ".dds")
     tex_utils.convertTexFileToDDS(tex, dds)
@@ -31,7 +34,7 @@ for base in ("pl3000_body_albm", "pl3000_body_nrmr"):
     say("converted", base, "->", png, os.path.getsize(dds), "bytes dds")
 
 # ---- 2. the mesh: which faces are hands, and where they sit in UV space --------------------
-mesh_path = os.path.join(SRC, "pl3000.mesh.2109108288")
+mesh_path = os.path.join(SRC, CHAR + ".mesh.2109108288")
 bpy.ops.re_mesh.importfile(filepath=mesh_path, directory=SRC, files=[{"name": os.path.basename(mesh_path)}],
                            clearScene=True, loadMaterials=False, loadMDFData=False)
 HAND = ("l_hand_", "r_hand_", "l_arm_wrist", "r_arm_wrist")
@@ -70,7 +73,7 @@ for ob in [o for o in bpy.data.objects if o.type == "MESH"]:
     mats = [m.name if m else "?" for m in me.materials]
     uv = me.uv_layers.active
     if uv is None: say("mesh", ob.name, "has no UVs"); continue
-    skin = any("Skin" in m for m in mats)          # only the skin material samples pl3000_body_* for skin; sleeves/props are other materials
+    skin = any(SKIN_MAT in m for m in mats)          # only the skin material is repainted; sleeves/props are other materials
     vcls = [top_group(v, names) for v in me.vertices]
     counts = {"hand": 0, "forearm": 0, "other": 0}
     bbox = {"hand": [1, 1, 0, 0], "forearm": [1, 1, 0, 0]}
@@ -111,13 +114,13 @@ save_mask(mask1, os.path.join(WORK, "hand_mask_1024.png"))
 save_mask(mask4, os.path.join(WORK, "hand_mask_4096.png"))
 
 # ---- 3. what the albedo looks like under the mask (skin tone to match later) ----------------
-alb = bpy.data.images.load(os.path.join(WORK, "pl3000_body_albm.png"))
+alb = bpy.data.images.load(os.path.join(WORK, TEX + "_albm.png"))
 W = alb.size[0]; px = np.empty(W * W * 4, np.float32); alb.pixels.foreach_get(px); px = np.flipud(px.reshape(W, W, 4))
 say("albedo image %dx%d, channels %d" % (alb.size[0], alb.size[1], alb.channels))
 if W == W1:
     sel = px[mask1 > 0]
     if len(sel): say("albedo under hand mask: mean RGBA = (%.3f %.3f %.3f %.3f), std = (%.3f %.3f %.3f)" % (*sel[:, :3].mean(0), sel[:, 3].mean(), *sel[:, :3].std(0)))
-nrm = bpy.data.images.load(os.path.join(WORK, "pl3000_body_nrmr.png"))
+nrm = bpy.data.images.load(os.path.join(WORK, TEX + "_nrmr.png"))
 px2 = np.empty(W * W * 4, np.float32); nrm.pixels.foreach_get(px2); px2 = np.flipud(px2.reshape(W, W, 4))
 if W == W1:
     sel = px2[mask1 > 0]

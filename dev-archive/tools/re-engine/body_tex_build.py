@@ -1,5 +1,5 @@
 """body_tex_build.py -- convert re-authored body textures (PNG) back into RE2 RT .tex.34 files, in place of
-pl3000_Body_ALBM / pl3000_Body_NRMR, ready for the loose-file loader.
+<base>_ALBM / <base>_NRMR (Claire: pl1000_Jacket_*; Sherry: pl3000_Body_*), ready for the loose-file loader.
 
   py body_tex_build.py --in <folder with pl3000_Body_ALBM.png / pl3000_Body_NRMR.png> --out <folder> [--character pl3000]
 
@@ -15,6 +15,7 @@ REMESH_DIR = r"D:\RE2 REFramework builds\tools\RE-Mesh-Editor"
 ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
 ap.add_argument("--in", dest="inp", required=True); ap.add_argument("--out", required=True)
 ap.add_argument("--character", default="pl3000"); ap.add_argument("--remesh-dir", default=REMESH_DIR)
+ap.add_argument("--tex-base", default=None, help="texture base name, default <character>_Body; Claire (pl1000) is pl1000_Jacket (her skin shares the jacket atlas)")
 ap.add_argument("--src", default=None, help="extracted <pl> folder holding the shipped .tex.34 files (needed for MSK1: its header is reused)")
 a = ap.parse_args()
 sys.path.insert(0, a.remesh_dir)
@@ -23,8 +24,8 @@ from modules.tex import re_tex_utils as TU   # noqa: E402
 
 dest = os.path.join(a.out, "natives", "stm", "sectionroot", "character", "player", a.character, a.character)
 work = os.path.join(a.out, "_work"); os.makedirs(dest, exist_ok=True); os.makedirs(work, exist_ok=True)
-plan = [("%s_Body_ALBM" % a.character, "BC7_UNORM_SRGB", 99), ("%s_Body_NRMR" % a.character, "BC7_UNORM", 98),
-        ("%s_Body_MSK1" % a.character, "BC4_UNORM", 80)]          # MSK1 (detail mask) is optional: only built when its PNG is present
+base = a.tex_base or ("%s_Body" % a.character)
+plan = [(base + "_ALBM", "BC7_UNORM_SRGB", 99), (base + "_NRMR", "BC7_UNORM", 98), (base + "_MSK1", "BC4_UNORM", 80)]          # MSK1 (detail mask) is optional: only built when its PNG is present
 for name, fmt, dxgi in plan:
     src = os.path.join(a.inp, name + ".png")
     if not os.path.exists(src):
