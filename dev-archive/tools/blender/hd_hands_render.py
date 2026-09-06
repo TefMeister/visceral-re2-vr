@@ -61,6 +61,10 @@ hidx = np.where(np.char.startswith(topname, side + "_hand_") | (topname == side 
 meta = np.array([i for i in hidx if topname[i].endswith("_0") or topname[i] == side + "_arm_wrist"])
 c = vco[hidx].mean(0) if a.zoom <= 1.0 else vco[meta].mean(0)
 radius = float(np.linalg.norm(vco[hidx] - c, axis=1).max()) / a.zoom
+if a.focus == "forearm":                                     # the bare forearm, wrist -> sleeve (the straight lines, 2026-09-06 evening)
+    fa = np.array([i for i in range(len(vco)) if topname[i].startswith(side + "_arm_radius") or topname[i] == side + "_arm_wrist"])
+    c = vco[fa].mean(0); radius = float(np.linalg.norm(vco[fa] - c, axis=1).max()) * 1.02
+    hidx = fa
 if a.focus in ("fingers", "thumb"):                          # the distal phalanges only (nails, 2026-09-06 evening)
     want = (side + "_hand_thumb_2",) if a.focus == "thumb" else (side + "_hand_index_2", side + "_hand_middle_2", side + "_hand_ring_3", side + "_hand_little_3")
     tips = np.array([i for i in hidx if topname[i] in want])
