@@ -10,7 +10,7 @@ so they never pinch or float):
   RIGHT arm -- "strap and plate": one wide leather cuff, a brushed metal plate across the back of the arm, two
       rivets either side of it, and a raised leather edge-welt top and bottom.
   LEFT arm -- "cord and rings": two narrow leather cords with a gap between them, three small metal rings threaded
-      on the upper cord, sitting above the red beaded band Claire already wears at her wrist (0.1-2.2 cm).
+      on the upper cord, sitting above the WATCH with thin leather straps Claire already wears on that wrist (Tefa, 2026-09-06) -- the 0.1-2.2 cm of jacket-submesh geometry at her left wrist is that watch.
 
 Measured on Claire `[measured 2026-09-06]`: bare forearm skin runs from the wrist joint to 12.6 cm (right) /
 13.7 cm (left); the rolled jacket sleeve starts at 10-11 cm; the existing left wrist band occupies 0.1-2.2 cm at
