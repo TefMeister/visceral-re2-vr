@@ -897,12 +897,33 @@ constexpr const char* PLUG_MDF_PATH  = "sectionroot/character/player/pl1000/pl10
 
 struct alignas(16) V4 { float x{}, y{}, z{}, w{}; };   // via.vec3 / via.Quaternion as the engine lays them out (16 bytes)
 
-API::ManagedObject* create_resource_holder(const char* res_type, const char* path, const char* holder_type) {
+// v0.12: TWO WAYS TO BUILD A RESOURCE HOLDER, because the first one has now produced `materials: n=0` and an invisible
+// mesh three times running (neck plug since v0.7, both bracelets on 2026-09-06 19:51 and 21:53 — the last with the
+// GameObject correctly parented, so parenting was not it).
+//   false = REFramework's sdk create_holder, what we have always used.
+//   true  = allocate the holder type and write the resource pointer at +0x10, which is what the one REFramework mod that
+//           provably draws a spawned mesh does (Universal Lasers, RE4: sdk.create_instance(holder, true) then
+//           write_qword(0x10, resource:get_address())). [hypothesis]
+// This run puts one of each in the game so a single launch decides: LEFT bracelet + the plug manual, RIGHT bracelet the old way.
+API::ManagedObject* create_resource_holder(const char* res_type, const char* path, const char* holder_type, bool manual = false) {
     auto& api = API::get();
     auto* res = api->resource_manager()->create_resource(res_type, path);
-    if (res == nullptr) { LOGW("%s plug: create_resource(%s, %s) returned null", TAG, res_type, path); return nullptr; }
+    if (res == nullptr) { LOGW("%s create_resource(%s, %s) returned null", TAG, res_type, path); return nullptr; }
+    if (manual) {
+        auto* ht = api->tdb()->find_type(holder_type);
+        auto* h = ht != nullptr ? ht->create_instance(1) : nullptr;      // flags 1 = allocate without running the ctor
+        if (h != nullptr) {
+            h->add_ref();
+            res->add_ref();
+            *(void**)((uintptr_t)h + 0x10) = (void*)res;                 // the holder's resource slot, as the Lua mod writes it
+            LOGI("%s holder(%s) built MANUALLY for %s", TAG, holder_type, path);
+            return h;
+        }
+        LOGW("%s holder(%s): create_instance failed, falling back to create_holder", TAG, holder_type);
+    }
     auto* holder = (API::ManagedObject*)api->sdk()->resource->create_holder((REFrameworkResourceHandle)res, holder_type);
-    if (holder == nullptr) LOGW("%s plug: create_holder(%s) returned null", TAG, holder_type);
+    if (holder == nullptr) LOGW("%s create_holder(%s) returned null", TAG, holder_type);
+    else LOGI("%s holder(%s) built by create_holder for %s", TAG, holder_type, path);
     return holder;
 }
 
@@ -926,8 +947,8 @@ void plug_create() {
     if (cr.exception_thrown || cr.ptr == nullptr) { LOGE("%s plug: createComponent(via.render.Mesh) failed", TAG); return; }
     p.mesh = (API::ManagedObject*)cr.ptr;
     p.mesh->add_ref();
-    auto* mesh_holder = create_resource_holder("via.render.MeshResource", PLUG_MESH_PATH, "via.render.MeshResourceHolder");
-    auto* mdf_holder  = create_resource_holder("via.render.MeshMaterialResource", PLUG_MDF_PATH, "via.render.MeshMaterialResourceHolder");
+    auto* mesh_holder = create_resource_holder("via.render.MeshResource", PLUG_MESH_PATH, "via.render.MeshResourceHolder", true);
+    auto* mdf_holder  = create_resource_holder("via.render.MeshMaterialResource", PLUG_MDF_PATH, "via.render.MeshMaterialResourceHolder", true);
     if (mesh_holder == nullptr) {
         LOGE("%s plug: mesh resource missing — is natives/stm/%s.2109108288 in the game folder, and LooseFileLoader_Enabled=true in re2_fw_config.txt?", TAG, PLUG_MESH_PATH);
         return;
@@ -1022,8 +1043,10 @@ void bracelet_create(State::Bracelet& b, int side) {
     auto cr = add->invoke(b.go, {mesh_t});
     if (cr.exception_thrown || cr.ptr == nullptr) { LOGE("%s bracelet: createComponent(via.render.Mesh) failed", TAG); return; }
     b.mesh = (API::ManagedObject*)cr.ptr; b.mesh->add_ref();
-    auto* mesh_holder = create_resource_holder("via.render.MeshResource", BRACELET_MESH_PATH[side], "via.render.MeshResourceHolder");
-    auto* mdf_holder  = create_resource_holder("via.render.MeshMaterialResource", BRACELET_MDF_PATH, "via.render.MeshMaterialResourceHolder");
+    const bool manual = (side == 0);                                   // v0.12 A/B in one launch: LEFT manual, RIGHT the old create_holder
+    LOGI("%s bracelet %c: holder route = %s", TAG, side == 0 ? 'l' : 'r', manual ? "MANUAL (+0x10)" : "create_holder (the old one)");
+    auto* mesh_holder = create_resource_holder("via.render.MeshResource", BRACELET_MESH_PATH[side], "via.render.MeshResourceHolder", manual);
+    auto* mdf_holder  = create_resource_holder("via.render.MeshMaterialResource", BRACELET_MDF_PATH, "via.render.MeshMaterialResourceHolder", manual);
     if (mesh_holder == nullptr) { LOGE("%s bracelet %c: mesh resource missing — is natives/stm/%s.2109108288 in the game folder?", TAG, side == 0 ? 'l' : 'r', BRACELET_MESH_PATH[side]); return; }
     if (!inv(b.mesh, "setMesh", {mesh_holder}).ok) { LOGE("%s bracelet %c: setMesh threw", TAG, side == 0 ? 'l' : 'r'); return; }
     if (mdf_holder == nullptr) LOGW("%s bracelet: MDF resource missing (natives/stm/%s.21) — it will draw with no material", TAG, BRACELET_MDF_PATH);
