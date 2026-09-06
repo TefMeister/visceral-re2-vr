@@ -35,6 +35,7 @@ ap.add_argument("--tone", type=float, default=1.0, help="albedo variation streng
 ap.add_argument("--detail-png", default=None, help="tiling detail normal PNG (default <work>/visceral_skin_detail_NRM.png)")
 ap.add_argument("--nails", type=float, default=1.0, help="redraw the nails from the rig (0 = leave the artist's 14-px blobs as upscaled): plate, lunula, free edge, cuticle + side folds, no pores on the plate. Added 2026-09-06 evening")
 ap.add_argument("--nail-length", type=float, default=0.58, help="nail plate length as a fraction of the distal phalanx (cuticle sits at 1 - this)")
+ap.add_argument("--nail-lunula", type=float, default=0.6, help="strength of the lighter crescent at the base of each nail (0 = none). Tefa liked the 16:53 look, which was 0.6")
 ap.add_argument("--nail-fold", type=float, default=0.022, help="height of the raised skin fold just outside the plate (0 = none). 0.08 read as a swollen rim round every nail in VR, 2026-09-06")
 ap.add_argument("--nail-width", type=float, default=0.62, help="plate width as a fraction of the finger's width at the distal phalanx (0.85 read as a cap over the whole tip)")
 a = ap.parse_args(argv)
@@ -706,7 +707,9 @@ if a.nails > 0 and nail_plate.any():
     #    not painting the tips grey at all"), and no shadow beyond it; the free edge reads by relief alone.
     bed = (fill + (1.0 - fill) * 0.30) * np.array([1.0, 0.94, 0.95], np.float32)                     # pale pink: skin lifted a third toward white, a touch pinker (0.20 barely read as a nail at all)
     white = fill + (1.0 - fill) * 0.50                                                                # lunula: skin lifted halfway to white
-    nail_col = bed * (1.0 - nail_lun[..., None] * 0.35) + white * (nail_lun[..., None] * 0.35)       # lunula subtle: at 0.5 it streaked under a raking light
+    # lunula back UP (pass 14): Tefa's reference is the 16:53 build, whose faint lighter crescent at the base of each nail they
+    # want kept, with the tips left as they are now (no grey). It was 0.6 then, 0.35 since pass 12; a.nail_lunula tunes it.
+    nail_col = bed * (1.0 - nail_lun[..., None] * a.nail_lunula) + white * (nail_lun[..., None] * a.nail_lunula)
     pl = nail_plate * a.nails
     out_alb[..., :3] = out_alb[..., :3] * (1.0 - pl)[..., None] + nail_col * pl[..., None]
     out_alb[..., :3] *= (1.0 - (0.06 * nail_cut + 0.05 * nail_groove) * a.nails)[..., None]           # cuticle band + the outline, faint
