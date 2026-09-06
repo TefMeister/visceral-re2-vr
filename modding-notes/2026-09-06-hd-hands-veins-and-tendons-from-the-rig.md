@@ -76,3 +76,23 @@ to 0 in the script until the VR verdict. New helper scripts: `hd_hands_dorsal_pr
 
 Still open on the hands after this: nails (nail-bed and cuticle lines on the nail islands), the game's own grime overlay
 (Record system masks), and the "touch grainy" one-number tune — the remaining `[PD]` row.
+
+## First VR look and the second deploy (12:07–12:15 local) `[verified-live 2026-09-06, n=1, Tefa]`
+
+Tefa's two headset captures (revolver in the right hand, left fist with the watch): **"I cannot really see veins,
+and the inside palms are very rough texture compared to the back of the hand."** Both are texture faults, both fixed
+and redeployed at 12:12–12:14; the game must be restarted to see them.
+
+- **Veins**: colour did the work the relief could not. The vein tint went from 7 % red / 3.5 % green to
+  16 % red / 8 % green / 2 % blue (cooler and ~12 % darker), and the relief amplitudes ×1.4. Blender render after:
+  veins now read on the back of the hand at arm's length.
+- **Palms**: real palms show creases, not pores. New `--palm-pores 0.3`: the baked pore relief is scaled by the
+  dorsal weight (30 % on the palm side, fingers included), **and** the material's tiled pore layer follows the same
+  rule through a repainted **`pl3000_Body_MSK1`** (the `DetailMaskMap`, BC4 2048, shipped white over the hands;
+  now 0.66 mean over the hand strip). Third loose texture in the set.
+- **Trap**: RE Mesh Editor's converter writes a correct BC4 DDS and then **segfaults on teardown** (exit 139),
+  taking the rest of the build with it; `DDSToTex` never runs. `body_tex_build.py` now runs the BC4 conversion in a
+  child process and transplants the shipped MSK1's 160-byte header onto the new payload (`--src <extracted pl3000>`;
+  sizes verified equal: 2 796 376 − 2 796 216). Output byte-identical to the hand-composed file.
+
+Deployed set now: ALBM + NRMR (4K, anatomy 1.0, palm pores 0.3) + MSK1 (2048) + the tier-1a MDF and detail tile.

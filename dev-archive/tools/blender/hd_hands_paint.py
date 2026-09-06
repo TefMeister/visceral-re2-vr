@@ -26,6 +26,7 @@ ap.add_argument("--veins", type=float, default=0.35, help="dorsal vein relief li
 ap.add_argument("--wrinkles", type=float, default=1.0, help="fine wrinkle networks around the joints (0 = none)")
 ap.add_argument("--anatomy", type=float, default=0.0, help="rig-derived veins/tendons drawn along the mesh surface (off by default until judged in VR). The 2026-09-06 02:50 attempts picked the little-finger edge instead of the back of the hand; fixed 12:00 via the finger-curl sign")
 ap.add_argument("--crease", type=float, default=1.0, help="joint crease depth (0 = none)")
+ap.add_argument("--palm-pores", type=float, default=0.3, help="pore relief on the PALM side as a fraction of the back (baked relief AND the detail-mask texture)")
 ap.add_argument("--tone", type=float, default=1.0, help="albedo variation strength (0 = none)")
 ap.add_argument("--detail-png", default=None, help="tiling detail normal PNG (default <work>/visceral_skin_detail_NRM.png)")
 a = ap.parse_args(argv)
@@ -183,6 +184,7 @@ h_wrinkle = wr * near_joint * 0.18 * a.wrinkles
 # dorsal veins (wrist -> the gaps between knuckles), drawn as curves in UV space between anchors found from the
 # bones, and masked to the DORSAL side, which is the side facing away from the thumb's offset from the palm plane.
 h_anat = np.zeros((N, N), np.float32); vein_lines = np.zeros((N, N), np.float32)
+dorsal = np.ones((N, N), np.float32)                          # 1 on the back of the hands + forearms, 0 on the palms (set below)
 try:
     arm = [o for o in bpy.data.objects if o.type == "ARMATURE"][0]
     M = skin.matrix_world; R3 = M.to_3x3()
@@ -317,7 +319,7 @@ try:
     vein_lines = vein_lines * dorsal * (1.0 - fieldF)
     tend = tend * dorsal * (1.0 - fieldF)
     # amplitudes chosen for a max normal tilt of ~0.25 (veins) / ~0.12 (tendons) at nrm_from_height scale 6: A = tilt*sigma/(6*0.61)
-    h_anat = (vein_lines * 0.55 + tend * 0.40) * a.anatomy               # line_blur peaks at 0.70, so these are ~0.39 / 0.28 effective
+    h_anat = (vein_lines * 0.80 + tend * 0.50) * a.anatomy               # raised ×1.4 after VR 12:07 (invisible at 0.55/0.40 in the game's shading)               # line_blur peaks at 0.70, so these are ~0.39 / 0.28 effective
     if a.anatomy > 0:                                         # full-res masks for hd_hands_debug_render.py (where do the lines land in 3D?)
         dbg = np.zeros((N, N, 4), np.float32); dbg[..., 0] = tend; dbg[..., 1] = vein_lines; dbg[..., 2] = dorsal; dbg[..., 3] = 1.0
         save_np(dbg, os.path.join(a.out, "anat_mask.png"))
@@ -326,8 +328,9 @@ try:
 except Exception as e:
     import traceback; traceback.print_exc(); print("anatomy: skipped:", e)
 cx, cy = nrm_from_height(h_crease + h_veins + h_wrinkle + h_anat, 6.0)
-nx = (nrm[..., 0] * 2 - 1) + edge * (cx + det_xy[..., 0] * 0.35 * a.pores * (0.7 + 0.3 * fieldF))
-ny = (nrm[..., 1] * 2 - 1) + edge * (cy + det_xy[..., 1] * 0.35 * a.pores * (0.7 + 0.3 * fieldF))
+palm_pore = a.palm_pores + (1.0 - a.palm_pores) * dorsal        # palms: 30 % of the pore relief (VR 12:07: "palms very rough compared to the back")
+nx = (nrm[..., 0] * 2 - 1) + edge * (cx + det_xy[..., 0] * 0.35 * a.pores * (0.7 + 0.3 * fieldF) * palm_pore)
+ny = (nrm[..., 1] * 2 - 1) + edge * (cy + det_xy[..., 1] * 0.35 * a.pores * (0.7 + 0.3 * fieldF) * palm_pore)
 nz = np.sqrt(np.clip(1.0 - nx ** 2 - ny ** 2, 0.05, 1.0))
 out_nrm = nrm.copy()
 out_nrm[..., 0] = nx * 0.5 + 0.5; out_nrm[..., 1] = ny * 0.5 + 0.5; out_nrm[..., 2] = nz
@@ -341,14 +344,25 @@ out_alb[..., 0] = alb[..., 0] * (1.0 + 0.10 * red)
 out_alb[..., 1] = alb[..., 1] * (1.0 - 0.18 * red)
 out_alb[..., 2] = alb[..., 2] * (1.0 - 0.22 * red)
 mot = 1.0 + edge * mottle * 0.02 * a.tone
-vt = np.clip(veins + vein_lines * 1.2, 0, 1)
-out_alb[..., 0] *= (1.0 - vt * 0.07); out_alb[..., 1] *= (1.0 - vt * 0.035)          # veins: a touch cooler, hardly darker
+vt = np.clip(veins * 0.6 + vein_lines * 1.4, 0, 1)
+out_alb[..., 0] *= (1.0 - vt * 0.16); out_alb[..., 1] *= (1.0 - vt * 0.08); out_alb[..., 2] *= (1.0 - vt * 0.02)   # veins: cooler and ~12 % darker (VR 12:07 could not see them at 0.07)
 out_alb[..., :3] *= mot[..., None]
 # pores slightly darker: use the detail map's alpha (AO) very gently
 det_ao = det[np.ix_(ty, tx)][..., 3]
 out_alb[..., :3] *= (1.0 - edge * (1.0 - det_ao) * 0.06 * a.pores)[..., None]   # barely-there: pores read as relief, not dirt
 out_alb[..., 3] = alb[..., 3]                                 # metallic untouched
 
+# detail mask (MSK1, BC4 2048, white over the hands): scale it down on the palms so the material's TILED pores follow the same rule
+msk_png = os.path.join(a.work, "pl3000_body_msk1.png")
+if os.path.exists(msk_png):
+    msk = load_np(msk_png); Wm = msk.shape[0]
+    step = N // Wm
+    pp = palm_pore[::step, ::step] if step > 1 else palm_pore
+    ed = edge[::step, ::step] if step > 1 else edge
+    m = msk[..., 0] * (1.0 - ed) + msk[..., 0] * pp * ed
+    msk_out = np.repeat(m[..., None], 4, axis=2); msk_out[..., 3] = 1.0
+    save_np(msk_out, os.path.join(a.out, "pl3000_Body_MSK1.png"))
+    print("detail mask: hand mean %.2f (was %.2f)" % (m[ed > 0.5].mean(), msk[..., 0][ed > 0.5].mean()))
 save_np(out_alb, os.path.join(a.out, "pl3000_Body_ALBM.png"))
 save_np(out_nrm, os.path.join(a.out, "pl3000_Body_NRMR.png"))
 # preview crops of the hand strip (bottom 15%), original vs new, for eyes
