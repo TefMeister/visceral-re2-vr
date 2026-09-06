@@ -345,3 +345,26 @@ That is the third and last UV-locked thing in the skin path. In order, the seam 
 | 3 | palm/back pore strength feathered by a UV blur | smoothed over the mesh instead |
 
 Nails unchanged throughout: 28,346 plate texels in all three builds.
+
+## The seam, part four: the fringe is in the colour we started from (2026-09-06 23:31, deployed, UNSEEN)
+
+All three seam fixes went in and Tefa's answer was *"both seams are still there, like nothing changed"*, with the
+mark circled: a small, **bright**, hard-edged sliver on the back of the hand at the thumb web, and the matching one
+at the right wrist. Bright and hard-edged is not what a pore-strength step or a missing hairline looks like, and
+nothing about the relief could survive three independent fixes.
+
+**It is in the artist's texture, and we made it four times bigger.** A brightness-excess map of the *vanilla* 1024
+albedo over the hand strip shows small bright straight-edged quadrilaterals sitting at island borders
+`[measured 2026-09-06]` — ordinary atlas gutter content. We upscale that 1024 to 4K **before painting anything**,
+and at a border the interpolation drags whatever lies outside the island into its edge texels: one texel of
+contamination at 1024 becomes about four at 4K, which is precisely a bright fringe with straight edges. That is why
+the 3D pores, the padding and the palm/back split could not touch it — it was already in the colour, before any of
+our work began.
+
+**Fix (`--edge-repair`, 4 texels):** the outermost few texels of every island are re-filled from that island's own
+interior, ramped so nothing steps. 75,957 rim texels, mean blend 0.58. Applied to both the albedo and the normal
+map after everything else, so it repairs whatever else may have collected at a rim too.
+
+**Unverified.** Built and deployed at 23:31 with no VR look; Tefa stopped for the night. If the sliver is still
+there tomorrow, this hypothesis is wrong and the next step is to find that exact wedge in the vanilla 1024 by
+brightness and map it back to the 3D surface, rather than reasoning about it. `--edge-repair 0` reverts.

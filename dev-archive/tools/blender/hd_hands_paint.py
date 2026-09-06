@@ -37,6 +37,7 @@ ap.add_argument("--nails", type=float, default=1.0, help="redraw the nails from 
 ap.add_argument("--nail-length", type=float, default=0.58, help="nail plate length as a fraction of the distal phalanx (cuticle sits at 1 - this)")
 ap.add_argument("--nail-face-from-art", action="store_true", help="take each nail's facing direction from the mean normal of the artist's nail pixels. OFF by default: it moves every nail 12-16 deg, and Tefa judged the pass-16 nails (this off) perfect in VR on 2026-09-06. It was written because a Blender thumb render seemed to show the plate on the thumb's flank -- but that render's CAMERA uses the same hand-wide guess, so it may have been looking at the flank rather than the plate being on it. Unverified either way")
 ap.add_argument("--pores-uv", action="store_true", help="sample the micro-relief from the tiling 2D detail map by TEXEL, the pre-2026-09-06-22:30 behaviour. Off by default because that locks the pore pattern to the texture grid, so it cannot match across a UV seam -- which is the hard line Tefa found at the base of the thumb, and the same mechanism behind the straight lines on the forearms")
+ap.add_argument("--edge-repair", type=int, default=4, help="texels at the OUTER rim of each UV island to re-fill from that island's interior. The 1024 source is upscaled 4x before we touch it, and at an island border that interpolation drags whatever sits outside the island into its edge texels -- one texel of contamination at 1024 becomes four at 4K, which is a bright hard-edged fringe on the surface. 0 = off")
 ap.add_argument("--gutter", type=int, default=6, help="texels of padding grown past every UV island edge. Our treatment used to stop exactly at the island border, leaving an untreated strip along every seam; the strip is what was left of the thumb line after the 3D pores went in. 0 = the old behaviour")
 ap.add_argument("--pore-mm", type=float, default=0.62, help="pore size in millimetres for the 3D-coherent micro-relief")
 ap.add_argument("--nail-min-px", type=int, default=400, help="drop any connected nail-plate blob smaller than this (the ten real nails are 1391-3683 texels at 4K)")
@@ -190,6 +191,7 @@ def blur(img, sigma):
 # triangles. The cure is the standard one for atlases: grow the painted content a few texels into the gutter so the
 # fade happens outside anything the surface actually shows. Kept small (6 texels at 4K = 1.1 mm) so it cannot reach a
 # neighbouring island's interior -- this atlas is shared with the jacket.
+fieldK_core = (fieldK > 0).copy()          # the true island footprint, before any padding is grown onto it
 if a.gutter > 0:
     _base = fieldK > 0
     _grown = _base.copy()
@@ -940,6 +942,32 @@ if os.path.exists(msk_png):
     msk_out = np.repeat(m[..., None], 4, axis=2); msk_out[..., 3] = 1.0
     save_np(msk_out, os.path.join(a.out, a.tex_base + "_MSK1.png"))
     print("detail mask: hand mean %.2f (was %.2f)" % (m[ed > 0.5].mean(), msk[..., 0][ed > 0.5].mean()))
+# ---- REPAIR THE OUTER RIM OF EVERY ISLAND (2026-09-06 23:15). Tefa's last two screenshots show a small BRIGHT
+# hard-edged sliver that survived all three seam fixes, and the same shape appears in the ARTIST'S OWN 1024 texture at
+# island borders. Cause: we upscale that 1024 to 4K before painting anything, and at a border the interpolation drags
+# whatever lies outside the island into its edge texels -- one texel of contamination at 1024 becomes four at 4K, which
+# is exactly a bright fringe with straight edges. Neither the 3D pores, the padding nor the palm/back split could touch
+# it, because it is in the colour we started from. Cure: re-fill the outermost few texels of each island from that
+# island's own interior, ramped so nothing steps. `[hypothesis]` -- built at 23:15, unseen.
+if a.edge_repair > 0 and fieldK_core.any():
+    _core = fieldK_core.copy()
+    for _ in range(a.edge_repair):
+        _core &= np.roll(_core, 1, 0) & np.roll(_core, -1, 0) & np.roll(_core, 1, 1) & np.roll(_core, -1, 1)
+    _ring = fieldK_core & ~_core
+    if _ring.any():
+        _w = _core.astype(np.float32); _sig = float(a.edge_repair) * 1.1
+        _den = blur(_w, _sig) + 1e-6
+        # ramp: 0 where the core still reaches, 1 at the island's outer edge, so the repair never steps
+        _t = np.clip(1.0 - blur(_w, float(a.edge_repair) * 0.7) / (blur(np.ones_like(_w), float(a.edge_repair) * 0.7) + 1e-6) * 1.6, 0, 1)
+        _t = np.where(_ring, _t, 0.0).astype(np.float32)
+        for _c in range(3):
+            _f = blur(out_alb[..., _c] * _w, _sig) / _den
+            out_alb[..., _c] = out_alb[..., _c] * (1 - _t) + _f * _t
+        for _c in range(4):
+            _f = blur(out_nrm[..., _c] * _w, _sig) / _den
+            out_nrm[..., _c] = out_nrm[..., _c] * (1 - _t) + _f * _t
+        print("edge repair: %d texels of island rim re-filled from the interior (%d texels, mean blend %.2f)"
+              % (a.edge_repair, int(_ring.sum()), float(_t[_ring].mean())))
 save_np(out_alb, os.path.join(a.out, a.tex_base + "_ALBM.png"))
 save_np(out_nrm, os.path.join(a.out, a.tex_base + "_NRMR.png"))
 # preview crops of the hand strip (bottom 15%), original vs new, for eyes
