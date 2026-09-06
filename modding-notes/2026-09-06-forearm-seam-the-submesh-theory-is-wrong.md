@@ -10,12 +10,12 @@ submesh, so our 4K repaint stops at the submesh boundary and that boundary is th
 I took it from one line of the recon dump — `pl1000_Jacket_Mat ... forearm faces=8125` against the skin
 submesh's 798 — without checking what those faces actually are.
 
-They are the sleeve and the wrist band, not bare skin. Measured properly, per centimetre along the forearm from
+They are the sleeve and her wristwatch, not bare skin. Measured properly, per centimetre along the forearm from
 the wrist joint `[measured 2026-09-06, tools/blender/forearm_seam_recon.py]`:
 
 | | skin submesh (`Body_Mat`) | jacket submesh (`Jacket_Mat`) |
 | --- | --- | --- |
-| left forearm | 0 → 13.7 cm, continuous | 0 → 2.2 cm (the red beaded band), **nothing 3–10 cm**, 11 cm → up (sleeve) |
+| left forearm | 0 → 13.7 cm, continuous | 0 → 2.2 cm (her WATCH and its thin leather straps — Tefa, 2026-09-06), **nothing 3–10 cm**, 11 cm → up (sleeve) |
 | right forearm | 0 → 12.6 cm, continuous | nothing below 10 cm, 10 cm → up (sleeve) |
 
 So the bare forearm is **entirely** on the skin submesh, which our repaint does cover, from the wrist to where the
@@ -46,4 +46,4 @@ came out too dark and too small to judge. A forearm-specific light and framing i
 
 Tefa's idea — cover the lines with bracelets — is indifferent to the cause, which is most of its appeal. The
 measurements above are what it needed anyway: **bare skin from the wrist to 12.6–13.7 cm, sleeve from 10–11 cm,
-the existing left band at 0.1–2.2 cm**, so a new band belongs between roughly 3 and 10 cm from the wrist joint.
+her watch on the left wrist at 0.1–2.2 cm**, so a new band belongs between roughly 3 and 10 cm from the wrist joint.
