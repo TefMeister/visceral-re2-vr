@@ -49,6 +49,7 @@ ap.add_argument("--nail-fold", type=float, default=0.022, help="height of the ra
 ap.add_argument("--seam-blend", type=float, default=5.0, help="cancel the COLOUR step across every UV seam, spreading the correction this many millimetres into each island (0 = off). Measured on the 2026-09-06 23:31 build: the two sides of a seam differ by a median 2.7 and a p90 of 8.6 in 0-255 units, against 1.7 and 6.2 in the artist\'s own 1024 -- so this pipeline had been ADDING about 40 percent to a step that was already there. This makes the two sides equal at the seam by construction")
 ap.add_argument("--seam-read", type=float, default=0.30, help="how far inside each island (mm of skin) the two sides are read before their difference is halved. Far enough out of the boundary texel to be clean, near enough to be the same skin")
 ap.add_argument("--nail-width", type=float, default=0.62, help="plate width as a fraction of the finger's width at the distal phalanx (0.85 read as a cap over the whole tip)")
+ap.add_argument("--detail-tile", type=float, default=1.0, help="how much of the ENGINE'S OWN tiled detail map (Detail_Skin, 128 squared, Detail_UVScale 0.5) survives over the skin we paint. 1.0 = as shipped, and as in every build Tefa has judged; 0.0 = switched off there, leaving only our own 3D-sized relief. Why the knob exists: that tile repeats in UV SPACE, and the hands are painted at ~1.6 atlas texels per mm of skin against the forearms' ~1.0, so its grain comes out 1.6x coarser on the forearm and steps at the wrist -- x1.62 left, x1.58 right [measured 2026-09-07] -- which is exactly the 'grainy one side, smooth the other' band. Our own pores are sized in 3D and do not step. DEFAULT 1.0 ON PURPOSE: this changes skin already judged good, and with the tile off --pores wants raising to keep the same amount of texture, so it is a two-knob change. Turn it down only once a launch says the band is fainter but still there")
 a = ap.parse_args(argv)
 N = a.size
 os.makedirs(a.out, exist_ok=True)
@@ -944,10 +945,20 @@ if os.path.exists(msk_png):
     step = N // Wm
     pp = palm_pore[::step, ::step] if step > 1 else palm_pore              # palm_pore already carries (1 - nail plate): no tiled pores on the nails
     ed = edge[::step, ::step] if step > 1 else edge
-    m = msk[..., 0] * (1.0 - ed) + msk[..., 0] * pp * ed
+    # --detail-tile scales the ENGINE's tile over the skin we paint, on top of the palm rule. It multiplies only the
+    # `ed` term, so texels outside our paint (the jacket shares this atlas) keep the shipped mask exactly. At the
+    # default 1.0 the arithmetic is unchanged from every build before 2026-09-07.
+    m = msk[..., 0] * (1.0 - ed) + msk[..., 0] * pp * a.detail_tile * ed
     msk_out = np.repeat(m[..., None], 4, axis=2); msk_out[..., 3] = 1.0
     save_np(msk_out, os.path.join(a.out, a.tex_base + "_MSK1.png"))
     print("detail mask: hand mean %.2f (was %.2f)" % (m[ed > 0.5].mean(), msk[..., 0][ed > 0.5].mean()))
+    if a.detail_tile < 1.0:
+        print("detail mask: --detail-tile %.2f -- the engine's tiled Detail_Skin is turned %s over our skin, so the"
+              " x1.6 grain step at the wrists cannot come from it any more. Only our 3D-sized relief is left there,"
+              " which means LESS total texture: raise --pores (currently %.2f) if the skin now reads too smooth."
+              % (a.detail_tile, "OFF" if a.detail_tile == 0 else "down", a.pores))
+    _outside = msk[..., 0][ed <= 0.5]
+    print("detail mask: %d texels outside our paint left exactly as shipped (mean %.2f)" % (_outside.size, _outside.mean() if _outside.size else 0.0))
 # ---- REPAIR THE OUTER RIM OF EVERY ISLAND (2026-09-06 23:15). Tefa's last two screenshots show a small BRIGHT
 # hard-edged sliver that survived all three seam fixes, and the same shape appears in the ARTIST'S OWN 1024 texture at
 # island borders. Cause: we upscale that 1024 to 4K before painting anything, and at a border the interpolation drags
