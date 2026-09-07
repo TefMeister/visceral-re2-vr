@@ -1,3 +1,6 @@
 
 # game-derived material file (built by mdf_build_bracelets.py from the player's own MDF): never commit
 dev-archive/plugin/assets/natives/stm/visceral/visceral_bracelets.mdf2.21
+
+# python bytecode from the Blender tools (uv_seams.py is imported now, so this appears on every run)
+__pycache__/
