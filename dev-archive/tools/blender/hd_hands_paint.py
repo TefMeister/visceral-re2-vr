@@ -15,6 +15,8 @@ ALBM alpha = metallic, NRMR alpha left as shipped). Conversion to .tex.34 is too
 Outputs are derivatives of game textures: keep out of git; the player's copy is rebuilt by the scripts.
 """
 import bpy, sys, os, importlib, ctypes, argparse
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import uv_seams
 from mathutils import Vector
 import numpy as np
 
@@ -44,6 +46,8 @@ ap.add_argument("--nail-min-px", type=int, default=400, help="drop any connected
 ap.add_argument("--nail-tip", type=float, default=1.0, help="where the nail's FREE EDGE sits along the distal phalanx (1.0 = the fingertip). Every pass before 16 ended at 0.92 and left a bare pad beyond the nail")
 ap.add_argument("--nail-lunula", type=float, default=0.6, help="strength of the lighter crescent at the base of each nail (0 = none). Tefa liked the 16:53 look, which was 0.6")
 ap.add_argument("--nail-fold", type=float, default=0.022, help="height of the raised skin fold just outside the plate (0 = none). 0.08 read as a swollen rim round every nail in VR, 2026-09-06")
+ap.add_argument("--seam-blend", type=float, default=5.0, help="cancel the COLOUR step across every UV seam, spreading the correction this many millimetres into each island (0 = off). Measured on the 2026-09-06 23:31 build: the two sides of a seam differ by a median 2.7 and a p90 of 8.6 in 0-255 units, against 1.7 and 6.2 in the artist\'s own 1024 -- so this pipeline had been ADDING about 40 percent to a step that was already there. This makes the two sides equal at the seam by construction")
+ap.add_argument("--seam-read", type=float, default=0.30, help="how far inside each island (mm of skin) the two sides are read before their difference is halved. Far enough out of the boundary texel to be clean, near enough to be the same skin")
 ap.add_argument("--nail-width", type=float, default=0.62, help="plate width as a fraction of the finger's width at the distal phalanx (0.85 read as a cap over the whole tip)")
 a = ap.parse_args(argv)
 N = a.size
@@ -83,7 +87,9 @@ for base in (TB + "_albm", TB + "_nrmr"):
         tex_utils.convertTexFileToDDS(os.path.join(a.src, base + ".tex.34"), dds)
         png = tc.convert_to_png(dds, out=a.work, verbose=False)
     src_png[base] = png
-alb = load_np(src_png[TB + "_albm"], N)          # Blender gives sRGB PNG pixels back as linear floats
+alb = load_np(src_png[TB + "_albm"], N)          # raw stored bytes / 255, NOT linear: checked by hand 2026-09-07
+                                                 # (mean |blender - raw bytes| = 0.00000 over 200k texels). The old comment
+                                                 # here said linear floats and was wrong; save_np's docstring was right.
 nrm = load_np(src_png[TB + "_nrmr"], N)          # normal map: treated as data (we only nudge RG)
 print("upscaled to %dx%d: albedo mean %s, nrmr mean %s" % (N, N, np.round(alb.mean((0, 1)), 3), np.round(nrm.mean((0, 1)), 3)))
 
@@ -968,6 +974,156 @@ if a.edge_repair > 0 and fieldK_core.any():
             out_nrm[..., _c] = out_nrm[..., _c] * (1 - _t) + _f * _t
         print("edge repair: %d texels of island rim re-filled from the interior (%d texels, mean blend %.2f)"
               % (a.edge_repair, int(_ring.sum()), float(_t[_ring].mean())))
+
+# ---- CANCEL THE COLOUR STEP ACROSS EVERY UV SEAM (2026-09-07) -----------------------------------------------
+# Tefa, after the 23:31 build: the hard lifted edges are gone, but "the seams are still visible" -- a soft
+# difference in LIGHTNESS between two areas of skin. seam_measure.py then measured it instead of reasoning about
+# it, and the reasoning would have been wrong again: it is not the normal map (our systematic tilt across a seam
+# matches the artist's own, 1.5-4 deg either way) and it is not that whole islands carry different average colour
+# (their means sit within 4 units of each other). It is a real, local, texel-level colour step ALONG the seams,
+# median 2.7 and p90 8.6 in the 0-255 numbers a paint program shows -- and OURS is worse than the artist's 1.7 /
+# 6.2, so about 40 % of it is something this script added (the 4x upscale, the rim repair pulling each island's
+# own interior colour out to its edge, and every field that fades near a border).
+#
+# The cure needs no cleverness about causes. The two sides of a seam are the same skin, so make them equal:
+# read both a fraction of a millimetre in, move each half way to the other, and let that correction fade smoothly
+# into the island so nothing else changes. Corrections spread ONLY within their own island -- the neighbour needs
+# the opposite sign, so a blur that crossed the boundary would cancel exactly what it is meant to fix.
+if a.seam_blend > 0:
+    _uvd = uv.data
+    _in_paint = np.array([max(K[i] for i in poly.vertices) > 0 for poly in me.polygons])
+    _island, _seams, _ = uv_seams.label_islands(me, _uvd, vco_all, _in_paint)
+    _frames = uv_seams.face_frames(me, _uvd, vco_all)
+
+    def _raster_id(tri_uv, val, fld):
+        pts = [(u * N, (1.0 - v) * N) for u, v in tri_uv]
+        xs = [q[0] for q in pts]; ys = [q[1] for q in pts]
+        x0, x1 = max(int(min(xs)) - 1, 0), min(int(max(xs)) + 2, N); y0, y1 = max(int(min(ys)) - 1, 0), min(int(max(ys)) + 2, N)
+        if x1 <= x0 or y1 <= y0: return
+        gx, gy = np.meshgrid(np.arange(x0, x1) + 0.5, np.arange(y0, y1) + 0.5)
+        (ax_, ay_), (bx, by), (cx_, cy_) = pts
+        det_ = (bx - ax_) * (cy_ - ay_) - (cx_ - ax_) * (by - ay_)
+        if abs(det_) < 1e-9: return
+        l1 = ((bx - gx) * (cy_ - gy) - (cx_ - gx) * (by - gy)) / det_
+        l2 = ((cx_ - gx) * (ay_ - gy) - (ax_ - gx) * (cy_ - gy)) / det_
+        inside = (l1 >= -0.003) & (l2 >= -0.003) & ((1.0 - l1 - l2) >= -0.003)
+        sub = fld[y0:y1, x0:x1]; sub[inside] = val
+
+    _idmap = np.full((N, N), -1.0, np.float32)
+    for poly in me.polygons:
+        if not _in_paint[poly.index]: continue
+        _uvs = [tuple(_uvd[l].uv) for l in poly.loop_indices]
+        for k in range(1, len(_uvs) - 1):
+            _raster_id((_uvs[0], _uvs[k], _uvs[k + 1]), float(_island[poly.index]), _idmap)
+    _idmap = _idmap.astype(np.int32)
+
+    def _bilin(img, uvp):
+        x = uvp[0] * N - 0.5; y = (1.0 - uvp[1]) * N - 0.5
+        x0 = int(np.floor(x)); y0 = int(np.floor(y)); fx = x - x0; fy = y - y0
+        x0 = min(max(x0, 0), N - 1); y0 = min(max(y0, 0), N - 1)
+        x1 = min(x0 + 1, N - 1); y1 = min(y0 + 1, N - 1)
+        return ((img[y0, x0, :3] * (1 - fx) + img[y0, x1, :3] * fx) * (1 - fy) +
+                (img[y1, x0, :3] * (1 - fx) + img[y1, x1, :3] * fx) * fy)
+
+    _fcent = {}
+    for poly in me.polygons:
+        if _in_paint[poly.index]:
+            _fcent[poly.index] = np.mean([np.array(_uvd[l].uv, np.float64) for l in poly.loop_indices], axis=0)
+
+    _seed_sum = np.zeros((N, N, 3), np.float32); _seed_cnt = np.zeros((N, N), np.float32)
+    _ts = (np.arange(7) + 0.5) / 7.0
+    _n_seed = 0; _steps = []
+
+    def _drop(uvp, d_uv, isl, val):
+        """put a correction on the first texel INSIDE this island, stepping in from the boundary"""
+        global _n_seed
+        for st in (0.7, 1.5, 2.5, 3.5):
+            q = uvp + d_uv * (st / N)
+            ix = int(q[0] * N); iy = int((1.0 - q[1]) * N)
+            if not (0 <= ix < N and 0 <= iy < N): return
+            if _idmap[iy, ix] == isl:
+                _seed_sum[iy, ix] += val; _seed_cnt[iy, ix] += 1.0; _n_seed += 1; return
+
+    for (fa, ua0, ua1, fb, ub0, ub1, v0, v1, w0, w1) in _seams:
+        fra, frb = _frames[fa], _frames[fb]
+        if fra is None or frb is None or fa not in _fcent or fb not in _fcent: continue
+        ca, cb = _fcent[fa], _fcent[fb]
+        isla, islb = int(_island[fa]), int(_island[fb])
+        for t in _ts:
+            pa = (1 - t) * ua0 + t * ua1; pb = (1 - t) * ub0 + t * ub1
+            da = ca - pa; db = cb - pb
+            na = np.linalg.norm(da); nb = np.linalg.norm(db)
+            if na < 1e-9 or nb < 1e-9: continue
+            da /= na; db /= nb
+            # metres of skin per unit UV, along the direction we step in: turns millimetres into a UV offset
+            sa = 1.0 / (np.linalg.norm(fra[0] * da[0] + fra[1] * da[1]) + 1e-12)
+            sb = 1.0 / (np.linalg.norm(frb[0] * db[0] + frb[1] * db[1]) + 1e-12)
+            cA = _bilin(out_alb, pa + da * (a.seam_read * 1e-3 * sa))
+            cB = _bilin(out_alb, pb + db * (a.seam_read * 1e-3 * sb))
+            half = (cB - cA) * 0.5
+            _steps.append(float(np.abs(cB - cA).mean()))
+            _drop(pa, da, isla, half)
+            _drop(pb, db, islb, -half)
+
+    if _n_seed:
+        _corr = np.zeros((N, N, 3), np.float32)
+        _seed = _seed_cnt > 0
+        _corr[_seed] = _seed_sum[_seed] / _seed_cnt[_seed][:, None]
+
+        def _boxblur(x, r):
+            if r < 1: return x
+            k = 2 * r + 1
+            pad = np.pad(x, ((r + 1, r), (0, 0)) + (((0, 0),) if x.ndim == 3 else ()), mode="edge")
+            c = np.cumsum(pad, axis=0); x = (c[k:] - c[:-k]) / k
+            pad = np.pad(x, ((0, 0), (r + 1, r)) + (((0, 0),) if x.ndim == 3 else ()), mode="edge")
+            c = np.cumsum(pad, axis=1); return (c[:, k:] - c[:, :-k]) / k
+
+        # texels per millimetre, from the island with the finest mapping, so the spread distance is honest
+        _px_mm = N / 1024.0 * 1.9
+        _R = max(2, int(a.seam_blend * _px_mm))
+        _out = np.zeros((N, N, 3), np.float32)
+        _ids = sorted(set(_island[_in_paint].tolist()))
+        for _isl in _ids:
+            _m = (_idmap == _isl)
+            if not _m.any(): continue
+            ys_, xs_ = np.where(_m)
+            _pad = _R + 4
+            y0 = max(int(ys_.min()) - _pad, 0); y1 = min(int(ys_.max()) + _pad + 1, N)
+            x0 = max(int(xs_.min()) - _pad, 0); x1 = min(int(xs_.max()) + _pad + 1, N)
+            mm_ = _m[y0:y1, x0:x1].astype(np.float32)
+            sd_ = (_seed & _m)[y0:y1, x0:x1]
+            if not sd_.any(): continue
+            cv_ = _corr[y0:y1, x0:x1]
+            c = np.zeros_like(cv_)
+            # spread the boundary values inward, coarse to fine: the result matches the seam exactly and is smooth
+            # everywhere else, which is the standard harmonic answer to "make these two edges agree"
+            r = _R
+            while r >= 1:
+                c[sd_] = cv_[sd_]
+                num = _boxblur(c * mm_[..., None], r); den = _boxblur(mm_, r)[..., None]
+                c = np.where(den > 1e-6, num / (den + 1e-12), 0.0).astype(np.float32)
+                r //= 2
+            c[sd_] = cv_[sd_]
+            _out[y0:y1, x0:x1] = np.where(mm_[..., None] > 0, c, _out[y0:y1, x0:x1])
+
+        # carry the correction a few texels past each island edge as well, so the gutter the shader filters
+        # into at the border holds the corrected colour and not the old one
+        if a.gutter > 0:
+            g = _out.copy(); have = (_idmap >= 0)
+            for _ in range(a.gutter):
+                for ax_, sh in ((0, 1), (0, -1), (1, 1), (1, -1)):
+                    nb = np.roll(g, sh, ax_); nh = np.roll(have, sh, ax_)
+                    take = nh & ~have
+                    g = np.where(take[..., None], nb, g); have = have | take
+            _out = g
+
+        out_alb[..., :3] = np.clip(out_alb[..., :3] + _out, 0, 1)
+        _st = np.array(_steps)
+        print("seam blend: %d seam samples, colour step before = %.2f mean / %.2f p90 (0-255 units); "
+              "%d seed texels, spread %.1f mm (%d texels), correction |mean| %.3f max %.3f"
+              % (len(_st), 255 * _st.mean(), 255 * np.percentile(_st, 90), int(_seed.sum()),
+                 a.seam_blend, _R, 255 * np.abs(_out[_idmap >= 0]).mean(), 255 * np.abs(_out).max()))
+
 save_np(out_alb, os.path.join(a.out, a.tex_base + "_ALBM.png"))
 save_np(out_nrm, os.path.join(a.out, a.tex_base + "_NRMR.png"))
 # preview crops of the hand strip (bottom 15%), original vs new, for eyes
