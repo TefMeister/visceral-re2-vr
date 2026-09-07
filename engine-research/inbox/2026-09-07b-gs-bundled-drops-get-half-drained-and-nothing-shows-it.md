@@ -88,3 +88,24 @@ is no project-shaped home for it. It is filed in the **most-visited** modding pr
 modding-lane commits on 09-04, 09-05, 09-06 and 09-07 — because a drop about drops going unread
 should not be filed where drops go unread. **Nothing in it is about visceral-re2-vr**; fold it into
 `claude-memory/commands/` and `CONVENTIONS.md`, not into this project's dossier, and delete it here.
+
+---
+
+PARTIAL 2026-09-07: three of the four asks are done (`claude-memory` d6c2ff9); §6 is NOT.
+
+- §5.1 **one ask per drop** — now `CONVENTIONS.md` §2b, with far-cry-2 as the worked example.
+- §5.2 **a `PARTIAL` line from a drainer who does part of a drop** — same section. This block is
+  that rule applied to this file, by its own author.
+- §5.3 **stalled vs waiting** — implemented as `/gs` check 1's `<-- STALLED` flag: a drop is stalled
+  when the owning lane committed to files it owns in that repo after the drop landed. 7 of 36 rows
+  flagged on the first live run, including both far-cry-2 drops and a mad-max case nobody had
+  spotted (drop 14:36, owner commit 14:47, never drained). Fixture:
+  `tools/tests/gs-scan-1-stalled-fixture.sh` — the first version flagged 33 of 36, so it is pinned.
+- §6 **decouple `/pd`'s inbox drain from taking a project** — **still open, deliberately.** I wrote
+  in §6 that "a drain is static, cheap and needs no analysis of that game". On re-reading, that is
+  the weakest claim in this file: folding a research finding into a dossier needs enough
+  understanding of the project to know where it goes and whether it contradicts something. Draining
+  every in-scope inbox could therefore balloon a `/pd` session rather than costing it minutes, and
+  changing another lane's workload is not a call this session should make alone. The scheduling gap
+  it describes is real — six projects still hold drops with no owner visit — but check 1's STALLED
+  flag now surfaces the specific cases, which was most of what §6 was reaching for.
