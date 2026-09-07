@@ -81,6 +81,37 @@ dwords; with the map above, that dump now *means* something — in particular wh
 target is an SRGB 8-bit surface (`29`) like the movie targets or something else, which bears on how
 the grime is composited.
 
+## ⚠️ Corrected later the same day: two of these field names are a guess that fits
+
+A later search this session found the format **documented publicly** — kagenocookie's RE-Engine-Lib,
+`RTexFile.cs` `[reported 2026-09-07]` — and it **disagrees with the sibling's naming** at `0x18`–`0x24`:
+
+| offset | ours | kagenocookie's | observed |
+| --- | --- | --- | --- |
+| `0x18` | depth / array size | **depth** | `1` |
+| `0x1C` | — | **mipCount** | `0` |
+| `0x20` | — | **arraySize** | `0` |
+| `0x24` | **mip count** | **ukn1** | `1` |
+
+Both fit the bytes; ours implies mip 1 / array 1, theirs mip 0 / array 0. **Neither is confirmed** —
+treat `0x18`–`0x24` as unresolved rather than repeating a name that has not been tested.
+
+⭐ **What the public format adds:** the two trailing floats at `0x34`/`0x38`, unnamed in both our
+decodes, are **`widthRate` and `heightRate`** — resolution **scale rates**, validated as > 0. If a
+Record target is ever not allocated at the literal width/height in the file, **that is where the
+discrepancy lives**, and it is a second lever on target size neither project has touched. It also
+confirms independently that `0x0C` is a plain `DxgiFormat` value, not an engine-private enum.
+
+⚠️ **A version mismatch to settle for free:** kagenocookie's table records **RE2's `.rtex` version as
+4** and RE8's as 5 — but our Record asset is `pl1000_body.rtex.**5**`. Either RE2RT differs from RE2
+(consistent with the RT patch bumping several format versions) or the table needs a caveat. The
+version is the u32 at `0x04`, which `rtex_resize.py` already prints. It matters: `widthRate`/
+`heightRate` exist **only at version ≥ 5**.
+
+**The conclusion below is unaffected**, because it never depended on which naming is right: under
+*both* layouts every field from `0x18` to `0x30` is a small constant that does not scale with width
+or height.
+
 ## Honest limits
 
 - The map comes from **RE8's** shipped files. Version 5 and the 64-byte size match RE2R's, and the
