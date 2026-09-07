@@ -4,7 +4,8 @@
 Read-only session; nothing was edited anywhere. **This drop is about how drops are written and
 drained, not about visceral-re2-vr** — see "Why this landed here" at the end.
 
-Supersedes: nothing. It corrects a diagnosis **I** gave the user earlier today, in chat only.
+**Corrects a diagnosis I gave the user earlier today, in chat only — nothing in any repo said it, so
+there is no `Supersedes:` target and this drop deliberately carries no such header.**
 
 ## 1. What I got wrong, so the evidence is not read the wrong way
 
