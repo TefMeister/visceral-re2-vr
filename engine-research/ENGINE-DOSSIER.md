@@ -410,9 +410,48 @@ hook on `System.GC.KeepAlive` — see the plugin header for the slot map.
 risk is answered in public code: Junh2x's Requiem "Better Movement Speed" (ported to RE2 on
 Nexus) writes **`set_Speed(k)` on the player's `via.motion.Motion` layer** every
 `LateUpdateBehavior`, gated on `"walk"`/`"run"` in
-`get_HighestWeightMotionNode():get_MotionName()`. Because RE2 locomotion is root-motion driven
-(§8), a playback-rate clamp scales travel, leg cycle and footstep events together — req 4's
-"drive legs and footsteps from speed" holds by construction. It is a rate, not a walk/run blend.
+`get_HighestWeightMotionNode():get_MotionName()`. ⚠️ **CORRECTED 2026-09-09** (`/gr` drop drained). This
+paragraph used to read: *"Because RE2 locomotion is root-motion driven (§8), a playback-rate clamp
+scales travel, leg cycle and footstep events together — req 4's 'drive legs and footsteps from
+speed' holds by construction."* **"By construction" does not survive the public source.**
+
+**The lever is a PAIR.** Junh2x's shipping mod hooks `app.MovementDriver:getMoveSpeed` as a
+first-class part of the feature alongside the layer-0 `set_Speed` write, applying the same factor
+to both; `Namsku/re-engine-trainer` does the identical pairing **independently** for its Requiem
+"Player Speed" feature, with separate walk/run factors and a multi-frame restore of the layer rate
+on disable `[reported 2026-09-09, from source]`. Two authors would not both scale the driver's own
+returned speed if clamping the layer rate already moved the character. So the **animation rate and
+the travel rate look separately driven**, and keeping them in sync is the mod's job. Plan req 4 as a
+pair until RE2 is measured otherwise. (The same drop also corrects this lane's 2026-09-02
+characterisation of the `getMoveSpeed` hook as "Requiem-specific" — it is not, it is half the
+mechanism.) ⚠️ This is evidence about the technique's **authors**, not a measurement of RE2: it
+downgrades "holds by construction" to `[hypothesis]`, it does not disprove it for RE2.
+
+It is a rate, not a walk/run blend.
+
+**✅ THE FIRST HALF IS NOW MEASURED LIVE (2026-09-09, `/lm`, one flat launch).** The NUM7 probe's
+`via.motion.Motion` surface carries, on the inherited **`via.motion.Animation`** base:
+
+```
+via.motion.Animation :: System.Single get_PlaySpeed()
+via.motion.Animation :: System.Void   set_PlaySpeed(System.Single value)
+via.motion.Animation :: System.Single get_SecondaryPlaySpeed()
+via.motion.Animation :: System.Void   set_SecondaryPlaySpeed(System.Single value)
+via.motion.Animation :: System.Single get_CurrentPlaySpeed()
+```
+
+with a live read of **`get_PlaySpeed = 1.0000`** — a real float, not the `NaN` the probe prints for an
+absent method. `[verified-live 2026-09-09, n=1 launch]` So req 4 **does** have a component-wide speed
+lever above every layer: one setter, no layer index, no motion-name gating. `getLayerCount = 6` and
+all six layers independently read `get_Speed = 1.0000`, so the per-layer levers exist too and are
+currently neutral.
+
+⚠️ **The SECOND half is still unmeasured.** The probe dumps the motion component only and never
+touches `app.MovementDriver`, so nothing here confirms or denies the pairing above. Extending the
+probe to dump `app.MovementDriver` is one `[PD]` edit and should happen before req 4 is designed.
+
+⚠️ Incidental, recorded because it will bite the first blend-weight work: **`get_Weight` returned
+`nan` on all six layers** — either absent under that spelling or not a float. `[verified-live 2026-09-09]`
 
 - RE2's types (`[inferred-static 2026-09-04]`, from the dump): `via.motion.Motion.getLayer(u32)` →
   **`via.motion.TreeLayer`** (there is no `MotionLayer` type in RE2), with `get_/set_Speed`,

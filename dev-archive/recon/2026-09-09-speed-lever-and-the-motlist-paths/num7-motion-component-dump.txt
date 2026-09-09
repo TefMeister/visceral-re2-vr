@@ -1,0 +1,45 @@
+[2026-09-09 22:18:41.284] [REFramework] [info] [Plugin] [visceral] ---- MOTION COMPONENT (req 4 speed hunt): via.motion.Motion ----
+[2026-09-09 22:18:41.284] [REFramework] [info] [Plugin] [visceral]   via.motion.Motion surface: via.motion.Motion
+[2026-09-09 22:18:41.284] [REFramework] [info] [Plugin] [visceral]     via.motion.Motion :: via.motion.TreeLayer continueMotionOnSeparateLayer(System.UInt32 srcLayerNo, System.UInt32 dstLayerNo, System.UInt32 jointMaskId, via.motion.InterpolationCurve curve, System.Single speed, System.Single autoTimeOut)
+[2026-09-09 22:18:41.284] [REFramework] [info] [Plugin] [visceral]     via.motion.Motion :: System.Int32 getBlendedLastLayerNoByJointIndex(System.Int32 jointIndex)
+[2026-09-09 22:18:41.284] [REFramework] [info] [Plugin] [visceral]     via.motion.Motion :: via.vec3 getJointAnimationRate(System.Int32 idx)
+[2026-09-09 22:18:41.284] [REFramework] [info] [Plugin] [visceral]     via.motion.Motion :: via.vec3 getJointBlendRate(System.Int32 idx)
+[2026-09-09 22:18:41.284] [REFramework] [info] [Plugin] [visceral]     via.motion.Motion :: via.motion.TreeLayer getLayer(System.UInt32 no)
+[2026-09-09 22:18:41.284] [REFramework] [info] [Plugin] [visceral]     via.motion.Motion :: System.UInt32 getLayerCount()
+[2026-09-09 22:18:41.284] [REFramework] [info] [Plugin] [visceral]     via.motion.Motion :: via.motion.TreeLayer getPrivateLayer(System.UInt32 no)
+[2026-09-09 22:18:41.284] [REFramework] [info] [Plugin] [visceral]     via.motion.Motion :: System.UInt32 getPrivateLayerCount()
+[2026-09-09 22:18:41.284] [REFramework] [info] [Plugin] [visceral]     via.motion.Motion :: System.Void setJointBlendRate(System.Int32 idx, via.vec3 blend)
+[2026-09-09 22:18:41.284] [REFramework] [info] [Plugin] [visceral]     via.motion.Motion :: System.Void setLayer(System.UInt32 no, via.motion.TreeLayer ptr)
+[2026-09-09 22:18:41.284] [REFramework] [info] [Plugin] [visceral]     via.motion.Motion :: System.Void setLayerCount(System.UInt32 count)
+[2026-09-09 22:18:41.284] [REFramework] [info] [Plugin] [visceral]     via.motion.Motion :: System.Void setPrivateLayer(System.UInt32 no, via.motion.TreeLayer ptr)
+[2026-09-09 22:18:41.284] [REFramework] [info] [Plugin] [visceral]     via.motion.Motion :: System.Void setPrivateLayerCount(System.UInt32 count)
+[2026-09-09 22:18:41.284] [REFramework] [info] [Plugin] [visceral]     via.motion.Motion :: void__via_motion_Motion____via_motion_TreeLayer___ get_LayerUpdatedEvent()
+[2026-09-09 22:18:41.284] [REFramework] [info] [Plugin] [visceral]     via.motion.Motion :: System.Void set_LayerUpdatedEvent(void__via_motion_Motion____via_motion_TreeLayer___ value)
+[2026-09-09 22:18:41.284] [REFramework] [info] [Plugin] [visceral]     via.motion.Motion :: System.Boolean get_EnableLayerUpdateOrder()
+[2026-09-09 22:18:41.284] [REFramework] [info] [Plugin] [visceral]     via.motion.Motion :: System.Void set_EnableLayerUpdateOrder(System.Boolean value)
+[2026-09-09 22:18:41.284] [REFramework] [info] [Plugin] [visceral]     via.motion.Motion :: via.motion.Motion.WrappedArrayContainer_Layer get_Layer()
+[2026-09-09 22:18:41.284] [REFramework] [info] [Plugin] [visceral]     via.motion.Motion :: via.motion.Motion.WrappedArrayContainer_PrivateLayer get_PrivateLayer()
+[2026-09-09 22:18:41.284] [REFramework] [info] [Plugin] [visceral]     via.motion.Motion :: System.Boolean get_AnyLayerResetted()
+[2026-09-09 22:18:41.284] [REFramework] [info] [Plugin] [visceral]     via.motion.Motion :: System.Boolean get_AnyLayerReseted()
+[2026-09-09 22:18:41.284] [REFramework] [info] [Plugin] [visceral]     via.motion.Animation :: via.motion.PlayState get_PlayState()
+[2026-09-09 22:18:41.284] [REFramework] [info] [Plugin] [visceral]     via.motion.Animation :: System.Void set_PlayState(via.motion.PlayState value)
+[2026-09-09 22:18:41.284] [REFramework] [info] [Plugin] [visceral]     via.motion.Animation :: System.Single get_PlaySpeed()
+[2026-09-09 22:18:41.284] [REFramework] [info] [Plugin] [visceral]     via.motion.Animation :: System.Void set_PlaySpeed(System.Single value)
+[2026-09-09 22:18:41.284] [REFramework] [info] [Plugin] [visceral]     via.motion.Animation :: System.Single get_SecondaryPlaySpeed()
+[2026-09-09 22:18:41.284] [REFramework] [info] [Plugin] [visceral]     via.motion.Animation :: System.Void set_SecondaryPlaySpeed(System.Single value)
+[2026-09-09 22:18:41.284] [REFramework] [info] [Plugin] [visceral]     via.motion.Animation :: System.Single get_CurrentPlaySpeed()
+[2026-09-09 22:18:41.284] [REFramework] [info] [Plugin] [visceral]     via.motion.Animation :: System.Boolean get_PlayReset()
+[2026-09-09 22:18:41.284] [REFramework] [info] [Plugin] [visceral]     via.motion.Animation :: System.Void set_PlayReset(System.Boolean value)
+[2026-09-09 22:18:41.284] [REFramework] [info] [Plugin] [visceral]     via.motion.Animation :: void___ get_PlayStateChangedEvent()
+[2026-09-09 22:18:41.284] [REFramework] [info] [Plugin] [visceral]     via.motion.Animation :: System.Void set_PlayStateChangedEvent(void___ value)
+[2026-09-09 22:18:41.284] [REFramework] [info] [Plugin] [visceral]   get_PlaySpeed = 1.0000   (NaN = method absent or not a float)
+[2026-09-09 22:18:41.284] [REFramework] [info] [Plugin] [visceral]   getLayerCount = 6   (0xFFFFFFFF = absent; get_LayerCount is the fallback spelling)
+[2026-09-09 22:18:41.284] [REFramework] [info] [Plugin] [visceral]   layer[0] get_Weight=nan get_Speed=1.0000 motion=pl10_0160_OFF_Gazing_Idle_F_Loop
+[2026-09-09 22:18:41.284] [REFramework] [info] [Plugin] [visceral]   layer[1] get_Weight=nan get_Speed=1.0000 motion=dummy
+[2026-09-09 22:18:41.284] [REFramework] [info] [Plugin] [visceral]   layer[2] get_Weight=nan get_Speed=1.0000 motion=pl10_50_Hold_HG01
+[2026-09-09 22:18:41.284] [REFramework] [info] [Plugin] [visceral]   layer[3] get_Weight=nan get_Speed=1.0000 motion=-
+[2026-09-09 22:18:41.284] [REFramework] [info] [Plugin] [visceral]   layer[4] get_Weight=nan get_Speed=1.0000 motion=-
+[2026-09-09 22:18:41.284] [REFramework] [info] [Plugin] [visceral]   layer[5] get_Weight=nan get_Speed=1.0000 motion=-
+[2026-09-09 22:18:41.284] [REFramework] [info] [Plugin] [visceral] ---- end motion component ----
+[2026-09-09 22:18:41.396] [REFramework] [info] [Plugin] [visceral] f=106051 hold=0 aidT=2 Lhand=(-20.27 -10.50 20.66) Rhand=(-20.35 -10.47 20.66) aid=(-20.27 -10.50 20.66) |Lhand-aid|=0.000 |Lhand-narrow|=0.000 |Lhand-wide|=0.008 |Lhand-Rhand|=0.080 ikL=(-20.27 -10.50 20.66) | dock=0(syn=0 lg=0) w=0.00 rot=1 sp=0 hooks(aid=346 ikL=345) |Lw-nat|=0.171 |natG-aid|=0.171 |natS-aid|=0.000 |inner-aid|=0.171 angM=47 reach=0.490 clamp=0.000 |natG-natS|=0.171 rotG-S=47 rotW-N=47 |Rw-muz|=0.085 cam=(-11.50 -3.20 4.20) | vr f=106051 hmd=0 ctl=0 stick=(0.00 0.00) | plug=on @(-20.19 -10.11 20.44) | brac=on k=0.0 conv=0 twist l=-42 r=29 L@(-20.09 -10.41 20.58) | head=1 hid=0/5 d=19.67 REVEAL:camera off the head
+[2026-09-09 22:18:42.397] [REFramework] [info] [Plugin] [visceral] f=106399 hold=0 aidT=2 Lhand=(-20.27 -10.51 20.64) Rhand=(-20.34 -10.49 20.64) aid=(-20.27 -10.51 20.64) |Lhand-aid|=0.000 |Lhand-narrow|=0.000 |Lhand-wide|=0.008 |Lhand-Rhand|=0.080 ikL=(-20.27 -10.51 20.64) | dock=0(syn=0 lg=0) w=0.00 rot=1 sp=0 hooks(aid=349 ikL=349) |Lw-nat|=0.167 |natG-aid|=0.167 |natS-aid|=0.000 |inner-aid|=0.167 angM=46 reach=0.490 clamp=0.000 |natG-natS|=0.167 rotG-S=46 rotW-N=46 |Rw-muz|=0.085 cam=(-11.50 -3.20 4.20) | vr f=106399 hmd=0 ctl=0 stick=(0.00 0.00) | plug=on @(-20.20 -10.11 20.42) | brac=on k=0.0 conv=0 twist l=-59 r=32 L@(-20.09 -10.41 20.56) | head=1 hid=0/5 d=19.66 REVEAL:camera off the head
