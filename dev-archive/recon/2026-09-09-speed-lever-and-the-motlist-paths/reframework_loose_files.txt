@@ -1,0 +1,26 @@
+[2026-09-09 22:15:19.561] [LooseFileLoader2] [info] LooseFileLoader constructed
+[2026-09-09 22:17:46.324] [LooseFileLoader2] [info] C:\Steam\steamapps\common\RESIDENT EVIL 2  BIOHAZARD RE2/natives/STM/visceral/visceral_neckplug_neck0local.mesh.2109108288
+[2026-09-09 22:17:46.324] [LooseFileLoader2] [info] C:\Steam\steamapps\common\RESIDENT EVIL 2  BIOHAZARD RE2/natives/STM/sectionroot/character/player/pl1000/pl1000/pl1000.mdf2.21
+[2026-09-09 22:17:46.325] [LooseFileLoader2] [info] C:\Steam\steamapps\common\RESIDENT EVIL 2  BIOHAZARD RE2/natives/STM/visceral/visceral_bracelet_l_radiuslocal.mesh.2109108288
+[2026-09-09 22:17:46.325] [LooseFileLoader2] [info] C:\Steam\steamapps\common\RESIDENT EVIL 2  BIOHAZARD RE2/natives/STM/visceral/visceral_bracelets.mdf2.21
+[2026-09-09 22:17:46.326] [LooseFileLoader2] [info] C:\Steam\steamapps\common\RESIDENT EVIL 2  BIOHAZARD RE2/natives/STM/visceral/visceral_bracelet_r_radiuslocal.mesh.2109108288
+[2026-09-09 22:17:46.328] [LooseFileLoader2] [info] C:\Steam\steamapps\common\RESIDENT EVIL 2  BIOHAZARD RE2/natives/STM/visceral/visceral_neckplug_neck0local.mesh.2109108288
+[2026-09-09 22:17:46.330] [LooseFileLoader2] [info] C:\Steam\steamapps\common\RESIDENT EVIL 2  BIOHAZARD RE2/natives/STM/sectionroot/character/player/pl1000/pl1000/pl1000.mdf2.21
+[2026-09-09 22:17:46.333] [LooseFileLoader2] [info] C:\Steam\steamapps\common\RESIDENT EVIL 2  BIOHAZARD RE2/natives/STM/visceral/visceral_bracelet_l_radiuslocal.mesh.2109108288
+[2026-09-09 22:17:46.335] [LooseFileLoader2] [info] C:\Steam\steamapps\common\RESIDENT EVIL 2  BIOHAZARD RE2/natives/STM/VFX/RecordSystem/RecordTexture/pl1000/pl1000_body.rtex.5
+[2026-09-09 22:17:46.335] [LooseFileLoader2] [info] C:\Steam\steamapps\common\RESIDENT EVIL 2  BIOHAZARD RE2/natives/STM/SectionRoot/Character/Player/pl1000/pl1000/pl1000_Jacket_ALBM.tex.34
+[2026-09-09 22:17:46.335] [LooseFileLoader2] [info] C:\Steam\steamapps\common\RESIDENT EVIL 2  BIOHAZARD RE2/natives/STM/SectionRoot/Character/Player/pl1000/pl1000/pl1000_Jacket_NRMR.tex.34
+[2026-09-09 22:17:46.335] [LooseFileLoader2] [info] C:\Steam\steamapps\common\RESIDENT EVIL 2  BIOHAZARD RE2/natives/STM/SectionRoot/Character/Player/pl1000/pl1000/pl1000_Jacket_MSK1.tex.34
+[2026-09-09 22:17:46.336] [LooseFileLoader2] [info] C:\Steam\steamapps\common\RESIDENT EVIL 2  BIOHAZARD RE2/natives/STM/visceral/visceral_bracelets.mdf2.21
+[2026-09-09 22:17:46.338] [LooseFileLoader2] [info] C:\Steam\steamapps\common\RESIDENT EVIL 2  BIOHAZARD RE2/natives/STM/visceral/visceral_bracelet_r_radiuslocal.mesh.2109108288
+[2026-09-09 22:17:46.340] [LooseFileLoader2] [info] C:\Steam\steamapps\common\RESIDENT EVIL 2  BIOHAZARD RE2/natives/STM/visceral/visceral_bracelet_leather_ALBM.tex.34
+[2026-09-09 22:17:46.340] [LooseFileLoader2] [info] C:\Steam\steamapps\common\RESIDENT EVIL 2  BIOHAZARD RE2/natives/STM/visceral/visceral_bracelet_leather_NRMR.tex.34
+[2026-09-09 22:17:46.341] [LooseFileLoader2] [info] C:\Steam\steamapps\common\RESIDENT EVIL 2  BIOHAZARD RE2/natives/STM/visceral/visceral_bracelet_leather_ATOS.tex.34
+[2026-09-09 22:17:46.341] [LooseFileLoader2] [info] C:\Steam\steamapps\common\RESIDENT EVIL 2  BIOHAZARD RE2/natives/STM/visceral/visceral_bracelet_metal_ALBM.tex.34
+[2026-09-09 22:17:46.341] [LooseFileLoader2] [info] C:\Steam\steamapps\common\RESIDENT EVIL 2  BIOHAZARD RE2/natives/STM/visceral/visceral_bracelet_metal_NRMR.tex.34
+[2026-09-09 22:17:46.341] [LooseFileLoader2] [info] C:\Steam\steamapps\common\RESIDENT EVIL 2  BIOHAZARD RE2/natives/STM/visceral/visceral_bracelet_metal_ATOS.tex.34
+[2026-09-09 22:17:46.342] [LooseFileLoader2] [info] C:\Steam\steamapps\common\RESIDENT EVIL 2  BIOHAZARD RE2/natives/STM/SectionRoot/Character/Player/pl1000/pl1000/pl1000_Jacket_ALBM.tex.34
+[2026-09-09 22:17:46.371] [LooseFileLoader2] [info] C:\Steam\steamapps\common\RESIDENT EVIL 2  BIOHAZARD RE2/natives/STM/SectionRoot/Character/Player/pl1000/pl1000/pl1000_Jacket_MSK1.tex.34
+[2026-09-09 22:17:46.388] [LooseFileLoader2] [info] C:\Steam\steamapps\common\RESIDENT EVIL 2  BIOHAZARD RE2/natives/STM/visceral/visceral_bracelet_leather_NRMR.tex.34
+[2026-09-09 22:17:46.392] [LooseFileLoader2] [info] C:\Steam\steamapps\common\RESIDENT EVIL 2  BIOHAZARD RE2/natives/STM/visceral/visceral_bracelet_metal_ALBM.tex.34
+[2026-09-09 22:17:46.397] [LooseFileLoader2] [info] C:\Steam\steamapps\common\RESIDENT EVIL 2  BIOHAZARD RE2/natives/STM/visceral/visceral_bracelet_metal_NRMR.tex.34
