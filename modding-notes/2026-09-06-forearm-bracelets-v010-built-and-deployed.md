@@ -24,7 +24,7 @@ back, four rivets and raised welts. All wrapped onto the arm's real cross-sectio
 
 **Mesh.** Built in world space on the imported skeleton, then every vertex moved into the `<side>_arm_radius`
 joint's local bind frame with the conversion that reproduces `build_neckplug.py`'s hard-coded `neck_0` numbers
-exactly `[verified 2026-09-06]`: RE bind rows = the Blender bone matrix's columns each mapped (x, y, z) → (x, z, −y),
+exactly `[verified-numerically 2026-09-06]`: RE bind rows = the Blender bone matrix's columns each mapped (x, y, z) → (x, z, −y),
 local = rows · (world − T), handed back to Blender as (x, −z, y) so RE Mesh Editor's exporter lands on RE-local. One
 object per material (`LOD_0_Group_0_Sub_N__<material>`), collection tagged `RE_MESH_COLLECTION`. Leather and metal
 are tagged per face at build time: the first preview lost that to `materials.clear()`, which resets every polygon's

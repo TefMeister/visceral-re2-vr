@@ -123,6 +123,85 @@ Two field traps, both hit in practice:
   the effect is still wrong, it's not a timing bug on *this* value — go back to
   "is this even the right value."
 
+### 5b. ⭐⭐ The two 2026-09-10 headset defects are DOCUMENTED REFramework traps (drained from `/gr` 2026-09-11)
+
+Both ⭐⭐ `[PD]` rows from the first VR run have public answers. Neither is a mystery; both are
+things REFramework's own shipped RE8 VR script does differently from us.
+
+**1. The grip write almost certainly hit the value-type COPY trap.** The REFramework book states a
+value type you read is *"just a local copy"* and that mutating it *"does not change anything
+in-game"* `[reported 2026-09-11, official docs]`. Small value types are also **auto-converted on
+return** (`via.vec3` → `Vector3f`, `via.mat4` → `Matrix4x4f`), which is what makes the copy *feel*
+like a handle. This alone accounts for "the shim never wrote the grip slots" with no second
+explanation needed. Routes that actually commit: `set_field` on the **owning** object;
+read → modify → **setter** (`re2_vr_melee.lua` does `set_field` then `set_Capsule`); or
+`sdk.set_native_field` for native `via.*` structs.
+
+**⭐ But for a JOINT, praydog writes no fields at all.** `scripts/re8_vr.lua` caches
+`via.Joint:set_Position` (a `Vector3f`) and `set_Rotation` (a `Quaternion`) **method definitions** at
+file scope and calls them per frame. There is **no `set_field` on a joint transform anywhere in that
+script** `[inferred-static 2026-09-11]`. Joint lookup in the wild is `getJointByName` /
+`getJointByHash` / `get_Joints`. `RETransform` also offers `calculate_base_transform(joint)`, which
+returns the joint's **reference/T-pose matrix** — a rest pose to offset from — and
+`set_position(pos, no_dirty)`, where **`no_dirty` is documented as necessary when the scene is
+locked**.
+
+**2. The ordering half, and it is a stronger claim than "pick the right callback".** That same script
+writes the hand pose **three separate times per frame**, at progressively later application entries:
+`UpdateMotion` (hand positioning) → `PrepareRendering` (hand IK) → **`LateUpdateBehavior` (final,
+authoritative)**. That is what you do when the engine's own motion and IK passes will overwrite an
+earlier write.
+
+⚠️ **Two cautions that bound how far to trust that list.** The entry set *and its order* are
+discovered at runtime by pattern-scanning and are **game- and build-specific**
+(`shared/sdk/Application.cpp`; stride `0xD0` for TDB < 74, `0xC8` for TDB ≥ 74)
+`[inferred-static 2026-09-11]`, and **no ordered `via.ModuleEntry` list is published for RE2 Remake** —
+so ours must be dumped locally with a logging callback on every candidate name plus a frame counter.
+And REFramework's VR scripts had a **timing race fixed 2026-03-05** (*"VR Scripts (RE2/RE7/RE8): Fix
+racy behavior in hooks causing jitter"*); reading that diff is probably worth more than more
+searching.
+
+**3. The constant camera read: re-fetch per frame, and read JOINT 0.** `sdk.get_primary_camera()`
+resolves `via.SceneManager` → `get_MainView()` → `get_PrimaryCamera()`; **method definitions are cached
+for speed, the camera object is not** `[inferred-static 2026-09-11]`. `re8_vr.lua` calls it **every
+frame, never cached**, then walks `get_GameObject()` → `get_Transform()` → `get_Joints()[0]` and
+operates on **joint 0**. Ranked causes of a constant reading: (1) a handle fetched once at script load
+— `utility/RE2.lua` re-acquires player/weapon/inventory every frame and clears caches when the player
+goes unavailable, precisely because these go stale; (2) reading the wrong node —
+`transform:get_position()` can return a rig origin that genuinely never moves while the live pose is
+on joint 0, **which fits "constant, not nil, not garbage" better than anything else**; (3) a different
+camera from the one gameplay drives `[hypothesis]`; (4) reading too early — weak, that gives a
+one-frame-late value, not a constant one; (5) REFramework's own VR camera override already active
+`[hypothesis]`.
+
+**⭐ One log line decides between the two leading causes:** print the camera object's `get_address()`
+beside the position each frame. **Address constant across a scene transition ⇒ stale handle. Address
+moving while the position does not ⇒ wrong node.**
+
+**4. ⚠️ Three negatives that bear on claims this dossier already holds.**
+- **Nothing public demonstrates `via.motion.Motion`, `via.motion.IkLeg`, `via.motion.IkArmFit`,
+  `RequestSetJointPose` or `setJointPose`** — searched for specifically, zero documentation and zero
+  example usage `[reported 2026-09-11]`. Our static work found some of these names and they may be
+  perfectly correct; the narrow point is that **public practice cannot be cited as support for them.**
+- **`write_valuetype` is not in the book or in the Lua binding source at all** `[inferred-static
+  2026-09-11]` — it appears only in loose secondary summaries. Do not build on it. The real primitives
+  are `set_field`, `sdk.set_native_field`, and `ValueType`'s offset writers.
+- **No public mod disables a motion bank or IK before writing a joint.** praydog's RE7/RE8 VR does not
+  — it conditionally *skips* its own hand-IK updates in cutscenes. alphaZomega's EMV-Engine agrees from
+  another direction: its "Freeze" feature works by *constantly setting the same value every frame*.
+  **The public technique is "write after IK, every frame, repeatedly", not "disable IK, then write
+  once."**
+
+**5. One API hazard to rule out on the grip path:** the docs state *"`ByRef` parameters are not
+correctly supported by REFramework"* — they behave as `T**`. The workaround is
+`sdk.to_valuetype(ptr, "System.UInt64")` and reading its `mValue`, and **for `out` parameters this
+only works in a post-hook**, stashing the reference during the pre-hook. If any slot on the grip path
+is by-ref, a naive write there fails in exactly the way we observed.
+
+⚠️ **Currency:** commits dated **2026-04-25** read *"REFramework v2 (#1609)"* and *"move scripts to
+`dev/`"*, with internal C++ renames. Whether v2 changes the **Lua** surface could not be determined,
+and the `scripts/` paths cited here may have moved. Check against the build actually injected.
+
 ## 6. Camera & player-position gotcha (VR-specific, cost real hours)
 - **The render camera's `WorldMatrix` is NOT a faithful proxy for the player's
   real physical orientation.** Reading the camera's world matrix and extracting
@@ -203,6 +282,68 @@ Two field traps, both hit in practice:
   64-byte asset with the runtime target's size at +0x10/+0x14 (**512×512** for the whole body, sampled through
   `UVMap1` where both hands share ~a quarter of it); mud = `Record_Mad_Map_MSK4` 256² tiling at `Rec_Mud_UVScale` 3;
   injury = 512² ALBA + NRM `[measured 2026-09-06]`. A loose rtex with a larger size is the untested lever `[hypothesis]`.
+
+### 7c. ⚠️ The detail-map parameter names we were using DO NOT EXIST — and the deployed BC4 mask may be inert (drained from `/gr` 2026-09-07)
+
+**Two of the names this project used are not RE2 parameters at all.** The shipped `pl1000_Jacket_Mat`
+set is published in NSACloud's RE Mesh Editor presets (master material
+`MasterMaterial/Master/Record_Player.mmtr`) `[reported 2026-09-07]`:
+
+| kind | name | shipped value |
+| --- | --- | --- |
+| texture | **`DetailMap`** (packed — hence separate normal and AO intensities) | `MasterMaterial/Textures/NullDetail.tex` |
+| texture | `DetailMaskMap` | `systems/rendering/NullWhite.tex` |
+| float | `Detail_UVScale` | **`0.25`** |
+| float | **`Detail_Normal_Intensity`** | `0.52` |
+| float | **`Detail_AO_Intensity`** | `0.0` |
+
+**There is no `DetailNormalMap` and no `DetailIntensity`.** Anywhere this project wrote those names,
+they were wrong.
+
+#### ⭐ The cheap positive control that replaces the whole mask gamble — ONE float
+
+`Detail_Normal_Intensity` and `Detail_AO_Intensity` are **plain floats on the same material**, so
+**setting the normal intensity to 0 disables the detail tile for that material with no texture edit
+and no channel gamble at all** `[inferred-static 2026-09-07]`. The shipped AO intensity is already
+`0.0`, so realistically it is **one number**.
+
+That separates the diagnostic from the fix, which is exactly what the board was hesitating over
+(*"it changes skin Tefa has already judged good"*): **band gone with the intensity at 0 → the tile is
+the cause and the mask work is worth doing properly; band unchanged → the tile is not the cause and
+the mask work is not worth doing at all.**
+
+#### 🚨 And the mask we already deployed may read as zero everywhere
+
+`pl1000_Jacket_MSK1.tex.34` (deployed 2026-09-06 15:06) is **2048 BC4**, and sampling a
+**BC4_UNORM** texture returns `(R, 0, 0, 1)` — **green and blue read as 0**. **Which channel
+`DetailMaskMap` is read from is not documented anywhere public** — a genuine negative from a corpus
+that *does* document channel packing for ALBM/NRMR/ATOS and NRRC/ATOC, so the shape of the answer
+exists and this map simply is not covered `[checked 2026-09-07]`.
+
+**So if the shader reads `.g` or `.b`, our mask reads 0 across the whole material and kills the detail
+tile everywhere — and that failure looks EXACTLY like success:** palms smoother as intended, a
+regression everywhere nobody is looking. `[hypothesis 2026-09-07]` — a D3D inference about BC4, not an
+observation of RE Engine's shader.
+
+Three supporting points: there is **no channel-selector property** for this mask (where RE Engine
+wants a runtime channel pick it ships an explicit vec4, e.g. `Rec_RTTChannelControl`), so the channel
+is hard-coded; `NullWhite` is white in all four channels and gives nothing away; and the engine's own
+masks are four-channel **`_MSK4`** (`ImperfectDetail_MSK4`, `NullGray_MSK4`) while ours is `_MSK1`.
+
+**Cheap disambiguation if the mask route is ever resumed:** ship a **uniform mid-grey** mask first.
+Whole-material grain halves → the shader reads a channel BC4 populates, and a black region is then a
+trustworthy off switch. Nothing changes → it reads G or B and the mask needs a 4-channel format
+before any of this means anything. (That is the cross-engine library's own *"never read back against
+the neutral value"* rule applied to a texture.)
+
+⚠️ **Two discrepancies to settle LOCALLY, not from the preset.** The preset says `Detail_UVScale`
+**0.25** where this project's notes say 0.5, and its `DetailMap` is a **null** texture. But the preset
+row is `pl1000_Jacket_**Mat**` while our MDF edit targets `pl1000_Body_**Mat**` — plausibly two
+different materials, given how RE2 crosses these names over. **Reading our own dumped
+`pl1000.mdf2.21` settles both and is free.** A third party's snapshot of a shipped material is a
+strong lead and a poor authority. ⚠️ And do not assume `Detail_UVScale` is a multiplier rather than a
+divisor — nothing public states the direction and every shipped value seen is sub-1, which fits
+either reading.
 
 ## 8. Animation / motion system
 - Locomotion is driven by a **motion-bank selector**, not by picking different
@@ -579,8 +720,67 @@ no code taken), **praydog** (REFramework, FirstPerson).
   re-laid blobs + the original collection block verbatim; blob names left alone (renaming in place has
   no room). Claire's and Leon's aim-walk banks with the twelve aim-walk slots replaced by their own
   `KFF_GazingWalk_*` loops build and self-verify `[verified-numerically 2026-09-06]`, unrun.
-- **Open until one flat run:** lookup by number vs name hash; whether first-entry `motSize` must be 0;
+- **Open until one flat run** (narrowed 2026-09-11 by draining the `/gr` 2026-09-07 drop — **two of the three clauses are now answered from public sources and have been removed**; what is left is):
   whether the aim-walk blend drives phase by frame or normalised time (walk loops are 3–6× longer).
+
+#### ⭐ 8f drain, 2026-09-11: motions are addressed by NUMBER, and `motSize` is vestigial
+
+From the `/gr` 2026-09-07 drop. **This answers two of §8f's three "open until one flat run"
+questions without a launch, and it makes item 22's expected outcome the predicted one rather than a
+coin flip.**
+
+- **Lookup is by `(bankID, motionID)` — a numeric pair — not by a motion-name hash.** Four independent
+  public sources agree `[reported 2026-09-07]`: the motion's UTF-16 name is carried in the file but is
+  not a lookup key, and there is **no motion-name hash field** in the documented structure. The murmur3
+  hashing in these files is for **bone** names, and the one hash-keyed lookup that exists —
+  `findMotionBankByNameHash` — hashes the **motlist/bank** name, i.e. is file-level. Sources:
+  alphaZomega's MMDK and his 010 Editor motlist template, plus the RE2R Custom Animation Framework's
+  `actor_motion_systems.md` and `motlist_format_guide.md`.
+  ⇒ **Item 22's outcome (a) is the predicted one**, and "frozen / T-posed legs ⇒ the game keys by name
+  hash" becomes the *surprising* branch. ⚠️ Not a proof: no public source names every dword of the
+  72-byte collection entry, so a per-slot hash in an unnamed field is not formally excluded
+  `[hypothesis]` — though §8f's own byte-identical comparison argues hard against it.
+- **`motSize` is vestigial in v524, so the question dissolves rather than being answered.** §8f measured
+  a real value with 0 on each file's first entry `[measured 2026-09-06, n=5]`; two public writers
+  (alphaZomega's Motlist-Tool, CAF's mot writer) emit **0 for every entry** in this generation with no
+  first-entry special case, and CAF's spec says the field is only populated in the older RE2 **v65**.
+  Both are true at once, and the reading is that **the engine does not read it in v524** — tolerated at
+  Capcom's genuine value and at zero `[hypothesis 2026-09-07]`. Deliberately not stronger: "tools that
+  zero it are in general use and their mods work" is inference from their public use, not a controlled
+  test. ⭐ **Either way our splice tool is already correct**, because it preserves each blob's own value
+  — right if the field is ignored and right if it is read. **So the `motSize` clause is dropped from
+  item 22's outcome (c), leaving that outcome as "loose file not taken".**
+- **⭐ `motNumber` is a u16 at +0x08 and `Switch` a u16 at +0x0A** — the public template names the second
+  half of the u32 that §8f recorded as merely "varying" `[reported 2026-09-07]`. It also independently
+  confirms the **72-byte stride for version ≥ 486** and one collection entry per slot. **A future splice
+  that changes a motion number is writing a u16, not a u32.**
+- **One field §8f does not list, worth reading before the launch:** the mot **entry header** carries a
+  **`blending`** field the public template annotates as *"set to 0 to enable repeating"*
+  `[inferred-static 2026-09-07]`. Relevant to the aim-walk loop question directly.
+- ⚠️ **Do NOT re-raise the collection block's 15 unnamed dwords.** The public template shows 15 dwords
+  of float/uint payload per entry after `motNumber`, which invites the worry that per-slot frame or
+  blend data is kept verbatim while entry lengths change 3–6×. **§8f already disproved it**: the block
+  is byte-identical between Claire's original and the Jill replacement whose entries all differ in size
+  `[measured 2026-09-06]`. Recorded so the next reader of the template does not spend time on it.
+
+#### 8g. The `.rtex.5` descriptor — decoded, and a larger authored size is no longer a hypothesis
+
+Drained 2026-09-11 from the `/gr` 2026-09-07 drop **together with its own 09-07b correction**, so the
+withdrawn field names are not recorded here at all.
+
+- **⭐ The "decode the format first" branch of the grime row is already done**, on the sibling
+  `re-village-scope-vr` project, byte-for-byte verified on six shipped RE8 files — and **there is no
+  size-dependent field in a v5 descriptor**, which is the part that mattered. The format is also
+  **documented publicly**: kagenocookie's RE-Engine-Lib, `REE-Lib/OtherFiles/RTexFile.cs`
+  `[reported 2026-09-07]`. Agreed across both: `0x0C` DXGI format, `0x10`/`0x14` width/height.
+- ⚠️ **But the field names at `0x18`–`0x24` are a GUESS THAT FITS, not a measurement**, and the
+  earlier wording "mip count is a flat `1`" is withdrawn. Every observed value in that range is `1`,
+  which is consistent with several different readings, so the observed bytes cannot distinguish them
+  `[hypothesis 2026-09-07]`. Treat `0x18` as **depth** on kagenocookie's authority rather than ours.
+- **⭐ And the sibling project proved the lever live:** an authored, non-shipped larger target size is
+  **accepted by the engine** — so §7b's old `[hypothesis]` that "a loose rtex with a larger size is the
+  untested lever" is **upgraded**, on a sibling result on the same engine rather than on our own run
+  `[verified-live 2026-09-06, on re-village-scope-vr]`.
 
 ## 9. "Several lookalike systems, one is live" (a recurring RE2 trap)
 - A single weapon can carry **multiple similarly-purposed config tables** for
