@@ -49,6 +49,13 @@ local function w3(slot, v)
     if v then w(slot, v.x); w(slot + 1, v.y); w(slot + 2, v.z) else w(slot, 0); w(slot + 1, 0); w(slot + 2, 0) end
 end
 
+-- 2026-09-11: the four button slots must be cleared on every early-out, or the last
+-- live value stays latched in the array and the plugin keeps seeing a held grip after
+-- the headset or the controllers go away.
+local function clear_buttons()
+    w(S_LGRIP, 0); w(S_LTRIG, 0); w(S_RGRIP, 0); w(S_RTRIG, 0)
+end
+
 local function w4(slot, q)
     if q then w(slot, q.x); w(slot + 1, q.y); w(slot + 2, q.z); w(slot + 3, q.w) else w(slot, 0); w(slot + 1, 0); w(slot + 2, 0); w(slot + 3, 1) end
 end
@@ -101,11 +108,11 @@ re.on_pre_application_entry("UpdateHID", function()
     local fp = _G.firstpersonmod
     w(S_FP, (fp and safe(function() return fp:will_be_used() end) == true) and 1 or 0)
     local vr = _G.vrmod
-    if not vr then w(S_HMD, 0); w(S_CTL, 0); return end
+    if not vr then w(S_HMD, 0); w(S_CTL, 0); clear_buttons(); return end
     local hmd = safe(function() return vr:is_hmd_active() end) and 1 or 0
     local ctl = safe(function() return vr:is_using_controllers() end) and 1 or 0
     w(S_HMD, hmd); w(S_CTL, ctl)
-    if hmd == 0 then return end
+    if hmd == 0 then clear_buttons(); return end
 
     local ctrls = safe(function() return vr:get_controllers() end)
     local left, right = nil, nil
@@ -122,11 +129,38 @@ re.on_pre_application_entry("UpdateHID", function()
     w4(S_HROT, safe(function() return vr:get_rotation(0) end))
     local ls = safe(function() return vr:get_left_stick_axis() end)
     if ls then w(S_LSTICK, ls.x); w(S_LSTICK + 1, ls.y) else w(S_LSTICK, 0); w(S_LSTICK + 1, 0) end
+
+    -- 2026-09-11 (`/pd`, dev PC, NOT RUN): slots 26-29 were declared in the map above on
+    -- day one and never written by anything -- proved by diffing declared slot names
+    -- against written ones. That is the whole of the ⭐⭐ "the shim never sends the grip"
+    -- defect: the dock could not fire by controller because the plugin only ever read
+    -- zeros. Not the value-type copy trap that was inferred from public docs this morning.
+    --
+    -- Shape taken verbatim from REFramework's own re8_vr.lua at the revision installed
+    -- here (2f759483), lines 2222-2230: the action handles and the joystick handles are
+    -- fetched, then `is_action_active(action, joystick)` is asked per hand.
+    local lj = safe(function() return vr:get_left_joystick() end)
+    local rj = safe(function() return vr:get_right_joystick() end)
+    local a_grip = safe(function() return vr:get_action_grip() end)
+    local a_trig = safe(function() return vr:get_action_trigger() end)
+    local function active(action, joy)
+        if not action or not joy then return 0 end
+        return safe(function() return vr:is_action_active(action, joy) end) == true and 1 or 0
+    end
+    w(S_LGRIP, active(a_grip, lj))
+    w(S_LTRIG, active(a_trig, lj))
+    w(S_RGRIP, active(a_grip, rj))
+    w(S_RTRIG, active(a_trig, rj))
 end)
 
 re.on_draw_ui(function()
     if imgui.tree_node("Visceral native bridge") then
         imgui.text(string.format("frame %d  attached=%s  arr=%s", frame, tostring(attached), arr and tostring(arr:get_address()) or "nil"))
+        if arr then
+            imgui.text(string.format("Lgrip %.0f  Ltrig %.0f  Rgrip %.0f  Rtrig %.0f",
+                arr:read_float(BASE + S_LGRIP * 4), arr:read_float(BASE + S_LTRIG * 4),
+                arr:read_float(BASE + S_RGRIP * 4), arr:read_float(BASE + S_RTRIG * 4)))
+        end
         if imgui.button("Re-send hand-over") then handoff() end
         imgui.tree_pop()
     end
