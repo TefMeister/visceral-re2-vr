@@ -18,7 +18,7 @@ The toolchain was already proven on the Village scope project (VS2022 Build Tool
 game's REFramework, because RE2 runs a pinned fork build (`76298bd`, 2026-03-11, `pd-upscaler`
 branch — see `TOOLCHAIN.md` and the 2026-08-24 entry). Its `include/reframework/API.h` at that
 commit declares plugin API **1.15.0**, the same as the header we build against, so the loader's
-version check passes. `[verified 2026-09-04, read from the fork at that commit]`
+version check passes. `[inferred-static 2026-09-04]` (read from the fork at that commit)
 
 ## What the type database said before any launch
 

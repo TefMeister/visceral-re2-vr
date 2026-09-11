@@ -5,7 +5,7 @@ with the new textures on it; the in-game look is still Tefa's to give. Follows
 `2026-09-06-hd-hands-tier-1b-first-4k-repaint-procedural.md` §third pass, which left the rig-derived lines switched
 off after two attempts drew "scars, not veins".
 
-## Why the first two attempts failed `[verified 2026-09-06 on renders, n=2 hands]`
+## Why the first two attempts failed `[measured 2026-09-06, n=2 hands]` (on renders)
 
 The dorsal pick was `Dv = clip(-(normal · palm))` with `palm` = the thumb's offset from the wrist→middle axis. That
 vector lies **in** the palm plane (it points at the thumb), so the pick selected the **little-finger edge** of the hand,
