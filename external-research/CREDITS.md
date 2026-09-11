@@ -81,6 +81,23 @@ even just inspired anything used in this project and you aren't credited
 here, please **open a GitHub issue on this repo** and we'll correct it as
 soon as possible. We would much rather over-credit than leave anyone out.
 
+## Added by the 2026-09-11 research pass
+
+For the REFramework Lua API findings behind
+`topics/2026-09-11-both-headset-defects-are-documented-reframework-traps.md`:
+
+- **praydog** — *REFramework* itself, and in particular the shipped VR Lua scripts `re8_vr.lua`,
+  `re2_vr_melee.lua`, `vr/VRControllerManager.lua`, `utility/RE2.lua`, `utility/RE8.lua` and
+  `utility/GameObject.lua`. These are the reference implementation for driving joints and reading the
+  camera on this engine, and nearly everything useful in that topic was learned by reading them. Also
+  `src/mods/bindings/Sdk.cpp`, `shared/sdk/SceneManager.cpp` and `shared/sdk/Application.cpp`.
+- **praydog** and **cursey** — the *REFramework book* (`cursey/reframework-book`), for the
+  `ValueType` "local copy" rule, the application-entry API, `RETransform`, the method-argument and
+  return-type notes, and the best-practices page.
+- **alphaZomega (alphazolam)** — *EMV-Engine*, for the per-frame "Freeze" write pattern and the Poser's
+  per-joint local position/rotation handling, which independently corroborated the "write every frame"
+  technique. Fork by **SilverEzredes** (*EMV-Engine-SILVER*).
+
 ## Respecting creators
 
 This project exists because other people generously shared their
