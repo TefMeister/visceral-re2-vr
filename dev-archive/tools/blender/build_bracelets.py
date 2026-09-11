@@ -291,7 +291,7 @@ def export_re_mesh(ob, side):
     """Write <out>/visceral_bracelet_<side>_radiuslocal.mesh.2109108288: the object's vertices moved into the
     <side>_arm_radius joint's LOCAL bind frame, split into one object per material (LOD_0_Group_0_Sub_N__<mat>), in a
     collection tagged for RE Mesh Editor's exporter -- the same recipe as build_neckplug.py, whose hard-coded neck_0
-    numbers this conversion reproduces exactly `[verified 2026-09-06]`:
+    numbers this conversion reproduces exactly `[verified-numerically 2026-09-06]`:
       RE-space bind rows  = the Blender bone matrix's COLUMNS, each converted (x, y, z)_B -> (x, z, -y)_RE
       RE-space bind T     = the bone's translation, converted the same way
       RE local            = rows . (w_RE - T);  written back to Blender as (x, -z, y) so the exporter's own

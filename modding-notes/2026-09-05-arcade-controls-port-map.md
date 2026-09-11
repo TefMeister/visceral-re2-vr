@@ -43,7 +43,7 @@ release of 2026-08-16 and never packaged as a Nexus zip — which is exactly why
 **That is the source this map read.** The extraction recorded it as the "frozen, post-1.5.0 dev
 state" at the time, and the features are verifiably in the files it used: `GuiBack`, `head_shadow`,
 `ladder_body_yaw`, `samurai_edge_rack_migrate_rev`, `hmd_fx` and `mag_holster` (7 files) all appear
-in `dev-archive/reframework/autorun/` `[verified 2026-09-05]`.
+in `dev-archive/reframework/autorun/` `[measured 2026-09-05]`.
 
 **The only 1.5.0-based part is the shipped-JSON comparison in §0, and that is deliberate** — it
 documents what the *released* build actually runs, which is the whole point of caveat 1. It should
