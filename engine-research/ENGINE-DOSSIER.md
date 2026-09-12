@@ -537,10 +537,33 @@ it controls and names that mesh. `setPartsEnable` is also a possible future leve
 without touching draw flags `[hypothesis]`. ⚠️ It must be reached FROM the player, not by sweeping,
 for the reason this whole section exists.
 
-**Head-hider state after this run:** the reveal gate is correct; discovery has now failed by three
-routes — the transform walk (finds only our own injected objects plus `Transceiver` and `FlashLight`),
-the costume changer (resolves, returns nothing), and the scene sweep (under-reports). The next attempt
-is to hook the assignment moment, which is what works for zombies.
+### ⭐⭐⭐ AND THE HOOK ROUTE SOLVED IT: the costume changer's SETTERS carry the player's meshes
+
+The getters read null, but `SurvivorCostumeChanger`'s **setters** hand the meshes over, and a pre-hook
+on them catches the lot. One flat run in the RPD `[verified-live 2026-09-12, n=1]`:
+
+```
+head: MESH CAUGHT by CC.set_Face -> "Face" n=5: pl1050_Eyelash_Mat, pl1050_Face_Mat,
+                                                pl1050_Tearline_Mat, pl1050_Eyes_In_Mat, pl1050_Eyes_Out_Mat
+head: MESH CAUGHT by CC.set_Hair -> "Hair" n=3: pl1070_Hair_Mat, pl1070_Hair2_Mat, pl1070_Hair3_Mat
+head: MESH CAUGHT by CC.set_Body -> "Body" n=12: pl1000_Boots_Mat, pl1000_Jacket_Mat, pl1000_Trousers_Mat,
+                                                pl1000_Body_Mat, pl1000_Chain_Mat, pl1000_Holster_Mat
+```
+
+**That is Claire's head, hair and body, named.** `caught=8` in one bind — the other five catches are
+other characters (`pl5700`/`pl5750` Sherry, `pl7800`/`pl7850`/`pl7870` an NPC), so **the hooks are
+global and must be filtered to the player's own changer instance.**
+
+⇒ **The rule for this engine, now proven twice:** a character's meshes are reached from the component
+that owns them — and if its getters are empty, hook the moment they are handed over. Zombies:
+`Em0000SimpleMontageBase.get_FaceMesh()` / `attachedMontageMesh`. Survivor:
+`SurvivorCostumeChanger.set_Face` / `set_Hair` / `set_Body`. Sweeping never works.
+
+**Head-hider state:** the reveal gate is correct and discovery is solved. Three routes failed first
+and are recorded so nobody retries them — the transform walk (finds only our own injected objects plus
+`Transceiver` and `FlashLight`), the costume-changer getters (resolve, return null), and the scene
+sweep (under-reports). Remaining work is wiring the hide to the caught face (and hair) mesh, filtered
+to the player, keeping the shadow, and clearing the cache on re-bind.
 
 ## 8. Animation / motion system
 - Locomotion is driven by a **motion-bank selector**, not by picking different
