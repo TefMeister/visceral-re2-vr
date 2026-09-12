@@ -65,6 +65,7 @@
 #include <cstdio>
 #include <cstring>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "reframework/API.h"
@@ -1236,6 +1237,103 @@ void head_walk(API::ManagedObject* tf, int depth, int& seen, bool verbose) {
         head_walk(ch, depth + 1, seen, verbose);
 }
 
+// ---------------------------------------------------------------------------
+// v0.13: ROUTE B — ask the component that OWNS the player's meshes instead of walking for them.
+//
+// Why walk A (above) cannot reach the head: it starts at the player GameObject's via.Transform and descends
+// get_Child/get_Next. On 2026-09-09 that returned 25 transforms and 5 meshes, and three of the five were objects
+// WE parented there ourselves (bracelets, neck plug) — the only two of the game's own were `Transceiver` and
+// `FlashLight`, i.e. accessories. The player's body/face/hair meshes are NOT transform-children of the player.
+// RE8VR.cpp's fix_player_shadow() says why in another RE game: the part-mesh GameObjects are separate, and
+// REFramework has to COPY the head joint from the player transform onto them (copy_joint(head_hash,
+// m_player->transform, mesh_gameobject->transform)) precisely because they are not parented. [inferred-static 2026-09-12]
+//
+// What the dump says RE2 has (il2cpp_dump.json, read by name + signature 2026-09-12) [inferred-static]:
+//   app.ropeway.survivor.SurvivorCondition.get_CostumeChanger() -> app.ropeway.survivor.SurvivorCostumeChanger
+//   ...and app.ropeway.survivor.player.PlayerCondition — what PlayerManager.get_CurrentPlayerCondition returns,
+//   already held in g.cond — derives from SurvivorCondition, so find_method_deep reaches the getter.
+//   SurvivorCostumeChanger then names every part mesh outright:
+//     get_Face / get_Hair / get_Body / get_Other / get_SheathKnife  -> via.render.Mesh
+//     get_FaceObject / get_HairObject / get_BodyObject / get_OtherObject / get_SheathKnifeObject /
+//     get_AccessoryObject                                           -> via.GameObject
+//   plus SurvivorCondition.get_Mesh() -> via.render.Mesh, an independent third shot at the body.
+// Same shape as the zombie work's Em0000SimpleMontageBase.get_FaceMesh(): the component that owns the mesh hands
+// it over, no hierarchy search at all.
+//
+// The *Object getters are WALKED, not merely read, because getComponent returns only the FIRST via.render.Mesh on
+// a GameObject and eyelashes / eyes / tearline are usually extra mesh components or child objects (dossier §7).
+//
+// THIS PASS IS DIAGNOSTIC ONLY. Route B does not feed h.meshes and changes nothing that gets hidden — it logs its
+// counts and names beside route A's so one flat run decides which route is right.
+// ---------------------------------------------------------------------------
+struct HeadProbeB {
+    int objects{0};                      // GameObjects reached through the changer
+    int transforms{0};                   // transforms walked under those objects
+    std::string route;                   // how the changer was reached, or why it was not
+    std::vector<API::ManagedObject*> seen_meshes;
+    std::vector<std::pair<std::string, std::string>> meshes;   // label, material names
+};
+
+void head_b_add_mesh(API::ManagedObject* mesh, const std::string& how, HeadProbeB& b) {
+    if (!is_managed(mesh)) return;
+    for (auto* s : b.seen_meshes) if (s == mesh) return;
+    b.seen_meshes.push_back(mesh);
+    std::string label = sysstr(inv_ptr(inv_ptr(mesh, "get_GameObject"), "get_Name"));
+    if (label.empty()) label = "?";
+    b.meshes.emplace_back(label + " [" + how + "]", mesh_material_names(mesh));
+}
+
+void head_b_add_go(API::ManagedObject* go, const std::string& how, HeadProbeB& b) {
+    if (go == nullptr) return;
+    ++b.objects;
+    auto* comps = inv_ptr(go, "get_Components");
+    if (comps == nullptr) return;
+    const uint32_t n = arr_count(comps);
+    if (n > 256) return;
+    for (uint32_t i = 0; i < n; ++i) {
+        auto* c = arr_ptr_at(comps, i);
+        if (!is_managed(c) || tname(c) != "via.render.Mesh") continue;
+        head_b_add_mesh(c, how, b);
+    }
+}
+
+void head_b_walk(API::ManagedObject* tf, int depth, const std::string& how, HeadProbeB& b) {
+    if (tf == nullptr || depth > 12 || b.transforms > 500) return;
+    ++b.transforms;
+    head_b_add_go(inv_ptr(tf, "get_GameObject"), how, b);
+    int guard = 0;
+    for (auto* ch = inv_ptr(tf, "get_Child"); ch != nullptr && guard < 500; ch = inv_ptr(ch, "get_Next"), ++guard)
+        head_b_walk(ch, depth + 1, how, b);
+}
+
+void head_probe_b(HeadProbeB& b) {
+    auto* changer = inv_ptr(g.cond, "get_CostumeChanger");
+    if (changer != nullptr) {
+        b.route = "cond.get_CostumeChanger";
+    } else {
+        changer = get_component(g.player_go, "app.ropeway.survivor.SurvivorCostumeChanger");
+        if (changer != nullptr) b.route = "getComponent(SurvivorCostumeChanger)";
+    }
+    head_b_add_mesh(inv_ptr(g.cond, "get_Mesh"), "cond.Mesh", b);
+    if (changer == nullptr) {
+        b.route = "NO SurvivorCostumeChanger (cond=" + tname(g.cond) + ", getComponent also null)";
+        return;
+    }
+    b.route += " (" + tname(changer) + ")";
+    static const char* mesh_getters[] = {"get_Face", "get_Hair", "get_Body", "get_Other", "get_SheathKnife"};
+    for (auto* gn : mesh_getters) head_b_add_mesh(inv_ptr(changer, gn), gn + 4, b);
+    // Then the part GameObjects, walked — catches second mesh components and child mesh objects.
+    static const char* obj_getters[] = {"get_FaceObject", "get_HairObject", "get_BodyObject", "get_OtherObject",
+                                        "get_SheathKnifeObject", "get_AccessoryObject"};
+    for (auto* gn : obj_getters) {
+        auto* go = inv_ptr(changer, gn);
+        if (go == nullptr) continue;
+        auto* tf = inv_ptr(go, "get_Transform");
+        if (tf != nullptr) head_b_walk(tf, 0, std::string(gn + 4) + "\\", b);
+        else head_b_add_go(go, std::string(gn + 4) + "!", b);
+    }
+}
+
 void head_scan(bool verbose) {
     auto& h = g.head;
     static int quiet_retries = 0;
@@ -1252,6 +1350,27 @@ void head_scan(bool verbose) {
     if (verbose || to_hide > 0)
         LOGI("%s head: %d transform(s) walked, %zu mesh(es) found, %d to hide — NUM. cycles off/on/forced, NUM+ rescans (%d quiet retries before this)",
              TAG, seen, h.meshes.size(), to_hide, quiet_retries);
+
+    // v0.13: the A/B mesh-discovery comparison. One flat run decides which route reaches the player's head.
+    // GOOD:  walkB names include Face/Hair/Body objects with pl1050_*/pl1070_*/pl1000_Body_Mat materials, and
+    //        walkB's mesh count is clearly larger than walkA's 5.
+    // BAD:   "via NO SurvivorCostumeChanger ..." (the component is not where the dump implies), or walkB 0 mesh
+    //        with a route that DID resolve (the getters return null until a costume change — retry then).
+    if (verbose || to_hide > 0 || quiet_retries < 5) {
+        HeadProbeB b{};
+        head_probe_b(b);
+        std::string an, bn;
+        for (size_t i = 0; i < h.meshes.size() && i < 6; ++i) an += (i ? ", " : "") + h.meshes[i].label;
+        for (size_t i = 0; i < b.meshes.size() && i < 6; ++i) bn += (i ? ", " : "") + b.meshes[i].first;
+        if (h.meshes.size() > 6) an += ", …";
+        if (b.meshes.size() > 6) bn += ", …";
+        LOGI("%s head: walkA %d tf / %zu mesh | walkB %d go %d tf / %zu mesh via %s", TAG,
+             seen, h.meshes.size(), b.objects, b.transforms, b.meshes.size(), b.route.c_str());
+        LOGI("%s head:   walkA: %s", TAG, an.empty() ? "(none)" : an.c_str());
+        LOGI("%s head:   walkB: %s", TAG, bn.empty() ? "(none)" : bn.c_str());
+        if (verbose)
+            for (auto& m : b.meshes) LOGI("%s head:   B mesh %-44s %s", TAG, m.first.c_str(), m.second.c_str());
+    }
     // Nothing head-ish yet (the face/hair objects may attach after the player binds): keep looking every 2 s, quietly.
     if (to_hide == 0) { h.scanned = false; ++quiet_retries; } else quiet_retries = 0;
     if (h.head_joint == nullptr && g.transform != nullptr) {
