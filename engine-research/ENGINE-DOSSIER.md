@@ -610,6 +610,45 @@ and are recorded so nobody retries them — the transform walk (finds only our o
 sweep (under-reports). Remaining work is wiring the hide to the caught face (and hair) mesh, filtered
 to the player, keeping the shadow, and clearing the cache on re-bind.
 
+### 7h. ⚠️ THE FACE PACK STALLS THE RPD IN VR, AND THE HEAD'S SHADOW IS NOT KEPT (2026-09-12 evening, Tefa wearing it)
+
+Two hard results from Tefa's own session, both of which flat testing had missed.
+
+**1. The 25-face pack stalls the police-station load in VR, and only in VR.** Controlled both ways on
+the same save, in the headset `[verified-live 2026-09-12, n=2 loads each]`: with the pack deployed the
+loader freezes at **90 %** (no new file requested for minutes, the world visible behind the notice);
+with every face file removed the same save **loads normally**. ⚠️ The same save loaded fine FLAT with
+the same pack several times the same afternoon, so **flat is not a valid test for this**.
+Reshaped heads made it worse, but they are not the cause — the shapes-off pack stalls too.
+Face pack currently **REMOVED**; everything else (hands, bracelets, plug, head hider) left in place.
+
+⚠️ **And a process lesson worth more than the bug:** an earlier stall that evening was caused by
+**deploying 153 files into the game while Tefa was mid-load**. Never deploy into a running game.
+
+**2. 🚨 THE HEAD'S SHADOW IS NOT KEPT — the technique's own kill condition, now observed.** The plugin
+logs `2 mesh(es) hidden, shadow kept` (DrawDefault off, DrawShadowCast left on) and Tefa reports **no
+head shadow** on the same loads `[verified-live 2026-09-12, n=2 saves]`. So clearing the default draw
+flag drops the shadow with it on this build, whatever `DrawShadowCast` says. The 2026-08-26 row's kill
+condition was exactly "head gone but no shadow", and until today the head had never actually been
+hidden, so it could never be tested. ⭐ The alternative is already identified: §7g's
+`SurvivorCostumeChanger.setPartsEnable(int, bool)`, a per-sub-mesh switch that might drop the head
+parts without touching draw flags at all `[hypothesis]`.
+
+**3. Other observations from the same session, all `[reported 2026-09-12, n=1 wearer]`:**
+- **The bracelets do not follow the wrist's twist**, while Claire's own watch does — ours are built in
+  the radius's local frame (`visceral_bracelet_*_radiuslocal.mesh`), so this is an attachment-bone
+  question, not a mesh one.
+- **Bracelets appear on some loads and not others, and the pattern is not the level** — absent on a
+  clean-skin save, present after loading a dirty-skin save and then returning to the same clean save.
+  State is carrying across loads. The plugin's own `brac=on` is not evidence they are visible.
+- **The HD hand textures were vanilla on the later save**: only 2 requests for `pl1000_Jacket_ALBM` in
+  the whole session. Same shape as the 2026-09-10 report.
+- **"Can see through the body" on one load only.** Not our hider: the log shows only `set_Face` and
+  `set_Hair` were ever marked HIDE, never `set_Body`, on every load that session.
+- The **neck plug is created and drawing** (`PLUG CREATED`, `DrawDefault=1`, 12 materials from
+  `pl1000.mdf2`) yet is not visible where the head was — so it is a placement or scale problem, not a
+  missing object.
+
 ## 8. Animation / motion system
 - Locomotion is driven by a **motion-bank selector**, not by picking different
   animation files. In RE2 the locomotion layer plays the **same motion ids from
