@@ -763,6 +763,47 @@ the pl1000 set it was cloned from). What our own `.mesh` files call their slots 
 crude ASCII scan of the mesh finds no name table, so it needs RE Mesh Editor. That comparison is the
 next step and it needs no game.
 
+### 7l. Why the face pack stalls VR: two suspects dead, and the pack should be 8× smaller anyway (2026-09-12, reader, static)
+
+Drained from `inbox/2026-09-12-reader-vr-90pct-stall-mechanism.md` the same day.
+
+**Dead by numbers, stop suspecting them:**
+- **The loose-file loader is not the cost.** It caches misses as well as hits, so each path costs one
+  disk check for the whole session. A load already checks ~11,000 paths; the pack adds ~150 — **1.4 %
+  more, once** `[measured 2026-09-12]`.
+- **Size is not the cost.** The game already serves 48 MB of loose hand textures in VR without trouble
+  `[measured 2026-09-12]`.
+- **`Failed to find via.io.file.exists methods` is a FALSE ALARM** — the log shows the loader's second
+  method then succeeds `[measured 2026-09-12]`. It has been read as a symptom twice; it is not one.
+- Not the graphics card running out of memory (16 GB card, 32 GB RAM) `[measured]`, and not VR async
+  rendering, which our rendering mode switches off anyway `[inferred-static]`.
+- The evening shapes-off pack is **byte-identical** to the afternoon pack that loaded flat, so **VR is
+  genuinely the variable, not a rebuild** `[inferred-static 2026-09-12]`.
+
+**What the pack actually changes is POOL WIDTH, not bytes.** A whole shipped session touches **7** head
+folders; our even re-deal spreads outfits over **34**, so ten zombies in the RPD hall want nearly ten
+different heads at once instead of three or four `[inferred-static 2026-09-12]`. That is why only the
+police station shows it, and why reshaped heads make no difference. Which limit that burst hits, and
+why VR tightens it, is **not established** — the reader says so outright rather than guessing.
+
+**The experiment, two launches:**
+1. **No rebuild.** Deploy the pack as-is with VR's extras turned down in `re2_fw_config.txt` (half
+   render scale; dynamic shadows, volumetrics, motion blur and lens flares off). **Loads** ⇒ VR
+   resource pressure. **Stalls** ⇒ it is not, and the whole memory family dies with it.
+2. **One rebuild.** Point all 25 faces at the **shipped** head meshes instead of shipping 25 copies —
+   same 34 faces, same materials, same file count, but 45 MB and 25 separate meshes gone. **Loads** ⇒
+   the mesh copies are the cause. **Stalls** ⇒ it is pool width, and one `--limit 6` run settles it.
+
+⭐ **Worth doing regardless: two thirds of the pack is shipped files copied under a new name** (the
+normal/AO maps and the meshes). Pointing the materials back at the originals takes the pack from
+**153 files / 113 MB to about 78 files / 10 MB**, and removes any reason to consider repacking into a
+`.pak`.
+
+⚠️ **Trap for the bisection:** `--undeploy` only removes what the last manifest listed, so deploying a
+smaller pack over a bigger one leaves orphans behind. **Always undeploy first.**
+⚠️ **And copy the three `reframework_*.txt` logs aside immediately after a stall** — every launch wipes
+them, and one stall's evidence was already lost that way.
+
 ## 8. Animation / motion system
 - Locomotion is driven by a **motion-bank selector**, not by picking different
   animation files. In RE2 the locomotion layer plays the **same motion ids from
