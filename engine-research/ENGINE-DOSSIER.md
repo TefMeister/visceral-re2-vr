@@ -497,6 +497,41 @@ VR), so a look-with-your-own-eyes test needs `openxr_loader.dll` parked; and the
 because it asks for the derived types *and* the base type, which `findComponents` answers separately.
 Harmless, worth fixing when the file is next touched.
 
+### 7g. ⚠️ `scene.findComponents(via.render.Mesh)` UNDER-REPORTS — get meshes from the component that owns them (2026-09-12, `/lm`)
+
+Chasing the head hider's mesh-discovery defect produced an engine fact worth more than the row it
+came from, because it invalidates a technique this project kept reaching for.
+
+**Measured, one flat run in the RPD main hall** `[verified-live 2026-09-12, n=1]`:
+
+```
+head: walkA 25 tf / 5 mesh | walkB 0 mesh via cond.get_CostumeChanger
+    | walkC 8 scene mesh / 0 player via scene.findComponents(via.render.Mesh) | walkD 0 tf / 0 mesh
+head:   walkC: (none)
+```
+
+At that same moment the zombie census reported **10 live zombies**, each holding a face mesh it could
+read material names off. So the scene sweep saw **8 meshes in the entire scene** while at least ten
+character face meshes existed. It is not a derived-type problem either: a live zombie's
+`get_FaceMesh()` reports its concrete type as **exactly `via.render.Mesh`**, parent `via.Component`
+`[verified-live 2026-09-12, n=1]`.
+
+⇒ **`findComponents` does not reach meshes inside instantiated prefabs.** Two consequences:
+- **Never enumerate the scene to find a character's meshes.** It returns a plausible-looking small
+  number and no error, which is the worst shape of wrong.
+- **The working pattern is the one the zombie work proved: ask the component that OWNS the mesh.**
+  `Em0000SimpleMontageBase.get_FaceMesh()` hands it over directly, and
+  `attachedMontageMesh(Face, Body, Shirt, Pants)` is the moment it is assigned. The survivor needs its
+  own analogue, found by shape.
+
+Related and still true: `findComponents(System.Type)` matches the **exact** type, so a base class
+finds nothing (§7f). Two different traps, same function, both silent.
+
+**Head-hider state after this run:** the reveal gate is correct; discovery has now failed by three
+routes — the transform walk (finds only our own injected objects plus `Transceiver` and `FlashLight`),
+the costume changer (resolves, returns nothing), and the scene sweep (under-reports). The next attempt
+is to hook the assignment moment, which is what works for zombies.
+
 ## 8. Animation / motion system
 - Locomotion is driven by a **motion-bank selector**, not by picking different
   animation files. In RE2 the locomotion layer plays the **same motion ids from
