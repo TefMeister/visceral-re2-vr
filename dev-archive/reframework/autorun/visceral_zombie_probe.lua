@@ -7,8 +7,10 @@
 
 local NS = "app.ropeway.enemy.em0000."
 local fired, t0 = false, nil
-local WANT_IDS = { "ID004", "ID016", "ID201", "ID009", "ID021", "ID206", "ID000", "ID001" }
-local WANT_FACES = { "FACE08", "FACE10", "FACE11", "FACE00" }
+local WANT_IDS = { "ID000", "ID004", "ID009", "ID016", "ID021", "ID201", "ID206", "ID305" }
+-- FACE20+ are BEYOND the EM0000_MONTAGE_PARTS_FACE enum: the runtime looks keys up as strings,
+-- so these resolving is the proof that the face pool is not capped at the enum (2026-09-12).
+local WANT_FACES = { "FACE00", "FACE08", "FACE20", "FACE29", "FACE37", "FACE76" }
 local keep = {}   -- keep prefab refs alive
 
 local function L(fmt, ...) log.info("[zprobe] " .. string.format(fmt, ...)) end
