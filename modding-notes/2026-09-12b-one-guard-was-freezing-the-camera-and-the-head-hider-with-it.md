@@ -46,3 +46,24 @@ with no zombies nearby, so **the FACE08 look wants a save with zombies in the ro
 
 Nothing was seen of a FACE08 zombie. The face pool work from this morning is still proven only at the
 loader and the manager, not on a rendered zombie.
+
+## Later the same session — 25 new zombie faces, and the pool turned out to be uncapped
+
+Tefa's bar was "at least 20 of, at least". The pack now carries **25 new faces and a pool of 36**,
+and the reason it can keep growing is in dossier §7e: the runtime looks faces up by **string**, so
+keys past the end of the game's own enum (`FACE20`, `FACE29`, `FACE37`) resolve exactly like the
+seven empty enum slots do. All three were confirmed live — `getFacePrefab` returned our prefab, the
+engine loaded it, and all six files of each were served from our loose folder
+`[verified-live 2026-09-12, n=1 launch]`. The re-dealt outfits use them: `ID004 → FACE30`,
+`ID009 → FACE29`, `ID201 → FACE75`, `ID305 → FACE21`.
+
+**How a face is made.** Each is derived at build time from the player's own archive: an existing
+head's prefab (renamed), its mesh (copied), its material (three texture slots re-pointed with RE Mesh
+Editor's own MDF writer), and a **new albedo** built by tinting that head's own texture. The recipe
+per face is five numbers — hue toward green, saturation, brightness, hair greying, and a ruddy term
+for a kill that is still flushed — so "long dead", "waxy and bloated" and "fresh and flushed" are
+three settings of the same dial rather than three pieces of hand-painted art. All 25 recipes are in
+`dev-archive/tools/zombies/face_roster.py`, which is the file to edit to add more.
+
+**What is still not shown:** a rendered zombie wearing one. That needs a save with zombies in the
+room, not more walking — see the board row.
