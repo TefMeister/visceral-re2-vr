@@ -527,6 +527,16 @@ character face meshes existed. It is not a derived-type problem either: a live z
 Related and still true: `findComponents(System.Type)` matches the **exact** type, so a base class
 finds nothing (§7f). Two different traps, same function, both silent.
 
+**⭐ The survivor's owning component, found by shape (reader, drained 2026-09-12).** Of every
+`app.ropeway` type in RE2's dump, exactly three hand out a `via.render.Mesh`: the player condition,
+`SurvivorCostumeChanger` (both measured null outside a costume change) and
+**`app.ropeway.survivor.SurvivorMeshPartsController`** (generic base `app.ropeway.MeshPartsController\`1<…>`),
+which exposes **`get_Mesh()`** and **`setPartsEnable(int, bool)`** `[inferred-static 2026-09-12]`.
+That is RE2's structural equivalent of `Em0000SimpleMontageBase` — it sits on the object whose mesh
+it controls and names that mesh. `setPartsEnable` is also a possible future lever for hiding a part
+without touching draw flags `[hypothesis]`. ⚠️ It must be reached FROM the player, not by sweeping,
+for the reason this whole section exists.
+
 **Head-hider state after this run:** the reveal gate is correct; discovery has now failed by three
 routes — the transform walk (finds only our own injected objects plus `Transceiver` and `FlashLight`),
 the costume changer (resolves, returns nothing), and the scene sweep (under-reports). The next attempt
