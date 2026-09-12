@@ -559,6 +559,16 @@ that owns them — and if its getters are empty, hook the moment they are handed
 `Em0000SimpleMontageBase.get_FaceMesh()` / `attachedMontageMesh`. Survivor:
 `SurvivorCostumeChanger.set_Face` / `set_Hair` / `set_Body`. Sweeping never works.
 
+**⭐ A second lever noticed on the way, not yet used** (reader, drained 2026-09-12):
+`SurvivorCostumeChanger.setPartsEnable(int index, bool)` alongside `get_DefaultPartsEnable()` and
+`get_EditIndexList()` — a **per-sub-mesh switch**, which could drop just the head parts without
+touching per-pass draw flags at all `[hypothesis]`. Worth a look if the draw-flag route ever costs
+us the shadow. Note `setPartsEnable` also appears in the hand-over list as receiving a mesh during
+play, so it may be a second place the meshes pass through.
+
+⚠️ **Correction carried in the same note:** the earlier claim that a scene sweep was "the ground
+truth that cannot come back empty" is **withdrawn** — it can, and it did.
+
 **Head-hider state:** the reveal gate is correct and discovery is solved. Three routes failed first
 and are recorded so nobody retries them — the transform walk (finds only our own injected objects plus
 `Transceiver` and `FlashLight`), the costume-changer getters (resolve, return null), and the scene
