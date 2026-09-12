@@ -96,3 +96,29 @@ then walk up to the common ancestor for a cheap per-frame route.
 **Not established:** nobody has looked closely at a new face yet. The zombies wearing them were
 across the hall, and blind first-person walking is a poor way to get a close-up. It is a cosmetic
 question now, not a functional one.
+
+## The head hider is finished (flat)
+
+Route E — pre-hooks on the costume changer's setters — now feeds the hider, and Claire's face and hair
+are hidden while her body and her shadow stay `[verified-live 2026-09-12, n=1]`. The reveal triggers
+still fire and clear on the same run. Dossier §7g carries the detail; the two things that cost a run
+each are worth repeating here because they are the sort of bug that looks like nothing:
+
+- **The meshes arrive 114 ms after the scan.** The hider scanned at `16:15:17.829`; the face was handed
+  over at `16:15:17.943`. Reading the catch list once, at scan time, found it empty and hid nothing, with
+  no error anywhere. It now takes catches as they land.
+- **The hook's first argument is not the object the method was called on.** Claire's three parts carried
+  three different values for it, none matching her own costume changer, so there was no way to tell her
+  meshes from Sherry's or an NPC's that way. The fix inverts the original problem: we could never walk
+  *down* to the meshes, but from a caught mesh it is a short climb *up* to see whether it belongs to the
+  player. Identity, not a guess at material names — which matters, because Leon and the alternate costumes
+  do not share Claire's naming.
+
+Also done while in there: **the plugin build is now reproducible** (`/Brepro`, matching the scope
+project since 2026-09-09). Two builds of identical source hashed identically
+`[verified-numerically 2026-09-12, n=2]`. Before this, "rebuild and compare the hash" could not work on
+this project — the installed DLL and a fresh build of the same commit were both 188,928 bytes and hashed
+differently, which is exactly how a stale build sat on The Evil Within for days.
+
+**Not established:** nobody has looked at it in VR. Flat is where the mesh work could be proven; whether
+the neck and body read correctly from inside the headset is the next wear.
