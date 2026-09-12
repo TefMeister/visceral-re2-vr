@@ -454,7 +454,9 @@ struct State {
         API::ManagedObject* go{};
         API::ManagedObject* transform{};
         API::ManagedObject* mesh{};
-        bool tried{false};
+        bool tried{false};           // v0.17: "has given up", not "has attempted once" — see attempts below
+        int  attempts{0};            // v0.17: creation is retried; one shot per bind was losing the first load
+        double last_try_t{-1e9};
         bool created{false};
         bool lost{false};
         bool enabled_sent{true};
@@ -544,6 +546,14 @@ struct MeshCatcher {
     std::atomic<uint32_t> calls{0};
     std::string install;                 // which hooks went on and which did not — route E's "why" line
     int installed{0}, attempted{0};
+    // v0.17: bumped on every player re-bind. Everything derived from this list — the announce index, the
+    // take index — is keyed to it, so a new life cannot inherit the previous one's bookkeeping.
+    std::atomic<uint32_t> gen{0};
+    void reset_for_new_player() {
+        for (int i = 0; i < n; ++i) s[i] = Slot{};
+        n = 0;
+        ++gen;
+    }
 } g_catch;
 
 void catch_mesh_args(int argc, void** argv, const char* how) {
@@ -1065,7 +1075,7 @@ void plug_update() {
         p = State::Plug{}; p.lost = true;
     }
     if (!p.created) {
-        if (p.tried) return;          // one attempt per binding; rebind_player() re-arms it
+        if (p.tried) return;          // caller-owned budget as of v0.17; rebind_player() re-arms it
         plug_create();
         if (!p.created) return;
     }
@@ -1112,7 +1122,8 @@ void plug_update() {
 // ---------------------------------------------------------------------------
 
 void bracelet_create(State::Bracelet& b, int side) {
-    b.tried = true;
+    // v0.17: the caller owns the retry budget now; this used to set b.tried = true here and so could
+    // never be attempted twice within one level.
     auto& api = API::get();
     auto* go_t = api->tdb()->find_type("via.GameObject");
     auto* create = go_t != nullptr ? go_t->find_method("create(System.String)") : nullptr;
@@ -1160,9 +1171,28 @@ void bracelets_update() {
             b = State::Bracelet{}; b.lost = true;
         }
         if (!b.created) {
+            // v0.17: RETRY, do not give up after one attempt. Tefa, 2026-09-12: the bracelets are absent on the
+            // FIRST load after launching the game and present on every load after that, including a reload of the
+            // very same save `[verified-live 2026-09-12, n=1 wearer]`. One attempt per bind, fired the moment the
+            // player binds, is exactly that shape: the first one lands before the arm's joints are ready and there
+            // was no second chance until the next level load. Six tries, half a second apart, then give up and say so.
+            constexpr int BRACELET_MAX_TRIES = 6;
+            constexpr double BRACELET_RETRY_S = 0.5;
             if (b.tried) continue;
+            if (now_s() - b.last_try_t < BRACELET_RETRY_S) continue;
+            b.last_try_t = now_s();
+            ++b.attempts;
             bracelet_create(b, side);
-            if (!b.created) continue;
+            if (!b.created) {
+                if (b.attempts >= BRACELET_MAX_TRIES) {
+                    b.tried = true;
+                    LOGW("%s bracelet %c: giving up after %d attempts — see the errors above", TAG, side == 0 ? 'l' : 'r', b.attempts);
+                } else {
+                    LOGI("%s bracelet %c: attempt %d did not take, retrying in %.1f s", TAG, side == 0 ? 'l' : 'r', b.attempts, BRACELET_RETRY_S);
+                }
+                continue;
+            }
+            LOGI("%s bracelet %c: created on attempt %d", TAG, side == 0 ? 'l' : 'r', b.attempts);
         }
         b.lost = false;
         if (!b.relogged && g.frame > b.created_frame + 240) {               // ~4 s after creation: has the material resolved by now?
@@ -1864,6 +1894,8 @@ void head_update() {
     // it clears the hide flags walk A set on our own injected objects and the flashlight.
     {
         static int last_taken = 0;
+        static uint32_t take_gen = 0;
+        if (take_gen != g_catch.gen.load()) { take_gen = g_catch.gen.load(); last_taken = 0; }
         if (h.scanned && g_catch.n > last_taken) {
             const size_t before = h.meshes.size();
             if (head_take_caught(false) > 0) {
@@ -1878,6 +1910,8 @@ void head_update() {
     // bind performs — so announce every new catch the moment it lands, rather than waiting for a NUM+ rescan.
     {
         static int last_catch = 0;
+        static uint32_t announce_gen = 0;
+        if (announce_gen != g_catch.gen.load()) { announce_gen = g_catch.gen.load(); last_catch = 0; }
         while (last_catch < g_catch.n) {
             auto& s = g_catch.s[last_catch++];
             // owner + the player's own changer on the same line: the whole question is whether they match,
@@ -2284,6 +2318,16 @@ void rebind_player(API::ManagedObject* pm, API::ManagedObject* go) {
     g.l_humerus = nullptr; g.l_radius = nullptr;
     g.neck0 = nullptr; g.plug.tried = false;   // v0.7: re-resolve the neck on the new skeleton; the plug object itself is kept if still alive
     g.r_radius = nullptr; g.l_wrist = nullptr; g.r_wrist = nullptr; g.bracelets.l.tried = false; g.bracelets.r.tried = false;   // v0.10
+    // v0.17: RESTORE BEFORE WIPING. `g.head` holds the only record of which meshes we altered and what their
+    // flags were; clearing it first threw that away and left the previous level's meshes with our flags on them.
+    head_restore_all("rebind");
+    // v0.17: AND CLEAR THE CATCH LIST. It is global and was never cleared, so every load after the first
+    // inherited the PREVIOUS level's mesh pointers — dead objects that route E would then try to read and
+    // write draw flags on. That is the difference Tefa measured 2026-09-12: on the FIRST load after launching
+    // the game the head keeps its shadow and the bracelets are absent; on EVERY load after that the shadow is
+    // gone and the bracelets appear, and reloading the very same save reproduces it. The save is not the
+    // variable — whether a level has been loaded before in this process is `[verified-live 2026-09-12, n=1 wearer]`.
+    g_catch.reset_for_new_player();
     // v0.8: a new player is a new set of meshes — keep the mode, drop everything else (the old components may be dead)
     g.head = State::Head{.mode = g.head.mode};
     g.dock.reach = 0.f; g.dock.reach_raw = 0.f; g.dock.reach_valid = false; g.dock.clamp_on = false;

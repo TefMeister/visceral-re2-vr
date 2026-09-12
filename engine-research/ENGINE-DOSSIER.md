@@ -625,7 +625,15 @@ Face pack currently **REMOVED**; everything else (hands, bracelets, plug, head h
 ⚠️ **And a process lesson worth more than the bug:** an earlier stall that evening was caused by
 **deploying 153 files into the game while Tefa was mid-load**. Never deploy into a running game.
 
-**2. 🚨 THE HEAD'S SHADOW IS NOT KEPT — the technique's own kill condition, now observed.** The plugin
+**2. ⚠️ CORRECTED THE SAME EVENING — THE SHADOW *IS* KEPT ON A CLEAN LOAD. What follows was read too
+quickly.** Tefa's own follow-up is the thing that decides it: *"first load after launching the game the
+head shadow is there, when i load a game then it's gone, even if i load the same save i loaded when the
+game first launched"* `[verified-live 2026-09-12, n=1 wearer]`. **The save is not the variable; whether
+a level has been loaded before in this process is.** So the per-pass draw-flag technique works, and what
+breaks it is our own stale state across a re-bind (§7i). The 2026-08-26 kill condition is **not** met,
+and the row below stands only as the symptom that led here.
+
+**2b. The symptom as first written (superseded by 2 above):** The plugin
 logs `2 mesh(es) hidden, shadow kept` (DrawDefault off, DrawShadowCast left on) and Tefa reports **no
 head shadow** on the same loads `[verified-live 2026-09-12, n=2 saves]`. So clearing the default draw
 flag drops the shadow with it on this build, whatever `DrawShadowCast` says. The 2026-08-26 row's kill
@@ -648,6 +656,40 @@ parts without touching draw flags at all `[hypothesis]`.
 - The **neck plug is created and drawing** (`PLUG CREATED`, `DrawDefault=1`, 12 materials from
   `pl1000.mdf2`) yet is not visible where the head was — so it is a placement or scale problem, not a
   missing object.
+
+### 7i. ⭐⭐ "FIRST LOAD vs EVERY LOAD AFTER" IS OUR OWN STATE, NOT THE GAME'S (2026-09-12, `/pd`, static)
+
+Tefa separated the variable that had been confusing three different symptoms all day: **it is not which
+save, it is whether a level has already been loaded in this process** `[verified-live 2026-09-12, n=1 wearer]`.
+
+| | first load after launching | every load after |
+| --- | --- | --- |
+| head shadow | **present** | gone |
+| bracelets | **absent** | present |
+
+Two independent bugs in our own code produce exactly that, and both are fixed statically
+`[compile-verified 2026-09-12]` — neither has been run.
+
+**a. The caught-mesh list was never cleared.** `g_catch` is global; `rebind_player()` reset the head
+state but not the catch list, so every load after the first inherited the PREVIOUS level's mesh
+pointers — dead objects that route E would then read and write draw flags on. Worse, `g.head` was
+**wiped before** anything was restored, so the only record of which meshes we had altered, and what
+their flags were, was thrown away at the moment it was needed. Now: restore first, then clear the catch
+list, and a generation counter keys the per-frame bookkeeping so a new life cannot inherit the old
+one's indices.
+
+**b. The bracelets got exactly one creation attempt per bind.** `bracelet_create()` set `tried = true`
+on entry, and the caller skipped forever after. Fired the instant the player binds, that first attempt
+lands before the arm's joints are ready — and there was no second chance until the next level load,
+which is precisely why they appear on the SECOND load and not the first. Now six attempts, half a
+second apart, then give up with a log line saying so. The neck plug has the same one-shot shape and is
+the obvious next candidate.
+
+⭐ **And the bracelet twist is a knob, not a bug.** Tefa: they do not turn with the wrist while Claire's
+own watch does. By design — the bracelet is pinned to the **radius** joint because the wrist joint
+carries the hand's flexion, which a bracelet must not follow, and `k`, the fraction of wrist twist fed
+back in, ships at **0** as the safe baseline. `NUM-` cycles it. It has never been judged because until
+now the bracelets were never reliably visible in a run anyone was watching.
 
 ## 8. Animation / motion system
 - Locomotion is driven by a **motion-bank selector**, not by picking different
