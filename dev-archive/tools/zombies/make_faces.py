@@ -26,6 +26,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import montage_rsz as R                                                  # noqa: E402
 from face_roster import ROSTER, all_face_keys, SHIPPED_EVERYDAY          # noqa: E402
+import head_shapes                                                      # noqa: E402
 
 RE_ENGINE_TOOLS = os.path.normpath(os.path.join(HERE, "..", "re-engine"))
 BLENDER_TOOLS = os.path.normpath(os.path.join(HERE, "..", "blender"))
@@ -117,6 +118,68 @@ def retint(src_png, dst_png, hue=0.0, sat=1.0, value=1.0, grey=0.0, ruddy=0.0):
     out = Image.fromarray((np.stack([h, s, v], -1) * 255).astype(np.uint8), "HSV").convert("RGB")
     out = np.concatenate([np.asarray(out).astype(np.float32) / 255.0, alpha], -1)
     Image.fromarray((out * 255).astype(np.uint8), "RGBA").save(dst_png)
+
+
+# ---------------------------------------------------------------- head shape
+def shaped_mesh(src_mesh, src_name, shape, work):
+    """Return a path to `src_mesh` deformed by the named recipe, or the source itself for "stock".
+
+    The deformation runs in headless Blender through RE Mesh Editor (`blender/head_roundtrip.py`).
+    A no-op round trip was proven lossless on all eight usable heads 2026-09-12 — vertex count, every
+    bone weight, both UV layers and the whole skeleton come back identical — and the recipes move
+    nothing at or below the neck bone, so a head cannot detach from its body. Results are cached per
+    (head, recipe) because one Blender launch per face would be wasteful when 25 faces share 8 heads.
+    """
+    if not shape or shape == "stock":
+        return src_mesh
+    out_dir = os.path.join(work, "shaped", "%s__%s" % (src_name, shape))
+    made = os.path.join(out_dir, os.path.basename(src_mesh))
+    if os.path.exists(made):
+        return made
+    spec = json.dumps(head_shapes.recipe(shape))
+    r = subprocess.run([BLENDER, "-b", "--python", os.path.join(BLENDER_TOOLS, "head_roundtrip.py"),
+                        "--", src_mesh, out_dir, spec],
+                       cwd=REMESH_PARENT, capture_output=True, text=True)
+    if not os.path.exists(made):
+        raise SystemExit("shape %s on %s produced nothing:" % (shape, src_name) + r.stdout[-2000:] + r.stderr[-1000:])
+    # The driver prints a JSON report. Check it against the REAL key names — an earlier version read keys
+    # that do not exist, so every check quietly passed on a `None`. A safety gate that cannot fail is worse
+    # than none, because it is believed.
+    try:
+        rep = json.loads(r.stdout.split("<<<REPORT>>>")[1].split("<<<END>>>")[0])
+        bad = []
+        before, after = rep.get("before", {}), rep.get("after", {})
+        b_objs = {o.get("name"): o for o in before.get("objects", [])}
+        a_objs = {o.get("name"): o for o in after.get("objects", [])}
+        if set(b_objs) != set(a_objs):
+            bad.append("object set changed")
+        for nm, bo in b_objs.items():
+            ao = a_objs.get(nm, {})
+            for field, label in (("verts", "vertex count"), ("weights", "bone weights"),
+                                 ("uv_hash", "UVs"), ("uv_layers", "UV layers")):
+                if field in bo and bo.get(field) != ao.get(field):
+                    bad.append("%s: %s changed" % (nm, label))
+        if before.get("armature") != after.get("armature"):
+            bad.append("armature changed")
+        if not rep.get("export_ok"):
+            bad.append("export reported failure")
+        seam = rep.get("seam", {})
+        worst_seam = max((seam.get(k, {}).get("max_move_mm", 0.0) or 0.0) for k in ("ring", "neck")) if seam else None
+        if worst_seam is not None and worst_seam > 0.001:
+            bad.append("seam moved %.4f mm" % worst_seam)
+        moved = 0.0
+        for v in (rep.get("deform") or {}).values():
+            if isinstance(v, dict) and "max_mm" in v:
+                moved = max(moved, float(v["max_mm"]))          # the driver already reports millimetres
+        if moved < 1.0:
+            bad.append("deformation moved almost nothing (%.3f mm) — the recipe did not take" % moved)
+        if bad:
+            raise SystemExit("shape %s on %s is unsafe: %s" % (shape, src_name, "; ".join(bad)))
+        print("    shaped %-10s on %-8s max move %.1f mm, seam %.4f mm" %
+              (shape, src_name, moved, worst_seam if worst_seam is not None else -1))
+    except (IndexError, ValueError) as e:
+        raise SystemExit("shape %s on %s: could not read the round-trip report (%s)" % (shape, src_name, e))
+    return made
 
 
 # ---------------------------------------------------------------- material
@@ -242,6 +305,7 @@ def main():
     ap.add_argument("--work", required=True)
     ap.add_argument("--out", required=True)
     ap.add_argument("--limit", type=int, default=None, help="build only the first N roster entries")
+    ap.add_argument("--no-shapes", action="store_true", help="skip the mesh deformation — the control for a shapes-on/off comparison")
     ap.add_argument("--deploy", action="store_true")
     ap.add_argument("--undeploy", action="store_true")
     a = ap.parse_args()
@@ -272,7 +336,7 @@ def main():
         assert R.build(docs[n]) == open(p, "rb").read(), "writer is not byte-faithful on " + n
 
     # source heads
-    srcs = sorted({s for _k, s, _t, _n in roster})
+    srcs = sorted({s for _k, s, _t, _sh, _n in roster})
     src_files, src_albm_png = {}, {}
     for s in srcs:
         base = "%s/%s/em0050_%s" % (FACE_DIR, s, s)
@@ -301,7 +365,7 @@ def main():
     written = []
     tint_dir = os.path.join(a.work, "tint")
     os.makedirs(tint_dir, exist_ok=True)
-    for key, src, tint, note in roster:
+    for key, src, tint, shape, note in roster:
         folder = folder_of(key)
         d = os.path.join(a.out, FACE_DIR.replace("/", os.sep), folder)
         os.makedirs(d, exist_ok=True)
@@ -312,13 +376,14 @@ def main():
         assert len(renamed) == len(pfb) and renamed != pfb, "prefab rename failed for " + key
         open(os.path.join(d, "em0050_%s.pfb.17" % folder), "wb").write(renamed)
         # name our copy exactly what the RENAMED prefab now asks for
+        shaped = shaped_mesh(src_files[src]["mesh.2109108288"], src, None if a.no_shapes else shape, a.work)
         mesh_name = os.path.basename(src_files[src]["mesh_rel"].replace(src, folder)) + ".2109108288"
         mesh_dir = os.path.dirname(src_files[src]["mesh_rel"].replace(src, folder))
         if not mesh_dir.endswith("/" + folder):
             # the prefab points at a mesh in another head's folder; the rename left it there, so ours
             # is unreferenced -- put it where the prefab actually looks instead of guessing
             print("    note: %s's prefab points at %s, mesh left where it is" % (src, src_files[src]["mesh_rel"]))
-        shutil.copyfile(src_files[src]["mesh.2109108288"], os.path.join(d, mesh_name))
+        shutil.copyfile(shaped, os.path.join(d, mesh_name))
         write_face_mdf(M, src_files[src]["mdf2.21"], folder, os.path.join(d, "em0050_%s.mdf2.21" % folder))
         for slot in ("NormalRoughnessMap", "AlphaTranslucentOcclusionSSSMap"):
             if slot in src_files[src]["tex"]:
@@ -327,10 +392,10 @@ def main():
         retint(src_albm_png[src], png, **tint)
         build_tex(tint_dir, d, "em0050_%s_ALBM" % folder, "BC7_UNORM_SRGB")
         written += [os.path.join(d, f) for f in sorted(os.listdir(d)) if os.path.isfile(os.path.join(d, f))]
-        print("  built %-8s from %-8s  %s" % (key, src, note))
+        print("  built %-8s from %-8s %-11s %s" % (key, src, shape, note))
 
-    pool = SHIPPED_EVERYDAY + [k for k, _s, _t, _n in roster]
-    rows, before, added_rules, added_keys = rebuild_tables(docs, [k for k, _s, _t, _n in roster], pool)
+    pool = SHIPPED_EVERYDAY + [k for k, _s, _t, _sh, _n in roster]
+    rows, before, added_rules, added_keys = rebuild_tables(docs, [k for k, _s, _t, _sh, _n in roster], pool)
 
     out_m = os.path.join(a.out, MONTAGE_DIR.replace("/", os.sep))
     os.makedirs(out_m, exist_ok=True)
