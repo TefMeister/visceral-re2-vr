@@ -691,6 +691,40 @@ carries the hand's flexion, which a bracelet must not follow, and `k`, the fract
 back in, ships at **0** as the safe baseline. `NUM-` cycles it. It has never been judged because until
 now the bracelets were never reliably visible in a run anyone was watching.
 
+### 7j. Head MESH deformation is lossless, and 15 shapes are measured — but the game will not load them (2026-09-12)
+
+Drained from `inbox/2026-09-12-reader-head-mesh-roundtrip-and-shapes.md` the same day. Tooling:
+`dev-archive/tools/blender/head_roundtrip.py` (RE Mesh Editor V0.66 in headless Blender 5.2, the same
+pattern as `tex2png.py`) and `dev-archive/tools/zombies/head_shapes.py` (16 recipes).
+
+**The round trip is free.** Import a head, re-export to the same mesh version, re-import and diff:
+same objects, same vertex count, same faces, both UV layers identical, **every bone weight identical**,
+the whole skeleton (63–77 bones) identical, file size within 16 bytes, worst vertex drift 0.0003 mm
+`[verified-numerically 2026-09-12, n=8 heads]`. So editing only positions cannot damage the skin, the
+rig or the material split.
+
+**⚠️ The obvious seam rule fails on these heads.** A head's skin is one open shell whose boundary runs
+unbroken from the neck over the top of the skull, so "do not move the bottom" has no well-defined
+bottom. The recipes instead freeze everything at and below the **neck bone** and fade to full effect at
+the **head bone**, using the face bones that sit in the same places on all eight heads.
+
+**15 shapes** (broad, gaunt, heavy_jaw, long_skull, big_nose, snub_nose, brow_ridge, hollow, bloated,
+lantern, pug, weak_jaw, flat_skull, small_head, big_head) on seven dials. Measured across 56
+head/recipe runs and again when wired into the pack: **max vertex move 9–29 mm** — enough to read as a
+different person — with **0.000000 mm at the neck ring and everywhere below it**, and vertex count,
+bone-weight count, UV layers and bone count unchanged `[verified-numerically 2026-09-12]`. Costs no
+pack size: each face already ships its own copy of a head mesh.
+
+**🚨 AND THE GAME STILL WILL NOT LOAD THEM.** Deployed with shapes, the RPD save froze at 90 % in VR;
+with shapes off it froze too, so the shapes are **not** the cause of that stall (§7h) — but they were
+never seen working either, and the shapes-off pack is the only version that has ever loaded. So
+everything above is a **capability**, not a shipped feature: the mesh writer produces a file that
+passes every check we can make, and no run has yet shown the game accepting one. Until §7h's stall is
+understood, do not read "the round trip is lossless" as "the game takes our meshes".
+
+⭐ One lever noticed and unused: `setPartsEnable(int, bool)` alongside `get_DefaultPartsEnable()` /
+`get_EditIndexList()` — a per-sub-mesh switch `[hypothesis]`.
+
 ## 8. Animation / motion system
 - Locomotion is driven by a **motion-bank selector**, not by picking different
   animation files. In RE2 the locomotion layer plays the **same motion ids from
