@@ -423,6 +423,17 @@ struct State {
         double orbit_t0{};           // NUM6 orbit phase origin
         uint32_t no_value_frames{};  // docked, but the getter returned no value (minigun at one read) — counted, logged 1/s
         Vec3 cam_t{}; Rows cam_r{}; bool cam_valid{false};   // game camera world pose (VR re-basing + logging)
+        // v0.11 (2026-09-12): the camera DIAGNOSTIC, added because `cam=` printed the same triple for seven
+        // minutes across two level loads. update_camera() is only ever called from head_update() behind
+        // `if (!cam_valid)` and from update_dock()'s real-controller branch, and it sets cam_valid = true on its
+        // first success — so after frame 1 it never runs again and cam_t is frozen at whatever camera the very
+        // first frame saw. These fields are filled by update_camera2(), which runs UNCONDITIONALLY every frame
+        // and touches nothing the dock or the head hider consume; cam_* above is left exactly as it was so one
+        // flat run can print the frozen value and the live ones side by side.
+        Vec3 cam2_t{}; Rows cam2_r{}; bool cam2_valid{false};   // camera GameObject -> Transform -> joint 0 (REFramework's own route)
+        const char* cam2_src{"none"};                           // which fallback produced cam2 this frame
+        Vec3 camf_t{}; bool camf_valid{false};                  // the OLD path (via.Camera.get_WorldMatrix), re-read fresh this frame
+        uintptr_t cam_addr{0};                                  // the primary-camera object address; constant across a level load => stale handle
     } dock;
     // v0.7: THE NECK PLUG (roadmap v2 H1). See plug_create() for the why.
     struct Plug {
@@ -830,6 +841,12 @@ void summary_line() {
             o += snprintf(buf + o, sizeof buf - o, " |Rw-muz|=%.3f", dist(rh, Vec3{mz.m[12], mz.m[13], mz.m[14]}));
         if (d.no_value_frames != 0) { o += snprintf(buf + o, sizeof buf - o, " NOVALUE=%u", d.no_value_frames); d.no_value_frames = 0; }
         if (d.cam_valid) o += snprintf(buf + o, sizeof buf - o, " cam=(%.2f %.2f %.2f)", d.cam_t.x, d.cam_t.y, d.cam_t.z);
+        // v0.11 camera diagnostic (see update_camera2). cam = the old read-once value; camF = the same call
+        // re-made this frame; cam2 = the camera transform's joint 0, the route REFramework itself uses.
+        // src names which fallback produced cam2, camA is the camera object's address.
+        if (d.cam2_valid) o += snprintf(buf + o, sizeof buf - o, " cam2=(%.2f %.2f %.2f)", d.cam2_t.x, d.cam2_t.y, d.cam2_t.z);
+        if (d.camf_valid) o += snprintf(buf + o, sizeof buf - o, " camF=(%.2f %.2f %.2f)", d.camf_t.x, d.camf_t.y, d.camf_t.z);
+        o += snprintf(buf + o, sizeof buf - o, " src=%s camA=0x%llx", d.cam2_src, (unsigned long long)d.cam_addr);
     }
     if (bridge_live()) {
         const float* f = arr_f32(g.bridge);
@@ -1410,6 +1427,96 @@ void update_camera() {
     d.cam_t = Vec3{cm.m[12], cm.m[13], cm.m[14]}; d.cam_r = rows_of(cm); d.cam_valid = true;
 }
 
+// ---------------------------------------------------------------------------
+// v0.11 (2026-09-12): THE CAMERA THAT ACTUALLY MOVES — diagnostic pass, reads only.
+//
+// Why a second reader rather than a fix to the first. `cam=(-11.50 -3.20 4.20)` was identical on every
+// summary of the 2026-09-09 FLAT run and the 2026-09-10 VR run, including across two level loads with the
+// player at x ~ +2 and then x ~ -18 (recon/2026-09-09-.../num7-motion-component-dump.txt logs hands at
+// (-20.27 -10.50 20.66) beside that camera). The board read that as "REFramework VR replaced the camera",
+// but the same freeze is in a flat run with no VR at all, which rules that out. Static cause, and it is
+// mundane: update_camera() has exactly two callers — head_update()'s `if (!cam_valid) update_camera();`
+// and update_dock()'s real-controller branch (which needs the dock engaged). It sets cam_valid = true on
+// first success, so from frame 2 onward nothing ever calls it again. One read, at load, forever.
+// Matching the dossier's own ranked cause (1), "a handle fetched once at script load". [inferred-static]
+//
+// So this function re-fetches everything every frame and reports THREE things, which between them decide
+// the question in one flat run:
+//   camF  the OLD call (via.Camera.get_WorldMatrix) on a FRESHLY fetched camera. praydog calls exactly this
+//         in RE8VR.cpp:322, so it should be live; if camF moves while cam does not, the freeze was the
+//         call-once bug and nothing else.
+//   cam2  the camera's GameObject -> Transform -> joint 0 world matrix, which is the route REFramework's own
+//         FreeCam uses (FreeCam.cpp:140 get_joint(*transform, 0), :163-165 joint rotation + position) and
+//         which re8_vr.lua uses for the camera. Falls back to the Transform's own world matrix, then to the
+//         Transform's position, and names which one it used.
+//   camA  the primary-camera object's address. Dossier 5b.3: address constant across a scene transition
+//         => stale handle upstream; address moving while the position does not => wrong node.
+// Nothing here writes to cam_t / cam_r / cam_valid, so the dock's re-basing and the head hider's reveal gate
+// behave exactly as they did — this pass only has to prove which reading tracks the player.
+// ---------------------------------------------------------------------------
+void update_camera2() {
+    auto& d = g.dock;
+    d.cam2_valid = false; d.camf_valid = false; d.cam2_src = "none";
+    auto& api = API::get();
+    auto* sm = api->get_native_singleton("via.SceneManager");
+    if (sm == nullptr) { d.cam2_src = "no SceneManager"; return; }
+    static API::Method* m_view = nullptr; static API::Method* m_cam = nullptr; static bool looked2 = false;
+    if (!looked2) {
+        looked2 = true;
+        if (auto* t = api->tdb()->find_type("via.SceneManager"); t != nullptr) m_view = t->find_method("get_MainView");
+        if (auto* t = api->tdb()->find_type("via.SceneView"); t != nullptr) m_cam = t->find_method("get_PrimaryCamera");
+    }
+    if (m_view == nullptr || m_cam == nullptr) { d.cam2_src = "no method"; return; }
+    auto* view = m_view->call<API::ManagedObject*>(api->get_vm_context(), sm);
+    if (view == nullptr) { d.cam2_src = "no view"; return; }
+    auto* cam = m_cam->call<API::ManagedObject*>(api->get_vm_context(), (void*)view);
+    if (cam == nullptr) { d.cam2_src = "no camera"; return; }
+
+    // The identity half of the diagnostic: log the camera (and its GameObject) once, and again whenever the
+    // engine hands us a different object — a level load that does NOT change this address is the stale-handle
+    // answer, and one that does change it while the position stays put is the wrong-node answer.
+    const auto addr = (uintptr_t)cam;
+    if (addr != d.cam_addr) {
+        d.cam_addr = addr;
+        auto* go = inv_ptr(cam, "get_GameObject");
+        LOGI("%s camera2: PRIMARY CAMERA -> 0x%llx type=%s go=\"%s\"", TAG, (unsigned long long)addr,
+             tname(cam).c_str(), go != nullptr ? sysstr(inv_ptr(go, "get_Name")).c_str() : "?");
+    }
+
+    // camF: the old call, freshly fetched. Same method lookup the old path uses (declared on via.Camera).
+    Mat4 fm{};
+    if (inv_mat4(cam, "get_WorldMatrix", fm)) { d.camf_t = Vec3{fm.m[12], fm.m[13], fm.m[14]}; d.camf_valid = true; }
+
+    // cam2: the transform route.
+    auto* go = inv_ptr(cam, "get_GameObject");
+    if (go == nullptr) { d.cam2_src = "no gameobject"; return; }
+    auto* tf = inv_ptr(go, "get_Transform");
+    if (tf == nullptr) { d.cam2_src = "no transform"; return; }
+
+    Mat4 jm{};
+    if (auto* joints = inv_ptr(tf, "get_Joints"); joints != nullptr) {
+        const auto n = arr_count(joints);
+        if (n >= 1 && n <= 2048) {
+            auto* j0 = arr_ptr_at(joints, 0);
+            // self-check: the default array offsets are only measured once the Lua bridge hands its sentinel
+            // array over, so never trust element 0 without confirming it really is a managed via.Joint.
+            if (is_managed(j0) && inv_mat4(j0, "get_WorldMatrix", jm)) {
+                d.cam2_t = Vec3{jm.m[12], jm.m[13], jm.m[14]}; d.cam2_r = rows_of(jm);
+                d.cam2_valid = true; d.cam2_src = "joint0";
+                return;
+            }
+        }
+    }
+    if (inv_mat4(tf, "get_WorldMatrix", jm)) {
+        d.cam2_t = Vec3{jm.m[12], jm.m[13], jm.m[14]}; d.cam2_r = rows_of(jm);
+        d.cam2_valid = true; d.cam2_src = "transform";
+        return;
+    }
+    Vec3 tp{};
+    if (inv_vec3(tf, "get_Position", tp)) { d.cam2_t = tp; d.cam2_valid = true; d.cam2_src = "tf_pos"; return; }
+    d.cam2_src = "transform unreadable";
+}
+
 void update_dock(double t, double dt) {
     auto& d = g.dock;
     const bool vr = bridge_live() && arr_f32(g.bridge)[S_USING_CTL] != 0.0f && arr_f32(g.bridge)[S_HMD_ACTIVE] != 0.0f;
@@ -1598,6 +1705,7 @@ void on_frame() {
         dump_weapon();
     }
     if (g.attack_pulse > 0 && --g.attack_pulse == 0) set_force(KIND_ATTACK, false);
+    update_camera2();   // v0.11: every frame, unconditionally — the whole point of the diagnostic
     {
         static double last_t = 0.0;
         const double tn = now_s();
