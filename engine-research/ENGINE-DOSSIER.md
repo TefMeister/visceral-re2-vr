@@ -345,6 +345,57 @@ strong lead and a poor authority. ⚠️ And do not assume `Detail_UVScale` is a
 divisor — nothing public states the direction and every shipped value seen is sub-1, which fits
 either reading.
 
+### 7d. ⭐ The zombie "montage" system — the face pool is DATA, and a new face LOADS (2026-09-12, home PC, static + one flat run)
+
+Drained from `inbox/2026-09-12-mod-zombie-montage-system.md` the same day it was written, then
+extended with the live result. Built for the ZOMBIE VARIETY board rows (Tefa, 2026-09-12: "at least
+20 heads/faces; clothing secondary; more police / sewer / scientist outfits").
+
+**Classes** (`app.ropeway.enemy.em0000`, three kinds: em0000 male, em0100 female, em0200 police):
+`Em0000MontageCatalogRegister` holds per kind a `*PartsContainer` (part key → `via.Prefab`), a
+`*MontageTableData` (named outfits: face/body/shirt/pants keys + accessory keys) and a
+`*CombinationRule`. `MontageManagerBase<T>` (static `get_Instance` on the
+`RopewaySingletonBehaviorRoot`1<…>` base — `sdk.find_type_definition(...):get_method("get_Instance"):call(nil)`
+works from Lua `[verified-live 2026-09-12, n=1]`) resolves an outfit ID + fashion seed to key names and
+picks part/material variants (`getFaceRandomVariation`, `getFaceMaterialRandomVariation`, …). Runtime
+works on **strings**; the `EM0000_MONTAGE_PARTS_*` enums are editor-side. `Em0000SimpleMontageBase`
+is the per-zombie component (`FaceMesh/BodyMesh/ShirtMesh/PantsMesh/HatMesh`, `attachedMontageMesh`).
+
+**Files.** `natives/STM/SectionRoot/UserData/Character/Enemy/em0000/Montage/{em0000,em0100,em0200}{PartsContainer,MontageTableData,CombinationRule}.user.2`
+plus `em0000*_Zombie_AfterChapter2.user.2`. Faces live in
+`natives/STM/SectionRoot/Character/Enemy/em0000/Face/FaceNN/em0050_FaceNN.{pfb.17,mesh.2109108288,mdf2.21}` +
+`_ALBM/_NRMR/_ATOS.tex.34` (512² BC7/BC7/BC1). The **prefab is nothing but its name**: Face00's and
+Face10's `.pfb.17` are byte-identical after a UTF-16 rename `[verified-numerically 2026-09-12]`.
+
+**Numbers** `[measured 2026-09-12]`: male 15 face prefabs on disk (00–07, 10, 11, 14, 70–73), 14 in the
+base container, 65 outfits (+3 AfterChapter2) using 00×5 01×8 02×7 03×9 04×8 05×5 06×10 07×4 11×1 14×4
+and 70–73 once each (ID900–903, unique zombies); female 5 faces / 27 outfits, even; police 5 faces /
+14 outfits. Enum slots with no prefab: **FACE08, 09, 12, 13, 74, 75, 76**. Bodies/shirts/pants carry
+`_mm_nn` variants (BODY00_00_00…_14 = 15 skins of one body); **no face has any variant**.
+`CombinationRule` pairs Face03 with BODY00_00_01 and the rest with BODY00_00_00.
+
+**The `.user.2` (RSZ) layout, enough to write it** — `dev-archive/tools/zombies/montage_rsz.py`,
+byte-identical round-trip on all nine shipped files `[verified-numerically 2026-09-12, n=9]`: USR header
+(0x30, no resource/userdata tables), `RSZ` header, object table, instance infos (type id + crc), data.
+Strings = u32 count incl. NUL + UTF-16LE, **empty string = count 1 + NUL**; bool = 1 byte align 1;
+object arrays = u32 count + u32 ids; `via.Prefab` is its own instance (u32 0 + path) referenced by id.
+Field order = il2cpp offset order. New instances go before the root; refs ≥ the insert point shift.
+
+**Live, 2026-09-12 (two flat launches, Continue save = B1F save room by the morgue):**
+- All three edited em0000 tables were **served as loose files** (`reframework_loose_files.txt`), the
+  game reached gameplay, no error `[verified-live 2026-09-12, n=2 launches]`.
+- `visceral_zombie_probe.lua` read the live manager: 68 outfits known, `getMontageData("ID004")` →
+  **FACE08** (our re-deal), `getFacePrefab("FACE08")` → our prefab path, `set_Standby(true)` →
+  `get_Ready()==true` and **all six Face08 files served loose** (pfb, mesh, mdf2, ALBM, ATOS, NRMR)
+  `[verified-live 2026-09-12, n=1]`. So a face in an EMPTY enum slot, added only in data, loads
+  through the engine's own path. Not yet SEEN on a rendered zombie (the save room has none in view).
+- VR init without a headset present: `XR_ERROR_FORM_FACTOR_UNAVAILABLE` → clean flat fallback.
+
+**Open:** whether `getFaceMaterialRandomVariation` prefix-matches `FACEnn_mm_kk` for faces as it does
+bodies `[hypothesis]`; whether a spawn's outfit ID comes from level data (so "more police" = edit
+rows, not add rows) `[inferred-static]`; Face08 has no `Em0000DirtyPreset_Face_Face08.user.2` (nor do
+06/07/11/14) — expected harmless, unverified.
+
 ## 8. Animation / motion system
 - Locomotion is driven by a **motion-bank selector**, not by picking different
   animation files. In RE2 the locomotion layer plays the **same motion ids from
@@ -494,8 +545,7 @@ Read from `il2cpp_dump.json` (the game's own type database, dumped 2026-08-29) a
   `isEnabled(ARM)` stays 0 on every frame after; `setArmTarget` throws an internal game exception
   on index 0 and 1; `getIkTwoArm()` and `getIkHand()` are **null** on both weapons, at bind and
   with the weapon held (n=2 weapons). What stays enabled is ARMFIT with `UseIkArmFitAsWrist=1` —
-  the wrist solver that consumes the getter chain above `[hypothesis]` as to its name, `[verified-
-  live]` as to its behaviour.
+  the wrist solver that consumes the getter chain above `[hypothesis]` as to its name, `[verified-live 2026-09-05, n=2 weapons]` as to its behaviour.
 - **Native aim latch:** `app.ropeway.InputSystem.setForce(64 /*HOLD*/, true)` from the plugin
   raises the full aim state within a frame (`IsHold` 0→1, layer 0 to bank 2
   `GG_Hold_Start_L0` → `GG_Hold_Idle_Loop`, `TargetBankType` 50 → 3145778); `false` drops it
