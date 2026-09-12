@@ -431,6 +431,42 @@ bodies `[hypothesis]`; whether a spawn's outfit ID comes from level data (so "mo
 rows, not add rows) `[inferred-static]`; Face08 has no `Em0000DirtyPreset_Face_Face08.user.2` (nor do
 06/07/11/14) — expected harmless, unverified.
 
+### 7e. ⭐⭐⭐ THE ZOMBIE FACE POOL IS NOT CAPPED BY THE ENUM — 25 NEW FACES RUN (2026-09-12, `/lm`)
+
+§7d established the montage system and that a face in an **empty enum slot** (FACE08) loads. The
+open question was whether the pool could grow past the enum at all. It can, and that is what makes
+"as many faces as we like" true rather than "seven more".
+
+**Why it works:** the runtime is all strings. `Em0000MontageData.FaceKeyName` is a `System.String`
+and `MontageManagerBase.getFacePrefab(KeyName)` looks that string up in the container's
+`FacePrefabs` list. `EM0000_MONTAGE_PARTS_FACE` is editor-side, used by the `EM0000_MontageData`
+struct the shipped tables never go through. `[inferred-static 2026-09-12]` → **confirmed live:**
+`getFacePrefab("FACE20")`, `("FACE29")`, `("FACE37")` — none of which exist in the enum — each
+returned our prefab, went `standby=true`, and had all six of their files served from the loose
+folder `[verified-live 2026-09-12, n=1 launch, 3 beyond-enum keys]`. The manager also reported the
+re-dealt outfits using them: `ID004 → FACE30`, `ID009 → FACE29`, `ID201 → FACE75`, `ID305 → FACE21`.
+
+**What now ships in the pack** (`dev-archive/tools/zombies/`): **25 new faces, pool of 36**, built
+from the player's own archive at build time — `face_roster.py` is the recipe list, `make_faces.py`
+the builder, `montage_rsz.py` the byte-faithful table writer. 153 files, 112.8 MB, deployed with a
+manifest and reversible with `--undeploy`.
+
+**Four things that cost a run each and are worth not re-learning:**
+- **Only Face00–Face07 can be source heads.** `Face11` and `Face14` have a prefab but **no mdf2 and
+  no mesh of their own** in the archive — they are assembled from another head's parts
+  `[measured 2026-09-12]`.
+- **Material 0 is not always the skin.** Face01 lists `Hair` first; every head also carries `Teeth`
+  and `insidehead_Mat`. Pick by name, then by albedo path `[measured 2026-09-12]`.
+- **A head's mesh is whatever its PREFAB names**, not `em0050_<Face>.mesh` by convention.
+- **The container must list every key the table deals.** `FACE10` exists on disk but only the
+  *AfterChapter2* container lists it, so dealing it from the base table without adding it hands the
+  picker a key it cannot resolve.
+- Folder and file names use Title case (`Face20`), the container key is upper (`FACE20`).
+
+⚠️ **Still unseen on a rendered zombie.** Everything above is the loader and the manager. `ready=false`
+on one of six prefabs was a sampling artefact — all six of that face's files were served. The
+remaining check is a look, and it needs a save with zombies in the room.
+
 ## 8. Animation / motion system
 - Locomotion is driven by a **motion-bank selector**, not by picking different
   animation files. In RE2 the locomotion layer plays the **same motion ids from
