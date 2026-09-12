@@ -61,8 +61,13 @@ ROSTER = [
 ]
 
 # The faces the game already gives ordinary male zombies, which the re-deal also draws from.
+# ⚠️ FACE11 and FACE14 are NOT here on purpose. Their prefabs exist but they own no mdf2 and no mesh
+# (see the module docstring), and the shipped tables only ever give them to two special outfits. The
+# 2026-09-12 RPD stall is the reason this list is conservative: dealing a head whose assets resolve
+# somewhere else into ordinary outfits is a way to hang a level load, and the police station is where
+# enough zombies spawn at once to show it.
 SHIPPED_EVERYDAY = ["FACE00", "FACE01", "FACE02", "FACE03", "FACE04",
-                    "FACE05", "FACE06", "FACE07", "FACE10", "FACE11", "FACE14"]
+                    "FACE05", "FACE06", "FACE07", "FACE10"]
 
 
 def all_face_keys():
