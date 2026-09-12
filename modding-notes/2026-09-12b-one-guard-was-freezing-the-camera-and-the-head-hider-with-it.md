@@ -67,3 +67,32 @@ three settings of the same dial rather than three pieces of hand-painted art. Al
 
 **What is still not shown:** a rendered zombie wearing one. That needs a save with zombies in the
 room, not more walking — see the board row.
+
+## Evening — the faces are on real zombies, and a bad head can hang a level
+
+Loaded a **police-station** save rather than the underground one (the Load Game menu drives fine:
+Story → down → Load Game → pick the row → confirm, verifying each highlight by screenshot first).
+
+**The good part.** Live zombies in the main hall wear our new faces — `FACE20`, `FACE25`, `FACE34`,
+`FACE30`, `FACE36`, `FACE23`, `FACE28`, all `complete=true` with real materials
+`[verified-live 2026-09-12, n=1 launch]`. That is the feature working on screen, not just in the
+loader.
+
+**The part that nearly shipped broken.** The first police-station load **hung at 90 % forever**. A
+control with all our files removed loaded fine; re-deploying the same 25 faces with `FACE11` and
+`FACE14` dropped from the deal also loaded fine. Those two heads have a prefab but no material and
+no mesh of their own, and the shipped game only gives them to two special outfits. Dealing them to
+ordinary zombies is what hung it. Both directions tested, so this is a cause, not a suspicion.
+Dossier §7f carries the general version: **a face pool is only as sound as its worst head, and only
+a busy room reveals it — test face work in the RPD, never in a save room.**
+
+**Head hider, route B: negative.** The reader's costume-changer route resolved the component and
+then handed back nothing: `walkB 0 go 0 tf / 0 mesh via cond.get_CostumeChanger`. The reveal gate is
+still correct on the same run (`HIDE again (d=0.11 m)`, `1 mesh(es) hidden, shadow kept`), so only
+discovery is wrong. The reader has been sent the result and a brute-force next step: enumerate every
+`via.render.Mesh` in the scene and identify Claire's by material (`pl1000_*`, `pl1050_*`, `pl1070_*`),
+then walk up to the common ancestor for a cheap per-frame route.
+
+**Not established:** nobody has looked closely at a new face yet. The zombies wearing them were
+across the hall, and blind first-person walking is a poor way to get a close-up. It is a cosmetic
+question now, not a functional one.

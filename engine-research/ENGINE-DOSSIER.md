@@ -229,7 +229,7 @@ REFramework's own (`shared/sdk/SceneManager.cpp:32-42`) `[inferred-static]`.
 | head hider | `hid=0/5`, revealed forever | `head=1 hid=1/5`, hiding |
 
 ⇒ **One line closed the camera row and the reveal-gate half of the head-hider row.** ⚠️ The head hider's
-OTHER defect stands: mesh discovery still finds only 5 meshes and they are our own injected objects plus
+OTHER defect stands (route B, the costume changer, returned 0 objects on 2026-09-12 — see below): mesh discovery still finds only 5 meshes and they are our own injected objects plus
 `Transceiver` and `FlashLight`, so what it hides is still the flashlight, not the head.
 
 A diagnostic trio was added to the per-second summary and is worth keeping: `cam2=` (camera GameObject →
@@ -466,6 +466,36 @@ manifest and reversible with `--undeploy`.
 ⚠️ **Still unseen on a rendered zombie.** Everything above is the loader and the manager. `ready=false`
 on one of six prefabs was a sampling artefact — all six of that face's files were served. The
 remaining check is a look, and it needs a save with zombies in the room.
+
+### 7f. ⭐⭐ THE FACES ARE ON REAL ZOMBIES — and one head can hang a level load (2026-09-12, `/lm`, RPD)
+
+§7e proved the pool is uncapped at the loader and the manager. This is the same thing on **real
+spawned zombies**, and the failure found on the way is the part worth carrying.
+
+**Live in the police-station main hall** `[verified-live 2026-09-12, n=1 launch]`, from
+`visceral_zombie_census.lua`: five distinct zombies, five distinct faces, and four of the five are
+ours — `GateZombiesM_Dead01 → FACE20`, `GateZombiesM_Eaten01 → FACE25`,
+`GateZombiesM_Dead02 → FACE34`, plus `FACE30 / FACE36 / FACE23 / FACE28` on the first load. Every
+one reports `complete=true` with a real face-mesh material list, so the montage completed and the
+mesh bound. **The variety the feature exists for is on screen.**
+
+**🚨 THE TRAP: `FACE11` and `FACE14` HANG THE RPD LOAD IF YOU DEAL THEM.** Both have a prefab but
+own **no mdf2 and no mesh** (§7e) — the shipped tables only ever give them to two special outfits,
+where they resolve through another head's parts. Putting them into the everyday deal stalled the
+police-station load at **90 % forever**: the world streamed in (the census listed ten zombies) but
+the loader never finished `[verified-live 2026-09-12, n=1]`. A control with every one of our files
+removed loaded the same save into gameplay, and re-deploying the full 25-face pack with those two
+keys dropped from the deal **also loaded normally** `[verified-live 2026-09-12, n=1 each]`. So the
+cause is specific and proven by both directions, not by suspicion.
+
+⚠️ **The general lesson, worth more than the two names:** the underground save had far fewer zombies
+and never revealed this. **A face pool is only as sound as its worst head, and only a room that
+spawns many zombies at once will show it.** Test face work in the RPD, not in a save room.
+
+**Also measured:** the desktop window goes black whenever a headset is connected (RE2 launches into
+VR), so a look-with-your-own-eyes test needs `openxr_loader.dll` parked; and the census double-counts
+because it asks for the derived types *and* the base type, which `findComponents` answers separately.
+Harmless, worth fixing when the file is next touched.
 
 ## 8. Animation / motion system
 - Locomotion is driven by a **motion-bank selector**, not by picking different
