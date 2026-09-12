@@ -527,9 +527,18 @@ struct State {
 // Pre-hooks on those cache whatever via.render.Mesh goes past. Same machinery as the VR bridge's mailbox hook, and
 // like it we scan EVERY argv slot by type rather than trusting a fixed argument position.
 // ---------------------------------------------------------------------------
+// v0.16: hide the hair along with the face. On by default — a floating hairstyle where the head was is
+// exactly as wrong as a floating head, and the hair is a separate mesh handed over by its own setter.
+// NUM- toggles it live so one run can judge both.
+std::atomic<bool> g_head_hide_hair{true};
+
 constexpr int MESH_CATCH_MAX = 32;
 struct MeshCatcher {
-    struct Slot { API::ManagedObject* mesh{}; const char* how{}; uint32_t hits{}; };
+    // `owner` is argv[0] — the instance the hooked setter was called on. The hooks are GLOBAL: one flat run in
+    // the RPD caught Claire (pl1000/pl1050/pl1070), Sherry (pl5700/pl5750) and an NPC (pl7800/pl7850/pl7870)
+    // through the same three setters `[verified-live 2026-09-12, n=1]`. Without the owner there is no way to
+    // tell them apart, and hiding an NPC's face is a far worse bug than not hiding the player's.
+    struct Slot { API::ManagedObject* mesh{}; API::ManagedObject* owner{}; const char* how{}; uint32_t hits{}; };
     Slot s[MESH_CATCH_MAX]{};
     int n{0};
     std::atomic<uint32_t> calls{0};
@@ -540,12 +549,23 @@ struct MeshCatcher {
 void catch_mesh_args(int argc, void** argv, const char* how) {
     g_catch.calls++;
     if (!g_api_ok.load()) return;
+    // argv[0] is the instance for an instance method; keep it as the owner, but only if it is NOT itself the
+    // mesh (a static or oddly-shaped signature would otherwise record the mesh as its own owner).
+    // 2026-09-12: is_managed() rejects argv[0] here, so the owner was coming out null and every catch was
+    // skipped as "another character's". Keep the RAW pointer instead and compare it by identity — it is only
+    // ever compared against another pointer, never dereferenced unless is_managed() vouches for it.
+    API::ManagedObject* owner = nullptr;
+    if (argc > 0 && argv[0] != nullptr) {
+        auto* a0 = (API::ManagedObject*)argv[0];
+        const bool a0_is_mesh = is_managed(a0) && tname(a0) == "via.render.Mesh";
+        if (!a0_is_mesh) owner = a0;
+    }
     for (int i = 0; i < argc && i < 8; ++i) {
         auto* o = (API::ManagedObject*)argv[i];
         if (!is_managed(o)) continue;
         if (tname(o) != "via.render.Mesh") continue;
         for (int k = 0; k < g_catch.n; ++k) if (g_catch.s[k].mesh == o) { g_catch.s[k].hits++; return; }
-        if (g_catch.n < MESH_CATCH_MAX) g_catch.s[g_catch.n++] = {o, how, 1};
+        if (g_catch.n < MESH_CATCH_MAX) g_catch.s[g_catch.n++] = {o, owner, how, 1};
         return;
     }
 }
@@ -1619,6 +1639,90 @@ void head_probe_owners() {
     }
 }
 
+// v0.16b: WHICH CHARACTER DOES A CAUGHT MESH BELONG TO?
+//
+// argv[0] is NOT the costume changer. Measured 2026-09-12: Claire's Body, Hair and Face catches carried three
+// DIFFERENT owner pointers (…1B0D3B60, …1AFB8760, …1B59F4E0) and none matched the player's own changer
+// (…0C761520) `[verified-numerically 2026-09-12, n=3]`. So the hooks give us no usable owner.
+//
+// But we now HAVE the mesh, and that turns the original problem inside out. Walking DOWN from the player never
+// reached the meshes (dossier §7g); walking UP from a mesh is a short, certain climb. If any ancestor is the
+// player's own transform, the mesh is the player's. This is identity, not a material-name guess — Claire is
+// pl1000/pl1050/pl1070 but Leon and the alternate costumes are not, and hiding an NPC's face would be far
+// worse than failing to hide the player's.
+bool mesh_belongs_to_player(API::ManagedObject* mesh) {
+    if (mesh == nullptr || g.transform == nullptr) return false;
+    auto* go = inv_ptr(mesh, "get_GameObject");
+    if (go == nullptr) return false;
+    auto* tf = inv_ptr(go, "get_Transform");
+    for (int depth = 0; tf != nullptr && depth < 16; ++depth) {
+        if (tf == g.transform) return true;
+        if (auto* ago = inv_ptr(tf, "get_GameObject"); ago != nullptr && ago == g.player_go) return true;
+        tf = inv_ptr(tf, "get_Parent");
+    }
+    return false;
+}
+
+// ---------------------------------------------------------------------------
+// v0.16: ROUTE E FEEDS THE HIDER. This is the one that works, and it is now the source h.meshes is
+// built from — walk A stays as the fallback and its count stays in the log for one more run.
+//
+// Why hooks and not a search: a character's meshes are not under its transform and the scene sweep
+// under-reports (dossier 7g). The costume changer's SETTERS hand them over, and pre-hooks on them
+// caught Claire's face, hair and body by material name in one flat run
+// `[verified-live 2026-09-12, n=1]`:
+//     set_Face -> "Face"  pl1050_Face_Mat, Eyelash, Tearline, Eyes_In, Eyes_Out
+//     set_Hair -> "Hair"  pl1070_Hair_Mat, Hair2, Hair3
+//     set_Body -> "Body"  pl1000_Jacket_Mat, Body, Trousers, Boots, Chain, Holster
+//
+// ⚠️ The hooks are GLOBAL, so the catch list also holds other characters. Everything below is
+// filtered to the PLAYER's own costume changer, by object identity, never by material prefix —
+// Claire is pl1000/pl1050/pl1070 but Leon and the alternate costumes are not, and hiding an NPC's
+// face would be a far worse defect than failing to hide the player's.
+int head_take_caught(bool verbose) {
+    auto& h = g.head;
+    auto* changer = g.cond != nullptr ? inv_ptr(g.cond, "get_CostumeChanger") : nullptr;
+    if (changer == nullptr) {
+        if (verbose) LOGI("%s head: routeE not used — no SurvivorCostumeChanger on the player this bind", TAG);
+        return 0;
+    }
+    int taken = 0, skipped_other = 0;
+    for (int k = 0; k < g_catch.n; ++k) {
+        auto& c = g_catch.s[k];
+        if (c.mesh == nullptr) continue;
+        if (!mesh_belongs_to_player(c.mesh)) { ++skipped_other; continue; }
+        bool dup = false;
+        for (auto& e : h.meshes) if (e.mesh == c.mesh) { dup = true; break; }
+        if (dup) continue;
+        State::Head::Entry e{};
+        e.mesh = c.mesh;
+        e.label = std::string("routeE:") + (c.how ? c.how : "?");
+        e.mats = mesh_material_names(c.mesh);
+        e.has_rt = find_method_deep(c.mesh->get_type_definition(), "set_DrawRaytracing") != nullptr;
+        e.orig_default = inv_bool(c.mesh, "get_DrawDefault");
+        e.orig_shadow = inv_bool(c.mesh, "get_DrawShadowCast");
+        e.orig_rt = e.has_rt ? inv_bool(c.mesh, "get_DrawRaytracing") : true;
+        // The catch tells us WHICH part it is, which is far more reliable than matching names: hide what the
+        // game handed over as the Face, and the Hair with it (a floating hairstyle is as wrong as a floating
+        // head). Never the Body — that is the character you are supposed to see.
+        const std::string how = lower(c.how ? c.how : "");
+        const bool is_face = how.find("set_face") != std::string::npos;
+        const bool is_hair = how.find("set_hair") != std::string::npos;
+        e.hide = is_face || (is_hair && g_head_hide_hair.load());
+        if (verbose || e.hide)
+            LOGI("%s head:   routeE %-18s %s -> %s", TAG, e.label.c_str(), e.mats.c_str(), e.hide ? "HIDE" : "keep");
+        h.meshes.push_back(std::move(e));
+        ++taken;
+    }
+    static int last_reported = -1;
+    if (verbose || taken > 0 || skipped_other != last_reported) {
+        last_reported = skipped_other;
+        LOGI("%s head: routeE took %d mesh(es) from the player's changer %p, skipped %d belonging to other characters (catch list %d)",
+             TAG, taken, (void*)changer, skipped_other, g_catch.n);
+    }
+    return taken;
+}
+
 void head_scan(bool verbose) {
     auto& h = g.head;
     static int quiet_retries = 0;
@@ -1631,6 +1735,12 @@ void head_scan(bool verbose) {
     int seen = 0;
     if (verbose) LOGI("%s head: scanning the player hierarchy for via.render.Mesh components", TAG);
     head_walk(g.transform, 0, seen, verbose);
+    const size_t walkA_n = h.meshes.size();
+    // v0.16: route E is the real source. Walk A's finds stay in the list (they are our own injected objects
+    // plus the flashlight, and none of them is marked hide once route E has spoken), so its count is still
+    // visible in the log for one more run as the control.
+    const int caught = head_take_caught(verbose);
+    if (caught > 0) for (size_t i = 0; i < walkA_n; ++i) h.meshes[i].hide = false;
     int to_hide = 0; for (auto& e : h.meshes) to_hide += e.hide ? 1 : 0;
     if (verbose || to_hide > 0)
         LOGI("%s head: %d transform(s) walked, %zu mesh(es) found, %d to hide — NUM. cycles off/on/forced, NUM+ rescans (%d quiet retries before this)",
@@ -1747,14 +1857,37 @@ void head_scan(bool verbose) {
 void head_update() {
     auto& h = g.head;
     if (g.player_go == nullptr || g.transform == nullptr) return;
+    // v0.16: THE CATCHES ARRIVE AFTER THE SCAN. Measured 2026-09-12: the one scan this bind performs ran at
+    // 16:15:17.829 and Claire's face was handed over at 16:15:17.943 — 114 ms later — so a route that only
+    // reads the catch list at scan time finds it empty and silently hides nothing `[verified-live 2026-09-12, n=1]`.
+    // So take new catches as they land. head_take_caught() de-duplicates, and the first time it takes anything
+    // it clears the hide flags walk A set on our own injected objects and the flashlight.
+    {
+        static int last_taken = 0;
+        if (h.scanned && g_catch.n > last_taken) {
+            const size_t before = h.meshes.size();
+            if (head_take_caught(false) > 0) {
+                for (size_t i = 0; i < before; ++i)
+                    if (h.meshes[i].label.rfind("routeE:", 0) != 0) h.meshes[i].hide = false;
+            }
+            last_taken = g_catch.n;
+        }
+        if (!h.scanned) last_taken = 0;      // a fresh bind re-takes everything
+    }
     // v0.15: route E accumulates whenever the game hands a mesh over, which can be long after the one scan this
     // bind performs — so announce every new catch the moment it lands, rather than waiting for a NUM+ rescan.
     {
         static int last_catch = 0;
         while (last_catch < g_catch.n) {
             auto& s = g_catch.s[last_catch++];
-            LOGI("%s head: MESH CAUGHT by %s -> \"%s\" %s", TAG, s.how,
-                 sysstr(inv_ptr(inv_ptr(s.mesh, "get_GameObject"), "get_Name")).c_str(), mesh_material_names(s.mesh).c_str());
+            // owner + the player's own changer on the same line: the whole question is whether they match,
+            // and printing them apart cost a run on 2026-09-12.
+            auto* pc = g.cond != nullptr ? inv_ptr(g.cond, "get_CostumeChanger") : nullptr;
+            LOGI("%s head: MESH CAUGHT by %s -> \"%s\" owner=%p (%s) playerChanger=%p %s%s", TAG, s.how,
+                 sysstr(inv_ptr(inv_ptr(s.mesh, "get_GameObject"), "get_Name")).c_str(),
+                 (void*)s.owner, (s.owner != nullptr && is_managed(s.owner)) ? tname(s.owner).c_str() : "raw",
+                 (void*)pc, (s.owner != nullptr && s.owner == pc) ? "MATCH " : "",
+                 mesh_material_names(s.mesh).c_str());
         }
     }
     if (h.want_rescan) { h.want_rescan = false; head_scan(true); }

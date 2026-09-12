@@ -569,7 +569,42 @@ play, so it may be a second place the meshes pass through.
 ⚠️ **Correction carried in the same note:** the earlier claim that a scene sweep was "the ground
 truth that cannot come back empty" is **withdrawn** — it can, and it did.
 
-**Head-hider state:** the reveal gate is correct and discovery is solved. Three routes failed first
+### ✅ THE HEAD HIDER IS DONE (2026-09-12, `/lm`, five flat runs)
+
+Route E now feeds the hider, and the live result is the one the row has wanted since 2026-08-26
+`[verified-live 2026-09-12, n=1 launch]`:
+
+```
+head:   routeE routeE:CC.set_Hair n=3: pl1070_Hair_Mat, pl1070_Hair2_Mat, pl1070_Hair3_Mat -> HIDE
+head:   routeE routeE:CC.set_Face n=5: pl1050_Eyelash_Mat, pl1050_Face_Mat, pl1050_Tearline_Mat,
+                                       pl1050_Eyes_In_Mat, pl1050_Eyes_Out_Mat -> HIDE
+head: 2 mesh(es) hidden, shadow kept          head=1 hid=2/8 d=0.11
+head: REVEAL — not first person (d=14.99 m) → REVEAL — camera off the head → HIDE again (d=0.11 m)
+```
+
+Face and hair hidden, **body kept**, **shadow kept**, and the reveal triggers still fire and clear.
+
+**Two things cost a run each and are the reusable part:**
+
+1. **⚠️ THE CATCHES ARRIVE AFTER THE SCAN.** The one scan per player bind ran at `16:15:17.829`; Claire's
+   face was handed over at `16:15:17.943` — **114 ms later** `[verified-numerically 2026-09-12]`. A route
+   that only reads the catch list at scan time finds it empty and *silently hides nothing*. The hider now
+   takes new catches as they land, and re-takes on every bind.
+2. **⚠️ `argv[0]` IS NOT THE INSTANCE on these hooks.** Claire's Body, Hair and Face catches carried three
+   DIFFERENT `argv[0]` pointers (`…1B0D3B60`, `…1AFB8760`, `…1B59F4E0`), none of them the player's own
+   costume changer (`…0C761520`) `[verified-numerically 2026-09-12, n=3]`. So the hooks give no usable owner,
+   and **the catch list holds every character** — Claire, Sherry, an NPC.
+
+   **The fix turns the original problem inside out:** walking DOWN from the player never reached the meshes
+   (§7g), but walking **UP** from a caught mesh is a short, certain climb — `mesh → GameObject → Transform`,
+   then parents until one is the player's transform. That is identity, not a material-name guess, which
+   matters because Claire is `pl1000/pl1050/pl1070` and Leon and the alternate costumes are not. Hiding an
+   NPC's face would be far worse than failing to hide the player's.
+
+**Left as a knob:** hair hides with the face by default (a floating hairstyle is as wrong as a floating
+head); `g_head_hide_hair` turns it off.
+
+**Head-hider state:** DONE flat. The reveal gate is correct and discovery is solved. Three routes failed first
 and are recorded so nobody retries them — the transform walk (finds only our own injected objects plus
 `Transceiver` and `FlashLight`), the costume-changer getters (resolve, return null), and the scene
 sweep (under-reports). Remaining work is wiring the hide to the caught face (and hair) mesh, filtered
