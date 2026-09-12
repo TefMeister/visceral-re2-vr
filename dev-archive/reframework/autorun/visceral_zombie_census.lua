@@ -56,8 +56,22 @@ local function str_array(arr)
     return out
 end
 
+-- 2026-09-12: route C found only 8 `via.render.Mesh` scene-wide while the hall was full of zombies,
+-- so character meshes are almost certainly a DERIVED type and findComponents matches exactly.
+-- Printing the concrete type of a mesh we already hold is the cheapest way to learn its real name.
+local typed_mesh = false
+
 local function mesh_material(mesh)
     if mesh == nil then return "no mesh" end
+    if not typed_mesh then
+        typed_mesh = true
+        local tn = "?"
+        pcall(function() tn = mesh:get_type_definition():get_full_name() end)
+        L("MESH TYPE of a live zombie face mesh: %s", tn)
+        local par = "?"
+        pcall(function() par = mesh:get_type_definition():get_parent_type():get_full_name() end)
+        L("  its parent type: %s", par)
+    end
     local num = 0
     pcall(function() num = mesh:call("get_MaterialNum") or 0 end)
     local names = {}
