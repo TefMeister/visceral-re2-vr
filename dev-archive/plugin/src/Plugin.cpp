@@ -1275,7 +1275,16 @@ void head_update() {
 
     // --- reveal triggers -------------------------------------------------
     h.head_cam_d = -1.f;
-    if (!g.dock.cam_valid) update_camera();
+    // 2026-09-12: this used to read `if (!g.dock.cam_valid) update_camera();`, which called the
+    // camera reader ONCE and then never again, because update_camera() sets cam_valid on its first
+    // success. Every consumer downstream -- the head hider's reveal gate and the dock's re-basing --
+    // was therefore comparing against the camera pose from the FIRST frame of the session. That is
+    // the whole of the "the camera the plugin reads does not move" defect: cam stayed at
+    // (-11.50 -3.20 4.20) across two level loads while the player walked 20 m away. It was never a
+    // VR problem -- the same freeze appears in a flat log with no headset attached.
+    // `camF` (this same call, re-made fresh every frame) tracked the player correctly through the
+    // 2026-09-12 flat walk, so calling it unconditionally is the fix AND is already evidenced.
+    update_camera();
     if (g.dock.cam_valid && h.head_joint != nullptr) {
         Vec3 hp{};
         if (inv_vec3(h.head_joint, "get_Position", hp)) h.head_cam_d = dist(g.dock.cam_t, hp);

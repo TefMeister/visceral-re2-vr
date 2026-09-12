@@ -202,6 +202,41 @@ is by-ref, a naive write there fails in exactly the way we observed.
 `dev/`"*, with internal C++ renames. Whether v2 changes the **Lua** surface could not be determined,
 and the `scripts/` paths cited here may have moved. Check against the build actually injected.
 
+### 5b.4. ⭐⭐ CORRECTION — "the camera the plugin reads does not move" WAS A CALL-ONCE BUG, NOT VR (2026-09-12, `/lm` + reader)
+
+**Supersedes §5b.3's ranked causes**, which blamed REFramework replacing the primary camera under VR.
+That was wrong, and the evidence that kills it is our own: the 2026-09-09 recon log is a **flat run with
+no headset** and carries the identical frozen `cam=(-11.50 -3.20 4.20)` while the player's hands are 21 m
+away `[verified-numerically 2026-09-12, n=2 lines]`. REFramework's `VR: Failed to get primary camera!` is
+an unrelated init-order message.
+
+**The actual cause:** `update_camera()` had exactly two callers, and the live one was
+`head_update()`'s `if (!g.dock.cam_valid) update_camera();`. `update_camera()` sets `cam_valid = true`
+on its first success, so from frame two it was **never called again** and every consumer compared
+against the camera pose of the session's first frame `[inferred-static 2026-09-12, confirmed live below]`.
+
+**Ruled out with evidence while chasing it:** REFramework's VR API is unreachable from a native plugin —
+plugin API 1.15's `include/reframework/API.h` has no VR symbol at all `[verified-numerically 2026-09-12]`;
+and our call chain was never wrong — `via.SceneManager → get_MainView → get_PrimaryCamera` is byte-for-byte
+REFramework's own (`shared/sdk/SceneManager.cpp:32-42`) `[inferred-static]`.
+
+**The fix is deleting the guard**, and one flat walk proves it `[verified-live 2026-09-12, n=1]`:
+
+| | before | after |
+| --- | --- | --- |
+| `cam=` while walking | `(-11.50 -3.20 4.20)`, frozen across two level loads | `(-20.80 -9.94 19.42)` and changing every sample |
+| head-hider reveal distance `d=` | 19.68 m | **0.11 m** — what the board predicted for standing |
+| head hider | `hid=0/5`, revealed forever | `head=1 hid=1/5`, hiding |
+
+⇒ **One line closed the camera row and the reveal-gate half of the head-hider row.** ⚠️ The head hider's
+OTHER defect stands: mesh discovery still finds only 5 meshes and they are our own injected objects plus
+`Transceiver` and `FlashLight`, so what it hides is still the flashlight, not the head.
+
+A diagnostic trio was added to the per-second summary and is worth keeping: `cam2=` (camera GameObject →
+Transform → joint 0, REFramework's own route), `camF=` (the old call re-made fresh), `camA=` (the camera
+object address). Frozen `cam` with both others moving is the call-once signature; `camF` frozen but `cam2`
+moving would mean the wrong node; both frozen with `camA` changing would mean the wrong camera object.
+
 ## 6. Camera & player-position gotcha (VR-specific, cost real hours)
 - **The render camera's `WorldMatrix` is NOT a faithful proxy for the player's
   real physical orientation.** Reading the camera's world matrix and extracting
