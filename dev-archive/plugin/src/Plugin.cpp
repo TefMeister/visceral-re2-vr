@@ -493,6 +493,8 @@ struct State {
         double last_far_t{-1e9};         // last time a reveal trigger was true — 0.3 s tail so a threshold jitter cannot strobe the head
         API::ManagedObject* head_joint{};
         API::ManagedObject* jack{};      // app.ropeway.JackDominator on the player (grab detector REFramework's FirstPerson.cpp reads too)
+        API::ManagedObject* anchor{};    // v0.14: the node route C proved every player mesh hangs under — route D's cheap start
+        std::string anchor_name;
         float head_cam_d{-1.f};          // |camera - head joint| this frame, metres; -1 = unavailable
         int hidden_n{0};
         bool stale_logged{false};
@@ -1332,6 +1334,228 @@ void head_probe_b(HeadProbeB& b) {
         if (tf != nullptr) head_b_walk(tf, 0, std::string(gn + 4) + "\\", b);
         else head_b_add_go(go, std::string(gn + 4) + "!", b);
     }
+    // Which is it — the getters are MISSING on this build, or they exist and return null? head_b_add_mesh drops
+    // both silently, and they mean completely different things, so say it outright.
+    {
+        std::string st;
+        auto tell = [&](API::ManagedObject* owner, const char* gn) {
+            st += std::string(st.empty() ? "" : " ") + (gn + 4) + "=";
+            if (owner == nullptr) { st += "noowner"; return; }
+            if (find_method_deep(owner->get_type_definition(), gn) == nullptr) { st += "MISSING"; return; }
+            st += inv_ptr(owner, gn) != nullptr ? "ok" : "null";
+        };
+        tell(g.cond, "get_Mesh");
+        for (auto* gn : mesh_getters) tell(changer, gn);
+        for (auto* gn : obj_getters) tell(changer, gn);
+        LOGI("%s head:   B getters: %s", TAG, st.c_str());
+    }
+    // Does the changer only fill those slots DURING a costume change? Read the cheap scalars that would say so.
+    LOGI("%s head:   B changer state: SurvivorType=%u CurrentCostume=%u NowChanging=%d DrawHair=%d PartsNames=%u", TAG,
+         inv_u32(changer, "get_SurvivorType"), inv_u32(changer, "get_CurrentCostume"),
+         (int)inv_bool(changer, "get_NowChanging"), (int)inv_bool(changer, "get_DrawHair"),
+         arr_count(inv_ptr(changer, "get_PartsNames")));
+}
+
+// ---------------------------------------------------------------------------
+// v0.14: ROUTE C — BRUTE FORCE, the ground truth, and it cannot come back empty.
+//
+// Route B resolved its component and still handed back nothing (`walkB 0 go 0 tf / 0 mesh via
+// cond.get_CostumeChanger (app.ropeway.survivor.SurvivorCostumeChanger)`) `[verified-live 2026-09-12, n=1 flat run,
+// RPD save]`, so the costume changer's Face/Hair/Body slots are empty outside a costume change — a plausible
+// reading the state line below now tests directly `[hypothesis]`.
+//
+// So stop guessing at hierarchy and ask the SCENE for every via.render.Mesh there is:
+//   via.SceneManager (native singleton) -> get_CurrentScene() / get_MainScene() -> via.Scene
+//   via.Scene.findComponents(System.Type) -> via.Component[]   (a real native function in this build,
+//   il2cpp_dump.json id 135955 fn 0x14018db70) `[inferred-static 2026-09-12]`
+// findComponents matches the EXACT type only, so we ask for via.render.Mesh itself, which is concrete.
+//
+// Claire's meshes are identified by MATERIAL, not by hierarchy: pl1000_* (body/jacket atlas), pl1050_* (face),
+// pl1070_* (hair) — dossier §7b `[measured 2026-09-06]`. The filter is the general shape "pl" + four digits, so a
+// different survivor (Leon, Sherry pl3000) is caught too and we learn the real names either way.
+//
+// Then it answers the two questions a cheap route needs:
+//   - the ANCESTOR: every hit's transform parent chain, root-first, intersected down to the deepest node they all
+//     share. That node, with its component list, is the anchor route D will use.
+//   - the SHAPE: the full component list of the first hits' GameObjects and of that anchor — which is how we find
+//     the survivor-side equivalent of Em0000SimpleMontageBase (a component that OWNS the mesh) by shape, not name.
+// Still discovery only: route C and D do not feed h.meshes and nothing that gets hidden changes.
+// ---------------------------------------------------------------------------
+API::ManagedObject* current_scene() {
+    auto& api = API::get();
+    auto* sm = api->get_native_singleton("via.SceneManager");
+    if (sm == nullptr) return nullptr;
+    auto* t = api->tdb()->find_type("via.SceneManager");
+    if (t == nullptr) return nullptr;
+    for (const char* getter : {"get_CurrentScene", "get_MainScene"}) {
+        auto* m = t->find_method(getter);
+        if (m == nullptr) continue;
+        auto* s = m->call<API::ManagedObject*>(api->get_vm_context(), sm);
+        if (is_managed(s)) return s;
+    }
+    return nullptr;
+}
+
+// via.Scene.findComponents(System.Type) -> via.Component[]. ⚠️ It matches the EXACT type only, so ask for a
+// concrete type, never a base class `[reported 2026-09-12, /lm]`.
+API::ManagedObject* scene_find_components(API::ManagedObject* scene, const char* type) {
+    if (scene == nullptr) return nullptr;
+    auto* t = API::get()->typeof(type);
+    if (t == nullptr) { LOGW("%s typeof(%s) failed", TAG, type); return nullptr; }
+    auto* m = find_method_deep(scene->get_type_definition(), "findComponents(System.Type)");
+    if (m == nullptr) { LOGW("%s via.Scene.findComponents(System.Type) not found", TAG); return nullptr; }
+    auto r = m->invoke(scene, {t});
+    return r.exception_thrown ? nullptr : (API::ManagedObject*)r.ptr;
+}
+
+// Cheap identity for a scene-wide sweep: the FIRST material name only (mesh_material_names invokes once per
+// material, which is far too much over a whole scene).
+std::string mesh_first_material(API::ManagedObject* mesh) {
+    auto* td = mesh != nullptr ? mesh->get_type_definition() : nullptr;
+    if (td == nullptr || find_method_deep(td, "get_MaterialNum") == nullptr || find_method_deep(td, "getMaterialName") == nullptr) return "n/a";
+    const uint32_t n = inv_u32(mesh, "get_MaterialNum");
+    if (n == 0 || n > 64) return "-";
+    auto* nm = inv_ptr(mesh, "getMaterialName", {(void*)(uintptr_t)0});
+    return nm != nullptr ? sysstr(nm) : "?";
+}
+
+// "pl" followed by four digits, anywhere — pl1000/pl1050/pl1070 (Claire), pl3000 (Sherry), pl0000 (Leon), …
+bool player_like(const std::string& s) {
+    for (size_t i = 0; i + 5 < s.size() + 1 && i + 6 <= s.size(); ++i) {
+        if (s[i] != 'p' || s[i + 1] != 'l') continue;
+        bool digits = true;
+        for (int k = 2; k < 6; ++k) if (!isdigit((unsigned char)s[i + k])) { digits = false; break; }
+        if (digits) return true;
+    }
+    return false;
+}
+
+std::string component_types(API::ManagedObject* go, int cap = 32) {
+    if (go == nullptr) return "(no gameobject)";
+    auto* comps = inv_ptr(go, "get_Components");
+    if (comps == nullptr) return "(no components)";
+    const uint32_t n = arr_count(comps);
+    if (n > 256) return "(component count implausible)";
+    std::string out;
+    for (uint32_t i = 0; i < n && (int)i < cap; ++i) {
+        auto* c = arr_ptr_at(comps, i);
+        out += (i ? ", " : "") + (is_managed(c) ? tname(c) : std::string("?"));
+    }
+    if ((int)n > cap) out += ", …(" + std::to_string(n) + " total)";
+    return out;
+}
+
+// Ancestor chain of a transform, ROOT FIRST.
+std::vector<API::ManagedObject*> ancestor_chain(API::ManagedObject* tf) {
+    std::vector<API::ManagedObject*> up;
+    for (auto* t = tf; t != nullptr && up.size() < 24; t = inv_ptr(t, "get_Parent")) up.push_back(t);
+    std::reverse(up.begin(), up.end());
+    return up;
+}
+
+std::string tf_go_name(API::ManagedObject* tf) {
+    auto* go = inv_ptr(tf, "get_GameObject");
+    auto s = sysstr(inv_ptr(go, "get_Name"));
+    return s.empty() ? "?" : s;
+}
+
+struct HeadProbeC {
+    uint32_t scene_total{0};                 // every via.render.Mesh in the scene
+    std::vector<API::ManagedObject*> hit_mesh;
+    std::vector<std::string> hit_name, hit_mat;
+    API::ManagedObject* anchor{};            // deepest transform every hit shares
+    std::string anchor_name{"none"};
+    std::string route{"not run"};
+};
+
+void head_probe_c(HeadProbeC& c, bool verbose) {
+    auto& api = API::get();
+    auto* scene = current_scene();
+    if (scene == nullptr) { c.route = "NO SCENE (via.SceneManager get_CurrentScene/get_MainScene both null)"; return; }
+    auto* arr = scene_find_components(scene, "via.render.Mesh");
+    if (arr == nullptr) { c.route = "via.Scene.findComponents(via.render.Mesh) missing / threw / null"; return; }
+    c.scene_total = arr_count(arr);
+    c.route = "scene.findComponents(via.render.Mesh)";
+    if (c.scene_total > 20000) { c.route += " — count implausible, aborted"; c.scene_total = 0; return; }
+
+    std::string sample;
+    int sampled = 0;
+    for (uint32_t i = 0; i < c.scene_total; ++i) {
+        auto* comp = arr_ptr_at(arr, i);
+        if (!is_managed(comp)) continue;
+        auto* go = inv_ptr(comp, "get_GameObject");
+        const std::string name = sysstr(inv_ptr(go, "get_Name"));
+        const std::string mat = mesh_first_material(comp);
+        if (player_like(name) || player_like(mat)) {
+            if (c.hit_mesh.size() < 64) { c.hit_mesh.push_back(comp); c.hit_name.push_back(name); c.hit_mat.push_back(mat); }
+        } else if (sampled < 20) {
+            sample += (sampled++ ? ", " : "") + name + "/" + mat;
+        }
+    }
+    LOGI("%s head: C — %u via.render.Mesh in the scene, %zu look like a player model (pl####)", TAG, c.scene_total, c.hit_mesh.size());
+    for (size_t i = 0; i < c.hit_mesh.size() && i < 40; ++i)
+        LOGI("%s head:   C hit %-30s %s", TAG, c.hit_name[i].c_str(), mesh_material_names(c.hit_mesh[i]).c_str());
+    if (c.hit_mesh.empty() || verbose)
+        LOGI("%s head:   C non-player sample: %s", TAG, sample.empty() ? "(none)" : sample.c_str());
+    if (c.hit_mesh.empty()) return;
+
+    // The anchor: intersect every hit's root-first parent chain.
+    std::vector<API::ManagedObject*> common;
+    bool first = true;
+    for (auto* mesh : c.hit_mesh) {
+        auto* tf = inv_ptr(inv_ptr(mesh, "get_GameObject"), "get_Transform");
+        if (tf == nullptr) continue;
+        auto chain = ancestor_chain(tf);
+        if (first) { common = chain; first = false; continue; }
+        size_t k = 0;
+        while (k < common.size() && k < chain.size() && common[k] == chain[k]) ++k;
+        common.resize(k);
+    }
+    if (!common.empty()) { c.anchor = common.back(); c.anchor_name = tf_go_name(c.anchor); }
+
+    // The chain of the FIRST hit, and the player's own, so the relationship between the two is on one screen.
+    {
+        auto* tf0 = inv_ptr(inv_ptr(c.hit_mesh[0], "get_GameObject"), "get_Transform");
+        std::string chain_s;
+        for (auto* t : ancestor_chain(tf0)) chain_s += (chain_s.empty() ? "" : " > ") + tf_go_name(t);
+        LOGI("%s head:   C hit[0] chain: %s", TAG, chain_s.c_str());
+        std::string pl_s;
+        for (auto* t : ancestor_chain(g.transform)) pl_s += (pl_s.empty() ? "" : " > ") + tf_go_name(t);
+        LOGI("%s head:   C player  chain: %s", TAG, pl_s.c_str());
+        LOGI("%s head:   C anchor \"%s\" (%zu deep) components: %s", TAG, c.anchor_name.c_str(), common.size(),
+             c.anchor != nullptr ? component_types(inv_ptr(c.anchor, "get_GameObject")).c_str() : "(none)");
+        // The shape search: what OWNS the head mesh. One of these is RE2's Em0000SimpleMontageBase.
+        LOGI("%s head:   C hit[0] go components: %s", TAG, component_types(inv_ptr(c.hit_mesh[0], "get_GameObject")).c_str());
+        if (auto* par = inv_ptr(tf0, "get_Parent"); par != nullptr)
+            LOGI("%s head:   C hit[0] parent \"%s\" components: %s", TAG, tf_go_name(par).c_str(), component_types(inv_ptr(par, "get_GameObject")).c_str());
+    }
+}
+
+// The BY-SHAPE search, done statically first: of every app.ropeway type in il2cpp_dump.json, only three hand out a
+// via.render.Mesh — SurvivorCondition (get_Mesh), SurvivorCostumeChanger (the five part getters route B already
+// tried), and the MeshPartsController family, whose survivor member is
+// app.ropeway.survivor.SurvivorMeshPartsController with get_Mesh() `[inferred-static 2026-09-12]`.
+// That last one is RE2's Em0000SimpleMontageBase: it sits on the object whose mesh it controls, so enumerating it
+// scene-wide hands us the player's mesh objects AND the component that owns each. Few instances, so it is cheap.
+void head_probe_owners() {
+    auto* scene = current_scene();
+    if (scene == nullptr) return;
+    static const char* owner_types[] = {"app.ropeway.survivor.SurvivorMeshPartsController",
+                                        "app.ropeway.survivor.SurvivorCostumeChanger",
+                                        "app.ropeway.survivor.SurvivorGpuClothController"};
+    for (auto* ot : owner_types) {
+        auto* arr = scene_find_components(scene, ot);
+        const uint32_t n = arr_count(arr);
+        LOGI("%s head:   OWN %s: %u in the scene", TAG, ot, n);
+        for (uint32_t i = 0; i < n && i < 24; ++i) {
+            auto* comp = arr_ptr_at(arr, i);
+            if (!is_managed(comp)) continue;
+            auto* go = inv_ptr(comp, "get_GameObject");
+            auto* mesh = inv_ptr(comp, "get_Mesh");
+            LOGI("%s head:     on \"%s\" get_Mesh=%s %s", TAG, sysstr(inv_ptr(go, "get_Name")).c_str(),
+                 mesh != nullptr ? "ok" : "null", mesh != nullptr ? mesh_material_names(mesh).c_str() : "");
+        }
+    }
 }
 
 void head_scan(bool verbose) {
@@ -1357,17 +1581,50 @@ void head_scan(bool verbose) {
     // BAD:   "via NO SurvivorCostumeChanger ..." (the component is not where the dump implies), or walkB 0 mesh
     //        with a route that DID resolve (the getters return null until a costume change — retry then).
     if (verbose || to_hide > 0 || quiet_retries < 5) {
+        static int probe_runs = 0;
         HeadProbeB b{};
         head_probe_b(b);
-        std::string an, bn;
+
+        // ROUTE C: the whole-scene sweep — the ground truth, and the thing that FINDS the anchor. Capped per
+        // player bind, because enumerating every mesh in the scene is not a per-frame route.
+        const bool anchor_was_cached = is_managed(h.anchor);
+        HeadProbeC c{};
+        if (probe_runs < 8) {
+            ++probe_runs;
+            LOGI("%s head:   player go \"%s\" components: %s", TAG, sysstr(inv_ptr(g.player_go, "get_Name")).c_str(),
+                 component_types(g.player_go).c_str());
+            head_probe_c(c, verbose);
+            head_probe_owners();
+        } else c.route = "capped (8 sweeps per player bind)";
+        if (c.anchor != nullptr) { h.anchor = c.anchor; h.anchor_name = c.anchor_name; }
+
+        // ROUTE D: the cheap one — walk down from that anchor only. This is what would run per frame once the
+        // anchor is known; on a rescan (NUM+) it runs off the CACHED anchor with no sweep behind it, which is the
+        // real proof. The log says which of the two it was.
+        HeadProbeB d{};
+        if (is_managed(h.anchor)) {
+            head_b_walk(h.anchor, 0, "anchor", d);
+            d.route = "anchor \"" + h.anchor_name + "\"" + (anchor_was_cached ? " (cached)" : " (found this sweep)");
+        } else {
+            d.route = "no anchor yet (route C found none)";
+        }
+
+        std::string an, bn, dn, cn;
         for (size_t i = 0; i < h.meshes.size() && i < 6; ++i) an += (i ? ", " : "") + h.meshes[i].label;
         for (size_t i = 0; i < b.meshes.size() && i < 6; ++i) bn += (i ? ", " : "") + b.meshes[i].first;
+        for (size_t i = 0; i < d.meshes.size() && i < 6; ++i) dn += (i ? ", " : "") + d.meshes[i].first;
+        for (size_t i = 0; i < c.hit_name.size() && i < 6; ++i) cn += (i ? ", " : "") + c.hit_name[i];
         if (h.meshes.size() > 6) an += ", …";
         if (b.meshes.size() > 6) bn += ", …";
-        LOGI("%s head: walkA %d tf / %zu mesh | walkB %d go %d tf / %zu mesh via %s", TAG,
-             seen, h.meshes.size(), b.objects, b.transforms, b.meshes.size(), b.route.c_str());
+        if (d.meshes.size() > 6) dn += ", …";
+        if (c.hit_name.size() > 6) cn += ", …";
+        LOGI("%s head: walkA %d tf / %zu mesh | walkB %zu mesh via %s | walkC %u scene mesh / %zu player via %s | walkD %d tf / %zu mesh via %s",
+             TAG, seen, h.meshes.size(), b.meshes.size(), b.route.c_str(), c.scene_total, c.hit_mesh.size(), c.route.c_str(),
+             d.transforms, d.meshes.size(), d.route.c_str());
         LOGI("%s head:   walkA: %s", TAG, an.empty() ? "(none)" : an.c_str());
         LOGI("%s head:   walkB: %s", TAG, bn.empty() ? "(none)" : bn.c_str());
+        LOGI("%s head:   walkC: %s", TAG, cn.empty() ? "(none)" : cn.c_str());
+        LOGI("%s head:   walkD: %s", TAG, dn.empty() ? "(none)" : dn.c_str());
         if (verbose)
             for (auto& m : b.meshes) LOGI("%s head:   B mesh %-44s %s", TAG, m.first.c_str(), m.second.c_str());
     }
