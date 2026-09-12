@@ -495,6 +495,7 @@ struct State {
         API::ManagedObject* jack{};      // app.ropeway.JackDominator on the player (grab detector REFramework's FirstPerson.cpp reads too)
         API::ManagedObject* anchor{};    // v0.14: the node route C proved every player mesh hangs under — route D's cheap start
         std::string anchor_name;
+        bool gathered{false};            // v0.15: SurvivorCostumeChanger.gatherPartsMesh() already asked for, this bind
         float head_cam_d{-1.f};          // |camera - head joint| this frame, metres; -1 = unavailable
         int hidden_n{0};
         bool stale_logged{false};
@@ -505,6 +506,49 @@ struct State {
     double last_summary_t{};
     double last_layer_table_t{};
 } g;
+
+// ---------------------------------------------------------------------------
+// v0.15: ROUTE E — CATCH THE MESHES AS THEY ARE HANDED OVER.
+//
+// 2026-09-12 flat run: `walkC 8 scene mesh / 0 player via scene.findComponents(via.render.Mesh)` at a moment the
+// zombie census counted TEN live zombies, each holding a readable face mesh whose type is exactly via.render.Mesh
+// `[verified-live 2026-09-12, n=1 flat run]`. So scene enumeration UNDER-REPORTS badly — it evidently does not
+// reach objects inside instantiated prefabs — and no sweep can be trusted for meshes on this engine.
+//
+// The pattern that does work is the zombies' own: take the mesh from the component that OWNS it, at the moment it
+// is handed over. The zombie moment is Em0000SimpleMontageBase.attachedMontageMesh(Face, Body, Shirt, Pants).
+// The survivor-side analogues, from an exhaustive scan of il2cpp_dump.json for every app.* method that RECEIVES or
+// RETURNS a via.render.Mesh `[inferred-static 2026-09-12]`:
+//   app.ropeway.survivor.SurvivorCostumeChanger.set_Face / set_Hair / set_Body / set_Other / set_SheathKnife(value)
+//   app.ropeway.survivor.SurvivorCostumeChanger.setPartsEnable(Mesh, …)   — fires during play, not only on load
+//   app.ropeway.survivor.SurvivorCondition.set_Mesh(value)
+//   app.ropeway.survivor.SurvivorMeshPartsController.set_Mesh(value) (declared on the MeshPartsController base) and
+//       its .ScenarioPartsEnable / .VariablePartsEnable .applyPartsEnable(Mesh, …)
+// Pre-hooks on those cache whatever via.render.Mesh goes past. Same machinery as the VR bridge's mailbox hook, and
+// like it we scan EVERY argv slot by type rather than trusting a fixed argument position.
+// ---------------------------------------------------------------------------
+constexpr int MESH_CATCH_MAX = 32;
+struct MeshCatcher {
+    struct Slot { API::ManagedObject* mesh{}; const char* how{}; uint32_t hits{}; };
+    Slot s[MESH_CATCH_MAX]{};
+    int n{0};
+    std::atomic<uint32_t> calls{0};
+    std::string install;                 // which hooks went on and which did not — route E's "why" line
+    int installed{0}, attempted{0};
+} g_catch;
+
+void catch_mesh_args(int argc, void** argv, const char* how) {
+    g_catch.calls++;
+    if (!g_api_ok.load()) return;
+    for (int i = 0; i < argc && i < 8; ++i) {
+        auto* o = (API::ManagedObject*)argv[i];
+        if (!is_managed(o)) continue;
+        if (tname(o) != "via.render.Mesh") continue;
+        for (int k = 0; k < g_catch.n; ++k) if (g_catch.s[k].mesh == o) { g_catch.s[k].hits++; return; }
+        if (g_catch.n < MESH_CATCH_MAX) g_catch.s[g_catch.n++] = {o, how, 1};
+        return;
+    }
+}
 
 // v0.3 hook call counters (the hooks themselves are defined with the bridge hook below).
 std::atomic<uint32_t> g_calls_aid{0}, g_calls_ikl{0};
@@ -877,6 +921,7 @@ void summary_line() {
                       g.bracelets.l.theta * 57.29578f, g.bracelets.r.theta * 57.29578f, g.bracelets.l.last_pos.x, g.bracelets.l.last_pos.y, g.bracelets.l.last_pos.z);
     else if (g.l_radius == nullptr) o += snprintf(buf + o, sizeof buf - o, " | brac: no radius joints");
     else o += snprintf(buf + o, sizeof buf - o, " | brac: %s", (g.bracelets.l.tried || g.bracelets.r.tried) ? "FAILED (see log)" : "pending");
+    o += snprintf(buf + o, sizeof buf - o, " | caught=%d/%u", g_catch.n, g_catch.calls.load());   // v0.15 route E, live
     o += snprintf(buf + o, sizeof buf - o, " | head=%d hid=%d/%zu d=%.2f%s%s", g.head.mode, g.head.hidden_n, g.head.meshes.size(), g.head.head_cam_d,
                   g.head.revealed ? " REVEAL:" : "", g.head.revealed ? g.head.reveal_why.c_str() : "");
     LOGI("%s", buf);
@@ -1354,6 +1399,22 @@ void head_probe_b(HeadProbeB& b) {
          inv_u32(changer, "get_SurvivorType"), inv_u32(changer, "get_CurrentCostume"),
          (int)inv_bool(changer, "get_NowChanging"), (int)inv_bool(changer, "get_DrawHair"),
          arr_count(inv_ptr(changer, "get_PartsNames")));
+
+    // v0.15: the changer has a private gatherPartsMesh() — no arguments, returns void, id 28377 fn 0x14136ff60
+    // `[inferred-static 2026-09-12]`. Its whole job is to fill the very slots that came back null, so ask it to,
+    // ONCE per player bind, and re-read. Cheap, argument-free and idempotent by name; if it throws we say so and
+    // never try again this bind. `[hypothesis — not run yet]`
+    if (b.meshes.empty() && !g.head.gathered) {
+        g.head.gathered = true;
+        auto r = inv(changer, "gatherPartsMesh");
+        if (find_method_deep(changer->get_type_definition(), "gatherPartsMesh") == nullptr) LOGW("%s head:   B gatherPartsMesh MISSING on this build", TAG);
+        else if (!r.ok) LOGW("%s head:   B gatherPartsMesh THREW — not retried this bind", TAG);
+        else {
+            for (auto* gn : mesh_getters) head_b_add_mesh(inv_ptr(changer, gn), std::string(gn + 4) + "@gather", b);
+            head_b_add_mesh(inv_ptr(g.cond, "get_Mesh"), "cond.Mesh@gather", b);
+            LOGI("%s head:   B gatherPartsMesh() called — %zu mesh(es) after it", TAG, b.meshes.size());
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -1609,7 +1670,39 @@ void head_scan(bool verbose) {
             d.route = "no anchor yet (route C found none)";
         }
 
-        std::string an, bn, dn, cn;
+        // ROUTE E: whatever the assignment hooks have caught. This one cannot be defeated by hierarchy or by a
+        // sweep that under-reports — but it only has something once the game has actually handed a mesh over.
+        HeadProbeB e{};
+        for (int k = 0; k < g_catch.n; ++k) head_b_add_mesh(g_catch.s[k].mesh, g_catch.s[k].how, e);
+        if (g_catch.installed == 0)
+            e.route = "NO HOOKS INSTALLED (" + g_catch.install + ")";
+        else if (g_catch.calls.load() == 0)
+            e.route = "hooks " + std::to_string(g_catch.installed) + "/" + std::to_string(g_catch.attempted) +
+                      " installed but NEVER CALLED yet — the assignment happens before us, or on a costume change only";
+        else if (e.meshes.empty())
+            e.route = "hooks called " + std::to_string(g_catch.calls.load()) + "x but no via.render.Mesh in any argv slot";
+        else
+            e.route = "hooks " + std::to_string(g_catch.installed) + "/" + std::to_string(g_catch.attempted) +
+                      ", " + std::to_string(g_catch.calls.load()) + " calls";
+
+        // ROUTE F: walk from the TOP of the player's own hierarchy, not from the player object. If Claire's mesh
+        // objects are siblings or cousins of the player object rather than its children, this reaches them, and it
+        // is anchored on the player so it stays cheap. The chain is logged either way.
+        HeadProbeB f{};
+        {
+            auto chain = ancestor_chain(g.transform);
+            std::string cs;
+            for (auto* t : chain) cs += (cs.empty() ? "" : " > ") + tf_go_name(t);
+            LOGI("%s head:   F player chain (%zu deep): %s", TAG, chain.size(), cs.empty() ? "(none)" : cs.c_str());
+            if (!chain.empty() && chain.front() != g.transform) {
+                head_b_walk(chain.front(), 0, "plroot", f);
+                f.route = "player root \"" + tf_go_name(chain.front()) + "\"";
+            } else {
+                f.route = chain.empty() ? "no player transform" : "player transform IS the root — same subtree as walk A";
+            }
+        }
+
+        std::string an, bn, dn, cn, en, fn_;
         for (size_t i = 0; i < h.meshes.size() && i < 6; ++i) an += (i ? ", " : "") + h.meshes[i].label;
         for (size_t i = 0; i < b.meshes.size() && i < 6; ++i) bn += (i ? ", " : "") + b.meshes[i].first;
         for (size_t i = 0; i < d.meshes.size() && i < 6; ++i) dn += (i ? ", " : "") + d.meshes[i].first;
@@ -1618,13 +1711,23 @@ void head_scan(bool verbose) {
         if (b.meshes.size() > 6) bn += ", …";
         if (d.meshes.size() > 6) dn += ", …";
         if (c.hit_name.size() > 6) cn += ", …";
-        LOGI("%s head: walkA %d tf / %zu mesh | walkB %zu mesh via %s | walkC %u scene mesh / %zu player via %s | walkD %d tf / %zu mesh via %s",
-             TAG, seen, h.meshes.size(), b.meshes.size(), b.route.c_str(), c.scene_total, c.hit_mesh.size(), c.route.c_str(),
-             d.transforms, d.meshes.size(), d.route.c_str());
+        for (size_t i = 0; i < e.meshes.size() && i < 6; ++i) en += (i ? ", " : "") + e.meshes[i].first;
+        for (size_t i = 0; i < f.meshes.size() && i < 6; ++i) fn_ += (i ? ", " : "") + f.meshes[i].first;
+        if (e.meshes.size() > 6) en += ", …";
+        if (f.meshes.size() > 6) fn_ += ", …";
+        LOGI("%s head: walkA %d tf / %zu mesh | walkB %zu mesh via %s | walkC %u scene mesh / %zu player (UNDER-REPORTS) | walkD %d tf / %zu mesh via %s | walkE %zu mesh via %s | walkF %d tf / %zu mesh via %s",
+             TAG, seen, h.meshes.size(), b.meshes.size(), b.route.c_str(), c.scene_total, c.hit_mesh.size(),
+             d.transforms, d.meshes.size(), d.route.c_str(), e.meshes.size(), e.route.c_str(),
+             f.transforms, f.meshes.size(), f.route.c_str());
         LOGI("%s head:   walkA: %s", TAG, an.empty() ? "(none)" : an.c_str());
         LOGI("%s head:   walkB: %s", TAG, bn.empty() ? "(none)" : bn.c_str());
         LOGI("%s head:   walkC: %s", TAG, cn.empty() ? "(none)" : cn.c_str());
         LOGI("%s head:   walkD: %s", TAG, dn.empty() ? "(none)" : dn.c_str());
+        LOGI("%s head:   walkE: %s", TAG, en.empty() ? "(none)" : en.c_str());
+        LOGI("%s head:   walkF: %s", TAG, fn_.empty() ? "(none)" : fn_.c_str());
+        for (auto& m : e.meshes) LOGI("%s head:   E mesh %-44s %s", TAG, m.first.c_str(), m.second.c_str());
+        for (size_t i = 0; i < f.meshes.size() && i < 24; ++i)
+            LOGI("%s head:   F mesh %-44s %s", TAG, f.meshes[i].first.c_str(), f.meshes[i].second.c_str());
         if (verbose)
             for (auto& m : b.meshes) LOGI("%s head:   B mesh %-44s %s", TAG, m.first.c_str(), m.second.c_str());
     }
@@ -1644,6 +1747,16 @@ void head_scan(bool verbose) {
 void head_update() {
     auto& h = g.head;
     if (g.player_go == nullptr || g.transform == nullptr) return;
+    // v0.15: route E accumulates whenever the game hands a mesh over, which can be long after the one scan this
+    // bind performs — so announce every new catch the moment it lands, rather than waiting for a NUM+ rescan.
+    {
+        static int last_catch = 0;
+        while (last_catch < g_catch.n) {
+            auto& s = g_catch.s[last_catch++];
+            LOGI("%s head: MESH CAUGHT by %s -> \"%s\" %s", TAG, s.how,
+                 sysstr(inv_ptr(inv_ptr(s.mesh, "get_GameObject"), "get_Name")).c_str(), mesh_material_names(s.mesh).c_str());
+        }
+    }
     if (h.want_rescan) { h.want_rescan = false; head_scan(true); }
     if (h.mode == 0) { if (h.hidden_n > 0 || !h.reveal_why.empty()) { head_restore_all("NUM. off"); h.reveal_why.clear(); } h.revealed = false; return; }
     if (!h.scanned && now_s() - h.last_scan_t >= HEAD_RESCAN_MIN_S) head_scan(h.meshes.empty() && h.last_scan_t == 0.0);
@@ -2197,6 +2310,56 @@ void install_shift_hooks() {
     else LOGE("%s Implement.getIKLeftArmMatrix not found — no IK-left-arm hook", TAG);
 }
 
+// v0.15: the route-E hooks. One thin pre-hook per assignment moment so the log can say WHICH moment produced a
+// mesh; each just caches any via.render.Mesh it sees and always calls the original.
+#define MESH_HOOK(fn, label) \
+    int fn(int argc, void** argv, REFrameworkTypeDefinitionHandle*, unsigned long long) { \
+        catch_mesh_args(argc, argv, label); return REFRAMEWORK_HOOK_CALL_ORIGINAL; }
+MESH_HOOK(pre_cc_face,   "CC.set_Face")
+MESH_HOOK(pre_cc_hair,   "CC.set_Hair")
+MESH_HOOK(pre_cc_body,   "CC.set_Body")
+MESH_HOOK(pre_cc_other,  "CC.set_Other")
+MESH_HOOK(pre_cc_knife,  "CC.set_SheathKnife")
+MESH_HOOK(pre_cc_parts,  "CC.setPartsEnable")
+MESH_HOOK(pre_cond_mesh, "Cond.set_Mesh")
+MESH_HOOK(pre_mpc_mesh,  "MPC.set_Mesh")
+MESH_HOOK(pre_mpc_scen,  "MPC.Scenario.applyPartsEnable")
+MESH_HOOK(pre_mpc_var,   "MPC.Variable.applyPartsEnable")
+#undef MESH_HOOK
+
+void install_mesh_catch_hooks() {
+    auto& api = API::get();
+    struct Target { const char* type; const char* method; REFPreHookFn pre; };
+    static const Target targets[] = {
+        {"app.ropeway.survivor.SurvivorCostumeChanger", "set_Face", pre_cc_face},
+        {"app.ropeway.survivor.SurvivorCostumeChanger", "set_Hair", pre_cc_hair},
+        {"app.ropeway.survivor.SurvivorCostumeChanger", "set_Body", pre_cc_body},
+        {"app.ropeway.survivor.SurvivorCostumeChanger", "set_Other", pre_cc_other},
+        {"app.ropeway.survivor.SurvivorCostumeChanger", "set_SheathKnife", pre_cc_knife},
+        {"app.ropeway.survivor.SurvivorCostumeChanger", "setPartsEnable", pre_cc_parts},
+        {"app.ropeway.survivor.SurvivorCondition", "set_Mesh", pre_cond_mesh},
+        {"app.ropeway.survivor.SurvivorMeshPartsController", "set_Mesh", pre_mpc_mesh},
+        {"app.ropeway.survivor.SurvivorMeshPartsController.ScenarioPartsEnable", "applyPartsEnable", pre_mpc_scen},
+        {"app.ropeway.survivor.SurvivorMeshPartsController.VariablePartsEnable", "applyPartsEnable", pre_mpc_var},
+    };
+    for (const auto& t : targets) {
+        ++g_catch.attempted;
+        API::Method* m = api->tdb()->find_method(t.type, t.method);
+        // set_Mesh is declared on the generic base MeshPartsController`1<…>, so the concrete survivor type may not
+        // carry it directly — walk up the parent chain the way every other lookup here does.
+        if (m == nullptr) if (auto* td = api->tdb()->find_type(t.type); td != nullptr) m = find_method_deep(td, t.method);
+        if (m == nullptr) {
+            g_catch.install += std::string(g_catch.install.empty() ? "" : "; ") + t.method + " NOT FOUND";
+            LOGW("%s meshcatch: %s.%s not found — that assignment moment is unhooked", TAG, t.type, t.method);
+            continue;
+        }
+        const auto id = m->add_hook(t.pre, nullptr, false);
+        ++g_catch.installed;
+        LOGI("%s meshcatch: hook %s.%s id=%u fn=%p", TAG, t.type, t.method, id, m->get_function_raw());
+    }
+    LOGI("%s meshcatch: %d/%d assignment hooks installed", TAG, g_catch.installed, g_catch.attempted);
+}
+
 void install_bridge_hook() {
     auto& api = API::get();
     auto* m = api->tdb()->find_method("app.ropeway.RagdollControlZoneManager", "set_AccessMutex");
@@ -2208,6 +2371,7 @@ void install_bridge_hook() {
 void on_initialized() {
     install_bridge_hook();
     install_shift_hooks();
+    install_mesh_catch_hooks();   // v0.15
 }
 
 } // namespace
