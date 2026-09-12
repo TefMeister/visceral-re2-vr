@@ -448,6 +448,8 @@ struct State {
         bool enabled_sent{true};
         Vec3 last_pos{};
         bool readback_pending{false};   // v0.8: read get_DrawDefault back one frame after writing it
+        int  mat_tries{0};              // v0.17: set_Material succeeds but get_MaterialNum stays 0 — re-apply until it takes
+        double last_mat_t{-1e9};
     } plug;
     // v0.10: FOREARM BRACELETS (Tefa's idea, 2026-09-06). See bracelets_update() for the why.
     struct Bracelet {
@@ -463,6 +465,8 @@ struct State {
         Vec3 last_pos{};
         float theta{0.f};        // wrist twist about the forearm axis, relative to the radius joint (radians)
         uint64_t created_frame{};   // v0.11: get_MaterialNum read 0 at creation on 2026-09-06 (so did the plug's); re-read once, later
+        int  mat_tries{0};          // v0.17: as the plug — re-apply the material until the mesh actually reports one
+        double last_mat_t{-1e9};
         bool relogged{false};
     };
     struct Bracelets {
@@ -999,8 +1003,53 @@ struct alignas(16) V4 { float x{}, y{}, z{}, w{}; };   // via.vec3 / via.Quatern
 //   true  = allocate the holder type and write the resource pointer at +0x10, which is what the one REFramework mod that
 //           provably draws a spawned mesh does (Universal Lasers, RE4: sdk.create_instance(holder, true) then
 //           write_qword(0x10, resource:get_address())). [hypothesis]
+// ---------------------------------------------------------------------------
+// v0.17: RE-APPLY THE MATERIAL UNTIL THE MESH ACTUALLY REPORTS ONE.
+//
+// The defect this fixes, measured 2026-09-12 on a first load: the plug and both bracelets are created,
+// `set_Material` returns OK with no exception, and four seconds later `get_MaterialNum()` still reads
+// **0** on all three — `PLUG STATE: ... materials: n=0:` and `BRACELET l LATER: ... materials: n=0:`.
+// A mesh with no materials draws nothing, which is exactly what Tefa reports: the bracelets are absent
+// on the first load after launching the game and present on every load after
+// `[verified-live 2026-09-12, n=1 wearer]`, and the plug has never been visible at all.
+//
+// So the assignment is accepted and does not stick — consistent with the material resource still
+// loading when we hand it over. Rather than guess at a delay, re-create the holder and re-apply it
+// whenever the mesh reports no materials, a few times, spaced out, and say in the log which attempt
+// took. If it never takes, that is a different bug and the log now says so instead of going quiet.
+// defined a few lines below, next to the other resource helpers
+API::ManagedObject* create_resource_holder(const char* res_type, const char* path, const char* holder_type, bool manual);
+
+bool remat_if_empty(API::ManagedObject* mesh, const char* mdf_path, const char* what,
+                    int& tries, double& last_t, bool manual = true) {
+    constexpr int MAT_MAX_TRIES = 8;
+    constexpr double MAT_RETRY_S = 0.5;
+    if (mesh == nullptr || !is_managed(mesh)) return false;
+    auto* td = mesh->get_type_definition();
+    if (td == nullptr || find_method_deep(td, "get_MaterialNum") == nullptr) return false;
+    if (inv_u32(mesh, "get_MaterialNum") > 0) return true;            // already has one, nothing to do
+    if (tries >= MAT_MAX_TRIES) return false;
+    if (now_s() - last_t < MAT_RETRY_S) return false;
+    last_t = now_s();
+    ++tries;
+    auto* h = create_resource_holder("via.render.MeshMaterialResource", mdf_path, "via.render.MeshMaterialResourceHolder", manual);
+    if (h == nullptr) {
+        if (tries == MAT_MAX_TRIES) LOGW("%s %s: material resource still missing after %d tries (%s)", TAG, what, tries, mdf_path);
+        return false;
+    }
+    const bool ok = inv(mesh, "set_Material", {h}).ok;
+    const uint32_t n = inv_u32(mesh, "get_MaterialNum");
+    if (n > 0) {
+        LOGI("%s %s: material took on attempt %d (%u material(s): %s)", TAG, what, tries, n, mesh_material_names(mesh).c_str());
+        return true;
+    }
+    if (tries >= MAT_MAX_TRIES)
+        LOGW("%s %s: material STILL empty after %d attempts (set_Material %s) — it will draw nothing", TAG, what, tries, ok ? "ok" : "threw");
+    return false;
+}
+
 // This run puts one of each in the game so a single launch decides: LEFT bracelet + the plug manual, RIGHT bracelet the old way.
-API::ManagedObject* create_resource_holder(const char* res_type, const char* path, const char* holder_type, bool manual = false) {
+API::ManagedObject* create_resource_holder(const char* res_type, const char* path, const char* holder_type, bool manual) {
     auto& api = API::get();
     auto* res = api->resource_manager()->create_resource(res_type, path);
     if (res == nullptr) { LOGW("%s create_resource(%s, %s) returned null", TAG, res_type, path); return nullptr; }
@@ -1079,6 +1128,7 @@ void plug_update() {
         plug_create();
         if (!p.created) return;
     }
+    remat_if_empty(p.mesh, PLUG_MDF_PATH, "plug", p.mat_tries, p.last_mat_t, true);
     p.lost = false;
     Vec3 jp{};
     if (!inv_vec3(g.neck0, "get_Position", jp)) return;
@@ -1195,6 +1245,8 @@ void bracelets_update() {
             LOGI("%s bracelet %c: created on attempt %d", TAG, side == 0 ? 'l' : 'r', b.attempts);
         }
         b.lost = false;
+        remat_if_empty(b.mesh, BRACELET_MDF_PATH, side == 0 ? "bracelet l" : "bracelet r",
+                       b.mat_tries, b.last_mat_t, side == 0);
         if (!b.relogged && g.frame > b.created_frame + 240) {               // ~4 s after creation: has the material resolved by now?
             b.relogged = true;
             Vec3 tp{}; inv_vec3(b.transform, "get_Position", tp);

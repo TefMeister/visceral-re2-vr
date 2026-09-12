@@ -725,6 +725,44 @@ understood, do not read "the round trip is lossless" as "the game takes our mesh
 ⭐ One lever noticed and unused: `setPartsEnable(int, bool)` alongside `get_DefaultPartsEnable()` /
 `get_EditIndexList()` — a per-sub-mesh switch `[hypothesis]`.
 
+### 7k. ⭐⭐ OUR SPAWNED MESHES NEVER GET A MATERIAL — `set_Material` is accepted and does nothing (2026-09-12, `/lm`, flat)
+
+This is one bug under three symptoms the board has carried separately for a week: the grey flickering
+bracelets, the bracelets "absent on the first load", and the neck plug that draws but cannot be seen.
+
+**Measured, one flat load** `[verified-live 2026-09-12, n=1 launch, 3 objects]`. v0.17 re-creates the
+material holder and re-applies it whenever the mesh reports no materials — eight times, half a second
+apart. All three objects:
+
+```
+plug:       material STILL empty after 8 attempts (set_Material ok) — it will draw nothing
+bracelet l: material STILL empty after 8 attempts (set_Material ok) — it will draw nothing
+bracelet r: material STILL empty after 8 attempts (set_Material ok) — it will draw nothing
+```
+
+⇒ **`set_Material` returns OK every time and `get_MaterialNum()` stays 0 for four seconds. It is not a
+timing problem, and a retry does not fix it.** ⚠️ That withdraws the working theory from earlier the
+same day, that the material simply had not finished loading.
+
+**What is ruled out:**
+- **Not the reading method** — `get_MaterialNum`/`getMaterialName` return 12 real names on Claire's own
+  body mesh in the same session (§7g).
+- **Not a missing file, and not the loose loader** — `visceral_bracelets.mdf2.21` is present under
+  `natives/STM/visceral/` and the log shows it **served as a loose file** in the same run.
+- **Not the holder route** — the code A/Bs the two of them in one launch (left bracelet "manual +0x10",
+  right the older `create_holder`), and **both report 0** `[verified-live 2026-09-12]`.
+- **Not the mesh** — `setMesh` clearly takes: the bracelets are visible as **grey** geometry when they
+  appear at all, and grey is exactly what a mesh with no material draws. That reframes the old
+  "bracelets went grey and flickered" row as this same defect, not a separate one.
+
+**The live hypothesis, and the next check.** RE Engine binds a `.mdf2`'s materials to a mesh **by
+material name**, so a mesh whose internal material slots are not named exactly as the MDF's materials
+binds nothing and reports zero `[hypothesis]`. Our MDF declares `visceral_bracelet_leather`,
+`visceral_bracelet_metal`, `visceral_bracelet_leather_red`, `visceral_bracelet_leather_purple` (plus
+the pl1000 set it was cloned from). What our own `.mesh` files call their slots is **not yet read** — a
+crude ASCII scan of the mesh finds no name table, so it needs RE Mesh Editor. That comparison is the
+next step and it needs no game.
+
 ## 8. Animation / motion system
 - Locomotion is driven by a **motion-bank selector**, not by picking different
   animation files. In RE2 the locomotion layer plays the **same motion ids from
