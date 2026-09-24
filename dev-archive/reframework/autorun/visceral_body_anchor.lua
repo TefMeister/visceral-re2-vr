@@ -19,7 +19,7 @@ local NS = sdk.game_namespace
 local VK_NUMPAD5 = 0x65
 local JOINT, CAMERA_Y = 0, 3
 
-local cfg = { enabled = true }
+local cfg = { enabled = true, keep_default_shape = true }
 local st = { setter_hits = 0, setter_fixed = 0, field_fixed = 0, last_log = 0, prev_key = false, keys_ok = true }
 
 local function safe(fn) local ok, r = pcall(fn); if ok then return r end return nil end
@@ -63,6 +63,21 @@ local function install()
                 end, function(rv) return rv end)
             end)
             hooked = hooked + 1
+        elseif n == "register" then
+            -- the hold state asks for its own capsule SHAPE (category Hold=2: other radius/height/offset);
+            -- with the anchor kept on the joint the leftover offset still pushed the body ~5 cm forward
+            -- (Tefa, run 10). Drop the Hold shape request so the Default shape stays while aiming.
+            pcall(function()
+                sdk.hook(m, function(args)
+                    st.reg_calls = (st.reg_calls or 0) + 1
+                    if not cfg.enabled or not cfg.keep_default_shape then return end
+                    local ctrl = sdk.to_managed_object(args[2]); if not ctrl or not is_players(ctrl) then return end
+                    local req = sdk.to_managed_object(args[3]); if not req then return end
+                    local cat = safe(function() return req:get_field("_ShapeCategory") end)
+                    if cat == 2 then st.reg_dropped = (st.reg_dropped or 0) + 1; return sdk.PreHookResult.SKIP_ORIGINAL end
+                end, function(rv) return rv end)
+            end)
+            hooked = hooked + 1
         elseif n == "updateCharacterController" then
             pcall(function()
                 sdk.hook(m, function(args)
@@ -96,16 +111,17 @@ re.on_frame(function()
     local c = component(p, NS("survivor.SurvivorCharacterController")); if not c then return end
     local ot = safe(function() return c:call("get_OffsetType") end)
     local lo = safe(function() return c:call("getLocalOffsetPosition") end)
-    log_line(string.format("hold=%d OffsetType=%s localOffset=(%s) setter %d/%d fixed, field fixed %d",
+    log_line(string.format("hold=%d OffsetType=%s localOffset=(%s) setter %d/%d fixed, field fixed %d, shape requests %d (hold dropped %d)",
         is_aiming(p) and 1 or 0, tostring(ot),
         lo and string.format("%.3f %.3f %.3f", lo.x, lo.y, lo.z) or "?",
-        st.setter_fixed, st.setter_hits, st.field_fixed))
-    st.setter_hits, st.setter_fixed, st.field_fixed = 0, 0, 0
+        st.setter_fixed, st.setter_hits, st.field_fixed, st.reg_calls or 0, st.reg_dropped or 0))
+    st.setter_hits, st.setter_fixed, st.field_fixed, st.reg_calls, st.reg_dropped = 0, 0, 0, 0, 0
 end)
 
 re.on_draw_ui(function()
     if not imgui.tree_node("Visceral body anchor (keep Joint while aiming)") then return end
     local ch
     ch, cfg.enabled = imgui.checkbox("ENABLED (NUM5)", cfg.enabled)
+    ch, cfg.keep_default_shape = imgui.checkbox("keep the Default capsule shape while aiming (drop Hold shape requests)", cfg.keep_default_shape)
     imgui.tree_pop()
 end)
