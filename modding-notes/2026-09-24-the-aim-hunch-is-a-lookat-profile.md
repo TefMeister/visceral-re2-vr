@@ -420,3 +420,18 @@ hold-bank raise slot (140/141/143/150/151/153) or the hold idle slot (160) while
 frame (mod the idle's length: OFF 3354, OLF 1000, KFF 3039), so the pose is continuous. Layer 3 is left
 alone (its 20-frame copy ends the raise state). Logs every redirect. `[hypothesis]`; read: the press probe
 should show hips/head within ~5 mm at +5/+10/+20 frames, and the phase log lines at each press.
+
+## Run 16 (15:51): the phase hook never fired; the nudge is now a constant vector
+
+Tefa: *"the nudge is now always the same amount"*; the camera-left is bigger when standing tall, barely
+there at Claire's head height. Log: `visceral_phase` hooked `changeMotion` ×2 but logged **zero** calls for
+the FSM's own transitions — the state machine does not go through the managed `changeMotion`. The press
+still moves the hips by a constant **(+0.03, −0.02, −0.03) m** (10 presses, all within a few mm) `[measured]`:
+the frame-0 pose of the OFF idle minus its mid-loop pose, i.e. the restart is still happening; the earlier
+"random" amounts were the light-on OLF idle (bigger sway) mixed in.
+Next levers, both in `visceral_aim_idle_phase.lua` for the next run: (a) `TreeLayer.set_ContinueFromPrevEnd(true)`
+on the player's layer 0 every `LateUpdateBehavior` (native "continue the next motion from the previous
+frame"): the 20-frame raise copy would start past its own end and finish at once, the idle slot would
+continue in phase `[hypothesis]`; (b) diagnostics: changeMotion call count per 5 s and the property's
+prior value. If (a) does nothing, the transition data itself is the place:
+`MotionFsm2Layer.setNextMotionTransition(SetMotionTransitionInfo)` / `getMotionTransitionInfo`.

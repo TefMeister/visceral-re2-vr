@@ -59,11 +59,16 @@ local function current_idle_kind(layer)
 end
 
 -- args: [2]=layer, [3]=bankID (u32), [4]=motionID (u32), [5]=startFrame (float), [6..] interpolation (long form)
+local diag = { calls = 0, last = 0, seen = {} }
 local function pre_change(args)
+    diag.calls = diag.calls + 1
     if not cfg.enabled then return end
-    local layer = sdk.to_managed_object(args[2]); if not layer or not is_player_layer0(layer) then return end
+    local layer = sdk.to_managed_object(args[2]); if not layer then return end
     local bank = sdk.to_int64(args[3]) & 0xFFFFFFFF
     local id = sdk.to_int64(args[4]) & 0xFFFFFFFF
+    -- diagnostic (run 16 saw zero redirects): record every hold-bank change we are shown, on any layer
+    if bank == HOLD_BANK and diag.seen[id] == nil then diag.seen[id] = true; log_line(string.format("seen changeMotion bank %d id %d (player layer0=%s)", bank, id, tostring(is_player_layer0(layer)))) end
+    if not is_player_layer0(layer) then return end
     if bank ~= HOLD_BANK or not (RAISE_IDS[id] or id == IDLE_ID) then return end
     local kind = current_idle_kind(layer); if not kind then return end
     local frame = safe(function() return layer:call("get_Frame") end) or 0
@@ -74,14 +79,42 @@ local function pre_change(args)
     log_line(string.format("layer0 %s -> bank %d id %d: start at frame %.0f (was %s idle at %.0f)", RAISE_IDS[id] and ("raise " .. id) or "idle", bank, IDLE_ID, start, kind, frame))
 end
 
+-- second lever (run 16: changeMotion was never called for the FSM's own transitions): ask layer 0 to CONTINUE
+-- the next motion from the previous one's frame instead of frame 0 (TreeLayer.ContinueFromPrevEnd). The
+-- 20-frame raise copy then starts past its own end and finishes at once; the idle slot continues in phase.
+local cont = { set = 0, was = nil }
+re.on_pre_application_entry("LateUpdateBehavior", function()
+    if not cfg.enabled then return end
+    local p = get_player(); if not p then return end
+    local mo = component(p, "via.motion.Motion"); if not mo then return end
+    local l0 = safe(function() return mo:call("getLayer", 0) end); if not l0 then return end
+    layer0 = l0
+    if cont.was == nil then cont.was = safe(function() return l0:call("get_ContinueFromPrevEnd") end); log_line("layer0 ContinueFromPrevEnd was " .. tostring(cont.was)) end
+    if safe(function() return l0:call("get_ContinueFromPrevEnd") end) ~= true then
+        safe(function() l0:call("set_ContinueFromPrevEnd", true) end)
+        cont.set = cont.set + 1
+    end
+end)
+
+re.on_frame(function()
+    local now = os.clock()
+    if now - diag.last >= 5.0 then
+        diag.last = now
+        log_line(string.format("changeMotion calls in last 5 s: %d | ContinueFromPrevEnd writes: %d", diag.calls, cont.set))
+        diag.calls = 0; cont.set = 0
+    end
+end)
+
 local function install()
     local t = sdk.find_type_definition("via.motion.TreeLayer")
     if not t then log_line("TreeLayer type not found"); return end
     for _, m in ipairs(t:get_methods() or {}) do
-        if safe(function() return m:get_name() end) == "changeMotion" and (safe(function() return m:get_num_params() end) or 0) >= 3 then
+        if safe(function() return m:get_name() end) == "changeMotion" then
             local p1 = safe(function() return m:get_param_types()[1]:get_full_name() end)
             if p1 == "System.UInt32" then
                 if pcall(function() sdk.hook(m, pre_change, function(rv) return rv end) end) then st.hooked = st.hooked + 1 end
+            else
+                if pcall(function() sdk.hook(m, function(args) diag.calls = diag.calls + 1 end, function(rv) return rv end) end) then st.hooked = st.hooked + 1 end
             end
         end
     end
