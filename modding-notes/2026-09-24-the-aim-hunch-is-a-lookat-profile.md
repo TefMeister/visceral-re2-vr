@@ -233,3 +233,29 @@ and no light the game already plays `50_Hold_HG01` on layer 2 whether aiming or 
 **Taken out** (archived). The light-ON case really does switch `02_FIN_HG01_LGT` (carry) → `50_Hold_HG01_LGT`
 (aim), and the `hdg_finger_stlight_01` / `stwater` splices (aim slot → the carry clip) stay in. What is left
 at the press with the light on should be only the raise clip's arm motion under the pinned hand.
+
+## Run 7 (14:12): laser back; two things left, both settings, not clips
+
+Tefa: laser back; standing fine; **aim-walk still differs** (*"legs are more straight, like taking careful
+steps forward, tip toes pointed out … relaxed walking has a natural whole leg movement"*); and the press
+twitch *"goes through the whole body … for a quick second or less"* — top priority for VR.
+
+Log `[measured 2026-09-24, n=1 run]`: at every RG press `BODY yaw` does not move (e.g. 173.2 → 173.2) and the
+enabled IK kinds are `LEG,ARMFIT` in both states — so the "turn right" is not root facing and not an IK
+kind flipping. Aim-walk vs relaxed walk: **same clips (`OFF_GazingWalk_F` ~0.9 + `L` ~0.1), same weights,
+same 1.5–1.7 m/s**. So the leg difference is a *setting* the hold state changes (leg-IK options such as toe
+control / centre adjust / lean, or the character controller), not animation.
+
+Built for the next run:
+- **`visceral_state_diff_probe.lua`** (read-only): 0.5 s after every aim change it reads every 0-arg
+  `get_*`/`is*` getter returning a number/bool/enum on `via.motion.IkLeg`/`IkLeg2`/`IkLegSpine`, `via.motion.Motion`,
+  `IkController`, `IkAttitude`, `SurvivorCondition`, `SurvivorIKLeftArmController`, `via.motion.IkLookAt`, the
+  character controllers — and logs only the values that differ from the other state. Whatever flips is
+  the lever list.
+- **v5 hold bank** for the press twitch: the six `Hold_Start` slots now hold a COPY of the ordinary idle
+  with its frame count patched to the raise's own length (20/22/24 frames; header +0x60 and its mirror
+  +0x6c, confirmed `3354, 0, 0, 3354` on the idle) — `motlist_splice.py` mapping syntax `name@N`. The raise
+  state still ends on motion end, now after 20 frames of the standing pose instead of a raise, on both
+  layer 0 (whole body) and layer 3 (upper body). `[hypothesis]`: no body motion at the press, laser still
+  switches on (the state still ends). If the file is rejected or the laser goes again, this comes out.
+  sha `86760505…`, archived.

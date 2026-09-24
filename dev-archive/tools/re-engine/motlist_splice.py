@@ -25,6 +25,10 @@ Usage (player):   py motlist_splice.py --game-dir "<RE2 folder>" --character pl1
 Then copy the output to  <RE2>/natives/STM/sectionroot/animation/player/<pl10|pl00>/list/hdg/base_hdg_hold.motlist.524
 with REFramework's LooseFileLoader_Enabled=true. The output is built from the player's own game files and is
 never redistributed; only this script ships. --map lets you change which walk motion lands in which aim slot.
+A mapping value may carry "@N" (e.g. 0140_HG_Hold_Start_L0=0160_OFF_Gazing_Idle_F_Loop@20): the walk blob is
+COPIED and its frame count (v492 header +0x60, and +0x6c when it mirrors it) set to N, so the slot plays only
+the first N frames of that motion. Used 2026-09-24 to turn the 20-frame "raise the gun" transition into 20
+frames of the ordinary idle without changing how long the state lasts. [hypothesis] until run.
 
 Legitimacy: read-only on the game's paks; writes only into --out. No game data is included in this file.
 """
@@ -122,15 +126,28 @@ def build(hold, move, mapping, prefix, log):
         name = hold.entry_name[o]
         suffix = name[len(prefix) + 1:] if name.startswith(prefix + "_") else name
         if suffix in mapping:
-            walk = "%s_%s" % (prefix, mapping[suffix])
+            target = mapping[suffix]
+            frames = None
+            if "@" in target:
+                target, frames = target.split("@", 1)
+                frames = float(frames)
+            walk = "%s_%s" % (prefix, target)
             if walk not in move.by_name:
                 raise SystemExit("walk motion %s not found in %s (have: %s)" % (walk, move.path, ", ".join(sorted(move.by_name))))
             mo = move.by_name[walk]
-            key = ("move", mo)
-            src[key] = move.blob[mo]
-            replaced.append((i, name, walk))
+            key = ("move", mo, frames)
+            blob = move.blob[mo]
+            if frames is not None:
+                b = bytearray(blob)
+                orig_fc = struct.unpack_from("<f", b, 0x60)[0]
+                struct.pack_into("<f", b, 0x60, frames)
+                if abs(struct.unpack_from("<f", b, 0x6c)[0] - orig_fc) < 0.5:
+                    struct.pack_into("<f", b, 0x6c, frames)
+                blob = bytes(b)
+            src[key] = blob
+            replaced.append((i, name, walk, frames))
         else:
-            key = ("hold", o)
+            key = ("hold", o, None)
             src[key] = hold.blob[o]
         slot_key.append(key)
     # lay out: header, pointer table, entries (16-aligned, contiguous, first-use order), collection
@@ -164,6 +181,7 @@ def build(hold, move, mapping, prefix, log):
         blob = src[key]
         fc, bc, bcc, fps = hold.mot_info(blob)
         n = (move if key[0] == "move" else hold).entry_name[key[1]]
+        if key[2] is not None: n += "@%g" % key[2]
         tag = "REPLACED (was %s)" % hold.entry_name[hold.slots[i]] if key[0] == "move" else "kept"
         log("[%2d]  0x%03x   %-46s %5.0f  %3d  %3d  %2d  %s" % (i, hold.slot_number(i), n, fc, bc, bcc, fps, tag))
     return bytes(out), replaced
@@ -182,7 +200,8 @@ def verify(path_or_bytes, hold, move, replaced, log):
     if out.num != hold.num: problems.append("slot count %d != %d" % (out.num, hold.num))
     if out.collection != hold.collection: problems.append("collection block changed")
     if out.name != hold.name: problems.append("container name changed")
-    rep = {i: walk for i, _, walk in replaced}
+    rep = {i: walk for i, _, walk, _fr in replaced}
+    trunc = {i: fr for i, _, _w, fr in replaced if fr is not None}
     for i, o in enumerate(out.slots):
         if hold.slots[i] == 0:
             if o != 0: problems.append("slot %d was empty and is not any more" % i)
@@ -191,7 +210,16 @@ def verify(path_or_bytes, hold, move, replaced, log):
         got = out.entry_name[o]
         if got != want: problems.append("slot %d is %s, expected %s" % (i, got, want))
         srcblob = move.blob[move.by_name[want]] if i in rep else hold.blob[hold.slots[i]]
-        if out.blob[o][:len(srcblob)] != srcblob: problems.append("slot %d blob bytes differ from source" % i)
+        got = out.blob[o][:len(srcblob)]
+        if i in trunc:
+            fc = struct.unpack_from("<f", got, 0x60)[0]
+            if abs(fc - trunc[i]) > 1e-3: problems.append("slot %d frame count is %g, expected %g" % (i, fc, trunc[i]))
+            # everything except the two patched floats must match the source
+            mask = bytearray(got); ms = bytearray(srcblob)
+            for off in (0x60, 0x6c):
+                mask[off:off + 4] = b"\0\0\0\0"; ms[off:off + 4] = b"\0\0\0\0"
+            if mask != ms: problems.append("slot %d blob bytes differ from source beyond the frame count" % i)
+        elif got != srcblob: problems.append("slot %d blob bytes differ from source" % i)
         if o % 16: problems.append("slot %d entry not 16-aligned" % i)
     # Entry sharing: the original shares one entry between two slots for its repeated motions (Hold_Idle_Loop,
     # Shoot_NoAmmo), so sharing is a format-legal pattern. Original sharing must survive; new sharing is allowed
@@ -204,7 +232,7 @@ def verify(path_or_bytes, hold, move, replaced, log):
             was, now = hold.slots[a] == hold.slots[b], out.slots[a] == out.slots[b]
             if was and not now: problems.append("slots %d and %d shared an entry in the original and no longer do" % (a, b))
             if now and not was:
-                if a in rep and b in rep and rep[a] == rep[b]: newly_shared += 1
+                if a in rep and b in rep and rep[a] == rep[b] and trunc.get(a) == trunc.get(b): newly_shared += 1
                 else: problems.append("slots %d and %d now share an entry but were not given the same walk motion" % (a, b))
     if newly_shared: log("verify: %d slot pairs now share one entry because they received the same walk motion (the original does this for two pairs of its own)" % newly_shared)
     if tmp: os.unlink(tmp.name)
