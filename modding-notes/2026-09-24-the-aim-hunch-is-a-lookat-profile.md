@@ -719,3 +719,30 @@ Tefa: *"the shake was not there before"*. Full backup of every REFramework/mod f
 The old install was praydog's special **pd-upscaler** branch build; its log: `Could not load PDPerfPlugin.dll, TemporalUpscaler will not work` - so DLSS never ran. Old config also had `TemporalUpscaler_Enabled=true`, `VR_RenderingTechnique_V2=2`. Also new in the fresh install: praydog's VR.zip scripts incl. `re2_smooth_movement.lua` (movement stabilization), which the old install lacked. Which of these was the shake is not isolated `[hypothesis]`; the fresh normal build is the baseline now.
 
 Tester package for Andyalpa: `D:\Visceral packages\Visceral-RE2-VR-test-2026-09-25.zip` - our own files only (8 scripts, plugin v0.19d + switch file, crosshair config, 12 own meshes/textures, minimal config); the 24 game-derived files (aim lists, look-at profiles, HD-hands textures) are NOT included (README: `mod/test-builds/2026-09-25-README.txt`). Second clean install done and the package installed exactly per its README (+ the game-derived files locally).
+
+## 01:00–01:55 (2026-09-25): DLSS set found again, the mod on it, a new pistol glitch — stopped for a clean bisect
+
+**DLSS, as it actually works** `[reported 2026-09-25, Tefa: "dlss works and it's smooth"]`: pd-upscaler REFramework
+(76298bd, `dinput8` sha `06f626da…`, identical in Mr.Surviv0r's VR Hub DLSS download) + praydog's scripts from that
+package + **UpscalerBasePlugin 1.1.2** `PDPerfPlugin.dll` (270,848 B, sha `2e3b10d4…`; matched to Nexus site mod 502
+v1.1.2 by its 72 KB zipped size) in the GAME folder + `nvngx_dlss.dll` 3.10.5 (sha `8707e53b…`). UpscalerBasePlugin
+**1.2.0** (Nexus file_id 4445, the one Tefa downloaded) loads but logs "Upscale method 0/1/2 is not available"
+`[measured 2026-09-25]`. The hub's files were rescued from its temp folder before it closed:
+`D:\RE2 REFramework builds\dlss-files-from-mrsurviv0r-hub-0.9.90\` (manifest). The self-built `PDPerfPlugin.dll` in
+`tools/REFramework-src/build` is the fork's DUMMY (dependencies/pd-perfmod/dummy), not a backend.
+
+The mod on top (package + local-only game-derived files, config merged, not replaced): Tefa — *"this feels good"*.
+**Then a new glitch:** right after a pistol shot the gun leaves Claire's right hand for ~0.2 s (hand open and empty,
+gun pushed ~25° to the side), then snaps back with the laser on; the two eyes show different moments. Recorded:
+`D:\vid\claude to look at\Claire shot gun sideways.mp4` (0.88 s). Never seen before (Tefa). The dock stays engaged
+through every shot (log). Out, no change: `visceral_lefthand_hold.lua`; praydog's crosshair/grenade/melee/sharpness/
+re4/re8 scripts. Last test (smooth_movement out) not run. Tefa also reports the running shake is back and worse than
+right after installing the mod.
+
+**Tefa's rule (2026-09-25):** pistols are aimed by the RIGHT hand only; the left-hand dock is cosmetic and must never
+move the gun. The "hold with LG, fire with RT, run" idea (idea 7) is for LONG guns only.
+
+**Stopped on purpose (Tefa):** *"let's do this right without just patching things now. let's do a full clean install
+tomorrow, and do things one after another"*. Installed at stop: DLSS set above + Visceral (8 scripts incl. lefthand,
+v0.19d + switch file, natives) with praydog's scripts OUT (in `D:\RE2 REFramework builds\praydog-scripts-test-out-2026-09-25\`,
+smooth_movement included).
