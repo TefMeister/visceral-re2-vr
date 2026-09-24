@@ -285,3 +285,30 @@ Tefa: no twitch, no tension, legs. If the hook counts stay 0 and the type still 
 written below the property (then: the `SurvivorCharacterControllerUserData` "Hold" shape entry, joint
 `COG`, category 2, `DefaultSurvivorCharacterControllerUserData.user.2` pulled and hex-read; or the native
 `updateCharacterController` @0x1411045d0).
+
+## Run 9 (14:38): the camera jump is gone; body tension, small twist and careful steps remain
+
+Tefa: *"this is half the win … the camera also jumped a little when RG was pressed. now it stays completely
+still … in VR makes a monumental difference … but the body still tenses up after the press, torso twists a
+little and walking feet step more carefully"*.
+
+Log `[measured 2026-09-24]`: `visceral_body_anchor` holds `OffsetType=0` through every aimed second (the game
+writes the field directly once per press — `set_OffsetType` is never called, the field reset fires once).
+The capsule's local offset still changes while aiming (≈ (0.04, 1.22, −0.01) vs (0.06, 0, 0.06)) — the Hold
+shape's own offset vector, noted, not yet touched.
+
+Final pose aimed vs unaimed (27 vs 90 samples): spine_0 pitch 2.9 / yaw −5.8 / roll −2.0, spine_1 pitch 2.8,
+spine_2 pitch 3.2; unaimed all 0.0 exactly (the straightener zeroes the sustained offset when not aiming and
+freezes its baseline while aiming, so anything the hold state adds passes through). The v2 profiles still
+allowed spine pitch −5..10 → **v3 profiles installed: pitch, yaw and world-pitch all 0..0 on spine_0/1/2**
+(`lookat_patch.py --zero`, archived `lookat-archive\v3-zero-spine\`). The −5.8° spine_0 yaw has no LookAt
+range left to come from; if it stays, it is something else (the straightener's aim freeze is the next
+suspect: turn `freeze_while_aiming` off).
+
+**One more flag flips at every press: `SurvivorCondition.IsDirectingBody` false → true** (with `IsWalk` /
+`IsIdle`, which are just state). `get_IsDirectingBody` @0x141194460: true when `[this+0x140]->+0xf0 > 0`
+(an active request count) or when the playing motion's `SurvivorDirectingBodyTrack.Enabled` says so — i.e.
+the hold state asks the body to be directed at the aim. **Lever installed: `visceral_body_direct.lua`** —
+post-hook on `get_IsDirectingBody` answering false while `IsHold` for the player; logs calls / game-true /
+overridden per second; NUM6. If `calls/s` reads 0 the consumers read the field inline and the lever needs
+the native route. `[hypothesis]` for the tension and the careful steps.
