@@ -495,3 +495,23 @@ restarting at frame 0 — the last piece of "RG moves only the weapon". Route: n
 hook the tree's internal motion-start (follow `TreeLayer.changeMotion(bank,id,startFrame)` @0x140258430 into
 the engine call it wraps; the FSM uses the same path) and pass the previous frame when both motions are
 Gazing_Idle — after the Plugin.cpp split. Static prep: decompile 0x140258430 with `disasm.py`.
+
+## Afternoon, part 2: the native route, and a live-debug pass (16:20–16:50)
+
+Static: `TreeLayer.changeMotion(bank,id,startFrame)` @0x140258430 is a thunk to the engine function
+0x142483710 (sets bank/id on the node via 0x142486240 + 0x142480180/0x1424801a0, then 0x1424838e0 stores the
+start frame at `layer+0x2b4` with a request flag at `layer+0x2bc`). `set_NextStartFrame` writes the same
+two fields `[measured]`. **The FSM's own transitions use none of this**: the only other callers of the
+frame setters are reflection stubs (0x145359630 etc.), and `changeMotionApp` @0x1412659b0 is the script
+helper. The layer's current frame lives in a virtual "player" object: `get_Frame` = node =
+0x142481a70(layer+0x118, flag) → obj = [node+0x148] → vtable call [vt+0xb0]; `set_Frame` = [vt+0x98].
+So the FSM's "start at 0" is a call into that player object — the hook point is its vtable method (or the
+FSM code that calls it), to be caught live.
+Live pass: x64dbg attached to re2.exe (PID via `attach .4752`), BP at 0x142484b17 (inside get_Frame, after
+the node lookup, to learn the player object and its vtable). Two lessons cost the session: our plugin
+raises a first-chance AV at kernel32 every frame (pointer probing) which pauses the debugger; the
+`x64dbg.ini` `[Exceptions] IgnoreRange` entry with `:first:` means BREAK on first chance — the ignore
+form is `C0000005-C0000005:second:nolog:debuggee`; and **force-closing x64dbg while attached terminates
+the game** — the game was lost that way at 16:48 (detach first, always). Memory note written
+(`x64dbg-attach-lessons`). MinHook vendored into `dev-archive/plugin/third_party/minhook` (BSD-2) for the
+native hook; CMake not yet wired.
