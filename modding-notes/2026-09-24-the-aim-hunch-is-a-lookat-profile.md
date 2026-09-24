@@ -639,3 +639,5 @@ sees `[hypothesis — n=4 edges per run, one launch per condition]`.
 few times. Nudge gone ⇒ it is the straightener; then try `freeze rest pose while aiming` OFF with ENABLED on (keeps
 the twist removal, drops the freeze). Nudge still there ⇒ the straightener is not it; the next measurement needs a
 no-press control window for the hips.
+
+**CAVEAT (added the same evening): Tefa was wearing the connected headset during these launches** `[reported 2026-09-24]`. The head/camera follow the real HMD, so the head/camera A/B above (7-10 cm ON vs 0.2-1 cm OFF) may be their own head movement, not the straightener. Treat it as `[hypothesis]` until repeated with the headset still (or off the head, resting on a table). The hips numbers are less affected but were too noisy to read.
