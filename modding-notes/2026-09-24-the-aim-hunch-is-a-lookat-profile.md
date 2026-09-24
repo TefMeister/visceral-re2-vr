@@ -400,3 +400,23 @@ when the hold state begins — the shape of a leg-IK / balance adjustment. Next 
 at `LateUpdateBehavior` (before IK) as well as at `PrepareRendering`, plus `IkController.getBlendRate(kind)`
 per frame; if the pre-IK hips stay put and the post-IK hips move, the mover is IK (LEG or the attitude
 lean), and its blend curve names it.
+
+## Run 15 (15:45): the pelvis move is the ANIMATION restarting, not IK
+
+`visceral_press_probe` with pre-IK sampling, 10 aim changes `[measured 2026-09-24]`: **hips at
+`LateUpdateBehavior` == hips at `PrepareRendering` to the millimetre, every frame, every press** (IK
+contribution 0.000); IK blend rates unchanged (LEG 1.00, ARMFIT 1.00, the rest 0). So no IK pass moves
+the pelvis. The move is in the evaluated motion, ramps over ~10–20 frames (the blend), and its DIRECTION
+varies press to press (+x −z 3 cm, then −x +z 1 cm, then −z 5.5 cm, then +z 4 cm …) — the signature of the
+idle **restarting from frame 0**: layer 0 leaves the ordinary idle at frame N (of 3354) for the hold
+bank's raise slot (our 20-frame copy, from frame 0) and then the hold idle slot (frame 0), so the body
+blends from the breathing/sway pose at N to the pose at 0. Before v5 the stock raise clip did the same
+plus its own motion. The light-on set moves more because the OLF idle sways more `[inferred]`.
+
+**Lever installed: `visceral_aim_idle_phase.lua`** — pre-hook on `via.motion.TreeLayer.changeMotion`
+(the two `(bankID, motionID, startFrame…)` overloads); on the player's layer 0, when the target is a
+hold-bank raise slot (140/141/143/150/151/153) or the hold idle slot (160) while an ordinary
+`Gazing_Idle` plays, it redirects the raise slot to the idle slot and sets `startFrame` to the current
+frame (mod the idle's length: OFF 3354, OLF 1000, KFF 3039), so the pose is continuous. Layer 3 is left
+alone (its 20-frame copy ends the raise state). Logs every redirect. `[hypothesis]`; read: the press probe
+should show hips/head within ~5 mm at +5/+10/+20 frames, and the phase log lines at each press.
