@@ -11,6 +11,8 @@ the RSZ layout is untouched). Head and neck records are left alone.
 Usage: py lookat_patch.py --game-dir "<RE2 folder>" --out <folder> [--zero]
        py lookat_patch.py --in <folder with the pulled originals> --out <folder> [--zero]
 --zero writes 0..0 ranges instead of Default's (no spine bend at all while aiming).
+--zero-yaw keeps Default's pitch but sets the spine YAW ranges to 0..0 (no torso twist toward the target
+while aiming; Tefa 2026-09-24: "torso twisting while feet stay put when AIM is active").
 Copy the output's natives/... tree into <RE2>/ with REFramework's LooseFileLoader_Enabled=true.
 Only this script ships; the output is made from the player's own game data.
 """
@@ -26,6 +28,7 @@ DEFAULT_SPINE = {
     "spine_0": ((0.0, 0.0), (0.0, 0.0), 0, (0.0, 0.0), 1),   # Default has no spine_0 record: no bend
 }
 ZERO_SPINE = {k: ((0.0, 0.0), (0.0, 0.0), 0, (0.0, 0.0), 1) for k in DEFAULT_SPINE}
+ZERO_YAW_SPINE = {k: (v[0], (0.0, 0.0), v[2], v[3], v[4]) for k, v in DEFAULT_SPINE.items()}
 
 
 def alter_records(d):
@@ -58,8 +61,8 @@ def patch(d, table, log):
         pitch, yaw, prex, world, inherit = table[name]
         old = struct.unpack_from("<ffffIffI", d, p)
         struct.pack_into("<ffffIffI", d, p, pitch[0], pitch[1], yaw[0], yaw[1], prex, world[0], world[1], inherit)
-        log("    %-8s pitch %5.0f..%-5.0f preX=%d world %5.0f..%-5.0f  ->  pitch %5.0f..%-5.0f preX=%d world %5.0f..%-5.0f"
-            % (name, old[0], old[1], old[4], old[5], old[6], pitch[0], pitch[1], prex, world[0], world[1]))
+        log("    %-8s pitch %5.0f..%-5.0f yaw %5.0f..%-5.0f preX=%d world %5.0f..%-5.0f  ->  pitch %5.0f..%-5.0f yaw %5.0f..%-5.0f preX=%d world %5.0f..%-5.0f"
+            % (name, old[0], old[1], old[2], old[3], old[4], old[5], old[6], pitch[0], pitch[1], yaw[0], yaw[1], prex, world[0], world[1]))
         done.append(name)
     return bytes(d), done
 
@@ -70,6 +73,7 @@ def main():
     ap.add_argument("--in", dest="indir", help="folder holding natives/... with the pulled originals")
     ap.add_argument("--out", required=True)
     ap.add_argument("--zero", action="store_true")
+    ap.add_argument("--zero-yaw", action="store_true")
     a = ap.parse_args()
     here = os.path.dirname(os.path.abspath(__file__))
     src = a.indir
@@ -81,7 +85,7 @@ def main():
             raise SystemExit("pak pull failed:\n" + r.stdout + r.stderr)
     if not src:
         raise SystemExit("give --game-dir or --in")
-    table = ZERO_SPINE if a.zero else DEFAULT_SPINE
+    table = ZERO_SPINE if a.zero else (ZERO_YAW_SPINE if a.zero_yaw else DEFAULT_SPINE)
     for f in HOLD_FILES:
         ip = os.path.join(src, LOOKAT_DIR, f + ".user.2")
         if not os.path.exists(ip):
