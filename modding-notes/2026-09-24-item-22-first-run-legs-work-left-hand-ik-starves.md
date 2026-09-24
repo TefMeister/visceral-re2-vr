@@ -61,3 +61,26 @@ fixing. The two upstream levers are:
 
 (a) is static and needs no launch to prepare. Both must prove their own effect: the 1 Hz
 `hooks(aid ikL)` count should read ~72/s during spliced walk seconds.
+
+## Correction, same session — the posture was NOT fixed, and why
+
+Tefa, after the write-up above: *"the body posture is still wrong, it's the arched aim pose when
+aiming. the flicker happens when i'm walking forward. this flicker was not present when we last
+modded the game"*. So "same aim posture" meant *unchanged*, and result 1 above was a misreading.
+What stands: the game plays our slot (slot-number lookup, log evidence), and the flicker is new
+with the splice (Tefa: absent before), which fits the IK-starvation reading.
+
+**Cause of the wrong posture `[inferred-static 2026-09-24]`:** the 06 splice took its walk loops
+from `cmn/base_cmn_move` — the **`KFF_`** set, which Claire only uses in a different stance (the log
+shows `KFF_Gazing_Idle` once, unaimed, bank 1). With the handgun drawn and not aiming she walks
+**`OFF_GazingWalk`** (from `hdg/base_hdg_move`) or, flashlight on, **`OLF_GazingWalk`** (from
+`cmn/cmn_move_stlight`). The flashlight/`cpB` override lists for the hold bank only override the
+reload, so they are not the source.
+
+**v2 built and installed:** same script, `--move hdg/base_hdg_move` and twelve `--map` overrides to
+the `OFF_GazingWalk` loops (240 frames). Verify passed (30 slots, 12 replaced, collection verbatim,
+blobs byte-identical). 667,488 bytes, sha256 `438438c20f644e3e…`. Both versions archived with a
+manifest in `D:\RE2 REFramework builds\extracted (game data - never commit)\splice-archive\`
+(v1 KFF `b3a3a1eb…`, v2 OFF `438438c2…`). With the flashlight on, the unaimed walk is `OLF`, so aim
+and non-aim may still differ slightly by the flashlight arm; a v3 with `OLF` is the same command
+against `cmn/cmn_move_stlight`.
