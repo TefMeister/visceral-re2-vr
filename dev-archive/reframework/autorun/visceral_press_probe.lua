@@ -42,9 +42,37 @@ local ring, ring_n, RING = {}, 0, BEFORE + 1
 local after_left, prev_hold, frame_no = 0, nil, 0
 local joint_cache = {}
 
+-- run 15: also sample the hips/head BEFORE the IK pass (LateUpdateBehavior) and the IK blend rates, so a
+-- pelvis move can be attributed: pre-IK moves too = animation/blend; only post-IK moves = an IK pass.
+local pre_ik = {}
+re.on_pre_application_entry("LateUpdateBehavior", function()
+    local p = get_player(); if not p then return end
+    local tf = safe(function() return p:call("get_Transform") end); if not tf then return end
+    pre_ik = {}
+    for _, n in ipairs({ "hips", "head" }) do
+        local j = joint_cache[n]
+        if j == nil then j = safe(function() return tf:call("getJointByName", n) end) or false; joint_cache[n] = j end
+        if j then
+            local q = safe(function() return j:call("get_Position") end)
+            if q then pre_ik[n .. "A"] = { q.x, q.y, q.z } end
+        end
+    end
+end)
+local IK_NAMES = { "LEG", "SPINE", "LOOKAT", "ARM", "ARMFIT", "HAND" }
+
 local function sample(player)
     local tf = safe(function() return player:call("get_Transform") end); if not tf then return nil end
     local s = { f = frame_no }
+    for k, v in pairs(pre_ik) do s[k] = v end
+    local ikc = component(player, NS("IkController"))
+    if ikc then
+        local parts = {}
+        for k = 0, 5 do
+            local r = safe(function() return ikc:call("getBlendRate", k) end)
+            if type(r) == "number" then parts[#parts + 1] = string.format("%s%.2f", IK_NAMES[k + 1], r) end
+        end
+        s.ik = table.concat(parts, "/")
+    end
     local rp = safe(function() return tf:call("get_Position") end)
     if rp then s.root = { rp.x, rp.y, rp.z } end
     for _, n in ipairs(JOINTS) do
@@ -71,6 +99,9 @@ local function emit(s, tag)
     parts[#parts + 1] = fmt(s, "root")
     for _, n in ipairs(JOINTS) do if s[n] then parts[#parts + 1] = fmt(s, n) end end
     parts[#parts + 1] = fmt(s, "cam")
+    if s.hipsA then parts[#parts + 1] = fmt(s, "hipsA") end
+    if s.headA then parts[#parts + 1] = fmt(s, "headA") end
+    if s.ik then parts[#parts + 1] = "ik=" .. s.ik end
     log.info(TAG .. " " .. table.concat(parts, " "))
 end
 
