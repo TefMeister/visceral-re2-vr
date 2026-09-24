@@ -71,5 +71,15 @@ re.on_frame(function()
             end
         end
     end
+    -- IK kinds the game has switched on right now (LEG SPINE LOOKAT ARM ARMFIT HAND) -- does HAND/ARM flip at the aim press?
+    local ikc = component(p, NS("IkController"))
+    if ikc then
+        local names = { "LEG", "SPINE", "LOOKAT", "ARM", "ARMFIT", "HAND" }
+        local on = {}
+        for k = 0, 5 do
+            if safe(function() return ikc:call("isEnabled", k) end) == true then on[#on + 1] = names[k + 1] end
+        end
+        parts[#parts + 1] = "IK on: " .. (#on > 0 and table.concat(on, ",") or "none")
+    end
     log.info(string.format("%s hold=%d speed=%s m/s | %s", TAG, is_aiming(p) and 1 or 0, speed, table.concat(parts, " | ")))
 end)
