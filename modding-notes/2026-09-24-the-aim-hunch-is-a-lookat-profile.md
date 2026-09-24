@@ -669,3 +669,11 @@ the push is gone AND that turning/looking around still feels right with body rot
 ## `/lm` 22:21-22:30: recording what Tefa sees - not possible from the desktop in VR mode
 
 With REFramework in VR the game window stays black (only the REFramework menu draws), with `VR_DesktopRecordingFixSkipPresent` true or false (tried false, one launch; put back to true). So the VR view cannot be captured from this PC by screen grab `[measured 2026-09-24, n=2 launches]`. Next: Tefa records the view in the headset (Quest: Meta menu -> Camera -> Record video) at a few aim presses - the only ruler that matches their eyes. Config is back to defaults (RotateBody=true, SkipPresent=true).
+
+## 2026-09-24 22:50-23:05: Tefa's in-headset recordings - the push measured in what they see
+
+Two Quest recordings (`D:id\claude to look at\`, stereo 4320x2160, 30 fps, not committed): looking down at Claire, pressing aim. Tefa's tip: the press is visible as both hands' fingers moving - a built-in timestamp. Tool: `dev-archive/tools/video/collar.py` (left eye, 480x480; top row of the red jacket vs top row of the hand, which sits on the controller and is the fixed reference).
+
+No-flashlight clip, first press (2.40 s) `[measured 2026-09-24, n=1 press frame by frame, 2 more by eye]`: hand 142-145 px throughout; collar 265 -> **166 px in 6 frames (0.2 s, ~100 px = ~1/5 of the view height)**, then settles at ~197 (**~68 px, ~13 deg of view, held for as long as aim is held**). Release (~4.4 s): back down over ~0.4 s. The same up-and-stay at 5.6 s.
+
+**The shape - overshoot in ~0.2 s, then a sustained forward offset while aiming - matches the frozen-idle game measurement (hips-vs-root swing to 16 cm over ~14 frames, settling ~7 cm forward).** So that in-game ruler does track what Tefa sees. The flashlight clip is not analysed yet. Next: the same recording with a candidate fix in place, measured with the same tool - an objective yes/no.
