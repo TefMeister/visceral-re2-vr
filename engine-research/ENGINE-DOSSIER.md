@@ -1318,6 +1318,23 @@ components, diffed across the aim change — found OffsetType and IsDirectingBod
 not IK), `visceral_layer_probe.lua` (per-node weights, ground speed), `visceral_spine_probe.lua`.
 The VR camera rides the head bone at exactly +0.040 m `[measured]`.
 
+### 8g.4 The idle restart at the aim press: the engine path, caught live (2026-09-24, x64dbg + native hook)
+
+- Layer frame storage: `node = 0x142481a70(layer+0x118, [layer+0x10]&1)`; `wrap = [node+0x148]`; `child =
+  wrap->vt[0x178](wrap, 0)`; `state = [child+0x38]`; **frame = `[state+0x30]`** (`TreeLayer.get_Frame` =
+  0x142484b00 walks exactly this) `[verified-live 2026-09-24, hardware write trap]`.
+- At the RG press the frame is zeroed by the "reset clip state" routine 0x142479100 (zeroes +0x30/+0x38/+0x40/+0x48,
+  sets +0x50/+0x58 = 1.0), called from the node start 0x1424806f0 inside the layer's start-pending step
+  **0x142488e00** (`bool __fastcall (TreeLayer*)`, runs every frame, switches the node when a transition is pending).
+- **Every managed knob is inert for these transitions** (changeMotion never called; ContinueFromPrevEnd,
+  set_Frame, NextStartFrame/ResetStartFrame/NextStartToFrame reset or ignored) `[measured 2026-09-24]`.
+- A MinHook detour on 0x142488e00 (`visceral_core.dll` v0.18, `src/IdlePhase.cpp`) catches the switch with the
+  old frame `[verified-live]`. Writing the frame back: a raw field write crashes on large jumps (0x142474734);
+  the engine's own `set_Frame` (0x142487cf0) called right after the step does not take (reads back 0.0).
+  Open: where in the step the frame must be set. The hook ships OFF by default; reads and logs stay on.
+- x64dbg on this game: `attach .PID` (decimal), ignore first-chance AVs via the ini (`C0000005-C0000005:second:nolog:debuggee`),
+  **detach before closing** or the game dies with the debugger.
+
 ### 8h. Bullet spread: the RE8 recipe, not yet checked on RE2 (drained from the 2026-09-21 inbox drop, 2026-09-24)
 
 Pointer only: `flat-to-vr-cross-engine-research/inbox/2026-09-21-mod-re-engine-bullet-spread-is-a-rotation-swapped-in-before-the-bullet-is-built.md`.
