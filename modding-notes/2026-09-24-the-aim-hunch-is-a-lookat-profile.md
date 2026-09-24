@@ -186,3 +186,18 @@ handgun and the whole posture just changes"*.
 - Layer probe, standing aimed vs unaimed: **the same `OFF_Gazing_Idle_F_Loop` at weight 1.00 on layer 0**
   in both states `[measured 2026-09-24]` — so no clip difference remains standing; everything left is
   post-animation (IK/LookAt/our scripts).
+
+**Hand twitch, Tefa (before restarting):** *"happens only once after RG is pressed, very brief … the gun
+just visibly moves with the player hand just a little bit … also the right hand plays a quick animation
+then where the thumb moves slightly, maybe other fingers too"*. Two clips play exactly once at the press
+`[measured 2026-09-24, earlier logs]`: the 20-frame `HG_Hold_Start_L0/R0` raise on layers 0 and 3 (the FSM
+leaves it after ~12–14 frames — 0.19–0.24 s in the 11:51 log — so it is time-driven, not motion-end-driven,
+which makes replacing it with a long clip safe `[inferred-static]`), and the finger bank switching
+`FIN_HG01[_LGT]` (carry grip) → `Hold_HG01[_LGT]` (aim grip), a 30-frame clip with the thumb move.
+**v4 built + installed:** hold bank = v3 + all six `Hold_Start_*` slots → `OFF_Gazing_Idle_F_Loop` (sha
+`2926883b…`); finger banks `hdg_finger_stlight_01` / `hdg_finger_stwater_01`: slot `50_Hold_HG01_LGT` →
+`02_FIN_HG01_LGT` (the light-on carry grip), `base_hdg_finger`: `50_Hold_HG01` (3 shared slots) →
+`00_CAU_HG01` (the caution carry grip; the light-off FIN grip lives in a file not yet located). All
+archived with hashes in `splice-archive\`. Expected: no raise motion and no grip change at the press;
+if the aim state ever hangs on the raise, the motion-end guess was wrong and the Hold_Start mapping
+comes out.
