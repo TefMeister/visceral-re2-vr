@@ -663,3 +663,5 @@ camera, and does it differently in the aim state.) The remaining ~3 cm has not b
 `D:\RE2 REFramework builds\re2_fw_config.backup-2026-09-24-2210.txt`), `ForceRotateMesh=true`, straightener back on,
 freeze aid removed. **The shipped `mod/re2_fw_config.txt` is NOT changed yet** — first Tefa checks in the headset that
 the push is gone AND that turning/looking around still feels right with body rotation off.
+
+**Tefa in the headset, same evening:** *"it's still there, whatever the numbers show you ... disabling body rotation breaks how body works in vr, so that has to stay on or we have to make our own version of it"* `[reported 2026-09-24]`. So `FirstPerson_RotateBody` is back to **true**; the 16 cm -> 3 cm hips measurement does NOT describe what Tefa sees (it measured hips relative to the root, which sits under the pinned head). `[disproved 2026-09-24]` as the explanation of the visible push. Next: measure what they actually see — capture the VR mirror view around a press with the headset resting still and track the torso in the image — and/or replace RotateBody with our own version that does not react to the aim state.
