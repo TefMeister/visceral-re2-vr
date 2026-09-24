@@ -1355,6 +1355,16 @@ The VR camera rides the head bone at exactly +0.040 m `[measured]`.
   hook reads and logs only. Every real switch logs the requested fraction, the frame/length before, the
   frame/length read back after, the mode the FSM had asked for, and both early-out conditions — so one launch
   says took / did not take / which early-out.
+- **Live, three launches 2026-09-24 18:23–18:55** `[verified-live 2026-09-24, n=6 presses per launch]`: the request block
+  is honoured on layer 0's idle→idle switches (release 235.7 → 235.9; with v0.19c also the press: 575.8 → 576.0 → 576.3),
+  **but the raise slot's node on layer 0 ignores it and reads frame 0.0 for all 20 frames** — it arrives as transition
+  **kind 3 with a link** (`[layer+0x164]` = 3, `[layer+0x158]` ≠ 0 → 0x1425a2630, a sync-marker start over the link's two
+  nodes via `vt+0x180`; forcing kind 2 for the call did not change the read-back). So the raise node is not a plain clip
+  node (its frame is not at wrapper child 0 + 0x38 + 0x30) `[inferred-static]`. **The fix that works: v0.19c rewrites the
+  pending node's slot id (`[node+0xb0]`) from a raise slot to slot 160 (the hold idle = the same full idle) on layer 0 only,
+  with the fraction request; layer 3 keeps its own raise, so the raise state still ends on its motion end.** Switch file:
+  `reframework/plugins/visceral_idle_phase.on`. Every layer-0 transition reads kind 3 + link before the step; launch 1's
+  kind 2 / kind 1 readings were the previous transition's values `[measured 2026-09-24]`.
 - The node ring: `0x142481a70(layer+0x118, idx)` returns `[[area+8] + (([area+0x48] − idx) or ([area+0x10] − idx)) × 8]`
   — idx 0 is the newest node (the PENDING one while `[layer+0x10]` bit 0 is set), idx 1 the one before; the step
   starts idx 0 and then clears bit 0, which is why `get_Frame` (idx = bit 0) follows the playing node either way.
