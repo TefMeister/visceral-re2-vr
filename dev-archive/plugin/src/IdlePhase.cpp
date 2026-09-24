@@ -190,6 +190,20 @@ bool pending(void* layer) {
     __except (EXCEPTION_EXECUTE_HANDLER) { return false; }
 }
 
+// v0.19b (2026-09-24 18:40): the first launch showed the aim PRESS arrives as transition kind 3 with a link
+// (the "sync to the linked node" start, 0x1425a2630), which skips the request block entirely; the RELEASE came
+// as kind 2 and took the request (frame 235.7 -> 235.9). So for our idle->idle switch on layer 0, present the
+// step with kind 2 for the duration of that one call and put the layer's own value back afterwards.
+constexpr uint32_t kKindPlain = 2;
+constexpr uint32_t kHoldIdleSlot = 160;   // bank 2 slot 160: the hold idle, spliced to the same full idle as bank 1 slot 160
+bool set_kind(void* layer, uint32_t kind) {
+    __try { at<uint32_t>(layer, kOffLayerKind) = kind; return true; }
+    __except (EXCEPTION_EXECUTE_HANDLER) { return false; }
+}
+
+// one call later, read the frame again: tells a seek that was undone later in the frame from one that held
+void* g_recheck[2] = {nullptr, nullptr};
+
 int current_index(void* layer) {
     __try { return static_cast<int>(at<uint32_t>(layer, kOffLayerFlags) & 1u); }
     __except (EXCEPTION_EXECUTE_HANDLER) { return 0; }
@@ -202,13 +216,22 @@ bool __fastcall detour_start(void* layer) {
     const bool ours = layer != nullptr && (layer == l0 || layer == l3);
     // the step runs every frame for every layer of every character; only a pending switch on the player's
     // layer 0 or 3 is our business (the original returns at once when bit 0 is clear)
-    if (!ours || !pending(layer)) return g_orig_start(layer);
+    if (!ours || !pending(layer)) {
+        const int slot = layer == l3 ? 1 : 0;
+        if (ours && g_recheck[slot] == layer) {
+            g_recheck[slot] = nullptr;
+            const Snap now = snapshot(layer, current_index(layer), true);
+            if (g_switch_lines < kSwitchLogMax) { ++g_switch_lines; logi("layer%d next step: bank %u slot %u reads frame %.1f of %.0f", slot == 1 ? 3 : 0, now.bank, now.id, now.frame, now.len); }
+        }
+        return g_orig_start(layer);
+    }
     g_pending.fetch_add(1);
     const Snap cur  = snapshot(layer, 1, true);    // the node playing now (its clip is bound)
     const Snap next = snapshot(layer, 0, false);   // the node about to start (clip not bound yet: names only)
     const bool enabled = g_enabled.load();
     Req req{};
     float fraction = -1.f;
+    bool redirected = false;
     const bool layer3 = layer == l3;
     if (enabled && next.node != nullptr) {
         if (layer3) {
@@ -223,6 +246,14 @@ bool __fastcall detour_start(void* layer) {
             }
         } else if (cur.node != nullptr && cur.frame >= 0.f && cur.len > 1.f
                    && is_idle_slot(cur.bank, cur.id) && is_idle_slot(next.bank, next.id)) {
+            // v0.19c (18:50): on layer 0 the raise slot is a linked node that ignores the request and reads frame
+            // 0.0 for its whole 20 frames (runs 1-2 tonight); the hold idle (slot 160, the same full idle) honours
+            // it. So when the press wants the raise slot on layer 0, hand the start slot 160 instead -- layer 3
+            // still plays the raise and ends the raise state on its own motion end.
+            if (is_raise_slot(next.bank, next.id)) {
+                __try { at<uint32_t>(next.node, kOffNodeId) = kHoldIdleSlot; redirected = true; }
+                __except (EXCEPTION_EXECUTE_HANDLER) { redirected = false; }
+            }
             fraction = cur.frame / cur.len;
             if (fraction < 0.f) fraction = 0.f;
             if (fraction > kMaxFraction) fraction = kMaxFraction;
@@ -230,11 +261,17 @@ bool __fastcall detour_start(void* layer) {
             if (req.written) g_requested.fetch_add(1);
         }
     }
+    // the press comes as kind 3 with a link and skips the request; show the step kind 2 for this one call
+    const bool force_kind = req.written && !layer3 && req.linked && (req.kind == 3 || req.kind == 4) && set_kind(layer, kKindPlain);
     const bool r = g_orig_start(layer);
+    if (force_kind) set_kind(layer, req.kind);
     const Snap after = snapshot(layer, current_index(layer), true);
     const bool switched = cur.node != nullptr && after.node != nullptr && (cur.bank != after.bank || cur.id != after.id);
+    if (redirected && g_switch_lines < kSwitchLogMax) { ++g_switch_lines; logi("layer0: the raise slot was handed slot %u instead (reads bank %u slot %u, frame %.1f of %.0f)", kHoldIdleSlot, after.bank, after.id, after.frame, after.len); }
     if (!switched) return r;
     g_switches.fetch_add(1);
+    g_recheck[layer3 ? 1 : 0] = layer;
+    if (force_kind && g_switch_lines < kSwitchLogMax) { ++g_switch_lines; logi("layer0: kind %u with a link -> shown as kind %u for this start", req.kind, kKindPlain); }
     if (!layer3) {
         g_last_from_bank = cur.bank; g_last_from_id = cur.id; g_last_to_bank = after.bank; g_last_to_id = after.id;
         g_last_old = cur.frame; g_last_new = after.frame;
