@@ -683,3 +683,31 @@ No-flashlight clip, first press (2.40 s) `[measured 2026-09-24, n=1 press frame 
 ## 23:15: idea 2 - the aiming look-at profiles as EXACT copies of the normal one
 
 Tefa, after the RotateBody detour: RotateBody off made no difference by eye or feel `[reported 2026-09-24]` (so it is not the cause), and the posture had flipped from hunched (butt out) to arched back (chest out) - the v4 zero-spine profiles overcorrected. **v5 look-at profiles installed: `default.user.2` copied byte for byte over all nine `Hold*.user.2`** (sha `a459cb2d…`, archived `lookat-archive5-exact-copy-of-default\`). Tefa in the headset: *"that is a huge improvement, pressing RG still makes the body move for a second or less, but it kind of snaps back to the pose it's supposed to have and doesn't launch the torso forward anymore"* `[reported 2026-09-24]`. Left: a sub-second blip at the press. Next: idea 1 - RG never enters the aim state.
+
+## 23:20–00:40 (into 2026-09-25): firing without aim, the shot blocker, v0.19d, and the running shake
+
+**Idea 1 test — fire without the aim state** (`visceral_fire_nohold_test.lua`, archived): `SurvivorActionOrderer.setForcePrecede(true, 4)`
+while the game's ATTACK input is down. Log `[measured 2026-09-25, n=3 presses]`: the order IS accepted with IsHold=false
+(Precede=4) and layer 4 plays `pl00_1120_HG_Hold_Shoot_NoAmmo` — a DRY FIRE, no bullet, no sound, no ammo spent, with a
+loaded gun (Tefa). So a real shot needs the aim state further down. **Idea 1 as "never enter aim" is dead; the micro
+latch (enter aim only for the shot) is the live route** — Tefa asked for it; with a 2-frame raise it costs ~2 frames.
+
+**v0.19c blocked normal aimed firing** `[reported 2026-09-25, Tefa: aimed RG+RT did not fire; fired again with the
+switch file removed]`: redirecting the press to slot 160 means layer 0's raise never ENDS, and the hold FSM waits for it
+before enabling attack. **v0.19d** (sha `263bf1fc…`): the raise plays again; its phase is carried across it (fraction
+remembered at raise start, asked for — plus the raise's length — when the raise hands over to the hold idle). With the
+**2-frame raise lists** (base v6 `d610f941…`, light v3 `85efe497…`): Tefa — *"it fires normally, blip is smaller … good
+enough for a gameplay i think"* `[reported 2026-09-25]`.
+
+**The running shake** (Tefa: a continuous small shake of camera and gun hand while running, a felt sway while walking; not
+aiming). Bisected with Tefa in the headset `[reported 2026-09-25, one test each]`: spine straightener off — same; body
+anchor off (NUM5) — same; tonight's idle-phase fix off — same; plugin v0.17 (pre-today) — same; all 18 files added
+today out (lists, look-at profiles, anchor/direct/lefthand scripts) — same; **no Visceral at all (no plugin, no scripts)
+— same.** Config identical to backups, REFramework files dated March/August. **So the shake is not Visceral's and not
+new: it is REFramework's first-person camera riding Claire's head through the run animation** `[hypothesis — n=1 per
+condition]`. Tefa remembers feeling it before and an Arcade Controls fix; that fix (2026-08-16, "subtract the offset,
+not the motion") is the soft-baseline straightener Visceral already runs, and it was about a fight our correction caused.
+Next for the shake: our own camera steadying (smooth the head-follow along the run bob) — a design job.
+
+**Installed at the end:** v0.19d + switch file, lists v6 base / light v3 (2-frame raise), look-at v5 (exact copy of
+Default), all eight Visceral scripts (probes, raise mute, freeze aid, fire test archived), config = defaults.

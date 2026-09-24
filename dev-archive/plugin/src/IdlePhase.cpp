@@ -195,11 +195,14 @@ bool pending(void* layer) {
 // as kind 2 and took the request (frame 235.7 -> 235.9). So for our idle->idle switch on layer 0, present the
 // step with kind 2 for the duration of that one call and put the layer's own value back afterwards.
 constexpr uint32_t kKindPlain = 2;
-constexpr uint32_t kHoldIdleSlot = 160;   // bank 2 slot 160: the hold idle, spliced to the same full idle as bank 1 slot 160
 bool set_kind(void* layer, uint32_t kind) {
     __try { at<uint32_t>(layer, kOffLayerKind) = kind; return true; }
     __except (EXCEPTION_EXECUTE_HANDLER) { return false; }
 }
+
+// v0.19d: the idle's phase remembered when layer 0 starts a raise, asked for again when the raise hands over
+float g_saved_fraction = 0.f;
+bool g_saved_valid = false;
 
 // one call later, read the frame again: tells a seek that was undone later in the frame from one that held
 void* g_recheck[2] = {nullptr, nullptr};
@@ -231,7 +234,6 @@ bool __fastcall detour_start(void* layer) {
     const bool enabled = g_enabled.load();
     Req req{};
     float fraction = -1.f;
-    bool redirected = false;
     const bool layer3 = layer == l3;
     if (enabled && next.node != nullptr) {
         if (layer3) {
@@ -246,19 +248,30 @@ bool __fastcall detour_start(void* layer) {
             }
         } else if (cur.node != nullptr && cur.frame >= 0.f && cur.len > 1.f
                    && is_idle_slot(cur.bank, cur.id) && is_idle_slot(next.bank, next.id)) {
-            // v0.19c (18:50): on layer 0 the raise slot is a linked node that ignores the request and reads frame
-            // 0.0 for its whole 20 frames (runs 1-2 tonight); the hold idle (slot 160, the same full idle) honours
-            // it. So when the press wants the raise slot on layer 0, hand the start slot 160 instead -- layer 3
-            // still plays the raise and ends the raise state on its own motion end.
+            // v0.19d (23:40): v0.19c handed the press slot 160 instead of the raise slot; that kept the idle's phase
+            // but the aim state then NEVER allowed a shot (Tefa, headset: aimed RG+RT did not fire until the switch
+            // file was removed) -- the hold FSM waits for layer 0's raise motion to END before it enables attack,
+            // and slot 160 loops. So the raise plays again (keep it short in the lists: 2 frames, v6 / light v3), its
+            // node ignores the request (reads 0.0), and the idle's phase is carried ACROSS it: remember the
+            // fraction when the raise starts, and ask for it (plus the raise's own length) when the raise hands
+            // over to the hold idle.
+            float base = cur.frame / cur.len;
             if (is_raise_slot(next.bank, next.id)) {
-                __try { at<uint32_t>(next.node, kOffNodeId) = kHoldIdleSlot; redirected = true; }
-                __except (EXCEPTION_EXECUTE_HANDLER) { redirected = false; }
+                g_saved_fraction = base; g_saved_valid = true;
+                fraction = -1.f;                                   // the raise node ignores a request; nothing to write
+            } else if (is_raise_slot(cur.bank, cur.id)) {
+                const float idle_len = static_cast<float>(g_idle_len.load());
+                base = g_saved_valid ? g_saved_fraction + (idle_len > 1.f ? cur.len / idle_len : 0.f) : 0.f;
+                g_saved_valid = false;
+                fraction = base;
+            } else {
+                fraction = base;
             }
-            fraction = cur.frame / cur.len;
-            if (fraction < 0.f) fraction = 0.f;
-            if (fraction > kMaxFraction) fraction = kMaxFraction;
-            req = request_fraction(layer, fraction);
-            if (req.written) g_requested.fetch_add(1);
+            if (fraction >= 0.f) {
+                if (fraction > kMaxFraction) fraction = std::fmod(fraction, 1.f);
+                req = request_fraction(layer, fraction);
+                if (req.written) g_requested.fetch_add(1);
+            }
         }
     }
     // the press comes as kind 3 with a link and skips the request; show the step kind 2 for this one call
@@ -267,7 +280,6 @@ bool __fastcall detour_start(void* layer) {
     if (force_kind) set_kind(layer, req.kind);
     const Snap after = snapshot(layer, current_index(layer), true);
     const bool switched = cur.node != nullptr && after.node != nullptr && (cur.bank != after.bank || cur.id != after.id);
-    if (redirected && g_switch_lines < kSwitchLogMax) { ++g_switch_lines; logi("layer0: the raise slot was handed slot %u instead (reads bank %u slot %u, frame %.1f of %.0f)", kHoldIdleSlot, after.bank, after.id, after.frame, after.len); }
     if (!switched) return r;
     g_switches.fetch_add(1);
     g_recheck[layer3 ? 1 : 0] = layer;
