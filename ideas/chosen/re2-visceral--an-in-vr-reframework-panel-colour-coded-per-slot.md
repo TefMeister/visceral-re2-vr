@@ -16,3 +16,5 @@ REFramework's own menu is a flat desktop UI that has to be aimed at with a mouse
 into the world — awkward in a headset. This asks for a trimmed-down, in-world version showing only
 the handful of controls this mod actually needs live (holster configure/reset, sliders, flashlight),
 each slot colour-coded so it reads at a glance instead of by label.
+
+Chosen by Tefa: 2026-09-24

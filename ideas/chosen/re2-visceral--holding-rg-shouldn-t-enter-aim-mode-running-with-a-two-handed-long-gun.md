@@ -19,3 +19,5 @@ today RG appears to do both at once, which may be why running with a long gun he
 possible right now. **This one needs a follow-up question before it's judged** — the mechanism
 (micro-latch, LG vs RT roles) is precise but the current RG behaviour it's contrasting against
 hasn't been confirmed.
+
+Chosen by Tefa: 2026-09-24

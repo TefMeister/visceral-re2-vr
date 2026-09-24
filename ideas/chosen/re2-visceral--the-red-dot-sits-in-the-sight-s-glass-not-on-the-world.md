@@ -65,3 +65,5 @@ matches where the bullet goes. Unchecked; the Village scope project has already 
 something onto a sight's glass on this engine, which may be reusable.
 
 ---
+
+Chosen by Tefa: 2026-09-24

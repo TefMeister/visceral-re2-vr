@@ -60,3 +60,5 @@ _Other categories appear as ideas arrive. Nothing is missing; they just haven't 
 **To add one:** `[re2] your idea` — anywhere, any time.
 
 🔗 Ideas for **all four** Resident Evil games at once — they share an engine and a modding framework — go on [`resident-evil-all.md`](resident-evil-all.md) (`[re games] your idea`).
+
+Chosen by Tefa: 2026-09-24
