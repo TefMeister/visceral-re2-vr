@@ -711,3 +711,11 @@ Next for the shake: our own camera steadying (smooth the head-follow along the r
 
 **Installed at the end:** v0.19d + switch file, lists v6 base / light v3 (2-frame raise), look-at v5 (exact copy of
 Default), all eight Visceral scripts (probes, raise mute, freeze aid, fire test archived), config = defaults.
+
+## 00:30-01:10 (2026-09-25): the running shake was the old REFramework BUILD - clean install fixes it
+
+Tefa: *"the shake was not there before"*. Full backup of every REFramework/mod file (`D:\RE2 REFramework buildsull-backup-2026-09-25-before-clean-install\`, 80,204 files, checksummed), game folder stripped to vanilla, Steam verify, fresh **REFramework nightly 01424** (commit d1461375, `REFramework.zip` + `VR.zip`, openvr_api.dll deleted for OpenXR). Tefa: *"it's completely smooth, not a single shake"*; then with the whole last Visceral on top (fresh config + first person + loose files): a tiny running bob that *"feels more like a feature"* - *"right now it's great"* `[reported 2026-09-25]`.
+
+The old install was praydog's special **pd-upscaler** branch build; its log: `Could not load PDPerfPlugin.dll, TemporalUpscaler will not work` - so DLSS never ran. Old config also had `TemporalUpscaler_Enabled=true`, `VR_RenderingTechnique_V2=2`. Also new in the fresh install: praydog's VR.zip scripts incl. `re2_smooth_movement.lua` (movement stabilization), which the old install lacked. Which of these was the shake is not isolated `[hypothesis]`; the fresh normal build is the baseline now.
+
+Tester package for Andyalpa: `D:\Visceral packages\Visceral-RE2-VR-test-2026-09-25.zip` - our own files only (8 scripts, plugin v0.19d + switch file, crosshair config, 12 own meshes/textures, minimal config); the 24 game-derived files (aim lists, look-at profiles, HD-hands textures) are NOT included (README: `mod/test-builds/2026-09-25-README.txt`). Second clean install done and the package installed exactly per its README (+ the game-derived files locally).
