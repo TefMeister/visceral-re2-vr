@@ -224,3 +224,12 @@ standing, it's frozen in place … also the laser pointer from the JMB hp3 gun h
   state begins. `visceral_spine_probe.lua` now logs `BODY yaw=` (player transform world yaw) once a second;
   a jump at the press settles it. If it is root yaw, the lever is where the hold state sets facing
   (`PlayerHoldedTurnTrack` / `HoldedTurn` in the FSM), or the spec-v2 route (we own facing in VR).
+
+**Finger banks, corrected (Tefa's two screenshots, 14:02, before/after RG: the whole grip changes, thumb
+over, fingers tighter).** The light-OFF carry grip is not a `FIN_HG01` clip at all: with the handgun out
+and no light the game already plays `50_Hold_HG01` on layer 2 whether aiming or not (run-4 probe,
+`hold=0 … L2: pl10_50_Hold_HG01`) `[measured 2026-09-24]`. So my `base_hdg_finger` mapping (`Hold_HG01` →
+`CAU_HG01`) *introduced* a grip change at the press — the run-6 probe shows `CAU_HG01` while aiming.
+**Taken out** (archived). The light-ON case really does switch `02_FIN_HG01_LGT` (carry) → `50_Hold_HG01_LGT`
+(aim), and the `hdg_finger_stlight_01` / `stwater` splices (aim slot → the carry clip) stay in. What is left
+at the press with the light on should be only the raise clip's arm motion under the pinned hand.
