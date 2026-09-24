@@ -28,5 +28,5 @@ d = np.abs(np.diff(rows[:, 3]))
 for k in range(0, len(rows), 3):
     t, area, top, cy, cx = rows[k]
     step = d[k - 1] if k > 0 else 0
-    print(f"t={t:5.2f} red={area*100:4.1f}% top={top:5.1f} cy={cy:5.1f} cx={cx:5.1f}")
+    print(f"{t:5.1f} {area*100:4.1f}")
 np.save(sys.argv[1].rsplit("/", 1)[-1] + ".npy", rows)
