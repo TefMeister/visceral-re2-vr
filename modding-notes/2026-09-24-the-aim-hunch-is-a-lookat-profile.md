@@ -45,3 +45,28 @@ Draw the handgun, aim standing and walking, flashlight off and on. Read:
 - `reframework_loose_files.txt` must list `Hold_HG.user.2` as taken.
 
 Per the standing rule, if it does nothing the files come out again and stay in the archive.
+
+## Result of the flat run, and the next lead (same afternoon)
+
+**It worked.** Tefa: *"it worked!"* — the arch is gone in all four stances `[verified-live 2026-09-24, n=1]`.
+The probe agrees: over 18 aimed seconds, spine_2's post-animation bend read **d = 0.0° average, 0.0° max**
+(31 unaimed seconds: 0.2° avg, 4.9° max); `Hold_HG.user.2` was taken by the loose-file loader. So the
+LookAt profile was the whole hunch. Dossier §8g promoted from `[inferred-static]` to verified.
+
+Tefa's next ask, verbatim: *"now the feet and legs animation has to match the walking one as well, but the
+body stays still!"* — read as: with the profile fix alone the legs still play the aim shuffle and the torso
+is rigid; both should move as in the ordinary walk. That is the v3 splice (ordinary walk + ordinary idle in
+the hold bank), which is **reinstalled** (`motlist_splice.py --game-dir`, default map, sha `1854e2af…`, same
+bytes as the archived v3). Expected side effect: the left-hand flicker while walking forward aimed.
+
+**Flicker lead (static):** the game pins the left hand with
+`app.ropeway.survivor.SurvivorIKLeftArmController` — fields `IKEnable` (bool @0x78), `IKBlendRate`
+(`DampingFloat` @0x80), `TargetMatrix` (@0x90), `CurrentTarget` (the weapon, via
+`ISurvivorIKLeftArmTarget.getIKLeftArmMatrix`, i.e. our `ikL` hook), constant `IK_ENABLE_THREASHOULD =
+0.01`; methods `updateIKEnable` @0x1417a8570, `updateBlendRate` @0x1417a6060, `updateTarget`, `applyMatrix`,
+`handlerExtraBlendRate` (registered with `IkController.addExtraBlendRate`). Motion clips can carry a
+`SurvivorIkLeftArmTrack { IKBlendRatio }` (looked up per motion through `MotionEx.getSameSequenceTrack`).
+`[hypothesis]` the aim loops carry that track and the ordinary walk loops do not, so under the splice
+`IKEnable` drops and the hand is only re-solved on a slow tick — the ~1/s flicker. Lever, once the
+decompile confirms what `updateIKEnable` reads: hold `IKEnable=true` and the blend target at 1.0 from the
+plugin while `IsHold`, and re-measure with the 1 Hz `hooks(aid ikL)` count (~72/s = fixed).
