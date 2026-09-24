@@ -1419,6 +1419,41 @@ order because of designated initialisers; default arguments on prototypes only; 
 `LOGI` macros need `extern g_param`; `IdlePhase.cpp` must NOT include `visceral.h`), the CMake block, and the
 proof list (0 warnings, same exports/imports/strings, code-shape scan, one flat run). Not executed yet.
 
+### 8k. Firing without the aim state (idea 7) — one decision, one shipped override (reader 2026-09-24, static)
+
+**Supersedes the 2026-08-29 reading that firing is "structurally bound" to the aim state.** `[inferred-static 2026-09-24]`
+unless marked; nothing launched.
+
+- The player's fire action is `app.ropeway.fsmv2.player.FireShot` (onStart 0x14033fe10 → createShell → requestFire;
+  onUpdate 0x141e3da60 fires when the clip's `PlayerFireWeaponTrack.Fire` flag is set), inside the FSM's Shot state. The
+  2026-08-29 "unknown wrapper 0x14037bd5b" is `SurvivorShootAction.shoot` @0x14037bd50.
+- **The binding is one method:** `app.ropeway.survivor.player.PlayerActionOrderer.checkOrder(ActionOrder.Precede)`
+  @0x140db49d0, case ATTACK (=4) at 0x140db515d–0x140db52b2: accepts ATTACK only if `!IsForbidAim` AND
+  `InputSystem.isOn(HOLD 0x40 | SUPPORT_HOLD 0x80)` AND `isOn(ATTACK 0x100)` AND `SurvivorCondition.get_EnableAttack()`.
+  `get_EnableAttack` @0x1411930c0 = equipment valid && !WaitChangeWeapon && `StateTagHandle.hasTag(HOLD)` && !HOLD_START
+  && !TURN(layer 0) && !CHANGE_WEAPON(layer 3) && !RELOAD(layer 3). `get_IsHold` @0x140454ed0 is literally hasTag(HOLD):
+  a read-out of the FSM state, not a switch.
+- **checkOrder's FIRST test is the orderer's Force bits** (`PrecedeBits.Force`, +0x14): if `Force & order` → true, before
+  any input or tag check. `SurvivorActionOrderer.setForcePrecede(bool, uint)` @0x140d1bad0 sets/clears them (a latch;
+  nothing clears it per frame). Game-shipped, callable from Lua (Arcade Controls used the sibling `setInhibitPetient` live).
+- Why 2026-08-29 failed: forced `Gun.enableFire/enableAttack` (mirrors) and `requestFire` were downstream of the decision;
+  a `get_EnableAttack` hook alone still dies on `isOn(HOLD)` in the same function.
+- Ranking, upstream → downstream: A the motion FSM data (a Shot transition from locomotion states; the player `.motfsm2`
+  path was not found statically) > **B1 `setForcePrecede(true, 4)` on `Condition.ActionOrderer` (+0x108) while RT is down,
+  false on release** / B2 post-hook `checkOrder` → true for arg 4 > C `get_EnableAttack` hook (insufficient alone) > D
+  `requestFire` (disproved) > E `Gun.executeFire` (ballistics only) > F the 2026-08-27 HOLD micro-latch (works, drags the stance).
+- Reject tracks (`SurvivorRejectPrecedeOrdersTrack` → Inhibit bits +0x10) can also block — log them.
+- Laser dot: `Gun.get_EnableLaserSight` @0x1413809b0 = EquipStatus == 1 && laser part fitted && one virtual yes/no via
+  `Gun.get_OwnerInterface` (IGunOwner slot +0x68, unresolved) `[hypothesis: the hold state]`. Lever if needed: post-hook
+  → true while two-handed.
+- **The one launch (flat, handgun, unaimed):** press RT → `setForcePrecede(true, 4)`; log Precede (+0x58), PrecedeBits
+  Inhibit/Force/Accept, IsHold, EnableAttack, layer-4 motion, bullet count; observe-only hooks on `FireShot.onStart` and
+  `Equipment.requestFire`. Read-out: Precede == 4 + FireShot.onStart + bullets drop + `HG_Hold_Shoot` on layer 4 ⇒ idea 7
+  is one field write; Precede == 4 but no FireShot ⇒ the FSM has no Shot path outside HOLD (data wall → fallback F);
+  Precede stays 0 with Inhibit & 4 ⇒ a reject track blocks it → try B2 / `setInhibitPrecede(false, 4)`.
+- Reader's tools (xref scan with owners from the dump, etc.) now in `dev-archive/tools/re-engine/`: `xrefs.py`,
+  `disasm2.py`, `owner.py`, `dumpls.py`, `pakfind.py`.
+
 ## 9. "Several lookalike systems, one is live" (a recurring RE2 trap)
 - A single weapon can carry **multiple similarly-purposed config tables** for
   what looks like one feature, and tuning the wrong one throws no error and no
