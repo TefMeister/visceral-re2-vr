@@ -544,3 +544,38 @@ node start, or detour 0x142479c80. Then `idle_phase_set_enabled(true)` and re-ru
 Reader drops this session (unread, in `engine-research/inbox/`): `2026-09-24-reader-plugin-cpp-split-map.md`
 (the move-only split plan for Plugin.cpp) and `2026-09-24-reader-leon-hold-bank-plan.md` (Leon's pl00
 splice lines, dry-run verified).
+
+## `/pd` 17:32–18:20: the seek point found on paper — the layer has a "start here" request slot of its own
+
+No launch. Read the start step (0x142488e00) and everything it calls after the node start, in full.
+
+**The finding.** `changeMotion(frame)` never seeks a clip itself. It writes two fields on the layer —
+`[layer+0x2b4] = frame`, `[layer+0x2bc] = 1` — and the start step reads them back inside 0x142488940 right after
+the reset, with a mode byte: 0 = frame 0 (what every FSM transition gets, hence the restart), 1 = that frame,
+2 = that FRACTION of the clip, 4/5 = continue from the previous node. It then does the seek in its own order
+(set frame, advance 0, refresh, node cache, layer delta), and clears the block at the end of the step. That is
+why `set_Frame` after the step read back 0.0 and the raw write crashed: both were outside the engine's own
+sequence. The place to write is BEFORE the original runs, into the request block — one float and one byte.
+
+**Built and deployed: v0.19 (sha `5ba3f2d6…`).** The detour writes mode 2 (fraction = old frame / old length) on
+layer 0 for idle→idle switches and fraction (len−2)/len on layer 3 for raise starts, then calls the original and
+logs what reads back. A fraction rather than a frame so a 20-frame excerpt can never be overrun. **The hook acts
+only while `reframework/plugins/visceral_idle_phase.on` exists** (checked at init and once a second) — every
+numpad key is taken, and a file is a switch the driver can flip without a rebuild. Without the file it reads and
+logs only, as v0.18e did. Also the step is skipped entirely unless a switch is pending (no more 60 Hz snapshots).
+
+**Leon.** The reader's plan was right: same slots, same names. Built his v5 base list and light list with the
+same command lines (`build_leon_lists.sh`), installed under `pl00/list/hdg/`, archived with hashes. Unseen.
+
+**Housekeeping.** Four old backup DLLs (`.bak-2026-09-05-v05`, `.pre-cam2`, `.pre-headwalk`, `.pre-v017`) moved
+out of `reframework/plugins/` into the builds archive (hashed, manifest), per the 2026-09-24 rule; `.prev` stays.
+The two reader drops were never committed by the /lm; committed now, then drained: the split map moved to
+`dev-archive/plugin/SPLIT-MAP-2026-09-24.md`, the Leon plan folded into dossier §8i.
+
+**Next — `[FLAT]`, one launch, no build:** create the empty file `reframework/plugins/visceral_idle_phase.on`,
+launch, reach gameplay with the gun out, press RG a few times (NUM4 latch, 250 ms hold, `re2focus.py` first), read
+`[visceral_phase] layer0 switch … asked fraction F, reads frame M of L`. `M ≈ F × L` ⇒ it took (then the press
+probe should show the hips within millimetres; then ask Tefa); `M = 0.0` with `flag7 1` or `kind 3/4 linked 1` ⇒
+an early-out, and the next lever is clearing that condition for one step; `M = 0.0` with neither ⇒ the seek is
+undone later in the frame (then trap `[state+0x30]` again with the request in place). Then the v4 lists (full idle
+in the raise slots) with the layer-3 shortening — the design that makes the raise phase continuous too.
