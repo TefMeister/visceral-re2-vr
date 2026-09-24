@@ -579,3 +579,33 @@ probe should show the hips within millimetres; then ask Tefa); `M = 0.0` with `f
 an early-out, and the next lever is clearing that condition for one step; `M = 0.0` with neither ⇒ the seek is
 undone later in the frame (then trap `[state+0x30]` again with the request in place). Then the v4 lists (full idle
 in the raise slots) with the layer-3 shortening — the design that makes the raise phase continuous too.
+
+## `/lm` 18:23–18:55: three launches — the idle now runs straight through the aim press AND the release
+
+Deployed at the end: `visceral_core.dll` **v0.19c** (sha `d319c39d…`), acting because `reframework/plugins/visceral_idle_phase.on`
+is present. Lists unchanged (v5 base + v1 light). Game closed by the driver at the end.
+
+**Launch 1 (v0.19, the request block alone)** `[verified-live 2026-09-24, n=6 presses]`:
+- The RELEASE took: hold idle at frame 235.7 → relaxed idle reads 235.9 right after the step (mode 2, fraction honoured).
+  Hips moved 0.2 cm in the second after the release (was 1–7 cm). **Half the nudge is gone, measured.**
+- The PRESS did not: relaxed idle 570.9 → raise slot 140 reads 0.0 of 20, and the step reported transition **kind 3
+  with a link** — the "sync to the linked node" start (0x1425a2630) that skips the request block. Hips moved 2.3 cm.
+- Layer 3's raise also read 0.0 of 20 after its request (kind 0, no link, flag 7 clear) — unexplained; see below.
+**Launch 2 (v0.19b: present kind 2 to the step for our one call, and re-read the frame one step later):**
+- Every layer-0 transition now reported kind 3 + link (launch 1's "kind 2 / kind 1" were stale reads of the previous
+  transition). With kind forced to 2 the release still took (209.3 → 209.5 → 209.8 a step later) — but the raise slot on
+  layer 0 STILL read 0.0, and **kept reading 0.0 for its whole 20 frames** ("next step: 0.0 of 20"). So the raise node on
+  layer 0 is not an ordinary clip node: its frame does not live where an idle node's does (child 0 of the wrapper), and
+  the request block does not reach it `[inferred-static + measured]`. Same for layer 3's raise node.
+**Launch 3 (v0.19c: when the press wants the raise slot on layer 0, hand the start slot 160 — the hold idle, the same
+full idle — instead, with the fraction request; layer 3 still plays its own raise):** `[verified-live 2026-09-24, n=3 presses]`
+- Press: relaxed 575.8 → hold idle reads **576.0**, next step 576.3. Release: 796.3 → **796.5** → 796.7. Twice more the same
+  (1016.6 → 1016.8; 1455.7 → 1455.9). **The idle's phase is continuous through press and release.** No crash, six presses
+  registered, laser/raise state untouched on layer 3 (its 20-frame raise ran and ended as before).
+- The hip probe caught one release edge: 0.8 cm over the following second — the idle's own sway, not a step.
+
+**What is NOT established:** how it feels in the headset (the whole point), and whether anything the raise slot on layer 0
+used to contribute is missed (it was 20 frames of the idle from frame 0, so nothing is expected). Layer 3's raise node
+reading 0.0 is unexplained but no longer matters: layer 3 is left exactly as the game runs it.
+
+**Reader this session:** on idea 7 (fire without the aim state) — its drop lands in `engine-research/inbox/` when done.
