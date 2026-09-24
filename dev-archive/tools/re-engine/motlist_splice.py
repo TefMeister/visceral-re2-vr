@@ -2,7 +2,8 @@
 
 Builds a new base_hdg_hold.motlist.524 for RE2 (ray-tracing build) in which the twelve aim-walk
 motions (six HG_Interpolation_*_Loop, six HG_Strafe*) are replaced by the character's own
-walk-cycle motions from base_cmn_move.motlist.524. Nothing is decompressed or re-encoded: mot
+walk-cycle motions from hdg/base_hdg_move.motlist.524 (the gun-drawn OFF_ walk; the 2026-09-06
+first build took the KFF_ walk from cmn/base_cmn_move, a different stance -- corrected 2026-09-24). Nothing is decompressed or re-encoded: mot
 entries are opaque blobs whose internal offsets are all entry-relative (CAF motlist_format_guide,
 confirmed on the RT files 2026-09-06: no header offset points outside its own blob), so an entry
 can be moved between containers whole. The container is rebuilt around them.
@@ -30,22 +31,24 @@ Legitimacy: read-only on the game's paks; writes only into --out. No game data i
 import argparse, os, struct, subprocess, sys, tempfile
 
 HDG_PATH = "natives/stm/sectionroot/animation/player/%s/list/hdg/base_hdg_hold.motlist.524"
-CMN_PATH = "natives/stm/sectionroot/animation/player/%s/list/cmn/base_cmn_move.motlist.524"
+CMN_PATH = "natives/stm/sectionroot/animation/player/%s/list/hdg/base_hdg_move.motlist.524"
 
 # aim slot (suffix after the pl10_/pl00_ prefix) -> walk motion (suffix) that replaces it
 DEFAULT_MAP = {
-    "0110_HG_Interpolation_F_Loop":      "0190_KFF_GazingWalk_F_Loop",
-    "0111_HG_Interpolation_L_Loop":      "0191_KFF_GazingWalk_L_Loop",
-    "0112_HG_Interpolation_R_Loop":      "0194_KFF_GazingWalk_R_Loop",
-    "0113_HG_Interpolation_Back_L_Loop": "0196_KFF_GazingWalk_Back_L_Loop",
-    "0114_HG_Interpolation_Back_B_Loop": "0197_KFF_GazingWalk_Back_B_Loop",
-    "0115_HG_Interpolation_Back_R_Loop": "0198_KFF_GazingWalk_Back_R_Loop",
-    "0120_HG_StrafeL_F": "0190_KFF_GazingWalk_F_Loop",
-    "0122_HG_StrafeL_L": "0191_KFF_GazingWalk_L_Loop",
-    "0124_HG_StrafeL_B": "0197_KFF_GazingWalk_Back_B_Loop",
-    "0126_HG_StrafeL_R": "0194_KFF_GazingWalk_R_Loop",
-    "0132_HG_StrafeR_L": "0191_KFF_GazingWalk_L_Loop",
-    "0136_HG_StrafeR_R": "0194_KFF_GazingWalk_R_Loop",
+    "0110_HG_Interpolation_F_Loop":      "0190_OFF_GazingWalk_F_Loop",
+    "0111_HG_Interpolation_L_Loop":      "0191_OFF_GazingWalk_L_Loop",
+    "0112_HG_Interpolation_R_Loop":      "0194_OFF_GazingWalk_R_Loop",
+    "0113_HG_Interpolation_Back_L_Loop": "0196_OFF_GazingWalk_Back_L_Loop",
+    "0114_HG_Interpolation_Back_B_Loop": "0197_OFF_GazingWalk_Back_B_Loop",
+    "0115_HG_Interpolation_Back_R_Loop": "0198_OFF_GazingWalk_Back_R_Loop",
+    "0120_HG_StrafeL_F": "0190_OFF_GazingWalk_F_Loop",
+    "0122_HG_StrafeL_L": "0191_OFF_GazingWalk_L_Loop",
+    "0124_HG_StrafeL_B": "0197_OFF_GazingWalk_Back_B_Loop",
+    "0126_HG_StrafeL_R": "0194_OFF_GazingWalk_R_Loop",
+    "0132_HG_StrafeR_L": "0191_OFF_GazingWalk_L_Loop",
+    "0136_HG_StrafeR_R": "0194_OFF_GazingWalk_R_Loop",
+    # standing while aimed: the gun-drawn idle instead of the arched aim idle (2026-09-24, Tefa: aim still hunched)
+    "0160_HG_Hold_Idle_Loop": "0160_OFF_Gazing_Idle_F_Loop",
 }
 
 
@@ -69,13 +72,15 @@ class Motlist:
         self.num = struct.unpack_from("<I", d, 0x30)[0]
         self.name = u16s(d, self.nameoff)
         self.slots = list(struct.unpack_from("<%dQ" % self.num, d, self.ptrs))
-        starts = sorted(set(self.slots))
+        starts = sorted(set(self.slots) - {0})      # 0 = empty slot (override lists leave most slots empty)
         ends = starts[1:] + [self.col]
         self.blob = {o: d[o:e] for o, e in zip(starts, ends)}        # entry start -> bytes (padding included)
         self.entry_name = {o: self.mot_name(o) for o in starts}
+        self.entry_name[0] = None
         self.by_name = {}
         for o, n in self.entry_name.items():
-            self.by_name.setdefault(n, o)
+            if o:
+                self.by_name.setdefault(n, o)
         self.collection = d[self.col:]
         if len(self.collection) != 72 * self.num:
             raise SystemExit("%s: collection block is %d bytes, expected 72 x %d slots -- layout differs, refusing"
@@ -111,6 +116,9 @@ def build(hold, move, mapping, prefix, log):
     slot_key = []
     replaced = []
     for i, o in enumerate(hold.slots):
+        if o == 0:
+            slot_key.append(None)
+            continue
         name = hold.entry_name[o]
         suffix = name[len(prefix) + 1:] if name.startswith(prefix + "_") else name
         if suffix in mapping:
@@ -130,7 +138,7 @@ def build(hold, move, mapping, prefix, log):
     placed = {}
     body = bytearray()
     for key in slot_key:
-        if key in placed:
+        if key is None or key in placed:
             continue
         blob = src[key]
         pad = align16(len(blob)) - len(blob)
@@ -140,7 +148,7 @@ def build(hold, move, mapping, prefix, log):
     out = bytearray(hold.header)
     out += b"\0" * (hold.ptrs - len(out))
     for key in slot_key:
-        out += struct.pack("<Q", placed[key])
+        out += struct.pack("<Q", placed[key] if key is not None else 0)
     out += b"\0" * (align16(len(out)) - len(out))
     assert len(out) == align16(hold.ptrs + 8 * hold.num)
     col = len(out) + len(body)
@@ -150,6 +158,9 @@ def build(hold, move, mapping, prefix, log):
     # report
     log("slot  number  motion (after)                                  frames bones clips fps  <- source")
     for i, key in enumerate(slot_key):
+        if key is None:
+            log("[%2d]  0x%03x   (empty slot)" % (i, hold.slot_number(i)))
+            continue
         blob = src[key]
         fc, bc, bcc, fps = hold.mot_info(blob)
         n = (move if key[0] == "move" else hold).entry_name[key[1]]
@@ -173,6 +184,9 @@ def verify(path_or_bytes, hold, move, replaced, log):
     if out.name != hold.name: problems.append("container name changed")
     rep = {i: walk for i, _, walk in replaced}
     for i, o in enumerate(out.slots):
+        if hold.slots[i] == 0:
+            if o != 0: problems.append("slot %d was empty and is not any more" % i)
+            continue
         want = rep.get(i, hold.entry_name[hold.slots[i]])
         got = out.entry_name[o]
         if got != want: problems.append("slot %d is %s, expected %s" % (i, got, want))
@@ -185,6 +199,8 @@ def verify(path_or_bytes, hold, move, replaced, log):
     newly_shared = 0
     for a in range(hold.num):
         for b in range(a + 1, hold.num):
+            if hold.slots[a] == 0 or hold.slots[b] == 0:
+                continue
             was, now = hold.slots[a] == hold.slots[b], out.slots[a] == out.slots[b]
             if was and not now: problems.append("slots %d and %d shared an entry in the original and no longer do" % (a, b))
             if now and not was:
