@@ -148,11 +148,12 @@ void idle_phase_init(const REFrameworkPluginInitializeParam* param) {
     if (base == 0) { logi("no module base; hook not installed"); return; }
     const auto target = base + (kLayerStartPending - kStaticBase);
     g_get_node = reinterpret_cast<GetNodeFn>(base + (kGetNode - kStaticBase));
-    // sanity: the target must start with `push rdi; sub rsp, 0x50` (57 48 83 EC 50) on the pinned build
+    // sanity: the target must start with `push rdi; sub rsp, 0x50` -- encoded 40 57 48 83 EC 50 (REX-prefixed
+    // push; the first deploy checked for 57 48 83 EC 50 and refused its own target, 2026-09-24 17:04)
     const auto* b = reinterpret_cast<const uint8_t*>(target);
-    if (!(b[0] == 0x57 && b[1] == 0x48 && b[2] == 0x83 && b[3] == 0xEC && b[4] == 0x50)) {
-        logi("target 0x%llx does not look like TreeLayer start-pending (bytes %02x %02x %02x %02x %02x) -- different build? hook NOT installed",
-             (unsigned long long)target, b[0], b[1], b[2], b[3], b[4]);
+    if (!(b[0] == 0x40 && b[1] == 0x57 && b[2] == 0x48 && b[3] == 0x83 && b[4] == 0xEC && b[5] == 0x50)) {
+        logi("target 0x%llx does not look like TreeLayer start-pending (bytes %02x %02x %02x %02x %02x %02x) -- different build? hook NOT installed",
+             (unsigned long long)target, b[0], b[1], b[2], b[3], b[4], b[5]);
         return;
     }
     if (MH_Initialize() != MH_OK && MH_Initialize() != MH_ERROR_ALREADY_INITIALIZED) { logi("MinHook init failed"); return; }
