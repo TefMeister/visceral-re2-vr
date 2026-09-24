@@ -1299,6 +1299,25 @@ while `IsHold` (`visceral_lefthand_hold.lua`, pre-hook + skip original) — **pr
 clip tracks themselves live in the mot's non-bone data (CAF's `clipFileOffset`/`offs1`/`offs2` region, not
 decoded); grafting them is the data route if the code route ever has to go.
 
+### 8g.3 ⭐⭐ What the hold (aim) state does to the body, and which lever answers each (2026-09-24, 19 runs)
+
+| what the aim state changes | where | lever, proven live 2026-09-24 |
+| --- | --- | --- |
+| spine bent up to 75° toward the aim point | LookAt profile `Hold_*.user.2` | patched profiles (`lookat_patch.py`) — spine ranges 0, head/neck = Default |
+| aim shuffle legs / aim idle twist | hold bank clips (`base_hdg_hold`, `hdg_hold_stlight_01`) | ordinary walk/idle spliced in (`motlist_splice.py`, `--fill` for the light list) |
+| left hand hold only with a per-motion track | `SurvivorIKLeftArmController` | `visceral_lefthand_hold.lua` forces blend 1.0 while IsHold |
+| capsule anchor Joint → CameraY (+ Hold shape) | `SurvivorCharacterController` | `visceral_body_anchor.lua` (field reset, Hold request dropped, relaxed joint/offset re-applied) — **the camera jump at the press** |
+| body steered toward the aim | `SurvivorCondition.IsDirectingBody` | `visceral_body_direct.lua` (getter answers false while IsHold) — the tension |
+| aim grip fingers (light on) | `hdg_finger_st*_01` | aim slot → carry grip |
+| our own leftovers: 1.3× aim speed, 0.175 m pelvis drop | `visceral_locomotion.lua`, `visceral_foot_ground.lua` | mult 1.0; script out |
+| **idle restarts at frame 0 at the press and the release** (pelvis slides 1–7 cm) | motion FSM transition on layer 0 | **OPEN** — every managed "next start" knob is ignored (changeMotion unused; ContinueFromPrevEnd, set_Frame, NextStartFrame, ResetStartFrame, NextStartToFrame all reset or inert `[measured 2026-09-24]`); `set_Frame` on layer 3 also inert and a full-length raise clip locks the aim state. Native route: hook the engine motion-start behind `TreeLayer.changeMotion` @0x140258430 |
+
+Measurement kit that found all of it: `visceral_state_diff_probe.lua` (every 0-arg getter on a list of
+components, diffed across the aim change — found OffsetType and IsDirectingBody), `visceral_press_probe.lua`
+(root/hips/head/camera per frame around the press, pre- and post-IK — proved the pelvis move is animation,
+not IK), `visceral_layer_probe.lua` (per-node weights, ground speed), `visceral_spine_probe.lua`.
+The VR camera rides the head bone at exactly +0.040 m `[measured]`.
+
 ### 8h. Bullet spread: the RE8 recipe, not yet checked on RE2 (drained from the 2026-09-21 inbox drop, 2026-09-24)
 
 Pointer only: `flat-to-vr-cross-engine-research/inbox/2026-09-21-mod-re-engine-bullet-spread-is-a-rotation-swapped-in-before-the-bullet-is-built.md`.
