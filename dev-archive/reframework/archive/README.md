@@ -1,0 +1,9 @@
+# Archived scripts
+
+Scripts that were tried in the game, did not do their job, and were taken back out. Kept here so they can be
+picked up again; none of them is installed.
+
+- `visceral_raise_mute.lua` (2026-09-24): set layer 3's BlendRate to 0 while a Hold_Start raise slot plays, to
+  stop the raise pulling the hips at the aim press. It ran as designed (muted and restored on every press) but the
+  measured hip movement at the press did not change (run C, `/lm` 2026-09-24 21:56). The nudge's likelier source is
+  `visceral_spine_straighten.lua` (see modding-notes 2026-09-24, `/lm` 21:50 section).
