@@ -19,7 +19,7 @@ local NS = sdk.game_namespace
 local VK_NUMPAD5 = 0x65
 local JOINT, CAMERA_Y = 0, 3
 
-local cfg = { enabled = true, keep_default_shape = true }
+local cfg = { enabled = true, keep_default_shape = true, keep_relaxed_offset = true }
 local st = { setter_hits = 0, setter_fixed = 0, field_fixed = 0, last_log = 0, prev_key = false, keys_ok = true }
 
 local function safe(fn) local ok, r = pcall(fn); if ok then return r end return nil end
@@ -88,6 +88,33 @@ local function install()
                         safe(function() ctrl:set_field("<OffsetType>k__BackingField", JOINT) end)
                         st.field_fixed = st.field_fixed + 1
                     end
+                    -- run 11: even with the Hold shape request dropped, the capsule's anchor JOINT and
+                    -- OFFSET still change while aiming (local offset (0.08, 1.24, -0.15) vs (0.06, 0, 0.06)):
+                    -- the body sits ~5 cm off. Remember the relaxed joint + offset and re-apply them while aiming.
+                    if cfg.keep_relaxed_offset then
+                        local p = get_player()
+                        local hold = p and is_aiming(p)
+                        local joint = safe(function() return ctrl:get_field("<ConstJoint>k__BackingField") end)
+                        local off = safe(function() return ctrl:get_field("<Offset>k__BackingField") end)
+                        if not hold then
+                            if joint then st.relaxed_joint = joint end
+                            if off then
+                                local c = safe(function() return off:get_field("<Current>k__BackingField") end)
+                                local t = safe(function() return off:get_field("_Target") end)
+                                if c and t then st.relaxed_off = { c = Vector3f.new(c.x, c.y, c.z), t = Vector3f.new(t.x, t.y, t.z) } end
+                            end
+                        elseif st.relaxed_joint and st.relaxed_off then
+                            if joint ~= st.relaxed_joint then
+                                safe(function() ctrl:set_field("<ConstJoint>k__BackingField", st.relaxed_joint) end)
+                                st.joint_fixed = (st.joint_fixed or 0) + 1
+                            end
+                            if off then
+                                safe(function() off:call("set_Target", st.relaxed_off.t) end)
+                                safe(function() off:call("set_Current", st.relaxed_off.c) end)
+                                st.off_fixed = (st.off_fixed or 0) + 1
+                            end
+                        end
+                    end
                 end, function(rv) return rv end)
             end)
             hooked = hooked + 1
@@ -111,11 +138,13 @@ re.on_frame(function()
     local c = component(p, NS("survivor.SurvivorCharacterController")); if not c then return end
     local ot = safe(function() return c:call("get_OffsetType") end)
     local lo = safe(function() return c:call("getLocalOffsetPosition") end)
-    log_line(string.format("hold=%d OffsetType=%s localOffset=(%s) setter %d/%d fixed, field fixed %d, shape requests %d (hold dropped %d)",
-        is_aiming(p) and 1 or 0, tostring(ot),
+    local joint = safe(function() return c:get_field("<ConstJoint>k__BackingField") end)
+    local jname = joint and safe(function() return joint:call("get_Name") end) or "?"
+    log_line(string.format("hold=%d OffsetType=%s joint=%s localOffset=(%s) setter %d/%d fixed, field fixed %d, shape requests %d (hold dropped %d), joint fixed %d, offset fixed %d",
+        is_aiming(p) and 1 or 0, tostring(ot), tostring(jname),
         lo and string.format("%.3f %.3f %.3f", lo.x, lo.y, lo.z) or "?",
-        st.setter_fixed, st.setter_hits, st.field_fixed, st.reg_calls or 0, st.reg_dropped or 0))
-    st.setter_hits, st.setter_fixed, st.field_fixed, st.reg_calls, st.reg_dropped = 0, 0, 0, 0, 0
+        st.setter_fixed, st.setter_hits, st.field_fixed, st.reg_calls or 0, st.reg_dropped or 0, st.joint_fixed or 0, st.off_fixed or 0))
+    st.setter_hits, st.setter_fixed, st.field_fixed, st.reg_calls, st.reg_dropped, st.joint_fixed, st.off_fixed = 0, 0, 0, 0, 0, 0, 0
 end)
 
 re.on_draw_ui(function()
@@ -123,5 +152,6 @@ re.on_draw_ui(function()
     local ch
     ch, cfg.enabled = imgui.checkbox("ENABLED (NUM5)", cfg.enabled)
     ch, cfg.keep_default_shape = imgui.checkbox("keep the Default capsule shape while aiming (drop Hold shape requests)", cfg.keep_default_shape)
+    ch, cfg.keep_relaxed_offset = imgui.checkbox("keep the relaxed anchor joint + offset while aiming", cfg.keep_relaxed_offset)
     imgui.tree_pop()
 end)
