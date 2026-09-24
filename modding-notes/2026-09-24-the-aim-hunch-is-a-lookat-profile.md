@@ -126,3 +126,21 @@ Tefa (flicker gone walking forward aimed?) + `[visceral_lefthand] hold=1 IKEnabl
 the plugin's `hooks(aid= ikL=)` back near the frame rate. Native port into `visceral_core.dll` after the
 Plugin.cpp split. `tools/re-engine/disasm.py` (capstone, seconds) and `dumpq.py` (dump reader) added —
 ghidrust's decompile of this exe takes minutes per function and its C output was not readable here.
+
+## Run 3 (13:23): twist gone, flicker gone, legs still stiff while aiming
+
+Tefa: *"twist is gone, flicker is gone, but legs and lower body still get that stiff leg animation
+then aim is active"*. Log `[verified-live 2026-09-24, n=1]`:
+- **Flicker lever proven:** `[visceral_lefthand] hold=1 IKEnable=true cur=1.00 tgt=1.00 calls/s=72
+  forced/s=72` for the whole aimed stretch, and the plugin's `hooks(aid= ikL=)` sits at 73–76/s while
+  aiming (was ~11/s under the splice without it). Dossier §8g.2 `[hypothesis]` → verified.
+- **Twist gone with v3** (the aim idle replaced): so the spine_0 yaw was the `HG_Hold_Idle_Loop` clip.
+- **Legs:** layer 0 plays `OFF_GazingWalk_*` from the spliced slots while aiming, and its reported
+  `EndFrame` is ~62 both aimed (bank 2) and unaimed (bank 1) for the 367-frame loop (the idle reads its
+  full 3354 both ways) — so the loop length is NOT what differs. `[hypothesis]` the hold tree's
+  locomotion node blends idle↔walk by movement speed and aiming caps the speed, so the walk gets only
+  part of the weight — a diluted half-step reads as "stiff". Probe added (`visceral_layer_probe.lua`,
+  read-only): per second, aim state, real ground speed (m/s), and every node with weight per layer.
+  Read on the next run: aimed-walking vs unaimed-walking speed, and the walk node's weight while aiming
+  (≈1.0 kills the hypothesis; <1 with idle carrying the rest confirms it → the lever is the aim
+  speed cap, i.e. spec v2 req 4, dossier §8d).
