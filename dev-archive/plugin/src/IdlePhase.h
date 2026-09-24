@@ -10,8 +10,10 @@ void idle_phase_init(const REFrameworkPluginInitializeParam* param);
 void idle_phase_set_layer0(void* layer0);
 void idle_phase_set_layer3(void* layer3);
 void idle_phase_set_idle_len(unsigned int frames);   // frames of the ordinary idle in the hold bank: 3354 (OFF) or 1000 (OLF)
-// Once a second: one log line with the counters (calls seen / layer-0 starts / phase restored / last frames).
+// Once a second: one log line with the counters (steps seen / pending switches / requests written / last frames),
+// and a re-check of the switch file.
 void idle_phase_tick_log();
-// Master switch (NUM* in Plugin.cpp).
+// Master switch. Normally driven by the switch file <game>\reframework\plugins\visceral_idle_phase.on (read at
+// init and re-checked by idle_phase_tick_log once a second); this call overrides it until the next check.
 void idle_phase_set_enabled(bool on);
 bool idle_phase_enabled();

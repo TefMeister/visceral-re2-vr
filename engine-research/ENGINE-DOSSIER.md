@@ -1329,9 +1329,41 @@ The VR camera rides the head bone at exactly +0.040 m `[measured]`.
 - **Every managed knob is inert for these transitions** (changeMotion never called; ContinueFromPrevEnd,
   set_Frame, NextStartFrame/ResetStartFrame/NextStartToFrame reset or ignored) `[measured 2026-09-24]`.
 - A MinHook detour on 0x142488e00 (`visceral_core.dll` v0.18, `src/IdlePhase.cpp`) catches the switch with the
-  old frame `[verified-live]`. Writing the frame back: a raw field write crashes on large jumps (0x142474734);
-  the engine's own `set_Frame` (0x142487cf0) called right after the step does not take (reads back 0.0).
-  Open: where in the step the frame must be set. The hook ships OFF by default; reads and logs stay on.
+  old frame `[verified-live]`. Writing the frame back AFTER the step: a raw field write crashes on large jumps
+  (0x142474734); the engine's own `set_Frame` (0x142487cf0 = wrap `vt+0x98` then `vt+0x90(0)`) called right after
+  the step reads back 0.0 `[measured 2026-09-24, n=1 launch]`.
+- **⭐ THE LEVER IS THE LAYER'S OWN START-REQUEST BLOCK** `[inferred-static 2026-09-24, /pd disassembly of
+  0x142488e00 + 0x142488940 + 0x1424838e0 + 0x1424736b0]`. `changeMotion(frame, …)` (0x1424838e0) does not seek
+  anything itself: it clears the block with 0x1424736b0(layer+0x270) — zeroes `[layer+0x2a0]`, `[+0x2a4]` (u16),
+  `[+0x2b0..0x2b7]`, sets `[+0x2b8] = -1.0f`, zeroes `[+0x2bc..0x2bf]` and `[+0x2c0]` — then writes
+  **`[layer+0x2b4] = frame` (float) and `[layer+0x2bc] = 1` (u8)** and lets the start step consume it. Inside the
+  step, straight after the node start (0x1424806f0) and the reset, **0x142488940(layer, wrap)** reads the block:
+  mode `[layer+0x2bc]` = **0 → start at frame 0** (what the FSM's transitions get), **1 → frame `[+0x2b4]`**,
+  **2 → fraction `[+0x2b4]` × clip length (`wrap->vt[0xd0]`)**, 3 → keyed on the previous clip, 4/5 → continue
+  from the previous node; then it does the whole seek in the engine's order: `vt+0x98` (set frame), `vt+0x90(0)`,
+  `vt+0xf0`, the node's frame cache 0x142480f80 (`[node+0xcc]`), `[layer+0x40]` = 0x142485b90, and one
+  `vt+0x90(delta)` with the layer's own delta (0x142485c40). The block is cleared again at the END of the step
+  (0x1424890fb), so a request is consumed exactly once. Two early-outs skip it: `[layer+0x10] & 0x80`, and
+  `[layer+0x164] ∈ {3,4}` with `[layer+0x158] ≠ 0` (then 0x1425a2630 runs instead).
+- **So the detour now writes the request BEFORE calling the original** — mode 2 with fraction = old frame / old
+  length on the player's layer 0 when an idle slot replaces an idle slot; on layer 3, fraction (idle_len − 2) /
+  idle_len when a raise slot starts, so the raise state ends within a frame or two whatever the clip's length.
+  A fraction rather than a frame because the target clip is not bound before the start, and a frame past the end
+  of a 20-frame excerpt is what crashed (0x142474734); for same-length clips the fraction IS the old frame.
+  v0.19 `[compile-verified 2026-09-24]`, deployed sha `5ba3f2d6…`, **acts only while
+  `reframework/plugins/visceral_idle_phase.on` exists** (checked at init and once a second); without it the
+  hook reads and logs only. Every real switch logs the requested fraction, the frame/length before, the
+  frame/length read back after, the mode the FSM had asked for, and both early-out conditions — so one launch
+  says took / did not take / which early-out.
+- The node ring: `0x142481a70(layer+0x118, idx)` returns `[[area+8] + (([area+0x48] − idx) or ([area+0x10] − idx)) × 8]`
+  — idx 0 is the newest node (the PENDING one while `[layer+0x10]` bit 0 is set), idx 1 the one before; the step
+  starts idx 0 and then clears bit 0, which is why `get_Frame` (idx = bit 0) follows the playing node either way.
+- Layout of the step 0x142488e00 in one line: bit 0 clear → return; phase `[+0xf0]`=1 + event 0x142473bb0(…,1);
+  set bit 1; node start; on success clear bits 0/1, set bit 2, `[+0x24]/[+0x28]` = 0, `[+0x25c]` = delta,
+  `[+0x40]` = 0; if `[+0x2bf]` → seek by (`vt+0xd0` − `vt+0xb0`) and copy the root-motion sample to `[+0x2f0]`
+  (vec3) / `[+0x300]` (quat); 0x142488940 (the request block); bit 4 of `[+0x174]` from `[+0x2c0]`;
+  0x14247cdd0(node, `[+0x3c]`, 0); phase 2 + event(…,2); phase 3; clear both request blocks; clear bits 6/7;
+  the `[+0x174]` bit-0 tail.
 - x64dbg on this game: `attach .PID` (decimal), ignore first-chance AVs via the ini (`C0000005-C0000005:second:nolog:debuggee`),
   **detach before closing** or the game dies with the debugger.
 
@@ -1344,6 +1376,38 @@ clean one `[verified-live 2026-09-21 on RE8, n=5]`. For RE2 nothing transfers ye
 the firing order. Two traps paid for: a value-type argument cannot be written from a Lua hook (needs
 `visceral_core.dll`), and in a native pre-hook `arg_tys[i]` are handles, not pointers. The two-hand half
 (knowing both hands are on the gun) is not built anywhere yet. Idea is floating on `mod-ideas`, not settled.
+
+### 8i. Leon (pl00): the item-22 hold-bank recipe carries over unchanged (reader plan 2026-09-24, built and installed by /pd)
+
+- Leon's `pl00/list/hdg/base_hdg_hold.motlist.524` has **the same 30 slot numbers and the same 30 motion-name
+  suffixes** as Claire's (raise slots 0x08c/0x08d/0x08f/0x096/0x097/0x099 at 20/22/24 frames; idle 0x0a0/0x0a6;
+  reload 0x4b0 kept), his `base_hdg_move` carries the same nine `OFF_Gazing*` names, `cmn_move_stlight` the same
+  nine `OLF_Gazing*`, and his `hdg_hold_stlight_01` has the same 29 empty placeholders + reload `[measured
+  2026-09-24, reader]`. Claire's v5 / light-v1 command lines were re-derived from `motlist_splice.py`'s defaults and
+  proved by hash against the installed files (`86760505…`, `be462fc7…`), then run for Leon with `--character pl00`
+  and his four paths: **both verify OK, 30 slots / 20 replaced each** `[measured 2026-09-24]`.
+- Installed `natives/STM/SectionRoot/Animation/player/pl00/list/hdg/{base_hdg_hold, hdg_hold_stlight_01}.motlist.524`
+  (522,464 / 808,688 bytes; sha `5ac53103…` / `6c958609…`), archived with a manifest under
+  `D:\RE2 REFramework builds\extracted (game data - never commit)\splice-archive\leon-v5-and-light-v1\`.
+  **Unseen in game** — `[FLAT]` one look as Leon. Script: `dev-archive/tools/re-engine/build_leon_lists.sh`.
+- Differences that do not change the commands but are the first suspects if Leon's aim-walk looks wrong: his
+  `OFF_GazingWalk` L/R/Back loops are one cycle (63–68 frames; Claire's 240), his `OFF_Gazing_Idle` 432 frames
+  (Claire 3,354 — **so Plugin.cpp's idle length 3354/1000 is Claire's; the v0.19 hook uses a fraction and does not
+  care, but the layer-3 shortening does: (432−2)/432 vs (3354−2)/3354 — both end within a frame or two**), his
+  `OLF_` idle 2,560 (Claire 1,000); bone/clip counts differ (120/120 idle vs 173/167). Whether Leon's 120-bone idle
+  carries the left-hand IK track (§8g.2) is `[hypothesis]`. Not done for Leon: the finger lists
+  (`hdg_finger_stlight_01/stwater_01` aim-grip slot), and whether the `pl0000` LookAt profiles (§8g) are his or
+  shared — Claire's hunch left with them patched, so they are at least not Claire-only.
+- Claire's own base list already holds `pl00_1100/1101/1102_HG_Hold_Shoot`, `pl00_1120_…NoAmmo`, `pl00_1301/1311`
+  holster clips — shoot/holster clips are shared across characters by the game itself `[measured 2026-09-24]`.
+
+### 8j. Plugin.cpp split map (reader, 2026-09-24) — `dev-archive/plugin/SPLIT-MAP-2026-09-24.md`
+
+The move-only split of `Plugin.cpp` (2,637 lines) into `visceral.h` + eight `.cpp` by job, with the fourteen things
+that make it non-trivial (one anonymous namespace → `namespace visceral`; `State g` must move whole and in member
+order because of designated initialisers; default arguments on prototypes only; template bodies in the header;
+`LOGI` macros need `extern g_param`; `IdlePhase.cpp` must NOT include `visceral.h`), the CMake block, and the
+proof list (0 warnings, same exports/imports/strings, code-shape scan, one flat run). Not executed yet.
 
 ## 9. "Several lookalike systems, one is live" (a recurring RE2 trap)
 - A single weapon can carry **multiple similarly-purposed config tables** for
