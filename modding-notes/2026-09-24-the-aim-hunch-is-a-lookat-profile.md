@@ -641,3 +641,25 @@ the twist removal, drops the freeze). Nudge still there ⇒ the straightener is 
 no-press control window for the hips.
 
 **CAVEAT (added the same evening): Tefa was wearing the connected headset during these launches** `[reported 2026-09-24]`. The head/camera follow the real HMD, so the head/camera A/B above (7-10 cm ON vs 0.2-1 cm OFF) may be their own head movement, not the straightener. Treat it as `[hypothesis]` until repeated with the headset still (or off the head, resting on a table). The hips numbers are less affected but were too noisy to read.
+
+## `/lm` 22:04–22:20: FOUND — the torso push at the aim press is REFramework's `FirstPerson_RotateBody`
+
+Tefa, in the headset with the spine straightener unticked: *"still there"* `[reported 2026-09-24]` — so the straightener
+is not it, and the head/camera A/B of 21:50 was their own head movement (headset worn), as the caveat said.
+With the headset resting still, a clean method: **freeze layer 0's playback** (`visceral_freeze_idle_probe.lua`, layer 0
+`set_Speed(0)`, temporary, archived) so the idle's sway stops; anything that moves at the press is caused by the press.
+
+`[measured 2026-09-24, n=4 edges per run, headset resting still]`, max hips movement (relative to root) in 45 frames:
+- **D — idle frozen, straightener off, FP defaults:** press **16.4 cm** (twice, identical), release 4–11 cm; head 0.1 cm
+  (the head is pinned over the root: root XZ == head XZ every frame). Frame by frame: the hips swing out to 16 cm over
+  ~14 frames, then settle ~7 cm forward for as long as aim is held. The layer probe shows **identical animation layers**
+  aimed and not aimed (L0 frozen idle, L1 dummy, L2 Hold_HG01 finger, IK LEG+ARMFIT) — so it is not animation.
+- **E — FirstPerson_ForceRotateMesh=false + FirstPerson_RotateBody=false:** press **3.1 / 3.0 cm**, release 1.6 / 1.7 cm.
+- **F — ForceRotateMesh=true, RotateBody=false:** press **3.1 / 3.3 cm**, release 1.8 / 1.7 cm.
+**So `FirstPerson_RotateBody` alone is the push.** (REFramework's first-person body rotation re-places the body under the
+camera, and does it differently in the aim state.) The remaining ~3 cm has not been looked into.
+
+**Installed now:** `re2_fw_config.txt` with `FirstPerson_RotateBody=false` (backup
+`D:\RE2 REFramework builds\re2_fw_config.backup-2026-09-24-2210.txt`), `ForceRotateMesh=true`, straightener back on,
+freeze aid removed. **The shipped `mod/re2_fw_config.txt` is NOT changed yet** — first Tefa checks in the headset that
+the push is gone AND that turning/looking around still feels right with body rotation off.
