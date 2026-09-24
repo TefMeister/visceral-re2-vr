@@ -103,3 +103,26 @@ did not fall between the two reads (it runs earlier, in the motion/IK phase), so
 FINAL pose, not the LookAt's own contribution. The posture proof therefore rests on Tefa's sighting plus the
 final-pose spine_2 pitch reading 3.4° avg while aiming; a stock-profile run with the probe would give the
 missing before number if ever needed.
+
+## The flicker, read from the code, and the lever (same afternoon, static)
+
+`SurvivorIKLeftArmController.lateUpdate` (re2.exe `0x1405c6900`) calls `updateBlendRate` (`0x1417a6060`)
+then `updateIKEnable` (`0x1417a8570`) `[measured 2026-09-24, capstone listing]`:
+- `updateBlendRate`: if `CurrentTarget` is null → `IKBlendRate._Target = 0`; else fetch the motion's
+  `SurvivorIkLeftArmTrack` list (`MotionEx.getSameSequenceTrack`, type token at `0x14917aa28`); **no
+  list or empty → `_Target = 0.0`; otherwise `_Target = last track's IKBlendRatio`**; then
+  `DampingFloat.update` damps `Current` toward `_Target`.
+- `updateIKEnable`: `IKEnable = (IKBlendRate.Current > IK_ENABLE_THREASHOULD 0.01)`.
+So the hold is a per-motion property carried by the clip's tracks; the ordinary walk/idle loops carry
+none, the hold bank's own loops do. Under the splice the hand hold switches off while aiming
+`[inferred-static 2026-09-24]` — that is the flicker (the hand is only where the IK put it last).
+`DampingStruct<float>` layout: `Current` @0x10, `_valueChanging` @0x30, `_Target` @0x34.
+
+**Lever built (Lua, own file): `visceral_lefthand_hold.lua`** — pre-hook on `updateBlendRate`; while
+`IsHold` and a target weapon exists it writes `Current = _Target = 1.0` and skips the original; otherwise
+the original runs (so letting go of aim damps the hand off as stock). Logs `IKEnable / cur / tgt /
+calls/s / forced/s` once a second. Installed with the v3 splice + patched profiles. Read on the run:
+Tefa (flicker gone walking forward aimed?) + `[visceral_lefthand] hold=1 IKEnable=true cur=1.00` +
+the plugin's `hooks(aid= ikL=)` back near the frame rate. Native port into `visceral_core.dll` after the
+Plugin.cpp split. `tools/re-engine/disasm.py` (capstone, seconds) and `dumpq.py` (dump reader) added —
+ghidrust's decompile of this exe takes minutes per function and its C output was not readable here.

@@ -1285,6 +1285,20 @@ hunched in all four stances (Tefa). So the hunch is added AFTER the motion data.
   side (its motlist and weapon-type spoofs failed; it settled on writing spine_0 after the fact) —
   `arcade-controls-re2-vr/modding-notes/case-studies/2026-08-05-claire-torso-twist.md`.
 
+### 8g.2 ⭐⭐ The left-hand hold is a per-motion TRACK, and the switch is one field (2026-09-24, static)
+
+`app.ropeway.survivor.SurvivorIKLeftArmController` (fields: `IKEnable` bool @0x78, `IKBlendRate`
+`DampingFloat` @0x80 with `Current` @0x10 / `_Target` @0x34, `TargetMatrix` @0x90, `CurrentTarget` @0xd0 =
+the weapon as `ISurvivorIKLeftArmTarget`, whose `getIKLeftArmMatrix` is the `ikL` getter we hook). Its
+`lateUpdate` (`0x1405c6900`) runs `updateBlendRate` (`0x1417a6060`) then `updateIKEnable` (`0x1417a8570`)
+`[measured 2026-09-24, disassembly]`: the blend target is the **last `SurvivorIkLeftArmTrack.IKBlendRatio`
+of the playing motion, 0.0 if the motion carries none**, damped into `Current`; `IKEnable = Current > 0.01`.
+Consequence: a motion spliced into the hold bank from the ordinary banks (item 22) carries no track, so the
+hold switches off while aiming — the once-a-second hand flicker. Lever: force `Current`/`_Target` to 1.0
+while `IsHold` (`visceral_lefthand_hold.lua`, pre-hook + skip original) `[hypothesis until the run]`. The
+clip tracks themselves live in the mot's non-bone data (CAF's `clipFileOffset`/`offs1`/`offs2` region, not
+decoded); grafting them is the data route if the code route ever has to go.
+
 ### 8h. Bullet spread: the RE8 recipe, not yet checked on RE2 (drained from the 2026-09-21 inbox drop, 2026-09-24)
 
 Pointer only: `flat-to-vr-cross-engine-research/inbox/2026-09-21-mod-re-engine-bullet-spread-is-a-rotation-swapped-in-before-the-bullet-is-built.md`.
