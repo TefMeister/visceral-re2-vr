@@ -75,8 +75,13 @@ local function apply(player)
     state.status = ok and string.format("dropping pelvis %.3fm", cfg.drop) or "set_Position failed"
 end
 
+local function cinematic()
+    return type(_G.__visceral_cinematic_blocking) == "function" and _G.__visceral_cinematic_blocking() == true
+end
+
 re.on_pre_application_entry("LateUpdateBehavior", function()
     if not cfg.enabled then return end
+    if cinematic() then state.status = "paused (cinematic)"; return end   -- don't drop the body during cutscenes/grab
     local player = get_player(); if not player then return end
     local aiming = is_aiming(player); state.ui_aiming = tostring(aiming)
     if cfg.only_when_aiming and not aiming then return end
