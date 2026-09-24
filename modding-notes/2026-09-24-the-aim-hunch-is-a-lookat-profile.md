@@ -372,3 +372,14 @@ press RG, the camera also shifts a little bit to the left, just a tiny bit"*.
   moving under it (forward) `[hypothesis]`. **v4 profiles installed: v3 (spine 0..0) plus head / neck_1 /
   neck_0 set to Default's records** (`lookat_patch.py --zero --head-default`; archived
   `lookat-archive\v4-zero-spine-default-head\`). Read: head/neck pre-values identical aimed and unaimed.
+
+## Run 13 (15:24): head/neck now identical aimed vs unaimed — nudge and camera shift still there
+
+Tefa: *"still the same and with the flashlight out it seemed to be pushing the body forward even more"*.
+Probe: head pitch −2.5/−2.9, yaw 20/17, neck_0 31.9 both ways `[measured]` — the v4 profiles removed the
+head-bone change, and it was not the nudge. Still differing while aiming: spine_1 pitch −4.8, spine_2
+−4.3 (unaimed 0.0) with every LookAt spine range at 0 — an unexplained −4.5° at two spine joints.
+No more guessing: **`visceral_press_probe.lua`** (read-only) records, frame by frame for 15 frames before
+and 30 after every aim change, the player root position, the world position of `cog/hips/pelvis`,
+`spine_0`, `spine_2`, `head` and the game camera. Whatever moves at the press, and by how much, is then
+a number, not an impression. Read: which of root / pelvis / head / camera jumps, in which axis.
