@@ -665,3 +665,7 @@ freeze aid removed. **The shipped `mod/re2_fw_config.txt` is NOT changed yet** �
 the push is gone AND that turning/looking around still feels right with body rotation off.
 
 **Tefa in the headset, same evening:** *"it's still there, whatever the numbers show you ... disabling body rotation breaks how body works in vr, so that has to stay on or we have to make our own version of it"* `[reported 2026-09-24]`. So `FirstPerson_RotateBody` is back to **true**; the 16 cm -> 3 cm hips measurement does NOT describe what Tefa sees (it measured hips relative to the root, which sits under the pinned head). `[disproved 2026-09-24]` as the explanation of the visible push. Next: measure what they actually see — capture the VR mirror view around a press with the headset resting still and track the torso in the image — and/or replace RotateBody with our own version that does not react to the aim state.
+
+## `/lm` 22:21-22:30: recording what Tefa sees - not possible from the desktop in VR mode
+
+With REFramework in VR the game window stays black (only the REFramework menu draws), with `VR_DesktopRecordingFixSkipPresent` true or false (tried false, one launch; put back to true). So the VR view cannot be captured from this PC by screen grab `[measured 2026-09-24, n=2 launches]`. Next: Tefa records the view in the headset (Quest: Meta menu -> Camera -> Record video) at a few aim presses - the only ruler that matches their eyes. Config is back to defaults (RotateBody=true, SkipPresent=true).
