@@ -454,3 +454,19 @@ base list back to **v4** (`2926883b…`), light list **v2** with full `OLF_Gazin
 at once (the v4 lesson) and the laser still switches on. `[hypothesis]`; read: `layer0 … frame set to N,
 reads N` lines at each press, `layer3 raise ended` counts, layer 3 not stuck (torso alive, laser on),
 press probe hips within a few mm.
+
+## Run 18 (16:09): set_Frame is a dead lever on layer 3 — and it locked the aim state
+
+Tefa: nudge back to varying amounts; **upper torso frozen, could not move while RG held, laser gone.**
+Log `[measured]`: layer 0 `set_Frame(49)` read back 49 at the switch (44 fixes) but the nudge stayed, so
+the tree re-derives the frame from its own node time after our write. Layer 3: `frame set to 3353` **2768
+times, and it read frame 1 again every frame** — the write never sticks, so the full-idle raise never
+reached its end, the raise state never ended (the v4 lesson again, now proven from the other side), and
+with it the laser and the movement. **Reverted at once:** base list back to v5 (20-frame raise copies,
+`86760505…`), light list back to v1 (`be462fc7…`); phase script v4 replaces v3 (no layer-3 writes, no
+set_Frame): it writes the current idle frame into `NextStartFrame` / `ResetStartFrame` / `NextStartToFrame`
+on layer 0 every frame and logs the getters plus the frame the new motion shows after a switch. If the
+getters read back as written and the switch still shows frame 0, those are dead too, and the honest
+route left is native: the tree's internal motion-start (what `TreeLayer.changeMotion` @0x140258430 calls)
+hooked from `visceral_core.dll` to rewrite the start frame — a `/pd` job for the plugin.
+Standing rule kept: v4/v2 lists stay archived, nothing deleted.
