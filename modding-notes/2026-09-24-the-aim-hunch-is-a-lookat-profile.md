@@ -144,3 +144,17 @@ then aim is active"*. Log `[verified-live 2026-09-24, n=1]`:
   Read on the next run: aimed-walking vs unaimed-walking speed, and the walk node's weight while aiming
   (≈1.0 kills the hypothesis; <1 with idle carrying the rest confirms it → the lever is the aim
   speed cap, i.e. spec v2 req 4, dossier §8d).
+
+## Run 4 (13:36): the stiff legs are a SPEED mismatch, not a blend
+
+`[visceral_layers]` `[measured 2026-09-24, n=1 run]`: while aiming and walking forward the walk node
+carries **w = 0.97–1.00** (the idle↔walk blend hypothesis is dead), but the ground speed reads
+**2.25–2.39 m/s aimed vs 1.58–1.84 m/s unaimed** (OFF and OLF walks alike). The extra is ours:
+`visceral_locomotion.lua` v5 amplifies aim-walk by `aim_speed_mult = 1.3` (Tefa's tuning from 2026-08-30,
+when aiming still played the slow shuffle). 2.3 / 1.3 ≈ 1.77 m/s, i.e. the game's own aim-walk pace is
+about the same as its walk `[inferred 2026-09-24]` — the shuffle only *looked* slower. A walk clip
+authored for ~1.7 m/s under a 2.3 m/s body = sliding, short-looking steps = "stiff legs". Tefa recalled
+this speed-up and the collision guard around it (v4 "amplify only the stick-forward part").
+**Change:** `aim_speed_mult` default 1.3 → 1.0 (the amplifier returns early at ≤1.0, writes nothing);
+the slider and NUM7/NUM9 still exist for the later req-4 work (one cap for aim/walk/run with the jog
+clip when fast). Game copy and dev-archive copy updated; `mod/` copy untouched until a release.
