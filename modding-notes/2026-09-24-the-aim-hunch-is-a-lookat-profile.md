@@ -470,3 +470,28 @@ getters read back as written and the switch still shows frame 0, those are dead 
 route left is native: the tree's internal motion-start (what `TreeLayer.changeMotion` @0x140258430 calls)
 hooked from `visceral_core.dll` to rewrite the start frame — a `/pd` job for the plugin.
 Standing rule kept: v4/v2 lists stay archived, nothing deleted.
+
+## Run 19 (16:18): the last polite lever is dead too — where the day ends
+
+Tefa: same nudge; laser and movement fine again. And the confirmation from their hands: *"if i press it every
+second or so [the nudge] seems to measure the same … when i pressed RG and deliberately waited longer than a
+few seconds, the nudge was visibly different"* — the restart model, felt.
+Log `[measured]`: every switch on layer 0 shows the new motion at **frame 0 or 1** (bank1/160 → bank2/140 →
+bank2/160 at the press, bank2/160 → bank1/160 at the RELEASE — so there is a restart nudge on release too);
+`NextStartFrame` reads 0.0 and `NextStartToFrame` −1.0 whatever we write, `ResetStartFrame` keeps our value
+and changes nothing. **Every setting the managed layer exposes for "start the next motion here" is ignored
+by the FSM's own transitions** (changeMotion never called; ContinueFromPrevEnd, set_Frame, NextStartFrame,
+ResetStartFrame, NextStartToFrame — all dead 2026-09-24). Phase script taken out of the game (kept in
+`dev-archive/`).
+
+**What is IN the game at the end of the day, all proven live:** v4 LookAt profiles (no spine bend, relaxed
+head/neck); v5 base hold bank + v1 light hold bank (ordinary walk/idle while aiming, 20-frame idle copies in
+the raise slots); two light-on finger banks; `visceral_lefthand_hold.lua` (hand hold on while aiming);
+`visceral_body_anchor.lua` (capsule anchor joint/offset kept relaxed, Hold shape dropped);
+`visceral_body_direct.lua` (no body steering while aiming); `visceral_locomotion.lua` aim mult 1.0;
+`visceral_foot_ground.lua` out. Probes still in: spine, layers, state-diff, press (read-only, log only).
+**Left:** the ~3 cm (light on: up to 7 cm) pelvis slide at the press AND at the release, from the idle
+restarting at frame 0 — the last piece of "RG moves only the weapon". Route: native, in `visceral_core.dll`:
+hook the tree's internal motion-start (follow `TreeLayer.changeMotion(bank,id,startFrame)` @0x140258430 into
+the engine call it wraps; the FSM uses the same path) and pass the previous frame when both motions are
+Gazing_Idle — after the Plugin.cpp split. Static prep: decompile 0x140258430 with `disasm.py`.
