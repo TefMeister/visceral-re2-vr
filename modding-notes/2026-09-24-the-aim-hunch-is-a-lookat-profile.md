@@ -338,3 +338,21 @@ walking aim still have the body twist and careful steps."*
   cut to 20/22/24 frames** (mirrors v5). Installed at `natives/STM/SectionRoot/Animation/Player/pl10/list/CMN/
   cmn_hold_stlight.motlist.524` (sha `087cf847…`), archived. Read: with the light on and aiming, layer 0
   should show `OLF_*` clips; Tefa: light-on aim = light-on relaxed.
+
+## Run 11 (15:10): "nothing changed" — both guesses were the wrong file / the wrong field
+
+- **Flashlight:** `CMN_HOLD_stLIGHT` was taken by the loader, yet the aimed layer-0 clips were `OFF_*` only
+  (28 unaimed samples with `OLF_*` prove the light was on) `[measured 2026-09-24]`. So that list is not the
+  one the handgun-with-light hold state reads (its `HGL_`/`KFL_` names suggest it is for holding the LIGHT
+  as the item). **Taken out again** (archived as v2). The list that IS per-weapon and light-on is
+  `hdg_hold_stlight_01` — 30 slots, only `HGL_Hold_Reload` filled, the other 29 empty placeholders with the
+  same numbers as the base bank. **v1 built with `--fill`: Interpolation + strafe → `OLF_GazingWalk_*`, idle
+  slots → `OLF_Gazing_Idle_F_Loop`, Hold_Start → the OLF idle @20/22/24; reload kept.** Installed beside
+  `base_hdg_hold`, archived. `[hypothesis]` this is the list the aimed light-on state consults.
+- **Forward push:** the Hold shape request was dropped (`hold dropped 1` at the press) and the local offset
+  STILL read (0.08–0.12, 1.22–1.25, −0.13–−0.16) while aiming. So the capsule anchor JOINT / OFFSET change by
+  another path (the `COG` joint of the Hold parameter, most likely applied inside `attainShape` from the
+  condition rather than from the request). **Anchor script now remembers the relaxed `ConstJoint` and the
+  `Offset` DampingVec3 (`Current` @0x10, `_Target` @0x50) and re-applies them before every
+  `updateCharacterController` while aiming**; the 1 Hz line prints the joint name and the fix counts.
+  Read: `joint=` the same name aimed and unaimed, `localOffset` ≈ (0.06, 0, 0.06) while aiming.
