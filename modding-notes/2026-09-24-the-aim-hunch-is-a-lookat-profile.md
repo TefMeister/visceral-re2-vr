@@ -383,3 +383,20 @@ No more guessing: **`visceral_press_probe.lua`** (read-only) records, frame by f
 and 30 after every aim change, the player root position, the world position of `cog/hips/pelvis`,
 `spine_0`, `spine_2`, `head` and the game camera. Whatever moves at the press, and by how much, is then
 a number, not an impression. Read: which of root / pelvis / head / camera jumps, in which axis.
+
+## Run 14 (15:39): the press, in numbers
+
+`visceral_press_probe` over 14 aim changes `[measured 2026-09-24]`. At every aim-ON, relative to the last
+frame before the press, sampled at +1/+5/+10/+20/+30 frames:
+- **root: 0.000 in every axis, every press.** The character does not move.
+- **hips (= spine_0): ramp over ~10–20 frames to (+0.04, −0.02, −0.03) m** in the first six presses and to
+  **(+0.01, −0.018, −0.07) m** in the later ones (Tefa had the light on for the second set, and reported the
+  light-on push as bigger — matches). Same direction at every press within a set: systematic, not an
+  animation phase jump. spine_2 follows the hips; the head moves ~2–3 cm.
+- **cam − head = (0.000, 0.040, 0.000) before and after, every press:** the VR camera rides the head bone;
+  the "camera shifts a little left" IS the head being carried by the hips.
+So something post-animation translates the pelvis a few centimetres (and lowers it 2 cm) with damping
+when the hold state begins — the shape of a leg-IK / balance adjustment. Next probe pass: sample hips/head
+at `LateUpdateBehavior` (before IK) as well as at `PrepareRendering`, plus `IkController.getBlendRate(kind)`
+per frame; if the pre-IK hips stay put and the post-IK hips move, the mover is IK (LEG or the attitude
+lean), and its blend curve names it.
