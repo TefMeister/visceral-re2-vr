@@ -73,6 +73,13 @@ re.on_pre_application_entry("PrepareRendering", function()
     local p = get_player(); if not p then return end
     local hold = is_aiming(p) and 1 or 0
     local parts = {}
+    -- character facing (world yaw of the player transform): does the game turn the body at the aim press?
+    local tf = get_transform(p)
+    local rot = tf and safe(function() return tf:call("get_Rotation") end) or nil
+    if rot and type(rot.x) == "number" then
+        local _, yaw, _ = euler_deg(rot)
+        parts[#parts + 1] = string.format("BODY yaw=%.1f", yaw)
+    end
     for _, n in ipairs(JOINTS) do
         local a, b = pre[n], post[n]
         if a and b then
