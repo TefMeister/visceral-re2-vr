@@ -515,3 +515,32 @@ form is `C0000005-C0000005:second:nolog:debuggee`; and **force-closing x64dbg wh
 the game** — the game was lost that way at 16:48 (detach first, always). Memory note written
 (`x64dbg-attach-lessons`). MinHook vendored into `dev-archive/plugin/third_party/minhook` (BSD-2) for the
 native hook; CMake not yet wired.
+
+## `/lm` 17:03–17:27: the native hook, six launches, and where it stands
+
+**Deployed at the end: `visceral_core.dll` v0.18e (sha `33245bb5…`), hook installed but OFF by default (it only
+reads and logs); animation lists back to v5 base + v1 light (20-frame raise copies). Safe state.**
+
+What the native hook proved `[verified-live 2026-09-24]`:
+- MinHook detour on `TreeLayer` start-pending (static 0x142488e00, `40 57 48 83 EC 50`) installs and fires;
+  the step runs **every frame per layer** (60/s on layer 0); a real switch is `bank/id` changed across the
+  original. At the press it sees exactly `bank 1 slot 160 (frame N) -> bank 2 slot 140: reset to 0.0` — the
+  restart, caught at its source, with the old frame in hand.
+- Two ways to put the frame back both FAILED: (a) raw write to the clip state (`[[child+0x38]+0x30]`, plus
+  `+0x38`): a jump of 142 survived, jumps of 488 and 3353/3352 **crashed the game** at 0x142474734 (a
+  child-iteration walk; crashes at 17:13, 17:18, 17:20, 17:22); (b) the engine's own `TreeLayer.set_Frame`
+  (0x142487cf0) called right after the original: no crash, but the frame **reads back 0.0** and the raise
+  slot on layer 0 sat at frame 0.0 for the whole hold (the value never took), and layer 3's raise never
+  ended (torso frozen + laser off during the hold, as v4). So the seek path is deferred or goes to a different
+  child than our read (`vt+0x180` for set vs `vt+0x178` for get; the refresh at `vt+0x90` = 0x142479c80
+  re-derives caches) `[inferred-static]`.
+- The plugin's NUM4 latch registers only when the game window is really foreground; `re2focus.py` added.
+  With a 250 ms virtual-key hold and 3 s spacing all six presses registered (run 6).
+
+Next (static): decompile the tail of 0x142488e00 after the node start (it calls `[vt+0xb0]`/`[vt+0x90]` and
+writes `[layer+0x25c]`, `[layer+0x40]`) and the wrapper set path (`vt+0x98` -> child, refresh `vt+0x90`) to
+find where a seek sticks — candidates: set the frame inside the step via `[layer+0x2b4]/+0x2bc` before the
+node start, or detour 0x142479c80. Then `idle_phase_set_enabled(true)` and re-run the press script.
+Reader drops this session (unread, in `engine-research/inbox/`): `2026-09-24-reader-plugin-cpp-split-map.md`
+(the move-only split plan for Plugin.cpp) and `2026-09-24-reader-leon-hold-bank-plan.md` (Leon's pl00
+splice lines, dry-run verified).

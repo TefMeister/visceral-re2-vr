@@ -2455,6 +2455,8 @@ void on_frame() {
     dump_layers(false);   // logs only on change
     // v0.18: hand the native idle-phase keeper the player's layer 0 (managed pointer == native TreeLayer) and its 1 Hz line
     idle_phase_set_layer0(g.motion != nullptr ? inv_ptr(g.motion, "getLayer", {(void*)(uintptr_t)0}) : nullptr);
+    idle_phase_set_layer3(g.motion != nullptr ? inv_ptr(g.motion, "getLayer", {(void*)(uintptr_t)3}) : nullptr);
+    if (!g.layer_last.empty()) idle_phase_set_idle_len(g.layer_last[0].find("_OLF_") != std::string::npos ? 1000u : 3354u);
     if (g.frame % 60 == 0) idle_phase_tick_log();
 
     const double t = now_s();
