@@ -259,3 +259,29 @@ Built for the next run:
   layer 0 (whole body) and layer 3 (upper body). `[hypothesis]`: no body motion at the press, laser still
   switches on (the state still ends). If the file is rejected or the laser goes again, this comes out.
   sha `86760505…`, archived.
+
+## Run 8 (14:26): v5 did not remove the twitch — but the diff probe named the switch
+
+Tefa: *"twitch is still there and i almost feel the player body get stiff and tense when RG is pressed and
+held. the hand still moves, and the little twitch still goes through the whole body."* (v5 raise-slot
+idle copies loaded fine and the laser stayed — so the raise clip was not the twitch.)
+
+`[visceral_diff]` over 13 aim changes `[measured 2026-09-24]`: apart from the expected condition flags
+(`IsHold`, `IsHolding`, `EnableAttack`, `EnabledReticleFit`, `EnableUpdateHitCandidate`) and timer noise,
+**exactly one body setting flips at every press: `SurvivorCharacterController.OffsetType` Joint(0) →
+CameraY(3), and back on release.** `JointDefine.OffsetType = {Joint 0, Object 1, Camera 2, CameraY 3}`.
+CameraY anchors the character's capsule/body offset to the camera — the third-person shoulder offset —
+and in VR the camera is the headset: the body shifts at the press and is then held relative to the head
+while aiming. `[hypothesis]` that is the whole-body twitch, the "stiff and tense" feel, and probably the
+small turn to the right (the TPS shoulder offset is to the right). Nothing in `via.motion.IkLeg` flipped,
+so the aim-walk "careful steps" are not leg-IK options either; if the anchor is the cause of the body
+being dragged, it may also explain the leg look.
+
+**Lever installed: `visceral_body_anchor.lua`** — pre-hook on `set_OffsetType` rewriting CameraY → Joint for
+the player's controller, plus a pre-hook on `updateCharacterController` that resets the backing field if
+the game wrote it directly; logs `OffsetType`, `getLocalOffsetPosition` and the hit counts once a second;
+NUM5 toggles. Read on the run: `OffsetType=0` while `hold=1`, the local offset unchanged at the press, and
+Tefa: no twitch, no tension, legs. If the hook counts stay 0 and the type still reads 3, the value is
+written below the property (then: the `SurvivorCharacterControllerUserData` "Hold" shape entry, joint
+`COG`, category 2, `DefaultSurvivorCharacterControllerUserData.user.2` pulled and hex-read; or the native
+`updateCharacterController` @0x1411045d0).
