@@ -1240,6 +1240,62 @@ withdrawn field names are not recorded here at all.
   untested lever" is **upgraded**, on a sibling result on the same engine rather than on our own run
   `[verified-live 2026-09-06, on re-village-scope-vr]`.
 
+### 8g. ⭐⭐⭐ THE AIM POSTURE IS NOT ANIMATION DATA — it is a per-stance LookAt profile bending the spine (2026-09-24, static + three flat runs)
+
+Three splices of `base_hdg_hold.motlist.524` (knife walk, gun walk, gun walk + gun idle, plus the flashlight
+list) all loaded and played on layer 0 while aiming `[verified-live 2026-09-24, n=1 each]`, and Claire stayed
+hunched in all four stances (Tefa). So the hunch is added AFTER the motion data. What adds it:
+
+- **`natives/stm/sectionroot/userdata/character/survivor/pl0000/lookat/*.user.2`** — one
+  `app.ropeway.LookAtUserData` per stance: `Default`, `Jog`, `Light`, `Jog_Light`, `Danger`, `Hold`, `Hold_HG`,
+  `Hold_HG_hp`, `Hold_SG`, `Hold_GG`, `Hold_RL`, `Hold_HackTool`, `HoldGrenade`, `HoldKnife`
+  `[measured 2026-09-24]` (all listed in the loose-file access log; `pl0000` here is survivor-generic, Claire
+  loads them too). `MainLookAtUserDataHolder.user.2` maps them: `LookAtUserDataHolder` has `Default/Jog/Light/
+  LightJog` keyed by `SurvivorDefine.Vital` and `Hold/LightHold` keyed by `EquipmentDefine.WeaponType`; its
+  `Accessor` (`_Vital,_WeaponType,_IsHold,_IsJog,_IsLight`) picks one with `getUserData(bool)`.
+- Each profile carries an `AlterJointDataList` of `AlterJointData {JointName, PitchDeg Range, YawDeg Range,
+  IsEnableWorldXPreCorrect, WorldPitchDeg Range, IsEnableInherit}` (layout from the il2cpp dump; decoded
+  with `dev-archive/tools/re-engine/lookat_read.py`, the RSZ records are read in place):
+
+  | profile | spine_2 pitch | spine_1 pitch (world) | spine_0 (world) |
+  | --- | --- | --- | --- |
+  | Default | -5..10 | -5..10 (-5..10) | — |
+  | **Hold_HG** | **-30..75, world pre-correct 0..55** | -5..15 (-10..30) | 0 (-10..25) |
+  | Hold_SG | -30..50 | -5..10 | 0 (-10..99) |
+  | Hold (other guns) | -30..60, yaw -30..60 | 0 (-45..90) | — |
+  | HoldKnife | -20..35 | -25..40 (-15..20) | -10..25 (-20..45) |
+
+  So while holding the handgun the LookAt may pitch spine_2 up to 75° toward the aim point, plus a 55°
+  world-pitch pre-correction, where the ordinary stance allows 10°. `[inferred-static 2026-09-24]` that this
+  is the whole hunch; the run below decides it.
+- **Which step runs last:** the LookAt/IK passes run after motion evaluation and after our Lua
+  `visceral_spine_straighten.lua` write at `LateUpdateBehavior` (that script straightens the ANIMATED pose
+  and is then bent again by the LookAt — which is why it never removed this). A profile change is upstream of
+  the LookAt solve, so it is a fix, not an annotation.
+- **Lever built:** `dev-archive/tools/re-engine/lookat_patch.py` rewrites the spine_0/1/2 records of every
+  `Hold*` profile to Default's numbers in place (same byte size, RSZ untouched; `--zero` for no bend at all)
+  and re-reads its own output. Installed as loose files under `natives/STM/SectionRoot/UserData/Character/
+  Survivor/pl0000/LookAt/` (the loader serves `.user.2`: every one of these is in `reframework_accessed_files`
+  through `[LooseFileLoader]`). Head/neck records left alone. **Proof instrument:**
+  `dev-archive/reframework/autorun/visceral_spine_probe.lua` logs spine_0/1/2/neck_0/head local rotation at
+  `LateUpdateBehavior` (pre-IK) and at `PrepareRendering` (post), once a second with `hold=`: stock profiles
+  should show a `d=` of tens of degrees on spine_2 while aiming, patched ones ≤ ~10°.
+- Not the cause, ruled out statically: `app.ropeway.IkAttitude` is ground-lean (COG/foot/ground-normal
+  fields only); `IkController.isEnabled(SPINE)=0` refers to `IkSpineConformGround`; the hold bank's
+  flashlight/`cpB` override lists only override the reload. Arcade Controls hit the same wall from the other
+  side (its motlist and weapon-type spoofs failed; it settled on writing spine_0 after the fact) —
+  `arcade-controls-re2-vr/modding-notes/case-studies/2026-08-05-claire-torso-twist.md`.
+
+### 8h. Bullet spread: the RE8 recipe, not yet checked on RE2 (drained from the 2026-09-21 inbox drop, 2026-09-24)
+
+Pointer only: `flat-to-vr-cross-engine-research/inbox/2026-09-21-mod-re-engine-bullet-spread-is-a-rotation-swapped-in-before-the-bullet-is-built.md`.
+On RE8 the scatter is a rotation handed to `createBulletImple` and a native pre-hook can replace it with the
+clean one `[verified-live 2026-09-21 on RE8, n=5]`. For RE2 nothing transfers yet: grep the dump for
+`createBullet` / `createBulletImple` / `setupDiffusion` first (RE2 shows `set_Diffusion`), then one live trace of
+the firing order. Two traps paid for: a value-type argument cannot be written from a Lua hook (needs
+`visceral_core.dll`), and in a native pre-hook `arg_tys[i]` are handles, not pointers. The two-hand half
+(knowing both hands are on the gun) is not built anywhere yet. Idea is floating on `mod-ideas`, not settled.
+
 ## 9. "Several lookalike systems, one is live" (a recurring RE2 trap)
 - A single weapon can carry **multiple similarly-purposed config tables** for
   what looks like one feature, and tuning the wrong one throws no error and no
