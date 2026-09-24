@@ -1266,8 +1266,7 @@ hunched in all four stances (Tefa). So the hunch is added AFTER the motion data.
   | HoldKnife | -20..35 | -25..40 (-15..20) | -10..25 (-20..45) |
 
   So while holding the handgun the LookAt may pitch spine_2 up to 75° toward the aim point, plus a 55°
-  world-pitch pre-correction, where the ordinary stance allows 10°. `[inferred-static 2026-09-24]` that this
-  is the whole hunch; the run below decides it.
+  world-pitch pre-correction, where the ordinary stance allows 10°. **This is the whole hunch** `[verified-live 2026-09-24, n=1]`: with the patched profiles Tefa saw the arch gone in all four stances and the probe read spine_2's post-animation bend at 0.0° over 18 aimed seconds.
 - **Which step runs last:** the LookAt/IK passes run after motion evaluation and after our Lua
   `visceral_spine_straighten.lua` write at `LateUpdateBehavior` (that script straightens the ANIMATED pose
   and is then bent again by the LookAt — which is why it never removed this). A profile change is upstream of
