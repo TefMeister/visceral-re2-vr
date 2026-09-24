@@ -70,3 +70,18 @@ bytes as the archived v3). Expected side effect: the left-hand flicker while wal
 `IKEnable` drops and the hand is only re-solved on a slow tick — the ~1/s flicker. Lever, once the
 decompile confirms what `updateIKEnable` reads: hold `IKEnable=true` and the blend target at 1.0 from the
 plugin while `IsHold`, and re-measure with the 1 Hz `hooks(aid ikL)` count (~72/s = fixed).
+
+**Correction from Tefa (same afternoon):** *"it wasn't a complaint, that was meant as the hunching gone and a
+good thing"* — so "the body stays still" = the arch is gone. The ask stands: legs (and the walk) to match
+the ordinary walk while aiming, which v3 supplies. Also: *"the weapon flicker was gone last time as well"* —
+consistent: that run had no splice installed, and the flicker only ever appeared with the splice.
+
+**Open question from Tefa:** *"the body turning while aim is held, there is nothing that can remove that
+without breaking the laser sight dot in the game world is there?"* What Arcade Controls actually recorded
+(`case-studies/2026-08-06-laser-sight-drift-investigation.md`, round ten): the dot broke because the spine
+was rewritten ONCE per frame while the native arm solve ran SIX times per frame, so four solves saw the
+uncorrected spine — a write-timing fault, fixed by re-applying before every solve. It is not a rule that
+"changing the body breaks the dot"; anything applied UPSTREAM of the arm solve (as the LookAt-profile change
+is) leaves the dot consistent by construction. Which "turning" Tefa means — the whole character pivoting to
+face the aim (head→body follow in FirstPerson + the game's aim-facing) or the torso yaw — is not yet
+pinned down; asked.
