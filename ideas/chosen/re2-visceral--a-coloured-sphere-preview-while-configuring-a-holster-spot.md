@@ -12,3 +12,5 @@ Verbatim record: [`inbox/2026-09-15-re2-holster-sphere-preview.md`](../inbox/202
 
 A visual aid for whatever holster-placement tool the mod ends up shipping — see it drawn before you
 commit to it, instead of placing blind and re-checking after.
+
+Chosen by Tefa: 2026-09-24

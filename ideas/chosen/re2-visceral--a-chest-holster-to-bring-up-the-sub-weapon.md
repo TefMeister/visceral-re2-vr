@@ -13,3 +13,5 @@ Verbatim record: [`inbox/2026-09-15c-re2-chest-holster-subweapon.md`](../inbox/2
 Moves the sub-weapon-out gesture from "hold a button anywhere" to "reach to a spot on your chest and
 hold there" — the same body-relative-zone idea as the ammo hip pouches on
 [`resident-evil-all.md`](resident-evil-all.md), applied to a different slot.
+
+Chosen by Tefa: 2026-09-24

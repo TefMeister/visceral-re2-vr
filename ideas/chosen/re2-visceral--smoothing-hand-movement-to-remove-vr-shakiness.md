@@ -17,3 +17,5 @@ tracked hand pose before it reaches the game — cheap in principle, but "how mu
 feels laggy instead of steady" is a headset judgement call, not something to tune on paper.
 
 ---
+
+Chosen by Tefa: 2026-09-24
