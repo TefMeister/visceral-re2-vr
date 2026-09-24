@@ -70,6 +70,7 @@
 
 #include "reframework/API.h"
 #include "reframework/API.hpp"
+#include "IdlePhase.h"   // v0.18: native idle-phase keeper (own file; Plugin.cpp only wires it)
 
 using reframework::API;
 
@@ -2452,6 +2453,9 @@ void on_frame() {
     if (g.want_layers) { g.want_layers = false; dump_layers(true); }
 
     dump_layers(false);   // logs only on change
+    // v0.18: hand the native idle-phase keeper the player's layer 0 (managed pointer == native TreeLayer) and its 1 Hz line
+    idle_phase_set_layer0(g.motion != nullptr ? inv_ptr(g.motion, "getLayer", {(void*)(uintptr_t)0}) : nullptr);
+    if (g.frame % 60 == 0) idle_phase_tick_log();
 
     const double t = now_s();
     const double period = g.trace ? 0.1 : 1.0;
@@ -2617,6 +2621,7 @@ extern "C" __declspec(dllexport) bool reframework_plugin_initialize(const REFram
     try {
         API::initialize(param);
         g_api_ok.store(true);
+        idle_phase_init(param);   // v0.18: native hook, needs only the module base
     } catch (...) {
         fns->log_error("%s C++ SDK wrapper init failed — probe disabled", TAG);
         return true;
