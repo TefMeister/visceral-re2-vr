@@ -158,3 +158,31 @@ this speed-up and the collision guard around it (v4 "amplify only the stick-forw
 **Change:** `aim_speed_mult` default 1.3 → 1.0 (the amplifier returns early at ≤1.0, writes nothing);
 the slider and NUM7/NUM9 still exist for the later req-4 work (one cap for aim/walk/run with the jog
 clip when fast). Game copy and dev-archive copy updated; `mod/` copy untouched until a release.
+
+## Run 5 (13:45, IN THE HEADSET): legs sunk into the floor, stance change + hand twitch at the aim press
+
+Tefa, with three Virtual Desktop screenshots: *"when i press aim, the whole posture still does visibly change
+stance - it twists just a little bit to the right when standing still, legs take a different stance, like a
+'combat ready' left leg in front right slightly at the back … legs clip through the floor - probably
+because we changed the height settings for a good-enough result when we couldn't remove the hunch … when i
+press aim (RG) there is a noticeable twitch in the hand - it quickly moves just a little bit with the
+handgun and the whole posture just changes"*.
+
+- **Sunk legs + the "combat ready" leg stance = `visceral_foot_ground.lua`** `[inferred 2026-09-24]`: it
+  lowers the pelvis by 0.175 m while `IsHold` (tuned 2026-08-30 for the braced aim pose, whose hover it
+  cancelled). With the ordinary idle now playing while aiming there is no hover, so the drop sinks the legs
+  17.5 cm and the leg IK bends the knees into a crouched stance — exactly the change at the aim press.
+  Tefa's own diagnosis, and it matches. **Taken out of the game folder** (kept in `dev-archive/` and
+  `mod/`, identical copies; per the 2026-09-24 standing rule).
+- **Small twist to the right while aiming:** the probe showed spine_2 post-anim bend 0.0°, but the run-4
+  probe reads only the final pose; with Default's spine yaw ranges (-7..14° per joint) the LookAt can still
+  turn the torso toward the aim point, which in VR sits right of centre (gun in the right hand).
+  **v2 profiles installed: spine_0/1/2 yaw 0..0** (`lookat_patch.py --zero-yaw`; archived
+  `lookat-archive\v2-no-spine-yaw\`). `[hypothesis]`; the spine probe's aimed yaw column decides it.
+- **Hand twitch at the press:** not yet attributed. Candidates: the 20-frame `HG_Hold_Start_L0/R0` raise
+  (layers 0 and 3) moving the right arm under the controller-pinned hand; our left-hand lever snapping the
+  blend to 1.0 in one frame; the finger bank switch (`Hold_HG01` → `Hold_HG01_LGT`). Ask Tefa after this
+  run whether the twitch is only at the press or continues.
+- Layer probe, standing aimed vs unaimed: **the same `OFF_Gazing_Idle_F_Loop` at weight 1.00 on layer 0**
+  in both states `[measured 2026-09-24]` — so no clip difference remains standing; everything left is
+  post-animation (IK/LookAt/our scripts).
