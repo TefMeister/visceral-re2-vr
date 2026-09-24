@@ -206,7 +206,7 @@ re.on_pre_application_entry("LateUpdateBehavior", function()
 end)
 
 re.on_frame(function()
-    if not state.keys_ok then return end
+    do return end   -- 2026-09-24: NUM4 toggle removed; it collided with the plugin's NUM4 aim latch (imgui checkbox still works)
     local d = safe(function() return reframework:is_key_down(VK_NUMPAD4) end)
     if d == nil then state.keys_ok = false; return end
     if d and not state.prev then cfg.enabled = not cfg.enabled; log_line("enabled=" .. tostring(cfg.enabled)) end

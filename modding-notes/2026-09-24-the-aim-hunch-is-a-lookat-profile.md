@@ -609,3 +609,33 @@ used to contribute is missed (it was 20 frames of the idle from frame 0, so noth
 reading 0.0 is unexplained but no longer matters: layer 3 is left exactly as the game runs it.
 
 **Reader this session:** on idea 7 (fire without the aim state) — its drop lands in `engine-research/inbox/` when done.
+
+## `/lm` 21:50–22:00: the chest nudge — the spine straightener moves the head at the press
+
+Tefa (VR, before this session): *"the chest nudge forward is still there … it's like the torso gets pushed forward and
+it moves the legs with it a little"* `[reported 2026-09-24]`. A 2-frame raise (lists v6 / light v3) changed nothing
+for them; the v5 / light v1 lists were put back.
+
+**A bug found first:** `visceral_spine_straighten.lua` toggled itself on NUM4 — the same key as the plugin's aim latch
+the driver presses. Every scripted aim press flipped the straightener, so every earlier automated measurement tonight
+ran with it alternating on/off. Its NUM4 toggle is removed (the REFramework-menu checkbox still works).
+
+Three launches, four presses each, press probe (hips, spine_2, head, camera, root, each frame around each edge):
+- **A, straightener ON:** head/camera moved 7.3 / 6.4 / 8.5 / 10.5 cm in the 45 frames after each edge; root 0.0.
+- **B, straightener OFF:** head/camera **1.0 / 3.9 / 0.2 / 0.2 cm**; root 0.0. `[measured 2026-09-24, n=4 edges each]`
+- **C, straightener ON + layer 3's raise muted (BlendRate 0 while a Hold_Start slot plays, `visceral_raise_mute.lua`):**
+  head 9.2 / 5.9 / 9.4 / 7.9 cm — the mute ran as designed and changed nothing. Taken out, archived in
+  `dev-archive/reframework/archive/`.
+- Hips moved 7–12 cm in all three runs, but the idle's own sway is large and fast (~0.4 cm per frame before the
+  press), so hips-vs-time cannot separate a nudge from sway without a no-press control window. **Not established:**
+  whether the hips carry a press-specific step at all. The head/camera A/B is the clean signal.
+
+**Reading:** the straightener's soft baseline freezes while aiming (`freeze_while_aiming`), so at the press the
+correction it applies to spine_0..2 stops following the animation; rotating the spine moves everything above it —
+the head, and with a head-anchored camera, the view relative to the body. That is the likeliest source of what Tefa
+sees `[hypothesis — n=4 edges per run, one launch per condition]`.
+
+**Next:** in the headset, open the REFramework menu → *Visceral: spine straighten* → untick ENABLED, then press aim a
+few times. Nudge gone ⇒ it is the straightener; then try `freeze rest pose while aiming` OFF with ENABLED on (keeps
+the twist removal, drops the freeze). Nudge still there ⇒ the straightener is not it; the next measurement needs a
+no-press control window for the hips.
