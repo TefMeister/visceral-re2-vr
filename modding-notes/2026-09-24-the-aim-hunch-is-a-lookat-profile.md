@@ -312,3 +312,29 @@ the hold state asks the body to be directed at the aim. **Lever installed: `visc
 post-hook on `get_IsDirectingBody` answering false while `IsHold` for the player; logs calls / game-true /
 overridden per second; NUM6. If `calls/s` reads 0 the consumers read the field inline and the lever needs
 the native route. `[hypothesis]` for the tension and the careful steps.
+
+## Run 10 (14:53): light OFF nearly right (body pushed ~5 cm forward); light ON still twists and steps carefully
+
+Tefa: *"without the flashlight out … the body and lower body gets pushed out forward like 5 cm … but the aim
+animation both still and walking are the same as relaxed walking … with the flashlight out - still and
+walking aim still have the body twist and careful steps."*
+
+- `visceral_body_direct` answered false 144×/s while aiming (the game said true every call) `[measured]`;
+  with it the tension is gone (Tefa: "this looked good"). Spine while aiming now: spine_0 pitch 2.3 / yaw
+  −2.8, spine_1/2 ≈ −1.5 pitch — small residue, left for now.
+- **Forward push ≈ 5 cm:** the hold state also requests its own capsule SHAPE (`SurvivorCharacterController.
+  register(Request)` with `ShapeCategory Hold=2`): the local offset reads (0.02–0.07, 1.19–1.28, −0.04–−0.17)
+  aimed vs (0.06, 0, 0.06) unaimed even with the anchor held on the joint. **Lever added to
+  `visceral_body_anchor.lua`: drop Hold-category shape requests** (pre-hook on `register`, SKIP_ORIGINAL), so
+  the Default capsule stays while aiming; counted in the 1 Hz line (`shape requests N (hold dropped M)`).
+  `[hypothesis]`.
+- **Flashlight ON:** the layer probe of run 4 already showed it — the relaxed light walk is `OLF_GazingWalk`
+  / `OLF_Gazing_Idle` (light arm up) while the aimed walk came from the base hold bank's `OFF_` clips, and
+  the light override list `cmn_hold_stlight` (which I had taken out in the tidy-up) only carried the six
+  Interpolation slots. Its collection block has 42 slots with EMPTY placeholders for the strafe (0x78–0x88),
+  idle (0xa0/0xa6) and Hold_Start (0x8c–0x99) numbers `[measured 2026-09-24]`. `motlist_splice.py` now takes
+  `--fill 0xNUMBER=WALK[@N]` to put a clip into an empty slot; **v2 light list built: six Interpolation +
+  six strafe → `OLF_GazingWalk_*`, both idle slots → `OLF_Gazing_Idle_F_Loop`, six Hold_Start → the OLF idle
+  cut to 20/22/24 frames** (mirrors v5). Installed at `natives/STM/SectionRoot/Animation/Player/pl10/list/CMN/
+  cmn_hold_stlight.motlist.524` (sha `087cf847…`), archived. Read: with the light on and aiming, layer 0
+  should show `OLF_*` clips; Tefa: light-on aim = light-on relaxed.
