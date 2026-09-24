@@ -84,3 +84,33 @@ manifest in `D:\RE2 REFramework builds\extracted (game data - never commit)\spli
 (v1 KFF `b3a3a1eb…`, v2 OFF `438438c2…`). With the flashlight on, the unaimed walk is `OLF`, so aim
 and non-aim may still differ slightly by the flashlight arm; a v3 with `OLF` is the same command
 against `cmn/cmn_move_stlight`.
+
+## v2 run, then v3 + a flashlight file (same session)
+
+**v2 result** (Tefa): *"aiming is still hunched. right now only the walk without a weapon and walk
+with a weapon equipped are the same body posture and walk animations"*. The log from that run
+shows layer 0 really did play our `OFF_GazingWalk_*` from bank 2 while aiming (slots id=120/124)
+`[verified-live 2026-09-24, n=1]`. So **the walk clip on layer 0 is right and the body is still
+hunched**, which means the hunch is not (only) in the walk slot. Standing aimed, layer 0 plays
+`HG_Hold_Idle_Loop`, the arched aim idle itself. `[hypothesis]` the motion tree blends that idle's
+upper body over the walk (a joint-masked blend the plugin's per-layer logger does not show,
+because it logs the one motion per layer).
+
+Tefa also asked that **with the flashlight on, aiming must match the flashlight walk too**.
+
+**v3, installed:**
+- `hdg/base_hdg_hold.motlist.524`: v2 plus both `HG_Hold_Idle_Loop` slots → `OFF_Gazing_Idle_F_Loop`
+  (sha `1854e2af…`). This is now the script's default map (`--game-dir` rebuild is `cmp`-identical).
+- `cmn/cmn_hold_stlight.motlist.524` (new loose file): the flashlight override list. Its six
+  `HGL_Interpolation_*` loops → `OLF_GazingWalk_*` from `cmn/cmn_move_stlight` (sha `916e802c…`).
+  It is an **override list with 34 of 42 slots empty** (pointer 0); `motlist_splice.py` now keeps
+  empty slots empty (it used to refuse the file). ⚠️ The script still names every output
+  `hdg/base_hdg_hold.motlist.524`; the flashlight output must be copied to `cmn/cmn_hold_stlight…`
+  by hand.
+- All versions + manifest in `splice-archive\`.
+
+**What the v3 run decides:** hunch gone standing AND walking ⇒ the upper body came from the aim
+idle, blended over the walk, and item 22 is solved in data. Hunch gone standing but still there
+walking ⇒ a separate upper-body source (masked layer, aim-offset, or spine IK), the next hunt.
+Hunch in both ⇒ procedural (IK/spine aim), not motion data at all. The plugin's
+`isEnabled(SPINE)=0` at every aim start argues against spine IK `[measured 2026-09-24]`.
