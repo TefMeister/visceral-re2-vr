@@ -34,3 +34,5 @@ this is the answer. It does not become its own board row unless Tefa settles it.
 to black on each cut is the usual cure, and cheap.
 
 ---
+
+Chosen by Tefa: 2026-09-24

@@ -64,3 +64,5 @@ controller), but it is the specific thing to watch on the first wear.
 one time in ten during something frightening is worse than the button it replaced. Whatever the zone
 ends up being, it wants to be generous, and it wants testing while something is actually chasing you
 — not standing still in a safe room.
+
+Chosen by Tefa: 2026-09-24
