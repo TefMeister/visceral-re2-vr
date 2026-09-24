@@ -356,3 +356,19 @@ walking aim still have the body twist and careful steps."*
   `Offset` DampingVec3 (`Current` @0x10, `_Target` @0x50) and re-applies them before every
   `updateCharacterController` while aiming**; the 1 Hz line prints the joint name and the fix counts.
   Read: `joint=` the same name aimed and unaimed, `localOffset` ≈ (0.06, 0, 0.06) while aiming.
+
+## Run 12 (15:17): light-on aim-walk SOLVED; the nudge and a small camera shift left at the press remain
+
+Tefa: *"flashlight out aim walking is also sorted, thank you! but the body still nudges and also, when i
+press RG, the camera also shifts a little bit to the left, just a tiny bit"*.
+- `hdg_hold_stlight_01` v1 is the list the handgun-with-light hold state reads: 23 aimed samples with `OLF_*`
+  on layer 0 `[verified-live 2026-09-24, n=1]`.
+- The anchor script now holds `joint=root`, `localOffset=(0.060, 0.000, 0.060)` through every aimed second
+  (`offset fixed` 72–73/s) `[measured]` — and the body still nudges. So the capsule was never the nudge.
+- What still changes at the press in the final pose: **head pitch −6 → 0, head roll −1.8 → −6.6** (run-9
+  probe) from the Hold profiles' head/neck records (`Hold_HG`: head −10..0 / −5..10, neck_0/1 −10..20)
+  vs Default (head −5..15 / −20..30, neck_1 same, no neck_0). REFramework's FirstPerson hangs the VR camera
+  off the head bone, so a head-bone change at the press is seen as the camera moving (left) and the body
+  moving under it (forward) `[hypothesis]`. **v4 profiles installed: v3 (spine 0..0) plus head / neck_1 /
+  neck_0 set to Default's records** (`lookat_patch.py --zero --head-default`; archived
+  `lookat-archive\v4-zero-spine-default-head\`). Read: head/neck pre-values identical aimed and unaimed.

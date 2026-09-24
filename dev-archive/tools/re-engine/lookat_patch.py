@@ -30,6 +30,13 @@ DEFAULT_SPINE = {
 ZERO_SPINE = {k: ((0.0, 0.0), (0.0, 0.0), 0, (0.0, 0.0), 1) for k in DEFAULT_SPINE}
 ZERO_YAW_SPINE = {k: (v[0], (0.0, 0.0), v[2], v[3], v[4]) for k, v in DEFAULT_SPINE.items()}
 
+# Default.user.2 head/neck records [measured 2026-09-24]; neck_0 has none in Default -> no bend
+DEFAULT_HEAD = {
+    "head":   ((-5.0, 15.0), (-20.0, 30.0), 0, (-15.0, 30.0), 1),
+    "neck_1": ((-5.0, 15.0), (-20.0, 30.0), 0, (0.0, 0.0), 1),
+    "neck_0": ((0.0, 0.0), (0.0, 0.0), 0, (0.0, 0.0), 1),
+}
+
 
 def alter_records(d):
     """Yield (name, tail_offset) for every AlterJointData record: u32 len, UTF-16 name, 4-aligned, 8 dwords."""
@@ -74,6 +81,8 @@ def main():
     ap.add_argument("--out", required=True)
     ap.add_argument("--zero", action="store_true")
     ap.add_argument("--zero-yaw", action="store_true")
+    ap.add_argument("--head-default", action="store_true",
+                    help="also set the head / neck_1 / neck_0 records to Default's (2026-09-24: the VR camera hangs off the head bone)")
     a = ap.parse_args()
     here = os.path.dirname(os.path.abspath(__file__))
     src = a.indir
@@ -85,7 +94,9 @@ def main():
             raise SystemExit("pak pull failed:\n" + r.stdout + r.stderr)
     if not src:
         raise SystemExit("give --game-dir or --in")
-    table = ZERO_SPINE if a.zero else (ZERO_YAW_SPINE if a.zero_yaw else DEFAULT_SPINE)
+    table = dict(ZERO_SPINE if a.zero else (ZERO_YAW_SPINE if a.zero_yaw else DEFAULT_SPINE))
+    if a.head_default:
+        table.update(DEFAULT_HEAD)
     for f in HOLD_FILES:
         ip = os.path.join(src, LOOKAT_DIR, f + ".user.2")
         if not os.path.exists(ip):
@@ -103,7 +114,7 @@ def main():
             w = struct.unpack_from("<ffffIffI", out, back[name])
             want = table[name]
             assert (w[0], w[1], w[2], w[3], w[4], w[5], w[6], w[7]) == (want[0][0], want[0][1], want[1][0], want[1][1], want[2], want[3][0], want[3][1], want[4]), name
-        print("    verified %d spine record(s) rewritten, %d bytes unchanged in size" % (len(done), len(out)))
+        print("    verified %d record(s) rewritten (%s), %d bytes unchanged in size" % (len(done), ",".join(done), len(out)))
     print("install: copy %s/natives into <RE2>/ (LooseFileLoader_Enabled=true)" % a.out)
 
 
