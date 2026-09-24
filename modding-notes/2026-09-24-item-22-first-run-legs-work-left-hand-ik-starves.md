@@ -114,3 +114,29 @@ idle, blended over the walk, and item 22 is solved in data. Hunch gone standing 
 walking ⇒ a separate upper-body source (masked layer, aim-offset, or spine IK), the next hunt.
 Hunch in both ⇒ procedural (IK/spine aim), not motion data at all. The plugin's
 `isEnabled(SPINE)=0` at every aim start argues against spine IK `[measured 2026-09-24]`.
+
+## v3 run — the hunch is NOT in the motion data (same session)
+
+Tefa: *"still the same with all 4 tests"* (standing/walking × flashlight off/on, all hunched).
+Log of that run `[verified-live 2026-09-24, n=1]`: both loose files taken (`CMN_HOLD_stLIGHT`,
+`BASE_HDG_HOLD`). While `hold=1`, layer 0 played **`OFF_Gazing_Idle_F_Loop` standing** (slot 160)
+and **`OFF_GazingWalk_F_Loop` walking** (slot 120). Layer 3 plays only the 20-frame
+`HG_Hold_Start` raise then empties; layer 2 is the finger pose bank (`Hold_HG01_LGT`, bank 10000).
+
+**So with the ordinary stance on layer 0 in every aimed frame, Claire is still hunched: the aim
+posture is added after the motion data** `[inferred-static 2026-09-24]` from that log plus Tefa's
+sighting. Candidates, upstream to downstream: a motion-tree/joint-mask blend the per-layer logger
+cannot see; an aim-offset/additive node driven by aim pitch/yaw; procedural IK (spine / arm-fit /
+look-at) switched on after `IsHold` rises (the dump reads `isEnabled(SPINE)=0` only at the instant
+of the rise, so a later enable is not excluded). Item 22 as a pure motlist splice is therefore not
+enough; the walk half works, the posture half needs the source found first.
+
+Side facts: walking aimed uses the **Strafe slots (120/124)**, not the Interpolation slots, so the
+flashlight file (which overrides only Interpolation 110–115) is not what plays while walking
+aimed; with the light on she walks the OFF walk while aiming.
+
+**Next (static, no game):** in `il2cpp_dump.json`, list every IK / aim / spine / look-at / additive
+component type on the player and the method or field that switches each one on; then a plugin
+probe that logs each one's enabled state and weight every second while aimed vs not. The one that
+flips with aim is the lever. Recommended model: Fable (undocumented engine behaviour, and three
+data guesses have already missed).
