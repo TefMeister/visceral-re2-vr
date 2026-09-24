@@ -140,3 +140,10 @@ component type on the player and the method or field that switches each one on; 
 probe that logs each one's enabled state and weight every second while aimed vs not. The one that
 flips with aim is the lever. Recommended model: Fable (undocumented engine behaviour, and three
 data guesses have already missed).
+
+## Taken out of the game (same session)
+
+Tefa: keep the build neat. Both loose files and the `natives\STM\sectionrootnimation\` folder
+(which we created) are removed from the game folder; all four builds and their manifest stay in
+`splice-archive\` on this PC (built from game data, so not on GitHub), and any of them is one
+`motlist_splice.py` run away. **The installed RE2 build carries nothing of item 22 now.**
