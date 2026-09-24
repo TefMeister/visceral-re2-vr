@@ -113,20 +113,23 @@ def align16(n):
     return (n + 15) & ~15
 
 
-def build(hold, move, mapping, prefix, log):
-    """Return the spliced file bytes. mapping: aim-name-suffix -> walk-name-suffix."""
+def build(hold, move, mapping, prefix, log, fill=None):
+    """Return the spliced file bytes. mapping: aim-name-suffix -> walk-name-suffix.
+    fill: {slot motion number (int): walk-name-suffix[@N]} for EMPTY slots of an override list (2026-09-24)."""
+    fill = fill or {}
     # slot -> blob to write. Slots that share an entry keep sharing it (same source key).
     src = {}           # source key ("hold", off) or ("move", off) -> blob
     slot_key = []
     replaced = []
     for i, o in enumerate(hold.slots):
-        if o == 0:
+        number = hold.slot_number(i)
+        if o == 0 and number not in fill:
             slot_key.append(None)
             continue
-        name = hold.entry_name[o]
+        name = hold.entry_name[o] if o else "(empty 0x%x)" % number
         suffix = name[len(prefix) + 1:] if name.startswith(prefix + "_") else name
-        if suffix in mapping:
-            target = mapping[suffix]
+        if o == 0 or suffix in mapping:
+            target = fill[number] if o == 0 else mapping[suffix]
             frames = None
             if "@" in target:
                 target, frames = target.split("@", 1)
@@ -201,15 +204,19 @@ def verify(path_or_bytes, hold, move, replaced, log):
     if out.collection != hold.collection: problems.append("collection block changed")
     if out.name != hold.name: problems.append("container name changed")
     rep = {i: walk for i, _, walk, _fr in replaced}
+    filled = {i for i, nm, _w, _fr in replaced if nm.startswith("(empty")}
     trunc = {i: fr for i, _, _w, fr in replaced if fr is not None}
     for i, o in enumerate(out.slots):
-        if hold.slots[i] == 0:
+        if hold.slots[i] == 0 and i not in filled:
             if o != 0: problems.append("slot %d was empty and is not any more" % i)
             continue
+        if i in filled and o == 0: problems.append("slot %d should have been filled" % i); continue
         want = rep.get(i, hold.entry_name[hold.slots[i]])
         got = out.entry_name[o]
         if got != want: problems.append("slot %d is %s, expected %s" % (i, got, want))
         srcblob = move.blob[move.by_name[want]] if i in rep else hold.blob[hold.slots[i]]
+        if i in filled:
+            pass  # no original blob to compare against; the name check above already ran
         got = out.blob[o][:len(srcblob)]
         if i in trunc:
             fc = struct.unpack_from("<f", got, 0x60)[0]
@@ -227,7 +234,11 @@ def verify(path_or_bytes, hold, move, replaced, log):
     newly_shared = 0
     for a in range(hold.num):
         for b in range(a + 1, hold.num):
-            if hold.slots[a] == 0 or hold.slots[b] == 0:
+            if (hold.slots[a] == 0 and a not in filled) or (hold.slots[b] == 0 and b not in filled):
+                continue
+            if a in filled or b in filled:
+                if out.slots[a] == out.slots[b] and not (a in rep and b in rep and rep[a] == rep[b] and trunc.get(a) == trunc.get(b)):
+                    problems.append("slots %d and %d share an entry unexpectedly" % (a, b))
                 continue
             was, now = hold.slots[a] == hold.slots[b], out.slots[a] == out.slots[b]
             if was and not now: problems.append("slots %d and %d shared an entry in the original and no longer do" % (a, b))
@@ -261,6 +272,8 @@ def main():
     ap.add_argument("--out", required=True, help="output folder; the file lands under its natives/... path inside it")
     ap.add_argument("--map", action="append", default=[], metavar="AIM=WALK",
                     help="override one mapping, e.g. 0120_HG_StrafeL_F=0231_KFF_Jog_Straight_Loop (name suffixes after pl10_/pl00_)")
+    ap.add_argument("--fill", action="append", default=[], metavar="0xNUMBER=WALK",
+                    help="put a walk motion into an EMPTY slot of an override list, by the slot's motion number (hex)")
     ap.add_argument("--dry-run", action="store_true", help="report only, write nothing")
     a = ap.parse_args()
     if a.game_dir:
@@ -275,7 +288,8 @@ def main():
     hold, move = Motlist(a.hold), Motlist(a.move)
     print("hold: %s  %d slots, %d entries, %d bytes" % (hold.name, hold.num, len(hold.blob), len(hold.data)))
     print("move: %s  %d slots, %d entries, %d bytes" % (move.name, move.num, len(move.blob), len(move.data)))
-    out, replaced = build(hold, move, mapping, a.character, print)
+    out, replaced = build(hold, move, mapping, a.character, print,
+                           fill={int(k, 16): v for k, v in (f.split('=', 1) for f in a.fill)})
     ok = verify(out, hold, move, replaced, print)
     if not ok:
         raise SystemExit(2)
