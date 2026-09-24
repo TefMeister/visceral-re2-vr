@@ -435,3 +435,22 @@ frame"): the 20-frame raise copy would start past its own end and finish at once
 continue in phase `[hypothesis]`; (b) diagnostics: changeMotion call count per 5 s and the property's
 prior value. If (a) does nothing, the transition data itself is the place:
 `MotionFsm2Layer.setNextMotionTransition(SetMotionTransitionInfo)` / `getMotionTransitionInfo`.
+
+## Run 17 (16:01): ContinueFromPrevEnd is reset by the game every frame — third lever: set the frame ourselves
+
+`visceral_phase`: `ContinueFromPrevEnd was false`, then **360 writes per 5 s** (we set it true every frame and
+the game had it false again by the next) `[measured]`; changeMotion calls: 0. Hips still move at the
+press, direction varying again (+x/−z, then −x/+z) — the restart. Also learned: the plugin's layer log
+prints CHG on a NAME change only, so bank1/160 → bank2/140 → bank2/160 (all `OFF_Gazing_Idle_F_Loop`)
+leaves no line; `get_MotionBankID` / `get_MotionID` per frame is the reliable tell.
+
+**v3 of the phase script (installed):** every `LateUpdateBehavior`, remember layer 0's (bank, id, frame);
+when (bank, id) changed and both old and new motions are Gazing_Idle, call `set_Frame(prev_frame mod len)`
+on layer 0 (the pose then continues from the next frame on — at most one frame of the blend at the wrong
+phase, ≈ a millimetre). For that to hold through the raise, the raise slots must be the FULL idle again:
+base list back to **v4** (`2926883b…`), light list **v2** with full `OLF_Gazing_Idle` in the raise slots
+(`--fill` without `@N`; sha in the manifest). Layer 3 is handled by the script: when it starts a raise slot
+(bank 2, ids 140–153) it sets that layer's frame to the last frame so the raise state ends on motion end
+at once (the v4 lesson) and the laser still switches on. `[hypothesis]`; read: `layer0 … frame set to N,
+reads N` lines at each press, `layer3 raise ended` counts, layer 3 not stuck (torso alive, laser on),
+press probe hips within a few mm.
