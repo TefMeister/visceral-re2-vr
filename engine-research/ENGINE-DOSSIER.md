@@ -1295,7 +1295,7 @@ the weapon as `ISurvivorIKLeftArmTarget`, whose `getIKLeftArmMatrix` is the `ikL
 of the playing motion, 0.0 if the motion carries none**, damped into `Current`; `IKEnable = Current > 0.01`.
 Consequence: a motion spliced into the hold bank from the ordinary banks (item 22) carries no track, so the
 hold switches off while aiming — the once-a-second hand flicker. Lever: force `Current`/`_Target` to 1.0
-while `IsHold` (`visceral_lefthand_hold.lua`, pre-hook + skip original) `[hypothesis until the run]`. The
+while `IsHold` (`visceral_lefthand_hold.lua`, pre-hook + skip original) — **proven**: IKEnable stays true, the aid/IK getters return to 73–76/s while walking aimed, and Tefa saw no flicker `[verified-live 2026-09-24, n=1]`. The
 clip tracks themselves live in the mot's non-bone data (CAF's `clipFileOffset`/`offs1`/`offs2` region, not
 decoded); grafting them is the data route if the code route ever has to go.
 
