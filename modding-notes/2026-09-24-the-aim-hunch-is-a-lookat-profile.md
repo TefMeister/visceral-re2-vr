@@ -201,3 +201,26 @@ which makes replacing it with a long clip safe `[inferred-static]`), and the fin
 archived with hashes in `splice-archive\`. Expected: no raise motion and no grip change at the press;
 if the aim state ever hangs on the raise, the motion-end guess was wrong and the Hold_Start mapping
 comes out.
+
+## Run 6 (14:01): v4 disproved — the raise clip must stay
+
+Tefa: *"feet on the floor, legs stay the same when aiming both aim-walking and aiming while standing still.
+body slightly turns right after aim is pressed and has no movement animation at all while walking or
+standing, it's frozen in place … also the laser pointer from the JMB hp3 gun has disappeared"*.
+
+- **Feet / stance: solved** (the foot_ground drop was it) `[verified-live 2026-09-24, n=1]`.
+- **Frozen torso = my Hold_Start mapping.** Layer probe: **layer 3 kept `OFF_Gazing_Idle_F_Loop` at weight
+  0.99 for the whole aimed stretch** (`frame … /3354`), standing and walking. So the raise state on the
+  upper-body layer ends on MOTION END, not on a timer — `[disproved 2026-09-24]` the "time-driven" reading
+  from the 11:51 timestamps (the 0.19 s there was the 20-frame clip itself). A 3354-frame idle on the
+  upper-body-masked layer 3 over-rode the walking torso: "frozen in place".
+- **Laser gone:** `[hypothesis]` the laser sight is switched on at the end of the raise (a track/event in
+  `Hold_Start` or the state exit it never reached). Same cause.
+- **Reverted to v3** (`base_hdg_hold` sha `1854e2af…`, the six `Hold_Start` slots original). The finger
+  banks stay in (thumb twitch); the raise's own small arm motion at the press is accepted for now — the
+  honest fix for that is in the plugin (hold the wrist IK through the raise), not in data.
+- **Body turns right at the press — still there with spine yaw 0..0**, so it is not the LookAt spine
+  records. Next suspect: the character's facing (root yaw) following the aim direction when the hold
+  state begins. `visceral_spine_probe.lua` now logs `BODY yaw=` (player transform world yaw) once a second;
+  a jump at the press settles it. If it is root yaw, the lever is where the hold state sets facing
+  (`PlayerHoldedTurnTrack` / `HoldedTurn` in the FSM), or the spec-v2 route (we own facing in VR).
