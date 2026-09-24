@@ -1,0 +1,68 @@
+VISCERAL for Resident Evil 2 (VR) - TEST BUILD, 2026-09-25
+============================================================
+
+Hello! Tef asked me to put this together for testing. This is a work-in-progress test build, not a release.
+
+WHAT THIS IS
+  A fan-made VR comfort and feel mod for Resident Evil 2 (2019, ray-tracing version), running on top of
+  praydog's REFramework VR. It needs your own legitimate copy of the game. It contains NO original game files.
+
+WHAT THIS IS NOT
+  Not finished, not an official Capcom product, not affiliated with praydog or REFramework.
+
+CAUTION
+  Unfinished. It may cause severe motion sickness and discomfort. Take breaks, stop at the first sign of
+  nausea, and test seated if you are unsure.
+
+------------------------------------------------------------
+1. REFRAMEWORK - install this exact version first
+------------------------------------------------------------
+  Build:   REFramework nightly 01424
+  Commit:  d1461375aee4ec3f313170f8eaad12064eb542d9
+  Page:    https://github.com/praydog/REFramework-nightly/releases/tag/nightly-01424-d1461375aee4ec3f313170f8eaad12064eb542d9
+  Files:   REFramework.zip  and  VR.zip  (both from that page)
+
+  a) Extract REFramework.zip into the game folder (gives dinput8.dll).
+  b) Extract VR.zip into the game folder.
+  c) We play over OpenXR (Quest via Virtual Desktop): delete openvr_api.dll and the file named
+     DELETE_OPENVR_API_DLL_IF_YOU_WANT_TO_USE_OPENXR from the game folder.
+  d) Keep praydog's scripts from VR.zip, ESPECIALLY reframework\autorun\re2_smooth_movement.lua - it is
+     what keeps the camera steady while running.
+
+  About DLSS: this is the NORMAL REFramework build, with no DLSS upscaler. Our older setup used praydog's
+  special "pd-upscaler" build, but its log showed "Could not load PDPerfPlugin.dll, TemporalUpscaler will
+  not work", so DLSS was never actually running - and with that build the camera shook badly while running
+  (motion sickness). On this normal build the running is smooth. Please test on this build.
+
+------------------------------------------------------------
+2. VISCERAL - copy this folder's contents into the game folder
+------------------------------------------------------------
+  reframework\autorun\visceral_*.lua        body, posture, locomotion and VR bridge scripts
+  reframework\plugins\visceral_core.dll     native plugin (v0.19d, sha256 263bf1fc1a03b0b9...)
+  reframework\plugins\visceral_idle_phase.on  switch file: keeps the body steady at the aim press
+                                               (delete it to turn that one fix off)
+  reframework\data\visceral\                 crosshair settings
+  natives\stm\visceral\                      our own meshes and textures (bracelets, neck piece)
+  re2_fw_config.txt                          REQUIRED settings: first person ON, loose-file loading ON.
+                                             If you already have a re2_fw_config.txt, just add/change
+                                             these lines in yours instead of replacing it.
+
+------------------------------------------------------------
+3. NOT INCLUDED (made from the game's own files - we never hand those out)
+------------------------------------------------------------
+  These parts of the aim-posture fix and the HD hands are built from your own game data, so they are not in
+  this package. A small tool that builds them on your PC is coming; until then aiming will still use the
+  game's normal aim posture.
+    - aim animations (Claire pl10 / Leon pl00: base_hdg_hold, hdg_hold_stlight_01, finger lists)
+    - aim look-at profiles (pl0000\LookAt\Hold*.user.2)
+    - HD hands textures and material (pl1000 jacket textures, pl1000.mdf2, pl1000_body.rtex)
+
+------------------------------------------------------------
+WHAT TO TEST AND REPORT
+------------------------------------------------------------
+  - Running and walking: is the view steady? (a tiny running bob is intended; shaking is not)
+  - Anything that feels off, and how it feels in the headset. Screenshots / short in-headset videos help.
+
+Credits: see CREDITS.md. If you should be credited and are not, tell us and we fix it ASAP.
+We honour correction and removal requests from rights holders.
+Written by Claude (Anthropic's AI) for TefMeister.
