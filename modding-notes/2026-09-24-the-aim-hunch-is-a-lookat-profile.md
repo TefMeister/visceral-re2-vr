@@ -85,3 +85,21 @@ uncorrected spine — a write-timing fault, fixed by re-applying before every so
 is) leaves the dot consistent by construction. Which "turning" Tefa means — the whole character pivoting to
 face the aim (head→body follow in FirstPerson + the game's aim-facing) or the torso yaw — is not yet
 pinned down; asked.
+
+**Answered: the torso twist is in the aim ANIMATION, not the LookAt.** Tefa: *"torso twisting while feet stay
+put when AIM is active"*. The probe log of the LookAt-only run (no splice installed) gives the final pose
+per joint `[measured 2026-09-24, n=1 run]`: unaimed, spine_0 yaw avg -0.6° (|yaw| 4.7°); **aimed, spine_0 yaw
+avg -15.0° (|yaw| 16.1°)**, spine_1/2 yaw ≈ 1°. The hold profiles give spine_0 yaw 0..0 (stock and patched),
+so the LookAt cannot be adding it; it is the `HG_Hold_Idle_Loop` / aim pose itself — the same Claire twist
+Arcade Controls measured on spine_0 (case study 2026-08-05), which `visceral_spine_straighten.lua` lets
+through by design (its baseline freezes on aim, so an aim-only twist counts as "live deviation"). **The v3
+splice replaces exactly that animation with the ordinary idle/walk, so the run already queued (v3 + patched
+profiles) decides it.** If a twist survives, the remaining aim-only clips are `HG_Hold_Start_*` (20 frames)
+and the layer-4 shoot overlay. `lookat_patch.py --zero-yaw` was added (spine yaw 0..0 while aiming) but is
+NOT installed — the LookAt is not the source, and it would only add a variable.
+
+⚠️ **Probe caveat:** aimed `d=0.0` between `LateUpdateBehavior` and `PrepareRendering` means the LookAt pass
+did not fall between the two reads (it runs earlier, in the motion/IK phase), so the probe measures the
+FINAL pose, not the LookAt's own contribution. The posture proof therefore rests on Tefa's sighting plus the
+final-pose spine_2 pitch reading 3.4° avg while aiming; a stock-profile run with the probe would give the
+missing before number if ever needed.
