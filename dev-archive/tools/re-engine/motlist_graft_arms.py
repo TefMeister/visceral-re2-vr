@@ -6,7 +6,8 @@ shot kick throws the gun aside (b012-b015 bisect, Tefa 2026-09-27). This keeps t
 spine and head, and swaps each walk loop's 44 arm/hand/weapon bone tracks for the vanilla HG_Interpolation
 loop's. Tracks are moved whole: the aim blob is appended to the walk blob and the copied track headers'
 data offsets are shifted by where it landed. Standing aim and gun raise stay vanilla (b015 showed those fine).
-[hypothesis] until Tefa's walk-and-shoot test.
+b016 result: loads; the walking swing flipped from right to left-and-down, so the arms were part of it only.
+b017 (--spine): spine_0-2, neck_0-1 and head also from the aim loop.
 
 Track layout used (RE2 RT mot v492, measured 2026-09-27): clip headers are 12 bytes from +0x80
 (idx u16, track flags u8, 0xFF, bone hash u32, track header offset u32), clip count u16 at +0x72; one
@@ -14,7 +15,7 @@ Track layout used (RE2 RT mot v492, measured 2026-09-27): clip headers are 12 by
 u32, unpack-data offset u32 (all entry-relative, 0 = none). Bone hash = murmur3_32(UTF-16LE name, seed
 0xFFFFFFFF), checked on "root" = 0xaba7de3c.
 
-Usage: py motlist_graft_arms.py <folder holding the two originals under natives/...> <out folder>
+Usage: py motlist_graft_arms.py [--spine] <folder holding the two originals under natives/...> <out folder>
        (motlist_splice.py --game-dir ... leaves the originals in <out>/_originals)
 Legitimacy: reads the player's own game files, writes only into <out>. No game data is included here.
 """
@@ -51,6 +52,11 @@ for s in "lr":
     for f in ["index", "middle", "ring", "little", "thumb"]:
         for i in range(4):
             ARM.add("%s_hand_%s_%d" % (s, f, i))
+# b017: the shot kick also drives the spine chain, so --spine takes it from the aim loop too (hips and legs stay)
+SPINE = {"spine_0", "spine_1", "spine_2", "neck_0", "neck_1", "head"}
+if "--spine" in sys.argv:
+    sys.argv.remove("--spine")
+    ARM |= SPINE
 ARMH = {bone_hash(n): n for n in ARM}
 
 # walk loop (legs kept) -> vanilla aim loop whose arms it takes
