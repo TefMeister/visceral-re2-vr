@@ -75,8 +75,8 @@ Characters: `leon`, `claire`, `hunk` (and profiles for ada/carlos/jill/tofu in t
 `slide_rack_pull`, `slide_rack_release`, `pump_fire`, `shotgun_fire`, `revolver_*`, `swing_1..3`.
 Which weapon uses which folder and volume: `weapon_sfx.by_wp` (+ `volume_by_kind`, `master_volume`, `spatial`).
 
-⚠️ Shipping his sounds and pose data in a Visceral release needs his OK for **redistribution** specifically, and a
-credit line; the 2026-09-04 permission is recorded as "used to build Visceral's manual reloads". Ask before a release.
+✅ Shipping his sounds and pose data in a Visceral release is **confirmed** (Tefa, 2026-09-27, after asking);
+credit him in `CREDITS.md` and the release notes.
 
 ## Every place it touches the game
 
