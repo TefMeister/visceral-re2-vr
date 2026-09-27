@@ -34,6 +34,8 @@
 -- invoke the callback ourselves; the back move plays as the game wants; a real Story move jumps to its end frame.
 -- Run 4 (VR): main menu fine; Story -> dark, no text, no way back: the jump skipped the move's end event, flow
 -- never reached state 11. Run 5: the Story move is played at x20 speed instead of jumped.
+-- Run 5 (VR): Story fades out and in to the same view; back out = menu text gone again although the callback was
+-- called. Run 6: back lets MAIN through (menu re-issue restores LATEST); the same-scene request after Story is dropped.
 --
 -- Hotkey: NUM9 = swap on/off
 
@@ -142,13 +144,19 @@ if change then
         if v ~= SCENE_MAIN and v ~= SCENE_LATEST and v ~= cfg.learned then
             cfg.learned = v; save(); log_line("remembered last-save scene " .. name(v))
         end
-        if give ~= v and cfg.enabled and give == state.current then
-            -- already showing it: the camera would never change, and the game waits for this callback forever
-            -- (run 3: the main menu never came back). Say "done" ourselves and skip the call.
+        if cfg.enabled and give == state.current then
+            if v == SCENE_MAIN then
+                -- back out of Story: skipping here (run 4) or calling the callback ourselves (run 5) left the main
+                -- menu without text. Let the game have its MAIN; the menu-state re-issue puts LATEST back.
+                log_line("  back to the menu: MAIN passed through, LATEST follows on the menu state")
+                state.current = v
+                return
+            end
+            -- the game re-requests the scene already showing right after Story (flow is already at state 11 and
+            -- does not wait on it); run 6 drops it to see whether it is what fades to black
             local cb = safe(function() return sdk.to_managed_object(args[4]) end)
-            log_line("  already on " .. name(give) .. ": skipped, callback " .. (cb and "called" or "MISSING"))
+            log_line("  already on " .. name(give) .. ": skipped, callback " .. (cb and "called" or "none"))
             if cb then safe(function() cb:call("Invoke") end) end
-            state.swaps = state.swaps + 1
             return sdk.PreHookResult.SKIP_ORIGINAL
         end
         if give ~= v then args[3] = sdk.to_ptr(give); state.swaps = state.swaps + 1 end
