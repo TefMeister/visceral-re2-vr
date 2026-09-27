@@ -22,7 +22,8 @@ Usage:
 import ctypes, ctypes.wintypes as w, importlib.util, os, sys, time
 
 TOOLKIT = r"C:\Users\TD3KX\github-backups\flat-to-vr-RE-toolkit\tools\game-harness.py"
-GAME = r"C:\Steam\steamapps\common\RESIDENT EVIL 2  BIOHAZARD RE2"
+# 2026-09-27 (Tefa): nothing of Visceral goes into the real game folder any more; this targets the TEST COPY.
+GAME = r"D:\RE2 test copy"
 LOG = os.path.join(GAME, "re2_framework_log.txt")
 WINDOW = "RESIDENT EVIL 2"
 MARK = os.path.join(os.environ.get("TEMP", "."), "re2drive.logmark")
