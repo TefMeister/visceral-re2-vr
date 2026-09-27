@@ -52,7 +52,7 @@ local NAMES = { [0] = "MAIN", "GAS_STATION", "OPENING", "RPD", "RPD_UNDERGROUND"
                 "ORPHAN_ASYLUM", "ORPHAN_APPROACH", "LABORATORY", "TRANSPORTATION", "LATEST" }
 
 local cfg = { enabled = true, learned = nil }
-local state = { current = -1, skip_decide = false, bg_this = nil, sped_tl = nil, last_real = -1, last_given = -1, last_flow = -1, swaps = 0, key_prev = false }
+local state = { current = -1, skip_decide = false, bg_this = nil, sped_tl = nil, deferred_cb = nil, last_real = -1, last_given = -1, last_flow = -1, swaps = 0, key_prev = false }
 
 local pending = false   -- set when a menu state is entered; the next frame re-issues the scene
 local MENU_STATES = { [10] = true, [12] = true, [13] = true, [14] = true }   -- main menu, Extras, Bonuses, Options
@@ -145,18 +145,13 @@ if change then
             cfg.learned = v; save(); log_line("remembered last-save scene " .. name(v))
         end
         if cfg.enabled and give == state.current then
-            if v == SCENE_MAIN then
-                -- back out of Story: skipping here (run 4) or calling the callback ourselves (run 5) left the main
-                -- menu without text. Let the game have its MAIN; the menu-state re-issue puts LATEST back.
-                log_line("  back to the menu: MAIN passed through, LATEST follows on the menu state")
-                state.current = v
-                return
-            end
-            -- the game re-requests the scene already showing right after Story (flow is already at state 11 and
-            -- does not wait on it); run 6 drops it to see whether it is what fades to black
+            -- already showing it: the camera would never change and the flow would wait forever (run 3). Skip the
+            -- call and say "done" ONE FRAME LATER: in run 5 the callback was invoked inside the call, before the
+            -- flow had started waiting, so the flow missed it. Run 6 passed MAIN through instead, and the back
+            -- timeline then pulled the camera to the dark view.
             local cb = safe(function() return sdk.to_managed_object(args[4]) end)
-            log_line("  already on " .. name(give) .. ": skipped, callback " .. (cb and "called" or "none"))
-            if cb then safe(function() cb:call("Invoke") end) end
+            if cb then safe(function() cb:add_ref() end); state.deferred_cb = cb end
+            log_line("  already on " .. name(give) .. ": skipped, callback " .. (cb and "deferred one frame" or "none"))
             return sdk.PreHookResult.SKIP_ORIGINAL
         end
         if give ~= v then args[3] = sdk.to_ptr(give); state.swaps = state.swaps + 1 end
@@ -212,6 +207,13 @@ if bg_start then
 end
 
 re.on_frame(function()
+    if state.deferred_cb then
+        local cb = state.deferred_cb
+        state.deferred_cb = nil
+        local ok = safe(function() cb:call("Invoke"); return true end)
+        safe(function() cb:release() end)
+        log_line("  deferred callback called: " .. tostring(ok))
+    end
     if pending and cfg.enabled then
         pending = false
         local mfm = sdk.get_managed_singleton("app.ropeway.gamemastering.MainFlowManager")
