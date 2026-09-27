@@ -52,7 +52,7 @@ local NAMES = { [0] = "MAIN", "GAS_STATION", "OPENING", "RPD", "RPD_UNDERGROUND"
                 "ORPHAN_ASYLUM", "ORPHAN_APPROACH", "LABORATORY", "TRANSPORTATION", "LATEST" }
 
 local cfg = { enabled = true, learned = nil }
-local state = { current = -1, skip_decide = false, bg_this = nil, sped_tl = nil, deferred_cb = nil, last_real = -1, last_given = -1, last_flow = -1, swaps = 0, key_prev = false }
+local state = { current = -1, skip_decide = false, bg_this = nil, sped_tl = nil, deferred_cb = nil, bg_obj = nil, last_real = -1, last_given = -1, last_flow = -1, swaps = 0, key_prev = false }
 
 local pending = false   -- set when a menu state is entered; the next frame re-issues the scene
 local MENU_STATES = { [10] = true, [12] = true, [13] = true, [14] = true }   -- main menu, Extras, Bonuses, Options
@@ -183,13 +183,16 @@ if bg_start then
             safe(function() state.sped_tl:release() end)
             state.sped_tl = nil
         end
-        local give = v
-        if cfg.enabled and v == 0 then give = 1 end   -- start-up open -> the Story (decide) move (run 3: works)
-        -- a real Story press (1) while the scene already shows: jump the move to its end, no fade (run 4)
+        -- run 8: the moves play as the game wants; the flat picture layer they fade is hidden instead (below)
+        local bg = safe(function() return sdk.to_managed_object(args[2]) end)
+        if bg and bg ~= state.bg_obj then
+            safe(function() bg:add_ref() end)
+            state.bg_obj = bg
+        end
+        -- a real Story press (1) while the scene already shows: play the move fast (run 5)
         state.skip_decide = cfg.enabled and v == 1 and state.current == target()
         state.bg_this = state.skip_decide and args[2] or nil
-        log_line("TitleBackgroundScene.start " .. tostring(v) .. (give ~= v and (" -> " .. give) or "") .. " (0 open, 1 decide, 2 back)")
-        if give ~= v then args[3] = sdk.to_ptr(give) end
+        log_line("TitleBackgroundScene.start " .. tostring(v) .. " (0 open, 1 decide, 2 back)")
     end, function(retval)
         if state.skip_decide and state.bg_this then
             state.skip_decide = false
@@ -207,6 +210,19 @@ if bg_start then
 end
 
 re.on_frame(function()
+    -- run 8: the dark "original main menu" picture is this GUI layer, not a camera view (run 7: camera stayed on
+    -- LATEST, yet Story showed black and back showed the old picture). Keep it from drawing while the swap is on.
+    if state.bg_obj then
+        local go = safe(function() return state.bg_obj:call("get_GameObject") end)
+        if go then
+            local want = not cfg.enabled
+            local now = safe(function() return go:call("get_DrawSelf") end)
+            if now ~= want then
+                safe(function() go:call("set_DrawSelf", want) end)
+                log_line("title picture layer drawn: " .. tostring(want))
+            end
+        end
+    end
     if state.deferred_cb then
         local cb = state.deferred_cb
         state.deferred_cb = nil
