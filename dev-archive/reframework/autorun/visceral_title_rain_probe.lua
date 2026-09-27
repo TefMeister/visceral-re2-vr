@@ -11,6 +11,8 @@
 -- and one more effect player there; a one-shot switch was undone at once.
 -- Run 2 (VR): holding the lights on changed nothing; the lights also differ run to run. The extra effect player is
 -- effect_GUI_MenuStory, the Story menu's own rain. Run 3: NUM8 detaches it from the Story menu and keeps it drawing.
+-- Run 3 (VR): no rain; the grab returned nothing. MenuStoryBehavior creates its effect on open() via its
+-- ObjectEffectManager + effectID. Run 4: log those requests/kills; NUM8 makes the same request for the main menu.
 --
 -- Probe: archive it once it has answered (standing rule), keep only the fix.
 
@@ -120,6 +122,41 @@ if flow_set then
     end, function(retval) return retval end)
 end
 
+
+local story_beh = nil
+local function find_go(name)
+    for _, tr in ipairs(components("via.Transform")) do
+        local go = safe(function() return tr:call("get_GameObject") end)
+        if go and safe(function() return go:call("get_Name") end) == name then return go end
+    end
+    return nil
+end
+
+local msb_t = sdk.find_type_definition("app.ropeway.gui.MenuStoryBehavior")
+for _, mn in ipairs({ "open", "close" }) do
+    local m = msb_t and msb_t:get_method(mn)
+    if m then
+        sdk.hook(m, function(args)
+            local o = safe(function() return sdk.to_managed_object(args[2]) end)
+            if o and o ~= story_beh then safe(function() o:add_ref() end); story_beh = o end
+            log_line("MenuStoryBehavior." .. mn)
+        end, function(retval) return retval end)
+    end
+end
+
+local oem_t = sdk.find_type_definition("via.effect.script.ObjectEffectManager")
+for _, sig in ipairs({ "requestEffect(via.effect.script.EffectID, via.GameObject, System.Int32)",
+                       "killEffectAll", "finishEffectAll", "killEffectFromFsmAll", "finishEffectFromFsmAll" }) do
+    local m = oem_t and oem_t:get_method(sig)
+    if m then
+        sdk.hook(m, function(args)
+            if last_flow == 10 or last_flow == 11 or last_flow == 100 then log_line("ObjectEffectManager." .. sig) end
+        end, function(retval) return retval end)
+    else
+        log_line("not found: " .. sig)
+    end
+end
+
 re.on_frame(function()
     if pending and os.clock() >= pending.at then
         local st = pending.state
@@ -133,24 +170,26 @@ re.on_frame(function()
     end
     local d = safe(function() return reframework:is_key_down(VK_NUMPAD8) end)
     if d and not key_prev then
-        -- run 3: the lights differ run to run (not the cause). The Story menu's only extra effect player is its own
-        -- GUI rain, effect_GUI_MenuStory, which hides with the Story menu. Detach it from the menu so it stays.
-        if not story_rain then
-            log_line("NUM8: Story rain effect not captured yet -- open Story once first")
+        -- run 4: the Story menu (MenuStoryBehavior) makes its own effect on open() through its ObjectEffectManager
+        -- with its effectID. Make the same request ourselves, following the main menu's GameObject.
+        if not story_beh then
+            log_line("NUM8: Story menu not seen yet -- open Story once first")
         else
-            local tr = safe(function() return story_rain:call("get_Transform") end)
-            local parent = tr and safe(function() return tr:call("get_Parent") end)
-            local pname = parent and safe(function() return parent:call("get_GameObject"):call("get_Name") end)
-            local ok = tr and safe(function() tr:call("set_Parent", nil); return true end)
-            safe(function() story_rain:call("set_DrawSelf", true) end)
-            safe(function() story_rain:call("set_UpdateSelf", true) end)
-            detached = true
-            log_line("NUM8: rain effect detached from " .. tostring(pname) .. ": " .. tostring(ok))
+            local oem = safe(function() return story_beh:get_field("ObjectEffectManagerComponent") end)
+            local eid = safe(function() return story_beh:get_field("effectID") end)
+            local main_go = find_go("GUI_MenuMain")
+            log_line(string.format("NUM8: manager=%s effectID=%s main menu object=%s", tostring(oem ~= nil),
+                tostring(eid ~= nil), tostring(main_go ~= nil)))
+            if eid then
+                for _, f in ipairs({ "ContainerID", "ElementID", "DataContainerIndex" }) do
+                    log_line("  effectID." .. f .. " = " .. tostring(safe(function() return eid:get_field(f) end)))
+                end
+            end
+            local res = oem and eid and safe(function()
+                return oem:call("requestEffect(via.effect.script.EffectID, via.GameObject, System.Int32)", eid, main_go, 0)
+            end)
+            log_line("NUM8: requestEffect -> " .. tostring(res))
         end
-    end
-    if detached and story_rain then
-        safe(function() story_rain:call("set_DrawSelf", true) end)
-        safe(function() story_rain:call("set_UpdateSelf", true) end)
     end
     key_prev = d or false
 end)
