@@ -4,7 +4,8 @@
 # Run from anywhere: bash dev-archive/tools/re-engine/build_leon_lists.sh   (never commit the outputs: game data)
 set -u
 T="$(cd "$(dirname "$0")" && pwd)"
-G="/c/Steam/steamapps/common/RESIDENT EVIL 2  BIOHAZARD RE2"
+# 2026-09-27 (Tefa): nothing of Visceral goes into the real game folder any more; this targets the TEST COPY.
+G="/d/RE2 test copy"
 S="${TEMP:-/tmp}/visceral-leon"
 mkdir -p "$S"
 cd "$T"
