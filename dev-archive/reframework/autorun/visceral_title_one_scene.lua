@@ -19,6 +19,11 @@
 --             callback invoked one frame later (round 7: menus work); then, once the back move has ended, a real
 --             changeTitleCameraScene(LATEST) cuts the camera back from the MAIN view the back move left it on
 --
+-- Round 10 (VR): everything works; the only fault left is the old main-menu picture showing where the fade to
+-- black was. Round 11: the Story (decide) and back moves are skipped while the scene shows, their callbacks handed
+-- over a frame later, and the game's LATEST request right after Story is skipped the same way. The 0.5 s re-cut stays
+-- only as a fallback for a back move that was not skipped.
+--
 -- Hotkey: NUM9 = swap on/off
 
 if reframework:get_game_name() ~= "re2" then
@@ -35,7 +40,7 @@ local NAMES = { [0] = "MAIN", "GAS_STATION", "OPENING", "RPD", "RPD_UNDERGROUND"
                 "ORPHAN_ASYLUM", "ORPHAN_APPROACH", "LABORATORY", "TRANSPORTATION", "LATEST" }
 
 local cfg = { enabled = true }
-local state = { current = -1, deferred_cb = nil, recut_at = nil, own_call = false, last_flow = -1, key_prev = false }
+local state = { current = -1, deferred_cb = nil, recut_at = nil, own_call = false, skip_story_change = false, deferred_cb2 = nil, last_flow = -1, key_prev = false }
 
 local function safe(fn) local ok, r = pcall(fn); if ok then return r end return nil end
 local function log_line(m) log.info(TAG .. " " .. m) end
@@ -77,6 +82,14 @@ if change then
             state.current = SCENE_LATEST
             return
         end
+        if v == SCENE_LATEST and state.skip_story_change then
+            -- round 11: the Story move was skipped, so the scene never left; the game's re-request would fade it
+            state.skip_story_change = false
+            local cb = safe(function() return sdk.to_managed_object(args[4]) end)
+            if cb then safe(function() cb:add_ref() end); state.deferred_cb2 = cb end
+            log_line("changeTitleCameraScene LATEST after Story: already showing, skipped, callback " .. (cb and "next frame" or "none"))
+            return sdk.PreHookResult.SKIP_ORIGINAL
+        end
         log_line("changeTitleCameraScene " .. name(v) .. " (game's own, untouched)")
         state.current = v
     end, function(retval) return retval end)
@@ -93,6 +106,14 @@ if bg_start then
         if cfg.enabled and v == MOVE_OPEN then
             args[3] = sdk.to_ptr(MOVE_DECIDE)
             log_line("title move open -> decide")
+        elseif cfg.enabled and (v == MOVE_DECIDE or v == MOVE_BACK) and state.current == SCENE_LATEST then
+            -- round 10: both moves swing the camera through the old MAIN view before the scene comes back. Skip the
+            -- move and hand the flow its "move finished" callback one frame later, as for the scene change.
+            local cb = safe(function() return sdk.to_managed_object(args[4]) end)
+            if cb then safe(function() cb:add_ref() end); state.deferred_cb = cb end
+            if v == MOVE_DECIDE then state.skip_story_change = true end
+            log_line("title move " .. tostring(v) .. " skipped, callback " .. (cb and "next frame" or "none"))
+            return sdk.PreHookResult.SKIP_ORIGINAL
         elseif cfg.enabled and v == MOVE_BACK then
             state.recut_at = os.clock() + BACK_MOVE_WAIT
             log_line("title move back: cutting back to LATEST in " .. BACK_MOVE_WAIT .. " s")
@@ -120,6 +141,13 @@ re.on_frame(function()
         local ok = safe(function() cb:call("Invoke"); return true end)
         safe(function() cb:release() end)
         log_line("  callback called one frame later: " .. tostring(ok))
+    end
+    if state.deferred_cb2 then
+        local cb = state.deferred_cb2
+        state.deferred_cb2 = nil
+        local ok = safe(function() cb:call("Invoke"); return true end)
+        safe(function() cb:release() end)
+        log_line("  second callback called one frame later: " .. tostring(ok))
     end
     if state.recut_at and os.clock() >= state.recut_at then
         state.recut_at = nil
