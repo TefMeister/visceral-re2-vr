@@ -52,7 +52,7 @@ local NAMES = { [0] = "MAIN", "GAS_STATION", "OPENING", "RPD", "RPD_UNDERGROUND"
                 "ORPHAN_ASYLUM", "ORPHAN_APPROACH", "LABORATORY", "TRANSPORTATION", "LATEST" }
 
 local cfg = { enabled = true, learned = nil }
-local state = { current = -1, skip_decide = false, bg_this = nil, sped_tl = nil, deferred_cb = nil, bg_obj = nil, last_real = -1, last_given = -1, last_flow = -1, swaps = 0, key_prev = false }
+local state = { current = -1, skip_decide = false, bg_this = nil, sped_tl = nil, deferred_cb = nil, bg_obj = nil, near_obj = nil, last_real = -1, last_given = -1, last_flow = -1, swaps = 0, key_prev = false }
 
 local pending = false   -- set when a menu state is entered; the next frame re-issues the scene
 local MENU_STATES = { [10] = true, [12] = true, [13] = true, [14] = true }   -- main menu, Extras, Bonuses, Options
@@ -209,17 +209,35 @@ if bg_start then
     end)
 end
 
+local near_t = sdk.find_type_definition("app.ropeway.gui.TitleNearViewScene")
+local near_start = near_t and near_t:get_method("start")
+if near_start then
+    sdk.hook(near_start, function(args)
+        local o = safe(function() return sdk.to_managed_object(args[2]) end)
+        if o and o ~= state.near_obj then safe(function() o:add_ref() end); state.near_obj = o end
+        log_line("TitleNearViewScene.start")
+    end, function(retval) return retval end)
+end
+
 re.on_frame(function()
-    -- run 8: the dark "original main menu" picture is this GUI layer, not a camera view (run 7: camera stayed on
-    -- LATEST, yet Story showed black and back showed the old picture). Keep it from drawing while the swap is on.
-    if state.bg_obj then
-        local go = safe(function() return state.bg_obj:call("get_GameObject") end)
-        if go then
-            local want = not cfg.enabled
-            local now = safe(function() return go:call("get_DrawSelf") end)
-            if now ~= want then
-                safe(function() go:call("set_DrawSelf", want) end)
-                log_line("title picture layer drawn: " .. tostring(want))
+    -- run 8 hid the GameObject (DrawSelf) and nothing changed: GUI layers ignore it. Run 9: hide the layer's
+    -- GUI view instead (it keeps updating, so its moves and their end events still run), for both title layers.
+    for _, key in ipairs({ "bg_obj", "near_obj" }) do
+        local o = state[key]
+        if o then
+            local go = safe(function() return o:call("get_GameObject") end)
+            local gui = go and safe(function() return go:call("getComponent(System.Type)", sdk.typeof("via.gui.GUI")) end)
+            local view = gui and safe(function() return gui:call("get_View") end)
+            if view then
+                local want = not cfg.enabled
+                local now = safe(function() return view:call("get_Visible") end)
+                if now ~= want then
+                    local ok = safe(function() view:call("set_Visible", want); return true end)
+                    log_line(key .. " GUI view visible -> " .. tostring(want) .. " (" .. tostring(ok) .. ")")
+                end
+            elseif not state["warned_" .. key] then
+                state["warned_" .. key] = true
+                log_line(key .. ": no GUI view found (go=" .. tostring(go ~= nil) .. " gui=" .. tostring(gui ~= nil) .. ")")
             end
         end
     end
