@@ -15,6 +15,8 @@
 -- ObjectEffectManager + effectID. Run 4: log those requests/kills; NUM8 makes the same request for the main menu.
 -- Run 4 (VR): no rain, and a mouse cursor appeared; the Story menu never calls requestEffect. Run 5: NUM8 keeps the
 -- Story menu screen drawing/updating on the main menu with its text hidden and input off.
+-- Run 5 (VR): nothing happened -- last_flow read 100 (the wait state) on the main menu, so the forcing never ran.
+-- Run 6: 100 no longer overwrites the menu state.
 --
 -- Probe: archive it once it has answered (standing rule), keep only the fix.
 
@@ -120,7 +122,7 @@ if flow_set then
         if v and v ~= last_flow and v ~= 100 then
             if v == 10 or v == 11 then pending = { state = v, at = os.clock() + SNAP_DELAY } end
         end
-        if v then last_flow = v end
+        if v and v ~= 100 then last_flow = v end   -- 100 = WAIT_GUI_ANIMATION, sits on top of every menu (run 5 bug)
     end, function(retval) return retval end)
 end
 
