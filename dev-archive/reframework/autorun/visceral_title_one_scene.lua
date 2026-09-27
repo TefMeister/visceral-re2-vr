@@ -32,6 +32,8 @@
 -- menu (had to close the game): MAIN->LATEST while LATEST already showed, so the camera never changed and the
 -- flow waited on changeTitleCameraScene's callback forever. Run 4: if the scene already shows, skip the call and
 -- invoke the callback ourselves; the back move plays as the game wants; a real Story move jumps to its end frame.
+-- Run 4 (VR): main menu fine; Story -> dark, no text, no way back: the jump skipped the move's end event, flow
+-- never reached state 11. Run 5: the Story move is played at x20 speed instead of jumped.
 --
 -- Hotkey: NUM9 = swap on/off
 
@@ -42,12 +44,13 @@ end
 local TAG = "[visceral_title]"
 local VK_NUMPAD9 = 0x69
 local SCENE_MAIN, SCENE_LATEST = 0, 11
+local STORY_MOVE_SPEED = 20.0   -- the Story camera move (normally ~10 frames of fade) played this much faster
 local SAVE_FILE = "visceral_title_one_scene.json"
 local NAMES = { [0] = "MAIN", "GAS_STATION", "OPENING", "RPD", "RPD_UNDERGROUND", "WASTE_WATER", "WATER_PLANT",
                 "ORPHAN_ASYLUM", "ORPHAN_APPROACH", "LABORATORY", "TRANSPORTATION", "LATEST" }
 
 local cfg = { enabled = true, learned = nil }
-local state = { current = -1, skip_decide = false, bg_this = nil, last_real = -1, last_given = -1, last_flow = -1, swaps = 0, key_prev = false }
+local state = { current = -1, skip_decide = false, bg_this = nil, sped_tl = nil, last_real = -1, last_given = -1, last_flow = -1, swaps = 0, key_prev = false }
 
 local pending = false   -- set when a menu state is entered; the next frame re-issues the scene
 local MENU_STATES = { [10] = true, [12] = true, [13] = true, [14] = true }   -- main menu, Extras, Bonuses, Options
@@ -172,6 +175,11 @@ local bg_start = bg_t and bg_t:get_method("start")
 if bg_start then
     sdk.hook(bg_start, function(args)
         local v = safe(function() return sdk.to_int64(args[3]) & 0xFFFFFFFF end)
+        if state.sped_tl then   -- any new move plays at normal speed again
+            safe(function() state.sped_tl:call("set_PlaySpeed", 1.0) end)
+            safe(function() state.sped_tl:release() end)
+            state.sped_tl = nil
+        end
         local give = v
         if cfg.enabled and v == 0 then give = 1 end   -- start-up open -> the Story (decide) move (run 3: works)
         -- a real Story press (1) while the scene already shows: jump the move to its end, no fade (run 4)
@@ -184,8 +192,12 @@ if bg_start then
             state.skip_decide = false
             local bg = safe(function() return sdk.to_managed_object(state.bg_this) end)
             local tl = bg and safe(function() return bg:call("get_Timeline") end)
-            local ok = tl and safe(function() tl:call("set_Frame", 209.0); return true end)
-            log_line("  Story move jumped to its end: " .. tostring(ok))
+            -- run 4: set_Frame(209) skipped the move's end event and the Story menu never came (stuck, dark).
+            -- Run 5: play it fast instead, so every frame and event still happens.
+            local ok = tl and safe(function() tl:call("set_PlaySpeed", STORY_MOVE_SPEED); return true end)
+            state.sped_tl = ok and tl or nil
+            if state.sped_tl then safe(function() state.sped_tl:add_ref() end) end
+            log_line("  Story move sped up x" .. STORY_MOVE_SPEED .. ": " .. tostring(ok))
         end
         return retval
     end)
