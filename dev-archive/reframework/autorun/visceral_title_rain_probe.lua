@@ -6,7 +6,9 @@
 --
 -- This takes a snapshot of the title scene (every GameObject's draw/update switches, and every effect player's
 -- enabled switch) on the main menu (state 10) and on the Story menu (state 11), and logs what differs.
--- NUM8 (on the main menu): switch on everything that was on in the Story snapshot but off on the main menu.
+-- NUM8 (on the main menu): hold on, every frame, the scene things (not GUI) that are on in the Story snapshot but off
+-- on the main menu. Run 1 found 7 lights (M810lmA_*/M1500lm_* spot/point) + LocalCubemap_04 switched on by Story,
+-- and one more effect player there; a one-shot switch was undone at once.
 --
 -- Probe: archive it once it has answered (standing rule), keep only the fix.
 
@@ -64,8 +66,9 @@ local function snapshot()
         local go = safe(function() return ep:call("get_GameObject") end)
         local nm = go and safe(function() return go:call("get_Name") end) or "?"
         local addr = safe(function() return ep:get_address() end) or 0
-        snap[string.format("%s@%x effect", tostring(nm), addr)] = { obj = ep, kind = "effect",
-            on = safe(function() return ep:call("get_Enabled") end) }
+        local en = safe(function() return ep:call("get_Enabled") end)
+        snap[string.format("%s@%x effect", tostring(nm), addr)] = { obj = ep, kind = "effect", on = en }
+        log_line(string.format("  effect player: %s enabled=%s", tostring(nm), tostring(en)))
         eff = eff + 1
     end
     return snap, count, eff
@@ -75,6 +78,7 @@ local snaps = {}
 local pending = nil     -- { state, at }
 local last_flow = -1
 local key_prev = false
+local held = nil      -- NUM8: things held on every frame
 
 local function diff(a, b, label)
     local n = 0
@@ -120,20 +124,33 @@ re.on_frame(function()
     if d and not key_prev then
         if not snaps[11] then
             log_line("NUM8: no Story snapshot yet -- open Story once first")
+        elseif held then
+            held = nil
+            log_line("NUM8: holding OFF")
         else
+            -- run 2: the one-shot NUM8 was undone by the game at once, and it also flipped GUI_MenuStory. Now: only
+            -- scene things (never GUI_*), held on every frame.
             local cur = snapshot()
-            local n = 0
+            held = {}
             for k, v in pairs(snaps[11]) do
                 local c = cur[k]
-                if v.on and c and not c.on then
-                    n = n + 1
-                    if c.kind == "draw" then safe(function() c.obj:call("set_DrawSelf", true) end)
-                    elseif c.kind == "update" then safe(function() c.obj:call("set_UpdateSelf", true) end)
-                    else safe(function() c.obj:call("set_Enabled", true) end) end
-                    if n <= MAX_LINES then log_line("NUM8 switched on: " .. k) end
+                if v.on and c and not c.on and not k:find("^GUI_") then
+                    held[#held + 1] = c
+                    log_line("NUM8 holding on: " .. k)
                 end
             end
-            log_line("NUM8: switched on " .. n .. " things that the Story menu has on")
+            -- the Story menu has one more effect player than the main menu: hold every effect player on too
+            for k, v in pairs(cur) do
+                if v.kind == "effect" and not v.on then held[#held + 1] = v; log_line("NUM8 holding on: " .. k) end
+            end
+            log_line("NUM8: holding " .. #held .. " things on every frame")
+        end
+    end
+    if held then
+        for _, c in ipairs(held) do
+            if c.kind == "draw" then safe(function() c.obj:call("set_DrawSelf", true) end)
+            elseif c.kind == "update" then safe(function() c.obj:call("set_UpdateSelf", true) end)
+            else safe(function() c.obj:call("set_Enabled", true) end) end
         end
     end
     key_prev = d or false
