@@ -28,6 +28,10 @@
 -- never names the place, it resolves LATEST itself -- and backing out sends MAIN plus TitleBackgroundScene.start(2
 -- back); start-up sends MAIN plus start(0 open). Run 3: MAIN always becomes LATEST (or a learned place), and the
 -- open/back timeline moves are replaced by the decide (Story) move.
+-- Run 3 (VR): start-up shows the last-save scene. Story still fades dark and back; backing out left an EMPTY main
+-- menu (had to close the game): MAIN->LATEST while LATEST already showed, so the camera never changed and the
+-- flow waited on changeTitleCameraScene's callback forever. Run 4: if the scene already shows, skip the call and
+-- invoke the callback ourselves; the back move plays as the game wants; a real Story move jumps to its end frame.
 --
 -- Hotkey: NUM9 = swap on/off
 
@@ -43,7 +47,7 @@ local NAMES = { [0] = "MAIN", "GAS_STATION", "OPENING", "RPD", "RPD_UNDERGROUND"
                 "ORPHAN_ASYLUM", "ORPHAN_APPROACH", "LABORATORY", "TRANSPORTATION", "LATEST" }
 
 local cfg = { enabled = true, learned = nil }
-local state = { last_real = -1, last_given = -1, last_flow = -1, swaps = 0, key_prev = false }
+local state = { current = -1, skip_decide = false, bg_this = nil, last_real = -1, last_given = -1, last_flow = -1, swaps = 0, key_prev = false }
 
 local pending = false   -- set when a menu state is entered; the next frame re-issues the scene
 local MENU_STATES = { [10] = true, [12] = true, [13] = true, [14] = true }   -- main menu, Extras, Bonuses, Options
@@ -135,7 +139,17 @@ if change then
         if v ~= SCENE_MAIN and v ~= SCENE_LATEST and v ~= cfg.learned then
             cfg.learned = v; save(); log_line("remembered last-save scene " .. name(v))
         end
+        if give ~= v and cfg.enabled and give == state.current then
+            -- already showing it: the camera would never change, and the game waits for this callback forever
+            -- (run 3: the main menu never came back). Say "done" ourselves and skip the call.
+            local cb = safe(function() return sdk.to_managed_object(args[4]) end)
+            log_line("  already on " .. name(give) .. ": skipped, callback " .. (cb and "called" or "MISSING"))
+            if cb then safe(function() cb:call("Invoke") end) end
+            state.swaps = state.swaps + 1
+            return sdk.PreHookResult.SKIP_ORIGINAL
+        end
         if give ~= v then args[3] = sdk.to_ptr(give); state.swaps = state.swaps + 1 end
+        state.current = give
     end, function(retval) return retval end)
 else
     log_line("changeTitleCameraScene NOT FOUND")
@@ -159,10 +173,22 @@ if bg_start then
     sdk.hook(bg_start, function(args)
         local v = safe(function() return sdk.to_int64(args[3]) & 0xFFFFFFFF end)
         local give = v
-        if cfg.enabled and (v == 0 or v == 2) then give = 1 end   -- open/back -> the Story (decide) move
+        if cfg.enabled and v == 0 then give = 1 end   -- start-up open -> the Story (decide) move (run 3: works)
+        -- a real Story press (1) while the scene already shows: jump the move to its end, no fade (run 4)
+        state.skip_decide = cfg.enabled and v == 1 and state.current == target()
+        state.bg_this = state.skip_decide and args[2] or nil
         log_line("TitleBackgroundScene.start " .. tostring(v) .. (give ~= v and (" -> " .. give) or "") .. " (0 open, 1 decide, 2 back)")
         if give ~= v then args[3] = sdk.to_ptr(give) end
-    end, function(retval) return retval end)
+    end, function(retval)
+        if state.skip_decide and state.bg_this then
+            state.skip_decide = false
+            local bg = safe(function() return sdk.to_managed_object(state.bg_this) end)
+            local tl = bg and safe(function() return bg:call("get_Timeline") end)
+            local ok = tl and safe(function() tl:call("set_Frame", 209.0); return true end)
+            log_line("  Story move jumped to its end: " .. tostring(ok))
+        end
+        return retval
+    end)
 end
 
 re.on_frame(function()
