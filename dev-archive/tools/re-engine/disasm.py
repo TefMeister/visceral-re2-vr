@@ -1,7 +1,7 @@
 """disasm.py <VA-hex> [count] : disassemble re2.exe at a static VA with capstone (fast, local).
 Stops at the first `ret` after `count` instructions unless count is reached first."""
 import sys, pefile, capstone
-P = r"C:\Steam\steamapps\common\RESIDENT EVIL 2  BIOHAZARD RE2\re2.exe"
+P = r"D:\RE2 test copy\re2.exe"
 pe = pefile.PE(P, fast_load=True)
 base = pe.OPTIONAL_HEADER.ImageBase
 data = open(P, "rb").read()

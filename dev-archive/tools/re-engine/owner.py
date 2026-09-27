@@ -1,7 +1,7 @@
 """owner.py <VA> ... : name the il2cpp_dump method that contains each VA (nearest lower method start)."""
 import sys, re, io, bisect
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
-DUMP = r"C:\Steam\steamapps\common\RESIDENT EVIL 2  BIOHAZARD RE2\il2cpp_dump.json"
+DUMP = r"D:\RE2 test copy\il2cpp_dump.json"
 dump = open(DUMP, "rb").read()
 addrs = []
 cur_type = None; cur_method = None
