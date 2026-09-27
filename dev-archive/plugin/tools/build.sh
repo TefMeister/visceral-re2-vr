@@ -4,7 +4,8 @@
 # copy by hash. Run from anywhere:  bash tools/build.sh [--deploy]
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")/.." && pwd)"
-GAME="/c/Steam/steamapps/common/RESIDENT EVIL 2  BIOHAZARD RE2"
+# 2026-09-27 (Tefa): nothing of Visceral goes into the real game folder any more; --deploy targets the TEST COPY.
+GAME="/d/RE2 test copy"
 BUILD="$HERE/build"
 
 if [ ! -f "$BUILD/CMakeCache.txt" ]; then
