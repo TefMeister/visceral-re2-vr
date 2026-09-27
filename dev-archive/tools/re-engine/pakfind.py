@@ -1,7 +1,7 @@
 """pakfind.py : test guessed internal paths against the RE2 pak hash tables (no extraction)."""
 import sys, os, struct, glob, itertools
 import mmh3
-GAME = r"C:\Steam\steamapps\common\RESIDENT EVIL 2  BIOHAZARD RE2"
+GAME = r"D:\RE2 test copy"
 SEED = 0xFFFFFFFF
 def h32(s): return mmh3.hash(s.encode("utf-16-le"), SEED, signed=False)
 def load_table(pak):
