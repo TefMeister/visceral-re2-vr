@@ -16,6 +16,14 @@
 -- is already loaded at start-up. If it is not, forcing it may show an empty or black background -- NUM9
 -- turns the swap off on the spot.
 --
+-- Run 1 (2026-09-27, VR): the camera's own setter/getter were NEVER called, so nothing changed. The scene is
+-- switched through MainFlowManager.changeTitleCameraScene(TitleScene, Action), and the menus (main, Options,
+-- Extras) cover the view with GUIMaster.openSelectBackground (the dark layer). The police-station scene
+-- appears at title flow state 11 (TITLE_MENU_STORY). Run 2 hooks those instead:
+--   * changeTitleCameraScene(MAIN) -> the last-save scene; any other value is learned and remembered
+--   * entering main menu / Extras / Bonuses / Options (flow 10, 12, 13, 14) re-issues the last-save scene
+--   * openSelectBackground is skipped while the swap is on
+--
 -- Hotkey: NUM9 = swap on/off
 
 if reframework:get_game_name() ~= "re2" then
@@ -31,6 +39,9 @@ local NAMES = { [0] = "MAIN", "GAS_STATION", "OPENING", "RPD", "RPD_UNDERGROUND"
 
 local cfg = { enabled = true, learned = nil }
 local state = { last_real = -1, last_given = -1, last_flow = -1, swaps = 0, key_prev = false }
+
+local pending = false   -- set when a menu state is entered; the next frame re-issues the scene
+local MENU_STATES = { [10] = true, [12] = true, [13] = true, [14] = true }   -- main menu, Extras, Bonuses, Options
 
 local function safe(fn) local ok, r = pcall(fn); if ok then return r end return nil end
 local function log_line(m) log.info(TAG .. " " .. m) end
@@ -101,11 +112,59 @@ if flow_set then
         if v and v ~= state.last_flow then
             log_line("title flow state " .. tostring(v))
             state.last_flow = v
+            if MENU_STATES[v] then pending = true end
         end
     end, function(retval) return retval end)
 end
 
+-- run 2: the real switch
+local mfm_t = sdk.find_type_definition("app.ropeway.gamemastering.MainFlowManager")
+local change = mfm_t and mfm_t:get_method("changeTitleCameraScene")
+if change then
+    sdk.hook(change, function(args)
+        local v = safe(function() return sdk.to_int64(args[3]) & 0xFFFFFFFF end)
+        if v == nil then return end
+        local give = v
+        if cfg.enabled and v == SCENE_MAIN and cfg.learned then give = cfg.learned end
+        log_line("changeTitleCameraScene " .. name(v) .. (give ~= v and (" -> " .. name(give)) or ""))
+        if v ~= SCENE_MAIN and v ~= SCENE_LATEST and v ~= cfg.learned then
+            cfg.learned = v; save(); log_line("remembered last-save scene " .. name(v))
+        end
+        if give ~= v then args[3] = sdk.to_ptr(give); state.swaps = state.swaps + 1 end
+    end, function(retval) return retval end)
+else
+    log_line("changeTitleCameraScene NOT FOUND")
+end
+
+local gm_t = sdk.find_type_definition("app.ropeway.gui.GUIMaster")
+for _, mn in ipairs({ "openSelectBackground", "closeSelectBackground" }) do
+    local m = gm_t and gm_t:get_method(mn)
+    if m then
+        sdk.hook(m, function(args)
+            local skip = cfg.enabled and mn == "openSelectBackground"
+            log_line(mn .. (skip and " (skipped)" or ""))
+            if skip then return sdk.PreHookResult.SKIP_ORIGINAL end
+        end, function(retval) return retval end)
+    end
+end
+
+local bg_t = sdk.find_type_definition("app.ropeway.gui.TitleBackgroundScene")
+local bg_start = bg_t and bg_t:get_method("start")
+if bg_start then
+    sdk.hook(bg_start, function(args)
+        local v = safe(function() return sdk.to_int64(args[3]) & 0xFFFFFFFF end)
+        log_line("TitleBackgroundScene.start " .. tostring(v) .. " (0 open, 1 decide, 2 back)")
+    end, function(retval) return retval end)
+end
+
 re.on_frame(function()
+    if pending and cfg.enabled and cfg.learned then
+        pending = false
+        local mfm = sdk.get_managed_singleton("app.ropeway.gamemastering.MainFlowManager")
+        local loaded = mfm and safe(function() return mfm:call("get_IsTitleSceneEnvironmentLoaded") end)
+        log_line("menu entered: re-issuing " .. name(cfg.learned) .. ", environment loaded=" .. tostring(loaded))
+        if mfm then safe(function() mfm:call("changeTitleCameraScene", cfg.learned, nil) end) end
+    end
     local d = safe(function() return reframework:is_key_down(VK_NUMPAD9) end)
     if d and not state.key_prev then
         cfg.enabled = not cfg.enabled
