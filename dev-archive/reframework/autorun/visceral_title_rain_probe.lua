@@ -9,6 +9,8 @@
 -- NUM8 (on the main menu): hold on, every frame, the scene things (not GUI) that are on in the Story snapshot but off
 -- on the main menu. Run 1 found 7 lights (M810lmA_*/M1500lm_* spot/point) + LocalCubemap_04 switched on by Story,
 -- and one more effect player there; a one-shot switch was undone at once.
+-- Run 2 (VR): holding the lights on changed nothing; the lights also differ run to run. The extra effect player is
+-- effect_GUI_MenuStory, the Story menu's own rain. Run 3: NUM8 detaches it from the Story menu and keeps it drawing.
 --
 -- Probe: archive it once it has answered (standing rule), keep only the fix.
 
@@ -20,6 +22,10 @@ local TAG = "[visceral_rain]"
 local VK_NUMPAD8 = 0x68
 local MAX_LINES = 80          -- per diff, so the log stays readable
 local SNAP_DELAY = 1.0        -- seconds after entering a state before the snapshot (menus animate in)
+
+local STORY_RAIN = "effect_GUI_MenuStory"
+local story_rain = nil  -- its GameObject, captured on the Story snapshot
+local detached = false
 
 local function safe(fn) local ok, r = pcall(fn); if ok then return r end return nil end
 local function log_line(m) log.info(TAG .. " " .. m) end
@@ -67,6 +73,11 @@ local function snapshot()
         local nm = go and safe(function() return go:call("get_Name") end) or "?"
         local addr = safe(function() return ep:get_address() end) or 0
         local en = safe(function() return ep:call("get_Enabled") end)
+        if tostring(nm) == STORY_RAIN and go and not story_rain then
+            story_rain = go
+            safe(function() go:add_ref() end)
+            log_line("  captured the Story menu rain effect object")
+        end
         snap[string.format("%s@%x effect", tostring(nm), addr)] = { obj = ep, kind = "effect", on = en }
         log_line(string.format("  effect player: %s enabled=%s", tostring(nm), tostring(en)))
         eff = eff + 1
@@ -78,7 +89,7 @@ local snaps = {}
 local pending = nil     -- { state, at }
 local last_flow = -1
 local key_prev = false
-local held = nil      -- NUM8: things held on every frame
+local held = nil      -- (run 2, unused now)
 
 local function diff(a, b, label)
     local n = 0
@@ -122,36 +133,24 @@ re.on_frame(function()
     end
     local d = safe(function() return reframework:is_key_down(VK_NUMPAD8) end)
     if d and not key_prev then
-        if not snaps[11] then
-            log_line("NUM8: no Story snapshot yet -- open Story once first")
-        elseif held then
-            held = nil
-            log_line("NUM8: holding OFF")
+        -- run 3: the lights differ run to run (not the cause). The Story menu's only extra effect player is its own
+        -- GUI rain, effect_GUI_MenuStory, which hides with the Story menu. Detach it from the menu so it stays.
+        if not story_rain then
+            log_line("NUM8: Story rain effect not captured yet -- open Story once first")
         else
-            -- run 2: the one-shot NUM8 was undone by the game at once, and it also flipped GUI_MenuStory. Now: only
-            -- scene things (never GUI_*), held on every frame.
-            local cur = snapshot()
-            held = {}
-            for k, v in pairs(snaps[11]) do
-                local c = cur[k]
-                if v.on and c and not c.on and not k:find("^GUI_") then
-                    held[#held + 1] = c
-                    log_line("NUM8 holding on: " .. k)
-                end
-            end
-            -- the Story menu has one more effect player than the main menu: hold every effect player on too
-            for k, v in pairs(cur) do
-                if v.kind == "effect" and not v.on then held[#held + 1] = v; log_line("NUM8 holding on: " .. k) end
-            end
-            log_line("NUM8: holding " .. #held .. " things on every frame")
+            local tr = safe(function() return story_rain:call("get_Transform") end)
+            local parent = tr and safe(function() return tr:call("get_Parent") end)
+            local pname = parent and safe(function() return parent:call("get_GameObject"):call("get_Name") end)
+            local ok = tr and safe(function() tr:call("set_Parent", nil); return true end)
+            safe(function() story_rain:call("set_DrawSelf", true) end)
+            safe(function() story_rain:call("set_UpdateSelf", true) end)
+            detached = true
+            log_line("NUM8: rain effect detached from " .. tostring(pname) .. ": " .. tostring(ok))
         end
     end
-    if held then
-        for _, c in ipairs(held) do
-            if c.kind == "draw" then safe(function() c.obj:call("set_DrawSelf", true) end)
-            elseif c.kind == "update" then safe(function() c.obj:call("set_UpdateSelf", true) end)
-            else safe(function() c.obj:call("set_Enabled", true) end) end
-        end
+    if detached and story_rain then
+        safe(function() story_rain:call("set_DrawSelf", true) end)
+        safe(function() story_rain:call("set_UpdateSelf", true) end)
     end
     key_prev = d or false
 end)
