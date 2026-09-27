@@ -6,8 +6,17 @@ project(visceral_core C CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# 2026-09-27: Plugin.cpp was split into translation units by job (move only; see src/visceral.h and
+# SPLIT-MAP-2026-09-24.md). Everything lives in namespace visceral.
 add_library(visceral_core SHARED
     src/Plugin.cpp
+    src/reflect.cpp
+    src/bridge.cpp
+    src/dumps.cpp
+    src/plug_bracelets.cpp
+    src/head_hider.cpp
+    src/head_probes.cpp
+    src/dock.cpp
     src/IdlePhase.cpp
     # MinHook (Tsuda Kageyu, BSD-2, third_party/minhook/LICENSE.txt) -- the native detour for IdlePhase
     third_party/minhook/src/buffer.c
