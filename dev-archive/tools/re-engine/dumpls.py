@@ -2,7 +2,7 @@
 dumpls.py --fn <hexprefix> : list methods whose function address starts with hexprefix (e.g. 14037b)."""
 import sys, re, io
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
-P = r"C:\Steam\steamapps\common\RESIDENT EVIL 2  BIOHAZARD RE2\il2cpp_dump.json"
+P = r"D:\RE2 test copy\il2cpp_dump.json"
 data = open(P, "rb").read()
 if sys.argv[1] == "--fn":
     pref = sys.argv[2].lower().encode()

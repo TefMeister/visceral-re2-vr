@@ -3,8 +3,8 @@ RIP-relative lea/mov sites, and 8-byte absolute pointers anywhere (vtables / fun
 Also prints, for each call site, the nearest il2cpp_dump method whose address is <= the site."""
 import sys, re, struct, io, bisect, pefile
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
-EXE = r"C:\Steam\steamapps\common\RESIDENT EVIL 2  BIOHAZARD RE2\re2.exe"
-DUMP = r"C:\Steam\steamapps\common\RESIDENT EVIL 2  BIOHAZARD RE2\il2cpp_dump.json"
+EXE = r"D:\RE2 test copy\re2.exe"
+DUMP = r"D:\RE2 test copy\il2cpp_dump.json"
 pe = pefile.PE(EXE, fast_load=True)
 base = pe.OPTIONAL_HEADER.ImageBase
 data = open(EXE, "rb").read()
