@@ -39,3 +39,18 @@ Let the three timeline moves and the game's Story request run as the game wants.
 being on `MAIN` (the back move put it there) and, once the move has ended, issue a real `changeTitleCameraScene(LATEST)`,
 so the camera actually cuts back. The fade on Story is then the game's own; removing it means finding what in the
 decide timeline fades (a post-effect or fade track), possibly by lowering its play speed to zero over the fade frames.
+
+## Rounds 10-11: it works `[reported 2026-09-27, Tefa]`
+
+- **Round 10 (b028):** launch MAIN -> LATEST + open -> decide; Story untouched; back = MAIN skipped with the
+  callback a frame later, then a real LATEST cut 0.5 s after the back move. Everything worked, but the old
+  main-menu view showed during the Story and back moves.
+- **Round 11 (b029), the working version:** the Story (decide) and back moves are also skipped while LATEST
+  shows, with their callbacks handed over a frame later, and the game's LATEST request right after Story is skipped
+  the same way. Tefa: "the switch is now seamless".
+
+Still open:
+- On the main menu the falling rain is invisible (only splashes on the ground and roofs); after Story it rains
+  properly. The gameplay `RainZoneManager` does not look involved; what switches the title rain on at flow
+  state 11 is unknown. `[hypothesis]` a Story-state effect or a menu dim layer.
+- The Models page (Bonuses) keeps its own blue background (Tefa: fine if it cannot change).
