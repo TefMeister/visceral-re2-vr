@@ -152,7 +152,7 @@ carries **w = 0.97–1.00** (the idle↔walk blend hypothesis is dead), but the 
 **2.25–2.39 m/s aimed vs 1.58–1.84 m/s unaimed** (OFF and OLF walks alike). The extra is ours:
 `visceral_locomotion.lua` v5 amplifies aim-walk by `aim_speed_mult = 1.3` (Tefa's tuning from 2026-08-30,
 when aiming still played the slow shuffle). 2.3 / 1.3 ≈ 1.77 m/s, i.e. the game's own aim-walk pace is
-about the same as its walk `[inferred 2026-09-24]` — the shuffle only *looked* slower. A walk clip
+about the same as its walk `[inferred-static 2026-09-24]` — the shuffle only *looked* slower. A walk clip
 authored for ~1.7 m/s under a 2.3 m/s body = sliding, short-looking steps = "stiff legs". Tefa recalled
 this speed-up and the collision guard around it (v4 "amplify only the stick-forward part").
 **Change:** `aim_speed_mult` default 1.3 → 1.0 (the amplifier returns early at ≤1.0, writes nothing);
@@ -168,7 +168,7 @@ because we changed the height settings for a good-enough result when we couldn't
 press aim (RG) there is a noticeable twitch in the hand - it quickly moves just a little bit with the
 handgun and the whole posture just changes"*.
 
-- **Sunk legs + the "combat ready" leg stance = `visceral_foot_ground.lua`** `[inferred 2026-09-24]`: it
+- **Sunk legs + the "combat ready" leg stance = `visceral_foot_ground.lua`** `[inferred-static 2026-09-24]`: it
   lowers the pelvis by 0.175 m while `IsHold` (tuned 2026-08-30 for the braced aim pose, whose hover it
   cancelled). With the ordinary idle now playing while aiming there is no hover, so the drop sinks the legs
   17.5 cm and the leg IK bends the knees into a crouched stance — exactly the change at the aim press.
@@ -411,7 +411,7 @@ varies press to press (+x −z 3 cm, then −x +z 1 cm, then −z 5.5 cm, then +
 idle **restarting from frame 0**: layer 0 leaves the ordinary idle at frame N (of 3354) for the hold
 bank's raise slot (our 20-frame copy, from frame 0) and then the hold idle slot (frame 0), so the body
 blends from the breathing/sway pose at N to the pose at 0. Before v5 the stock raise clip did the same
-plus its own motion. The light-on set moves more because the OLF idle sways more `[inferred]`.
+plus its own motion. The light-on set moves more because the OLF idle sways more `[hypothesis]`.
 
 **Lever installed: `visceral_aim_idle_phase.lua`** — pre-hook on `via.motion.TreeLayer.changeMotion`
 (the two `(bankID, motionID, startFrame…)` overloads); on the player's layer 0, when the target is a
