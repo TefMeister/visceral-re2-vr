@@ -38,14 +38,15 @@ end
 local TAG = "[visceral_swing]"
 local NS = sdk.game_namespace
 local VK_NUMPAD6 = 0x66
+local VK_NUMPAD5 = 0x65
 local SHOT_IDS = { [1100] = true, [1101] = true, [1102] = true }
 local FOLLOW_FRAMES = 120
 local BASELINE_FRAMES = 5
 local IK_NAMES = { "LEG", "SPINE", "LOOKAT", "ARM", "ARMFIT", "HAND" }
 local ARMFIT = 4
 
-local cfg = { armfit_off = false }
-local st = { key6 = false, last_log = 0, status = "idle", shots = 0, follow = nil, ring = {}, joints = {}, armfit_reads = "" }
+local cfg = { armfit_off = false, noskip = false }
+local st = { key6 = false, key5 = false, last_log = 0, status = "idle", shots = 0, follow = nil, ring = {}, joints = {}, armfit_reads = "" }
 
 local function safe(fn) local ok, r = pcall(fn); if ok then return r end return nil end
 local function log_line(m) log.info(TAG .. " " .. m) end
@@ -140,10 +141,15 @@ end
 
 -- the ARMFIT lever: applied before the IK pass, read back after it (proof of effect)
 re.on_pre_application_entry("LateUpdateBehavior", function()
-    if not cfg.armfit_off then return end
+    if not cfg.armfit_off and not cfg.noskip then return end
     local p = get_player(); if not p then return end
     local ikc = component(p, NS("IkController")); if not ikc then return end
-    safe(function() ikc:call("setEnable", ARMFIT, false, 0.0) end)
+    if cfg.armfit_off then safe(function() ikc:call("setEnable", ARMFIT, false, 0.0) end) end
+    if cfg.noskip then   -- b039, NUM5: never let a motion skip the wrist IK (the hands' anchor to the controllers)
+        safe(function() ikc:set_field("EnableSkipIkForWrist", false) end)
+        safe(function() ikc:set_field("_UseSkipIkForWrist", false) end)
+        safe(function() ikc:set_field("SkipIkForWristBits", 0) end)
+    end
 end)
 
 re.on_frame(function()
@@ -161,6 +167,12 @@ re.on_frame(function()
         log_line("NUM6: ARMFIT " .. (cfg.armfit_off and "OFF (held off every frame)" or "back ON"))
     end
     st.key6 = k6
+    local k5 = reframework:is_key_down(VK_NUMPAD5)
+    if k5 and not st.key5 then
+        cfg.noskip = not cfg.noskip
+        log_line("NUM5: wrist-IK skip " .. (cfg.noskip and "BLOCKED (held off every frame)" or "back to the game"))
+    end
+    st.key5 = k5
 
     -- the measurement
     local off = gun_offset(p)
@@ -196,6 +208,23 @@ re.on_frame(function()
         if m > f.peak then f.peak, f.peak_v, f.peak_f = m, d, f.frame end
         if f.frame == 60 then f.at60 = d end
         if f.frame == f.peak_f then f.wrist_peak = wrist_to_gun(p) end
+        -- b039: a trace every 6 frames, because shot #4's throw (46 cm, down + forward) began as the AIM STATE ENDED
+        -- (hold 1 -> 0 within 0.7 s of the shot). Which comes first, and does the wrist IK get skipped?
+        if f.frame % 6 == 0 or f.frame == 1 then
+            local ikc = component(p, NS("IkController"))
+            local l0 = mo and safe(function() return mo:call("getLayer", 0) end)
+            local node = l0 and safe(function() return l0:call("get_HighestWeightMotionNode") end)
+            local mname = node and safe(function() return node:call("get_MotionName") end) or "-"
+            local armfit = ikc and safe(function() return ikc:call("getBlendRate", ARMFIT) end)
+            local skip = ikc and safe(function() return ikc:get_field("SkipIkForWristBits") end)
+            local applied = ikc and safe(function() return ikc:get_field("AppliedSkipIkForWristBits") end)
+            local en_skip = ikc and safe(function() return ikc:get_field("EnableSkipIkForWrist") end)
+            local use_skip = ikc and safe(function() return ikc:get_field("_UseSkipIkForWrist") end)
+            local wd = wrist_to_gun(p)
+            log_line(string.format("  shot #%d f=%3d gun %s cm hold=%d layer0=%s ARMFIT=%.2f skipWrist=%s applied=%s enableSkip=%s useSkip=%s lwrist=%s",
+                f.n, f.frame, fmt3(d), is_aiming(p) and 1 or 0, tostring(mname), type(armfit) == "number" and armfit or -1,
+                tostring(skip), tostring(applied), tostring(en_skip), tostring(use_skip), wd and string.format("%.1f", wd * 100) or "?"))
+        end
         if f.frame >= FOLLOW_FRAMES then
             local wd = wrist_to_gun(p)
             log_line(string.format("SHOT #%d done: peak %.1f cm %s at frame %d; at 60 frames %s; at 120 frames %s cm; left wrist to gun %s -> %s (peak) -> %s cm  (a throw = large numbers that do not come back)",
