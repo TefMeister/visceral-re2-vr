@@ -1299,6 +1299,17 @@ while `IsHold` (`visceral_lefthand_hold.lua`, pre-hook + skip original) — **pr
 clip tracks themselves live in the mot's non-bone data (CAF's `clipFileOffset`/`offs1`/`offs2` region, not
 decoded); grafting them is the data route if the code route ever has to go.
 
+**8g.2b — which motions carry the track (2026-09-30, `/pd`, static).** The clip tracks are the embedded `CLIP`
+blocks after a mot entry's bone data (header u16 `+0x72`, low byte = clip count; class and property names are
+plain UTF-16 inside the block). Listed for every entry of pl10 `base_hdg_hold` and the Gazing entries of
+`base_cmn_move` `[measured 2026-09-30, n=38 entries]`: **every stock hold-bank motion** (aim walks 0110–0136, raise,
+aim idle, wheel, reload, holster) carries `SurvivorIkLeftArmTrack.IKBlendRatio`; the shot kicks 1100–1102 carry
+`SurvivorRejectPrecedeOrdersTrack` + `VibrationTrack` (and address bones through `pl_common.jmap`); **the relaxed
+`OFF_GazingWalk` loops 0190–0198 carry only `via.motion.MotionSyncPoint` — no left-arm track.** So the item-22
+splice runs the aim state with the support hand released; `[hypothesis]` that is the 2026-09-27 gun swing (b036
+tests it — `modding-notes/2026-09-30-the-relaxed-walks-carry-no-left-hand-track.md`). The 2026-09-27 claim that
+the IK track was "the same in vanilla and walk motions" is withdrawn.
+
 ### 8g.3 ⭐⭐ What the hold (aim) state does to the body, and which lever answers each (2026-09-24, 19 runs)
 
 | what the aim state changes | where | lever, proven live 2026-09-24 |
