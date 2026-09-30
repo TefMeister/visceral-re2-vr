@@ -11,6 +11,13 @@
 -- with the support hand off the gun is what throws it. The arm graft (b016/b017) moved bone tracks only,
 -- never the clip track, which is why it did not help.
 --
+-- The Village link (Tefa's idea, 2026-09-30): the same REFramework code (RE8VR.cpp update_hand_ik, used for
+-- RE2 too, called from re8_vr.lua) steers a two-handed gun by the ANIMATED left-hand socket relative to the
+-- right hand, read every frame; when the animation moves that socket under a held grip the gun re-aims with
+-- both real hands still (village-scope dossier 9cf/9cg, worn fix 2026-09-21). With the support hand no
+-- longer pinned by IK, the shot kick moves the socket, so the gun is thrown, and only while LG is held.
+-- Each shot line therefore also says whether the left grip was held.
+--
 -- One launch, three answers (Tefa walks + shoots two-handed after each step):
 --   step 1: this file + visceral_lefthand_hold.lua (ON) + the b015 walk lists      -> swing gone?  then the missing track is it
 --   step 2: NUM7 (left-hand hold OFF, in visceral_lefthand_hold.lua)                -> swing back?  same answer, from the other side
@@ -137,8 +144,10 @@ re.on_frame(function()
         for i = 1, 3 do base[i] = base[i] / #st.ring end
         st.shots = st.shots + 1
         st.follow = { n = st.shots, id = shot_id, layer = layer_i, base = base, frame = 0, peak = 0, peak_v = { 0, 0, 0 }, peak_f = 0, at60 = nil }
-        log_line(string.format("SHOT #%d motion %d on layer %d: gun at %s cm from head (right/up/fwd), hold=%d armfit_off=%d",
-            st.shots, shot_id, layer_i, fmt3(base), is_aiming(p) and 1 or 0, cfg.armfit_off and 1 or 0))
+        local lg = safe(function() return re8vr and re8vr.is_holding_left_grip end)
+        local wg = safe(function() return re8vr and re8vr.was_gripping_weapon end)
+        log_line(string.format("SHOT #%d motion %d on layer %d: gun at %s cm from head (right/up/fwd), hold=%d armfit_off=%d left_grip=%s two_handed=%s",
+            st.shots, shot_id, layer_i, fmt3(base), is_aiming(p) and 1 or 0, cfg.armfit_off and 1 or 0, tostring(lg), tostring(wg)))
     elseif st.follow and off then
         local f = st.follow
         f.frame = f.frame + 1

@@ -69,6 +69,27 @@ stock aim walk into each OFF walk (data route: the clip block moves whole like a
 `0 → 1.0` and `end → 1.0`, so only the end frame needs rewriting to the walk's length). Data route preferred
 for release — no script, no hook.
 
+## The Village link (Tefa's idea, same evening) — and it closes the "how" `[inferred-static 2026-09-30]`
+
+Tefa: the Village rifle used to jerk left when fired two-handed; are they related? **Yes, through the VR
+mod, not the game.** REFramework's `RE8VR.cpp` `update_hand_ik()` serves RE2 as well (`re8_vr.lua` calls
+`re8vr:update_hand_ik()`), and the Village dossier §9cf/§9cg read it in full: while the left grip is held,
+the gun is steered by the line from the right hand to the **animated left-hand socket**, read from the body
+animation **every frame**. When the animation moves that socket under a held grip, the gun re-aims with both
+real hands still — in Village the first shot after a take moved the muzzle 4.8° every time, and freezing the
+socket at the take fixed it (worn 2026-09-21, *"it works :)"*).
+
+That is the missing "how" for RE2: with the left-arm IK track gone, the support hand is no longer pinned to
+the gun, so the shot kick moves the animated socket — and praydog's steering throws the gun after it. It
+explains every fact of the bisect at once: only with LG held (the grip branch), only on the splice (the
+IK pin is what keeps the socket still through the kick), standing fine (the stock idle carries the track),
+and the direction flipping with the arm base pose (a different socket path). The probe now logs
+`left_grip=` and `two_handed=` per shot; a one-handed shot on the splice is predicted **not** to swing.
+
+Two fixes exist, and both should go in: restore the IK pin (this note), and the Village socket freeze —
+which lives in the patched REFramework Village ran on 2026-09-21, **not** in the stock praydog build the
+test copy runs now. Porting it means patching REFramework again, or asking praydog upstream.
+
 ## Rain (Tefa, same evening): the Story page rains, the main menu does not
 
 Six rounds on 2026-09-27 ruled out lamps, effect players, the Story menu's own effect and keeping the Story
