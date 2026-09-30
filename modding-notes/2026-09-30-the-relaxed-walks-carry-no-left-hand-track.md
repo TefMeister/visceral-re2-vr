@@ -117,6 +117,40 @@ answers per shot, every 6 frames: **which comes first**, the hold ending or the 
 Why the hold ends is the next question (a state-machine exit the OFF walk triggers? the `MotionSyncPoint`
 track? an `Order` rejected by the kick's `SurvivorRejectPrecedeOrdersTrack`?).
 
+## Worn — b039, 22:55 `[verified-live 2026-09-30, n=4 shots]`: THE THROW IS THE AIM STATE DROPPING OUT ~50 FRAMES AFTER A SHOT
+
+Four shots traced every 6 frames (two before NUM5, two after). All four show the same kick: 2–4 cm up/right
+for ~30 frames, then back to 0. **Shots #1 and #3 (Tefa kept walking): nothing else, gun back within 1 cm.
+Shots #2 and #4 (Tefa was stopping): at frame ~50 — the length of the 50-frame shot motion — `hold` went
+1 → 0 with the right grip still squeezed; layer 0 left the hold bank (`HG_Hold_Idle_Loop` → `OFF_Gazing_Idle`
+in #2; `OFF_GazingWalk_End_LR` → `OFF_Gazing_Idle` in #4) and the gun followed the lowering animation:
+−21 cm down / +13 forward (#2), −27 down / +26 forward / +19 right (#4), the left wrist 7 → 22 / 48 cm
+from the gun.** The 1 Hz hold trace agrees: the only two hold drops of the session are at 22:55:06 and
+22:55:15, the two throws. So the "throw" is: **the game leaves the aim state by itself about 0.85 s after a
+shot fired while stopping on the splice; with the aim state gone RE8VR stops pinning the arms to the
+controllers and the lower-the-gun pose plays; when the aim state returns (the grip is still held) the
+hands snap back.** That is Tefa's *"smooth animation … then snaps back"* exactly.
+
+Disposed of tonight: the left-hand IK track (on all evening, no help — real defect, not this one);
+the ARMFIT wall-fit IK (blend fell 1.00 → 0.00 → 1.00 during #2's exit but stayed 1.00 through #4's,
+and the gun went either way — it is not the anchor); NUM5 (the skip-bit fields read `nil`, so the
+`set_field` calls found nothing; the names are properties, not fields — nothing was actually tested).
+The Village socket mechanism is not this either: nothing steers the gun while the hold is up.
+
+**What is NOT known:** why the hold exits. Candidates: an order deferred during the kick
+(`SurvivorRejectPrecedeOrdersTrack`) that resolves against the spliced walk's end; a hold-bank motion the
+FSM does not recognise as a hold walk when the stop transition runs; RE8VR dropping its aim input for a
+frame. **Cheapest next test is FLAT** (keyboard: hold RMB, walk, fire, stop) with a probe that hooks
+`SurvivorCondition.set_IsHold` and logs the layer-0 motion, the pending orders and the caller at each drop;
+then the same on the stock files to confirm they never drop.
+
+## Rain probe, same run: the Story menu's sub camera is a MODE, not another camera
+
+`toSubCamera` runs inside `MenuStoryBehavior.open` (INVALID/OUT_SUB → TO_SUB) and `outSubCamera` inside
+`close` (→ OUT_SUB), while the primary camera stayed **'Main Camera'** throughout `[verified-live 2026-09-30]`.
+`IsCheckLatestLocation=true`. NUM8 on the main menu was not pressed this run, so whether the sub-camera
+mode brings the rain is still open — and it can be tested **flat**.
+
 ## For the micro latch (item 22's next step) — Tefa asked for this kept as research
 
 The micro latch plan is: RG = grip only, RT enters the hold state just for the shot and drops it after.
