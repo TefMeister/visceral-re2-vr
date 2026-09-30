@@ -71,7 +71,17 @@ local function install()
 end
 install()
 
+-- NUM7 (2026-09-30, the swing test): flip the hold off/on in the headset without opening the panel
+local VK_NUMPAD7 = 0x67
+local key7_prev = false
+
 re.on_frame(function()
+    local k7 = reframework:is_key_down(VK_NUMPAD7)
+    if k7 and not key7_prev then
+        cfg.enabled = not cfg.enabled
+        log_line("NUM7: left-hand hold " .. (cfg.enabled and "ON" or "OFF"))
+    end
+    key7_prev = k7
     local now = os.clock()
     if now - st.last_log < 1.0 then return end
     st.last_log = now
