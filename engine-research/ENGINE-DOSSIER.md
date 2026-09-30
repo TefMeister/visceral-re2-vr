@@ -1308,7 +1308,11 @@ aim idle, wheel, reload, holster) carries `SurvivorIkLeftArmTrack.IKBlendRatio`;
 `OFF_GazingWalk` loops 0190–0198 carry only `via.motion.MotionSyncPoint` — no left-arm track.** So the item-22
 splice runs the aim state with the support hand released; `[hypothesis]` that is the 2026-09-27 gun swing (b036
 tests it — `modding-notes/2026-09-30-the-relaxed-walks-carry-no-left-hand-track.md`). The 2026-09-27 claim that
-the IK track was "the same in vanilla and walk motions" is withdrawn.
+the IK track was "the same in vanilla and walk motions" is withdrawn. **The "how" comes from Village** (Tefa's
+link, same evening): REFramework's `RE8VR.cpp` `update_hand_ik()` serves RE2 too and steers a two-handed gun by
+the animated left-hand socket every frame (`re-village-scope-vr` dossier §9cf/§9cg, fix worn 2026-09-21); with
+the pin gone, the kick moves the socket and the steering throws the gun — only while LG is held
+`[inferred-static 2026-09-30]`. The socket freeze lives in Village's patched REFramework, not in stock praydog.
 
 ### 8g.3 ⭐⭐ What the hold (aim) state does to the body, and which lever answers each (2026-09-24, 19 runs)
 
