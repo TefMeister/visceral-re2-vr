@@ -90,6 +90,43 @@ Two fixes exist, and both should go in: restore the IK pin (this note), and the 
 which lives in the patched REFramework Village ran on 2026-09-21, **not** in the stock praydog build the
 test copy runs now. Porting it means patching REFramework again, or asking praydog upstream.
 
+## Worn — b037/b038, 22:40–22:48 `[verified-live 2026-09-30]`: the hold was ON and it still threw
+
+- `visceral_lefthand_hold.lua` forced the left-hand IK on every aimed frame (`IKEnable=true cur=1.00`,
+  72 forced/s) — **and the gun still threw while walking** (Tefa). So the missing track is real but is
+  **not the throw** on its own. The IK-pin reading is `[disproved 2026-09-30]` as the sole cause.
+- The probe's first version never saw motions 1100–1102 on any layer at `on_frame` time (0 shot lines in
+  2½ minutes of firing); the fire request `Equipment.requestFire` catches every shot.
+- **Five shots measured (b038).** Four moved the gun 0.7–3.9 cm at peak and came back. **Shot #4 threw:
+  peak 46.7 cm still growing at frame 120 — right 14, DOWN 37, forward 25 cm — and the left wrist left the
+  gun, 7.4 → 52.5 cm.** Within 0.7 s of that shot the 1 Hz line read **`hold=0`** with layer 0 on the gun-out
+  idle `OFF_Gazing_Idle_F_Loop`: **the aim state ended by itself right after the shot** — Tefa keeps the
+  right grip squeezed the whole time, so it was not their input. Tefa's description fits the numbers:
+  *"not an instant teleport, more like a seemingly smooth animation to the right … then snaps back to my
+  hand"* — the lower-the-gun animation plays with the VR hand anchor giving way, then the anchor snaps the
+  gun back to the controller.
+- Playing as Leon (pl00); the pl00 list from b015 is in and plays (`pl00_0190_OFF_GazingWalk_F_Loop`).
+- `re8vr.*` is not reachable from our script (nil), so the grip flags per shot are unknown here.
+
+**Reading now `[hypothesis]`:** on the splice a shot while walking can end the hold state; leaving the
+hold swaps layer 0 to the gun-out idle/walk and plays the lowering pose, and for those frames the wrist IK
+that RE8VR uses to pin the hands to the controllers (`UseIkArmFitAsWrist`, ARMFIT on/1.00 throughout) is
+skipped or blended away — the "smooth" part — until it re-engages: the snap. Two questions the b039 trace
+answers per shot, every 6 frames: **which comes first**, the hold ending or the gun leaving, and whether
+`SkipIkForWristBits` / `AppliedSkipIkForWristBits` change during it. NUM5 blocks the skip every frame.
+Why the hold ends is the next question (a state-machine exit the OFF walk triggers? the `MotionSyncPoint`
+track? an `Order` rejected by the kick's `SurvivorRejectPrecedeOrdersTrack`?).
+
+## For the micro latch (item 22's next step) — Tefa asked for this kept as research
+
+The micro latch plan is: RG = grip only, RT enters the hold state just for the shot and drops it after.
+Tonight's numbers say what that costs if done naively: **leaving the hold while walking on the splice is
+exactly the moment the gun leaves the hand** (37 cm down, 25 cm forward), because the exit plays the
+lowering pose and the hand anchor gives way for a moment. So the latch must not drop the hold until the
+kick and the return are over, or must keep the wrist IK pinned across the exit (NUM5's block, if it works),
+or must exit into a state whose motion carries no lowering. Also: the hold can end **by itself** after a
+shot on the splice (shot #4) — the latch needs to read the hold state back, not assume it.
+
 ## Rain (Tefa, same evening): the Story page rains, the main menu does not
 
 Six rounds on 2026-09-27 ruled out lamps, effect players, the Story menu's own effect and keeping the Story
