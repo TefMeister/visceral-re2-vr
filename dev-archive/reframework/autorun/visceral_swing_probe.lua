@@ -104,6 +104,40 @@ local function fmt3(v) return string.format("(%+.1f %+.1f %+.1f)", v[1] * 100, v
 local function sub(a, b) return { a[1] - b[1], a[2] - b[2], a[3] - b[3] } end
 local function mag(v) return math.sqrt(v[1] * v[1] + v[2] * v[2] + v[3] * v[3]) end
 
+-- b038 (22:45, first run): no SHOT line in 2.5 minutes although Tefa fired -- motion 1100-1102 was never seen on a
+-- layer at on_frame time. Second marker: the game's own fire request (app.ropeway.survivor.Equipment.requestFire,
+-- the managed method every shot goes through, dossier 2026-08-29). It also logs every layer's motion at the shot
+-- and the left wrist's distance from the gun (does the support hand leave the gun through the kick?).
+local fire_pending = false
+do
+    local eq_t = sdk.find_type_definition(NS("survivor.Equipment"))
+    local m = eq_t and eq_t:get_method("requestFire")
+    if m then
+        sdk.hook(m, function(args) fire_pending = true end, function(rv) return rv end)
+        log_line("hooked Equipment.requestFire as the shot marker")
+    else
+        log_line("Equipment.requestFire NOT FOUND -- shots are only caught by motion id")
+    end
+end
+local function layers_text(mo)
+    local n = safe(function() return mo:call("get_LayerCount") end) or 0
+    local parts = {}
+    for i = 0, n - 1 do
+        local layer = safe(function() return mo:call("getLayer", i) end)
+        local id = layer and safe(function() return layer:call("get_MotionID") end) or -1
+        local bank = layer and safe(function() return layer:call("get_MotionBankID") end) or -1
+        if id and id >= 0 then parts[#parts + 1] = string.format("L%d=%d/%d", i, bank, id) end
+    end
+    return table.concat(parts, " ")
+end
+local function wrist_to_gun(player)
+    local tf = safe(function() return player:call("get_Transform") end); if not tf then return nil end
+    local g = pos(joint(tf, "r_weapon")) or pos(joint(tf, "r_arm_wrist"))
+    local w = pos(joint(tf, "l_arm_wrist"))
+    if not g or not w then return nil end
+    return mag({ g.x - w.x, g.y - w.y, g.z - w.z })
+end
+
 -- the ARMFIT lever: applied before the IK pass, read back after it (proof of effect)
 re.on_pre_application_entry("LateUpdateBehavior", function()
     if not cfg.armfit_off then return end
@@ -138,7 +172,9 @@ re.on_frame(function()
     local mo = component(p, "via.motion.Motion")
     local layer_i, shot_id = nil, nil
     if mo then layer_i, shot_id = shot_playing(mo) end
+    if fire_pending and not shot_id then shot_id, layer_i = 0, -1 end   -- the fire request marks it even when no layer shows 1100
     if shot_id and not st.follow and off and #st.ring >= 2 then
+        fire_pending = false
         local base = { 0, 0, 0 }
         for _, v in ipairs(st.ring) do base[1] = base[1] + v[1]; base[2] = base[2] + v[2]; base[3] = base[3] + v[3] end
         for i = 1, 3 do base[i] = base[i] / #st.ring end
@@ -146,18 +182,25 @@ re.on_frame(function()
         st.follow = { n = st.shots, id = shot_id, layer = layer_i, base = base, frame = 0, peak = 0, peak_v = { 0, 0, 0 }, peak_f = 0, at60 = nil }
         local lg = safe(function() return re8vr and re8vr.is_holding_left_grip end)
         local wg = safe(function() return re8vr and re8vr.was_gripping_weapon end)
-        log_line(string.format("SHOT #%d motion %d on layer %d: gun at %s cm from head (right/up/fwd), hold=%d armfit_off=%d left_grip=%s two_handed=%s",
-            st.shots, shot_id, layer_i, fmt3(base), is_aiming(p) and 1 or 0, cfg.armfit_off and 1 or 0, tostring(lg), tostring(wg)))
+        local wd = wrist_to_gun(p)
+        st.follow.wrist0 = wd
+        log_line(string.format("SHOT #%d motion %d on layer %d: gun at %s cm from head (right/up/fwd), hold=%d armfit_off=%d left_grip=%s two_handed=%s left_wrist_to_gun=%s cm layers: %s",
+            st.shots, shot_id, layer_i, fmt3(base), is_aiming(p) and 1 or 0, cfg.armfit_off and 1 or 0, tostring(lg), tostring(wg),
+            wd and string.format("%.1f", wd * 100) or "?", mo and layers_text(mo) or "?"))
     elseif st.follow and off then
+        fire_pending = false
         local f = st.follow
         f.frame = f.frame + 1
         local d = sub(off, f.base)
         local m = mag(d)
         if m > f.peak then f.peak, f.peak_v, f.peak_f = m, d, f.frame end
         if f.frame == 60 then f.at60 = d end
+        if f.frame == f.peak_f then f.wrist_peak = wrist_to_gun(p) end
         if f.frame >= FOLLOW_FRAMES then
-            log_line(string.format("SHOT #%d done: peak %.1f cm %s at frame %d; at 60 frames %s; at 120 frames %s cm  (a throw = large numbers that do not come back)",
-                f.n, f.peak * 100, fmt3(f.peak_v), f.peak_f, f.at60 and fmt3(f.at60) or "?", fmt3(d)))
+            local wd = wrist_to_gun(p)
+            log_line(string.format("SHOT #%d done: peak %.1f cm %s at frame %d; at 60 frames %s; at 120 frames %s cm; left wrist to gun %s -> %s (peak) -> %s cm  (a throw = large numbers that do not come back)",
+                f.n, f.peak * 100, fmt3(f.peak_v), f.peak_f, f.at60 and fmt3(f.at60) or "?", fmt3(d),
+                f.wrist0 and string.format("%.1f", f.wrist0 * 100) or "?", f.wrist_peak and string.format("%.1f", f.wrist_peak * 100) or "?", wd and string.format("%.1f", wd * 100) or "?"))
             st.follow = nil
         end
     end
