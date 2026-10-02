@@ -18,7 +18,7 @@
 --   NUM2  one shot            (InputSystem.setForce(256, true) for 8 frames, then false)
 --   NUM3  dump the type surfaces this probe leans on (also done once at the first player bind)
 --   NUM4  GAP mode on/off: after every NUM2 shot, at frame GAP_AT, drop HOLD for GAP_LEN frames, then re-assert
---   NUM5  forbid-aim (the game lowering the gun at a wall) forced OFF / back on
+--   NUM5  block the aim turn-on-the-spot (HG_Wheel, Petient TURN) while aiming -- the throw (2026-10-02 evening); forbid-aim lever retired
 --   NUM6  VR grip latch: HOLD forced on while the right grip is squeezed (vrmod), kept on 0.5 s after it reads released
 --         (a shorter dip is bridged AND measured: 'grip BACK after N ms')
 --   NUM8  cycle GAP_LEN (was NUM9: that key is the title script's one-scene swap, and three presses on 2026-10-02 turned it off) 1 -> 3 -> 6 -> 12 -> 1
@@ -37,7 +37,8 @@ end
 local TAG = "[visceral_holdexit]"
 local NS = sdk.game_namespace
 local VK_NUMPAD1, VK_NUMPAD2, VK_NUMPAD3, VK_NUMPAD4, VK_NUMPAD5, VK_NUMPAD6, VK_NUMPAD8 = 0x61, 0x62, 0x63, 0x64, 0x65, 0x66, 0x68
-local PETIENT_HOLD = 16         -- reader 2026-10-02: HOLD is a Petient order (16), decided by PlayerActionOrderer.checkOrder(Petient)
+local PETIENT_HOLD = 16
+local PETIENT_TURN = 32         -- Petient order read as 32 whenever layer 0 played HG_Wheel_L180/R180 (2026-10-02 logs)         -- reader 2026-10-02: HOLD is a Petient order (16), decided by PlayerActionOrderer.checkOrder(Petient)
 local KIND_HOLD, KIND_ATTACK = 64, 256
 local ATTACK_FRAMES = 8          -- proven 2026-09-05: 8 frames of ATTACK under HOLD fires a real shot
 local FOLLOW_FRAMES = 240        -- the drop came at ~50 frames; follow well past the hold coming back
@@ -45,10 +46,10 @@ local GAP_AT = 48                -- frames after the shot request; the 09-30 dro
 local GAP_LENS = { 1, 3, 6, 12 }
 local GRIP_HOLDOVER = 0.5         -- s: NUM6 keeps HOLD on this long after the grip reads released (a dip shorter than this is bridged and measured)
 
-local cfg = { hold = false, gap = false, gap_len_i = 1, noforbid = false, griplatch = false }
+local cfg = { hold = false, gap = false, gap_len_i = 1, noforbid = false, griplatch = false, noturn = false }
 local st = { k1 = false, k2 = false, k3 = false, k4 = false, k5 = false, k6 = false, k8 = false, co_arg = nil, co_last = nil, bound = false, attack_left = 0, shots = 0,
     since_shot = -1, last = "", orderer = nil, forbid_fields = nil, drops = {}, dumped = false, follow = nil,
-    gap_left = 0, fire_seen = 0, layers_debug = false, frame_n = 0, grip_latched = false, grip_lost_at = nil }
+    gap_left = 0, fire_seen = 0, layers_debug = false, frame_n = 0, grip_latched = false, grip_lost_at = nil, turn_inhibited = false }
 
 local tr = { left = 0, n = 0, joints = {} }   -- the after-shot trace (declared before the hooks that arm it)
 local function safe(fn) local ok, r = pcall(fn); if ok then return r end return nil end
@@ -307,16 +308,27 @@ local function trace_frame(p, hold, mname, frame)
     local ax, ay, az = cam_axes()
     local gun = pos(joint(tf, "r_weapon")) or pos(joint(tf, "r_arm_wrist"))
     local rw, lw = pos(joint(tf, "r_arm_wrist")), pos(joint(tf, "l_arm_wrist"))
+    -- Tefa 20:45: "all shots moved the gun equally", yet shots 1-2 showed <= 4 cm gun-vs-HEAD-JOINT. So what is seen must
+    -- be the gun vs the CAMERA (the headset): log the camera position and the gun/head relative to it as well.
+    local cam = sdk.get_primary_camera()
+    local cgo = cam and safe(function() return cam:call("get_GameObject") end)
+    local ctf = cgo and safe(function() return cgo:call("get_Transform") end)
+    local cpos = ctf and safe(function() return ctf:call("get_Position") end)
+    local camtxt = string.format("gun_vs_cam=%s head_vs_cam=%s", rel(gun, cpos, ax, ay, az), rel(head, cpos, ax, ay, az))
     local ctl = "ctl=?"
     if vrmod then
-        local hmd = safe(function() return vrmod:get_position(0) end)
-        local rc = safe(function() return vrmod:get_position(vrmod:get_right_controller_index()) end)
-        local lc = safe(function() return vrmod:get_position(vrmod:get_left_controller_index()) end)
-        if hmd and rc and lc then
+        local okh, hmd = pcall(function() return vrmod:get_position(0) end)
+        local okr, rc = pcall(function() return vrmod:get_position(vrmod:get_right_controller_index()) end)
+        local okl, lc = pcall(function() return vrmod:get_position(vrmod:get_left_controller_index()) end)
+        if okh and okr and okl and hmd and rc and lc then
             ctl = string.format("rctl=(%+.1f %+.1f %+.1f) lctl=(%+.1f %+.1f %+.1f)", (rc.x - hmd.x) * 100, (rc.y - hmd.y) * 100, (rc.z - hmd.z) * 100,
                 (lc.x - hmd.x) * 100, (lc.y - hmd.y) * 100, (lc.z - hmd.z) * 100)
+        elseif not tr.ctl_err then
+            tr.ctl_err = true
+            log_line("trace: controller read failed: " .. tostring(hmd) .. " / " .. tostring(rc) .. " / " .. tostring(lc))
         end
     end
+    ctl = camtxt .. " " .. ctl
     log.info(string.format("[visceral_trace] shot%d f=%d hold=%d gun=%s rwrist=%s lwrist=%s %s layer0=%s mf=%.1f",
         tr.n, TRACE_FRAMES - tr.left, hold and 1 or 0, rel(gun, head, ax, ay, az), rel(rw, head, ax, ay, az), rel(lw, head, ax, ay, az), ctl, tostring(mname), frame or -1))
 end
@@ -355,12 +367,31 @@ re.on_frame(function()
         log_line(string.format("NUM8: GAP length now %d frame(s)", GAP_LENS[cfg.gap_len_i]))
     end
     st.k8 = k9
+    -- NUM5 (2026-10-02 evening): the throw is the aim-turn-on-the-spot animation (HG_Wheel_L180/R180, Petient order TURN=32)
+    -- firing a moment after a stop on the relaxed walk; this blocks the TURN order while the hold is up
     local k5 = reframework:is_key_down(VK_NUMPAD5)
     if k5 and not st.k5 then
-        cfg.noforbid = not cfg.noforbid
-        log_line("NUM5: forbid-aim (gun lowers at a wall) " .. (cfg.noforbid and "FORCED OFF" or "back to the game"))
+        cfg.noturn = not cfg.noturn
+        log_line("NUM5: aim turn-on-the-spot (HG_Wheel) " .. (cfg.noturn and "BLOCKED (setInhibitPetient TURN while aiming)" or "back to the game"))
+        if not cfg.noturn and st.turn_inhibited then
+            local c0 = component(p, NS("survivor.SurvivorCondition")); local o0 = c0 and safe(function() return c0:call("get_ActionOrderer") end)
+            if o0 then safe(function() o0:call("setInhibitPetient", false, PETIENT_TURN) end) end
+            st.turn_inhibited = false
+        end
     end
     st.k5 = k5
+    if cfg.noturn then
+        local c0 = component(p, NS("survivor.SurvivorCondition"))
+        local o0 = c0 and safe(function() return c0:call("get_ActionOrderer") end)
+        local h0 = c0 and safe(function() return c0:call("get_IsHold") end)
+        if o0 and h0 and not st.turn_inhibited then
+            local ok = pcall(function() o0:call("setInhibitPetient", true, PETIENT_TURN) end)
+            st.turn_inhibited = true; log_line("turn block: TURN inhibited while aiming (ok=" .. tostring(ok) .. ")")
+        elseif o0 and (not h0) and st.turn_inhibited then
+            safe(function() o0:call("setInhibitPetient", false, PETIENT_TURN) end)
+            st.turn_inhibited = false; log_line("turn block: TURN allowed again (aim down)")
+        end
+    end
     local k6 = reframework:is_key_down(VK_NUMPAD6)
     if k6 and not st.k6 then
         cfg.griplatch = not cfg.griplatch

@@ -1445,6 +1445,26 @@ the firing order. Two traps paid for: a value-type argument cannot be written fr
   `HoldJogDeferTimer`, `HoldJogExtendTimer`; `SurvivorCondition` holds `ForbidAimController`, `StateTagHandle`,
   `ActionOrderer` as backing fields `[measured 2026-10-02]`.
 
+### 8g.6 ⭐⭐⭐ The pistol swing: the kick pulls the support hand off the gun and the VR mod steers after it (2026-10-02, headset, per-frame trace)
+
+- **Measured** `[verified-live 2026-10-02, n=9 two-handed shots + n=3 one-handed]`: 6–7 frames after `Equipment.requestFire` the
+  left wrist leaves the gun joint (7.5 → 14 cm; 7 cm left, 2 down, 2–3 forward), stays off 31–33 frames, returns; the right
+  wrist stays 8.4–8.6 cm; the gun joint moves ≤ 3.6 cm (the kick) relative to head and camera; `IsHold` stays 1. In the headset
+  video the gun points left/up for that moment — a rotation about the right hand. **One-handed: no swing.**
+- **Mechanism**: `RE8VR::update_hand_ik` aims a two-handed gun along right hand → animated left-hand socket every frame
+  (village-scope §9cf/§9cg); the socket moves with the kick, the gun follows, snaps back when the hand returns. Same as the
+  Village rifle jerk (socket freeze, worn 2026-09-21).
+- **Why only on the splice** `[hypothesis]`: the additive kick (1100–1102, layer 4) is authored over the stock aim pose; on the
+  relaxed OFF_GazingWalk base the same joint deltas displace the support hand (b016's arm graft changed the throw direction,
+  not its presence).
+- **Not the cause** `[disproved 2026-10-02]`: the aim state dropping (09-30 reading withdrawn — the hold stayed up through every
+  shot; the 09-30 drops were the grip relaxing), the forbid-aim rule (§8g.5), the aim turn-on-the-spot (`HG_Wheel`, Petient 32).
+- **Fix ladder**: strip the left-arm bone tracks from the kick clips in our loose motlist (VR list only) → port the Village
+  socket freeze to the pd-upscaler REFramework → one-handed-during-kick in the native. Note:
+  `modding-notes/2026-10-02-the-swing-is-the-support-hand-leaving-the-gun-through-the-kick.md`.
+- Tooling: `[visceral_trace]` per-frame lines after each fire request (b043 probe) + `plot_trace.py`; the Virtual Desktop
+  headset recording (`D:/CCCC`) is the frame-exact picture, since the desktop window is black in VR.
+
 ### 8i. Leon (pl00): the item-22 hold-bank recipe carries over unchanged (reader plan 2026-09-24, built and installed by /pd)
 
 - Leon's `pl00/list/hdg/base_hdg_hold.motlist.524` has **the same 30 slot numbers and the same 30 motion-name
