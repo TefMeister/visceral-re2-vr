@@ -46,3 +46,26 @@ direction of the throw without removing it, which fits a different base configur
 (gun, both wrists, head vs camera; hold; layer-0 motion); `dev-archive/tools/plot_trace.py` summarises (matplotlib not
 installed here, numbers only). Desktop capture is impossible in VR (black window even with the mirror setting off), but the
 Virtual Desktop headset recording in `D:/CCCC` is frame-exact and ffmpeg contact sheets (`fps=15, tile=5x3`) make it readable.
+
+
+## Later the same evening: two fixes tried, neither is it — and the steering is NOT praydog's Lua
+
+1. **Kick without its left-arm tracks (b045, `motlist_kick_strip.py`)** — 21 left arm/hand tracks switched off in 1100–1102 and
+   1120, both lists, 84 bytes. Tefa: *"it swings a little at a different angle than before, but still a big swing … left
+   hand also behaved differently"*. Trace: the left wrist still leaves the gun by ~7 cm for ~30 frames, now down/back while
+   the gun kicks up 5 cm `[verified-live 2026-10-02, n=3]`. So the left hand is not dragged off by its own kick tracks: the
+   gun kicks and the left hand does not follow it, although `visceral_lefthand_hold.lua` held the left-hand IK at 1.00 the
+   whole time (`IKEnable=true cur=1.00`, forced 72/s while aiming). Reverted; tool and both versions kept in
+   `D:/RE2 REFramework builds/kick-strip-2026-10-02/` `[disproved 2026-10-02]` as the fix.
+2. **One-handed for 0.5 s after each shot, patched into praydog's `re8_vr.lua`** — never ran: that script returns at line 6
+   on anything but RE7/RE8 (`if not is_re7 and not is_re8 then return end`). **So on RE2 the two-handed aim is NOT the
+   Lua/`RE8VR.cpp` path the 09-30 note assumed** `[verified-live 2026-10-02, the patch's load line never printed]`; it is
+   REFramework's native RE2 VR/FirstPerson code (no `plugins/` folder in the test copy, no other script reads the grip).
+   Patch reverted (original file hash 8a9076514f0e back in place).
+
+**Where it stands** `[hypothesis]`: during the kick the left-hand IK target (the gun's support point) and the gun the VR
+code pins to the controller disagree for ~30 frames — the IK solves to the animated, kicked gun before the native VR code
+moves the gun to the controller, so the hand lands off the real gun and the native two-hand aim follows the hand. Next
+needs the native side: read praydog's RE2 two-handed aim in the REFramework source (pd-upscaler a24c3459) — which
+socket it steers by and when it runs relative to the game's IK — then either re-solve the left hand after it, or freeze
+its socket for the kick as Village did. That is FABLE-level reading.
