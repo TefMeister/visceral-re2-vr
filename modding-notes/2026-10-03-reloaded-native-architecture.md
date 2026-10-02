@@ -127,6 +127,22 @@ late, which no hand can feel. Frequency is a named setting, not per call.
 | sound player | nothing | **miniaudio in our plugin**; his sound pack shipped as data, credited |
 | settings UI (imgui from Lua) | NUM hotkeys + log | ⭐ **PORT HIS, IN-GAME, EVERY SETTING** (Tefa). The plugin API draws ImGui natively (`on_imgui_draw_ui`, API.h 1.15), so the page is C++ in `rld_ui.cpp`, backed by `port_settings.h` defaults + a saved settings file |
 
+### 4.1 The settings screen is a VR MENU, not a REFramework page (Tefa, 2026-10-03 02:05, verbatim in spirit)
+
+- **Opened by a gesture + buttons:** the player points at their **left hand with their right hand** and presses
+  **right grip + A**. The **same sequence closes it**. Nothing on the keyboard or mouse; nobody digs through the
+  REFramework menus.
+- **Floats in front of the player** in the headset, like the RE4 VR mod's menu (look at it for guidance on
+  placement, pointing and selection).
+- **Only the relevant settings** are on it, not everything the plugin knows.
+- **Changes apply in real time.** A setting that needs a restart says so with a **pop-up notification** at the
+  moment it is changed.
+- Technical route `[inferred-static 2026-10-03]`: draw it natively (`on_imgui_draw_ui`); REFramework already shows
+  its ImGui in the headset as a world-space panel, so the first test is whether our page rides that panel or needs
+  its own quad. The open gesture = right-hand forward axis within a small angle of the left hand's position and
+  the hands within reach, latched while RG + A are both pressed (edge, not level), so it cannot trigger in play.
+  Selection by pointing with the right hand (laser) + trigger; stick for scrolling. Lives in `rld_ui.cpp`.
+
 ## 5. Build order, each step a worn test, nothing moves on until the step before is confirmed
 
 | # | Step | What proves it | Gate | Model |
@@ -141,7 +157,7 @@ late, which no hand can feel. Frequency is a named setting, not per call.
 | 7 | revolver + single rounds | | VR USER | OPUS |
 | 8 | holsters | | VR USER | OPUS |
 | 8b | arm stretch + reach boost + auto standing height (`rld_ik_ext`) | the left hand stays on the gun at full reach; the body height matches standing | VR USER | FABLE for folding the stretch into the dock without two writers, then OPUS |
-| 8c | the settings page | every setting changeable in game and saved | FLAT | OPUS |
+| 8c | the VR settings menu (§4.1) | opens and closes on the gesture, floats in front of the player, changes apply live, restart pop-up | VR USER | FABLE for the panel-in-headset route and the gesture, then OPUS |
 | 9 | recoil | | VR USER | FABLE for the spring + IK matrix maths, then OPUS |
 | 10 | knife + haptics | | VR USER | OPUS |
 
