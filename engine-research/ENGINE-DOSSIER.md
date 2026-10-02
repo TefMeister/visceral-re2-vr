@@ -1459,9 +1459,14 @@ the firing order. Two traps paid for: a value-type argument cannot be written fr
   not its presence).
 - **Not the cause** `[disproved 2026-10-02]`: the aim state dropping (09-30 reading withdrawn — the hold stayed up through every
   shot; the 09-30 drops were the grip relaxing), the forbid-aim rule (§8g.5), the aim turn-on-the-spot (`HG_Wheel`, Petient 32).
-- **Fix ladder**: strip the left-arm bone tracks from the kick clips in our loose motlist (VR list only) → port the Village
-  socket freeze to the pd-upscaler REFramework → one-handed-during-kick in the native. Note:
-  `modding-notes/2026-10-02-the-swing-is-the-support-hand-leaving-the-gun-through-the-kick.md`.
+- **Where the steering lives (2026-10-02 night, source at a24c3459)** `[measured]`: NOT `re8_vr.lua`/`RE8VR.cpp` (that Lua
+  returns on RE2); RE2's VR hands are `src/mods/FirstPerson.cpp`: per frame it reads `l_arm_wrist` relative to `r_arm_wrist`
+  from `via.motion.Motion` (the socket), and while aiming + gripping the "pistol fix" rotates the right hand (the gun) by the
+  delta between right-hand→socket and right-hand→real-left-hand, then pins the drawn left hand to the socket. The kick moves
+  the socket; the gun follows. Stripping the kick's left-arm tracks only changed the angle `[disproved 2026-10-02 as a fix]`.
+- **The fix, built and installed (b045)** `[compile-verified 2026-10-02]`: `dev-archive/reframework-patch/2026-10-02-re2-grip-socket-freeze.patch`
+  keeps the socket taken at the grip while `m_was_gripping_weapon`, thaws on release. Build recipe and traps in
+  `modding-notes/2026-10-02-the-swing-fix-freeze-the-grip-socket-in-reframework.md`. Unworn.
 - Tooling: `[visceral_trace]` per-frame lines after each fire request (b043 probe) + `plot_trace.py`; the Virtual Desktop
   headset recording (`D:/CCCC`) is the frame-exact picture, since the desktop window is black in VR.
 
