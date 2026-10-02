@@ -1623,3 +1623,6 @@ on.
   menu): call `requestEffectInternal(eid, nil, -1)` with `eid` = `EffectID(0, 2)` on the Story object's
   `ObjectEffectManagerComponent`** — rain on the main menu ⇒ this is it; then the title script requests it at flow state 10
   and kills it on leaving. Note: `modding-notes/2026-10-02-title-rain-the-story-page-requests-an-effect.md`.
+- **Built: `visceral_title_rain.lua` puts it on the main menu** `[verified-live 2026-10-02, flat, n=2]`: managed `EffectID`
+  (a ValueType is refused), `requestEffectInternal(id, nil, -1)`, **retried every 0.5 s — the first call is refused while the
+  effect data loads**; kills ours when Story opens, adopts the game's container on close (field cleared first). ESC = back.

@@ -51,3 +51,16 @@ player `[hypothesis]`. The sub camera (10-01) and lamps (09-27) were real differ
 log `this`'s GameObject name, `id.ContainerID/ElementID`, and the return; expect exactly one call on main menu → Story with (0, 2).
 Read-out: rain appears on the main menu after the call ⇒ this is it (then the title script requests it at flow state 10 and kills it
 on leaving); returns nil ⇒ try `requestEffect` with the same `(eid, nil, -1)`, then check `IsCheckLatestLocation`/`effectID` were set.
+
+
+## Built and seen, same evening (flat, three launches) `[verified-live 2026-10-02, n=2 launches]`
+
+`dev-archive/reframework/autorun/visceral_title_rain.lua` (in the test copy, b044): finds the title's `MenuStoryBehavior`
+through the scene (`findComponents`), builds `EffectID(0, 2)` as a managed object (`sdk.create_instance(..., true)`, fields
+`ContainerID`/`ElementID`/`DataContainerIndex=-1`; a `ValueType` is refused) and calls
+`ObjectEffectManagerComponent.requestEffectInternal(id, nil, -1)`. **The first call is often refused ("Invoke threw") while the
+effect data is still loading — one launch accepted the first press, two refused it — so it retries every 0.5 s; attempt 2
+was accepted on the run that shipped.** Rain drops run down the main-menu "lens" in the captures. On Story open it kills
+ours (the game requests its own); on close it clears `EffectContainer` before close/fade-out can kill it and adopts the
+game's container, so backing out keeps the rain (log + capture). ESC backs out of the Story page (a keyboard Return).
+Probe `visceral_title_rain_probe.lua` archived (in git; taken out of the test copy). Not yet seen in the headset.
