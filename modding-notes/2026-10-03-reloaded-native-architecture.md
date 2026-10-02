@@ -108,22 +108,24 @@ late, which no hand can feel. Frequency is a named setting, not per call.
 | `rld_holster.cpp` | holster.lua | hip / shoulder / chest / head-light, per-character profiles |
 | `rld_recoil.cpp` | recoil.lua | wrist spring in the `IkArmFit.updateIk` pre-hook, native + camera recoil off |
 | `rld_knife.cpp`, `rld_haptics.cpp` | melee + haptics | last |
+| `rld_ik_ext.cpp` | ik_extention.lua | arm stretch, clavicle shift, two-hand reach boost (fed into the dock), auto standing height |
+| `rld_ui.cpp` | the imgui pages | the in-game settings page for every setting, drawn natively via `on_imgui_draw_ui` |
 
 `Plugin.cpp` only registers the schedule and calls `port_*_tick()` functions; it never holds feature logic.
 
-## 4. Overlaps with what Visceral already has: the decisions (Tefa to confirm the three ⭐)
+## 4. Overlaps with what Visceral already has: the decisions (the three ⭐ answered by Tefa, 2026-10-03 01:55: port ALL of them)
 
 | RELOADED piece | Visceral has | Decision |
 | --- | --- | --- |
-| two-hand reach boost, arm stretch, clavicle shift (`ik_extention`) | its own left-hand dock + the REFramework grip-socket freeze (worn 2026-10-02) | ⭐ **skip his**; ours is worn and proven. Revisit only if a reload gesture needs more reach |
+| two-hand reach boost, arm stretch, clavicle shift (`ik_extention`) | its own left-hand dock + the REFramework grip-socket freeze (worn 2026-10-02) | ⭐ **PORT HIS** (Tefa: without the stretch the left hand shows as coming off the weapon while it is still technically gripping). Goes into the dock as the dock's reach rule, not as a second IK writer |
 | slide-dock left-arm IK (`ik_extention`) | the dock writes `getIKLeftArmMatrix` | **fold into the dock as a second target ("slide")**: one writer per joint per frame |
 | support hand follows the gun (`recoil`) | the dock does this | **ours** |
-| auto standing height (`ik_extention`) | nothing | ⭐ skip for now (not part of reloading) |
+| auto standing height (`ik_extention`) | nothing | ⭐ **PORT HIS** (Tefa: loves the feature) |
 | holsters | nothing | **port his 1.0.1** (not AC's rework) |
 | recoil spring + native/camera recoil off | nothing | **port his**, after the reloads |
 | knife + haptics | nothing | **port his**, last |
 | sound player | nothing | **miniaudio in our plugin**; his sound pack shipped as data, credited |
-| settings UI (imgui from Lua) | NUM hotkeys + log | ⭐ **settings file + NUM keys first**; a Lua page that reads the bridge later if wanted |
+| settings UI (imgui from Lua) | NUM hotkeys + log | ⭐ **PORT HIS, IN-GAME, EVERY SETTING** (Tefa). The plugin API draws ImGui natively (`on_imgui_draw_ui`, API.h 1.15), so the page is C++ in `rld_ui.cpp`, backed by `port_settings.h` defaults + a saved settings file |
 
 ## 5. Build order, each step a worn test, nothing moves on until the step before is confirmed
 
@@ -138,6 +140,8 @@ late, which no hand can feel. Frequency is a named setting, not per call.
 | 6 | pump | | VR USER | OPUS |
 | 7 | revolver + single rounds | | VR USER | OPUS |
 | 8 | holsters | | VR USER | OPUS |
+| 8b | arm stretch + reach boost + auto standing height (`rld_ik_ext`) | the left hand stays on the gun at full reach; the body height matches standing | VR USER | FABLE for folding the stretch into the dock without two writers, then OPUS |
+| 8c | the settings page | every setting changeable in game and saved | FLAT | OPUS |
 | 9 | recoil | | VR USER | FABLE for the spring + IK matrix maths, then OPUS |
 | 10 | knife + haptics | | VR USER | OPUS |
 
