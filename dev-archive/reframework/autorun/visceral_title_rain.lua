@@ -12,7 +12,8 @@
 --   * Story page opens: kill ours (the game requests its own, otherwise it would rain twice)
 --   * Story page closes: keep the game's container alive (clear the field before close / fade-out can kill it) and adopt
 --     it as ours, so backing out keeps the rain
--- The element comes from the Story object's own effectID when the game has filled it, else RPD's (0, 2).
+-- The element is the game's own choice: the Story object's effectID once filled, else the same latest-save lookup the game
+-- does (RAIN_BY_LOCATION); a location with no rain (the underground parking) leaves the main menu dry, as the Story page is.
 
 if reframework:get_game_name() ~= "re2" then
     return
@@ -23,7 +24,11 @@ local SIG = "requestEffectInternal(via.effect.script.EffectID, via.GameObject, S
 local RETRY_S = 0.5            -- seconds between request attempts on the main menu
 local MAX_ATTEMPTS = 120       -- one minute of tries, then give up quietly until the next title visit
 local FIND_S = 2.0             -- seconds between looks for the title's Story object
-local RPD_CONTAINER, RPD_ELEMENT = 0, 2
+-- the game's own choice (MenuStoryBehavior.open, reader 2026-10-02): latest save's Location.ID -> rain element in container 0;
+-- any location not listed gets NO rain (e.g. the underground parking), and OrphanAsylum none for survivor type 3
+local RAIN_CONTAINER = 0
+local RAIN_BY_LOCATION = { [16] = 2, [23] = 0, [24] = 4, [25] = 3, [30] = 1 }   -- RPD, GasStation2, OrphanAsylum, OrphanApproach, Opening3
+local ORPHAN_ASYLUM, NO_RAIN_SURVIVOR = 24, 3
 
 local st = { menu = nil, ours = nil, story_open = false, attempts = 0, next_try = 0, next_find = 0, gave_up = false, logged_fail = false }
 
@@ -35,7 +40,7 @@ if not story_t then log_line("MenuStoryBehavior NOT FOUND -- off"); return end
 
 local function reset(why)
     if st.menu then log_line("title left (" .. why .. ")") end
-    st.menu, st.ours, st.story_open, st.attempts, st.gave_up, st.logged_fail = nil, nil, false, 0, false, false
+    st.menu, st.ours, st.story_open, st.attempts, st.gave_up, st.logged_fail, st.logged_el = nil, nil, false, 0, false, false, false
 end
 
 local function kill(c) if c then safe(function() c:set_field("KillAllRequest", true) end) end end
@@ -73,13 +78,34 @@ local function find_menu()
     return nil
 end
 
+-- which rain the game would show for the latest save; nil = none
+local function rain_element()
+    local sdm = sdk.get_managed_singleton("app.ropeway.gamemastering.SaveDataManager")
+        or sdk.get_managed_singleton(sdk.game_namespace("SaveDataManager"))
+    if not sdm then return nil, "no SaveDataManager" end
+    local slot = safe(function() return sdm:call("getLastTimeStampSlotIndex") end)
+    if slot == nil then return nil, "no latest slot" end
+    local loc = safe(function() return sdm:call("getGameDataLocation", slot) end)
+    if loc == nil then return nil, "no location for slot " .. tostring(slot) end
+    local el = RAIN_BY_LOCATION[loc]
+    if loc == ORPHAN_ASYLUM and safe(function() return sdm:call("getLatestGameDataSurvivorType") end) == NO_RAIN_SURVIVOR then el = nil end
+    return el, "slot " .. tostring(slot) .. ", location " .. tostring(loc)
+end
+
 local function make_id(m)
     local own = safe(function() return m:get_field("effectID") end)
     if own then return own end
+    local el, why = rain_element()
+    if el == nil then
+        if not st.gave_up then log_line("no rain for the latest save (" .. why .. ") -- the main menu stays dry, as the Story page would") end
+        st.gave_up = true
+        return nil
+    end
+    if not st.logged_el then st.logged_el = true; log_line("rain element " .. el .. " for the latest save (" .. why .. ")") end
     local id = safe(function() return sdk.create_instance("via.effect.script.EffectID", true) end)
     if not id then return nil end
-    safe(function() id:set_field("ContainerID", RPD_CONTAINER) end)
-    safe(function() id:set_field("ElementID", RPD_ELEMENT) end)
+    safe(function() id:set_field("ContainerID", RAIN_CONTAINER) end)
+    safe(function() id:set_field("ElementID", el) end)
     safe(function() id:set_field("DataContainerIndex", -1) end)
     return id
 end
