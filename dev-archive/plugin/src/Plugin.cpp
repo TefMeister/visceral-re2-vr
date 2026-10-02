@@ -260,5 +260,9 @@ extern "C" __declspec(dllexport) bool reframework_plugin_initialize(const REFram
         if (!hooked.exchange(true)) on_initialized();
         on_frame();
     });
+    // bridge v2 (2026-10-03): the late tick is where RELOADED read the hand; the port's hand-driven features
+    // will hang off this point, and for now it measures whether the UpdateHID write and this one ever differ.
+    fns->on_post_application_entry("LateUpdateBehavior", []() { bridge_late_tick(); });
+    install_entry_order_probe();
     return true;
 }
