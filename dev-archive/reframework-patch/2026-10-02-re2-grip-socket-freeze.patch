@@ -1,0 +1,58 @@
+diff --git a/cmake.toml b/cmake.toml
+index b5c0ffbc..d8fe7691 100644
+--- a/cmake.toml
++++ b/cmake.toml
+@@ -4,7 +4,7 @@
+ # > cmake --build build --config Release
+ [project]
+ name = "reframework"
+-languages = ["CXX", "C", "CSharp"]
++languages = ["CXX", "C"]
+ cmake-after = """
+ set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
+ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /MP")
+diff --git a/src/mods/FirstPerson.cpp b/src/mods/FirstPerson.cpp
+index d3cc35ad..de13be27 100644
+--- a/src/mods/FirstPerson.cpp
++++ b/src/mods/FirstPerson.cpp
+@@ -830,6 +830,24 @@ void FirstPerson::update_player_arm_ik(RETransform* transform) {
+         original_left_rot_relative = glm::inverse(original_right_rot) * original_left_rot;
+     }
+ 
++    // Visceral (RE2 VR), 2026-10-02: freeze the grip socket while the two-handed grip is held.
++    // The socket above is re-read from the animation every frame, so the shot's kick (which moves the animated
++    // left wrist ~7 cm off the right for ~0.35 s) moves it, and the "pistol fix" below then rotates the right hand
++    // (the gun) to line the socket up with the real left hand: the gun swings after every shot and snaps back.
++    // Measured in the headset (per-frame trace, 9 of 9 shots; one-handed shots do not swing). Same cause and fix
++    // as the Village rifle (RE8VR grip-no-throw, 2026-09-21). While the grip is held, the socket taken at the
++    // take is kept; it thaws when the grip is released (not aiming, reloading, or the left grip let go).
++    if (m_freeze_grip_socket) {
++        if (m_was_gripping_weapon && m_grip_socket_valid) {
++            original_left_pos_relative = m_frozen_left_pos_relative;
++            original_left_rot_relative = m_frozen_left_rot_relative;
++        } else {
++            m_frozen_left_pos_relative = original_left_pos_relative;
++            m_frozen_left_rot_relative = original_left_rot_relative;
++            m_grip_socket_valid = via_motion != nullptr;
++        }
++    }
++
+     auto calculate_joint_pos_rot = [&](uint32_t hash, int32_t controller_index) -> std::tuple<glm::quat, Vector4f> {
+         auto wrist_joint = sdk::get_transform_joint_by_hash(transform, hash);
+ 
+diff --git a/src/mods/FirstPerson.hpp b/src/mods/FirstPerson.hpp
+index 9d4b634c..230f1083 100644
+--- a/src/mods/FirstPerson.hpp
++++ b/src/mods/FirstPerson.hpp
+@@ -165,6 +165,11 @@ private:
+     bool m_wants_disable{false};
+     bool m_was_hmd_active{false};
+     bool m_was_gripping_weapon{false};
++    // Visceral 2026-10-02: the grip socket (left wrist relative to the right, from the animation) frozen while gripping
++    bool m_freeze_grip_socket{true};
++    bool m_grip_socket_valid{false};
++    Vector4f m_frozen_left_pos_relative{};
++    glm::quat m_frozen_left_rot_relative{glm::identity<glm::quat>()};
+ 
+ 
+     const ModToggle::Ptr m_smooth_xz_movement{ ModToggle::create(generate_name("SmoothXZMovementVR"), true) };
