@@ -1,0 +1,56 @@
+[2026-10-02 16:10:28.524] [REFramework] [info] [visceral_holdexit] hooked Equipment.requestFire (proof of a shot)
+[2026-10-02 16:10:28.524] [REFramework] [info] [visceral_holdexit] hooking SurvivorActionOrderer.onMotionTransitionEvent(System.UInt32, via.motion.TransitionState)
+[2026-10-02 16:10:28.525] [REFramework] [info] [visceral_holdexit] hooked PlayerActionOrderer.checkOrder(Petient) -- the HOLD decision
+[2026-10-02 16:10:28.525] [REFramework] [info] [visceral_holdexit] hooked PlayerForbidAimController.get_IsForbid (NUM5 forces it false)
+[2026-10-02 16:10:28.525] [REFramework] [info] [visceral_holdexit] loaded: NUM1 forced HOLD, NUM2 one shot, NUM3 dump, NUM4 gap mode, NUM9 gap length; every state change is logged
+[2026-10-02 16:11:41.555] [REFramework] [info] [visceral_holdexit] PLAYER BOUND
+[2026-10-02 16:11:47.571] [REFramework] [info] [visceral_holdexit] NUM1: forced HOLD ON (setForce ok=true)
+[2026-10-02 16:11:49.742] [REFramework] [info] [visceral_holdexit] SHOT #1 requested: hold=true inputHOLD=1 layer0=pl00_0190_OFF_GazingWalk_F_Loop f=61.4/65.0 gap=0 layers:  precede=0 petient=64 IsForbidAim=false forbid{<isStarted>k__BackingField=true}
+[2026-10-02 16:11:49.745] [REFramework] [info] [visceral_holdexit] FIRE REQUEST #1 at f+1
+[2026-10-02 16:11:50.019] [REFramework] [info] [visceral_holdexit] f+54 hold=1 inputHOLD=1 layer0=pl00_0160_HG_Hold_Idle_Loop mf=0.3/432.0 layers:  precede=0 petient=16 IsForbidAim=false forbid{<isStarted>k__BackingField=true}
+[2026-10-02 16:11:50.996] [REFramework] [info] [visceral_holdexit] SHOT #1 done (fire requests 1, gap 0): hold stayed up for 240 frames  (drops so far: 0 of 1 shots)
+[2026-10-02 16:11:53.254] [REFramework] [info] [visceral_holdexit] f+672 hold=1 inputHOLD=1 layer0=pl00_0197_OFF_GazingWalk_Back_B_Loop mf=0.3/68.0 layers:  precede=0 petient=64 IsForbidAim=false forbid{<isStarted>k__BackingField=true}
+[2026-10-02 16:11:54.419] [REFramework] [info] [visceral_holdexit] SHOT #2 requested: hold=true inputHOLD=1 layer0=pl00_0197_OFF_GazingWalk_Back_B_Loop f=2.2/68.0 gap=0 layers:  precede=0 petient=64 IsForbidAim=false forbid{<isStarted>k__BackingField=true}
+[2026-10-02 16:11:54.422] [REFramework] [info] [visceral_holdexit] FIRE REQUEST #2 at f+1
+[2026-10-02 16:11:54.693] [REFramework] [info] [visceral_holdexit] f+52 hold=1 inputHOLD=1 layer0=pl00_0160_HG_Hold_Idle_Loop mf=0.4/432.0 layers:  precede=0 petient=16 IsForbidAim=false forbid{<isStarted>k__BackingField=true}
+[2026-10-02 16:11:55.756] [REFramework] [info] [visceral_holdexit] SHOT #2 done (fire requests 1, gap 0): hold stayed up for 240 frames  (drops so far: 0 of 2 shots)
+[2026-10-02 16:12:14.135] [REFramework] [info] [visceral_holdexit] f+3543 hold=1 inputHOLD=1 layer0=pl00_0190_OFF_GazingWalk_F_Loop mf=0.3/65.0 layers:  precede=0 petient=64 IsForbidAim=false forbid{<isStarted>k__BackingField=true}
+[2026-10-02 16:12:18.100] [REFramework] [info] [visceral_holdexit] f+4298 hold=1 inputHOLD=1 layer0=pl00_0160_HG_Hold_Idle_Loop mf=0.3/432.0 layers:  precede=0 petient=16 IsForbidAim=false forbid{<isStarted>k__BackingField=true}
+[2026-10-02 16:12:38.726] [REFramework] [info] [visceral_holdexit] NUM4: GAP mode ON (drop HOLD at f+48 for 1 frame(s) after each shot)
+[2026-10-02 16:12:39.721] [REFramework] [info] [visceral_holdexit] f+8642 hold=1 inputHOLD=1 layer0=pl00_0190_OFF_GazingWalk_F_Loop mf=0.3/65.0 layers:  precede=0 petient=64 IsForbidAim=false forbid{<isStarted>k__BackingField=true}
+[2026-10-02 16:12:40.890] [REFramework] [info] [visceral_holdexit] SHOT #3 requested: hold=true inputHOLD=1 layer0=pl00_0190_OFF_GazingWalk_F_Loop f=5.4/63.0 gap=1 layers:  precede=0 petient=64 IsForbidAim=false forbid{<isStarted>k__BackingField=true}
+[2026-10-02 16:12:40.893] [REFramework] [info] [visceral_holdexit] FIRE REQUEST #3 at f+1
+[2026-10-02 16:12:41.134] [REFramework] [info] [visceral_holdexit] GAP: HOLD input dropped at f+48 for 1 frame(s)
+[2026-10-02 16:12:41.139] [REFramework] [info] [visceral_holdexit] GAP: HOLD input back at f+49
+[2026-10-02 16:12:41.139] [REFramework] [info] [visceral_holdexit] f+49 hold=0 inputHOLD=0 layer0=pl00_0190_OFF_GazingWalk_F_Loop mf=21.3/65.0 layers:  precede=0 petient=4 IsForbidAim=false forbid{<isStarted>k__BackingField=true}  <<< HOLD DROPPED (input 0)
+[2026-10-02 16:12:41.146] [REFramework] [info] [visceral_holdexit] f+50 hold=1 inputHOLD=1 layer0=pl00_0190_OFF_GazingWalk_F_Loop mf=21.9/65.0 layers:  precede=0 petient=64 IsForbidAim=false forbid{<isStarted>k__BackingField=true}  <<< hold back
+[2026-10-02 16:12:41.164] [REFramework] [info] [visceral_holdexit] f+53 hold=1 inputHOLD=1 layer0=pl00_0160_HG_Hold_Idle_Loop mf=0.4/432.0 layers:  precede=0 petient=16 IsForbidAim=false forbid{<isStarted>k__BackingField=true}
+[2026-10-02 16:12:42.157] [REFramework] [info] [visceral_holdexit] SHOT #3 done (fire requests 1, gap 1): HOLD DROPPED at frame 49, back at 50  (drops so far: 1 of 3 shots)
+[2026-10-02 16:12:44.395] [REFramework] [info] [visceral_holdexit] f+687 hold=1 inputHOLD=1 layer0=pl00_0197_OFF_GazingWalk_Back_B_Loop mf=0.3/68.0 layers:  precede=0 petient=64 IsForbidAim=false forbid{<isStarted>k__BackingField=true}
+[2026-10-02 16:12:45.562] [REFramework] [info] [visceral_holdexit] SHOT #4 requested: hold=true inputHOLD=1 layer0=pl00_0197_OFF_GazingWalk_Back_B_Loop f=2.3/68.0 gap=1 layers:  precede=0 petient=64 IsForbidAim=false forbid{<isStarted>k__BackingField=true}
+[2026-10-02 16:12:45.565] [REFramework] [info] [visceral_holdexit] FIRE REQUEST #4 at f+1
+[2026-10-02 16:12:45.841] [REFramework] [info] [visceral_holdexit] GAP: HOLD input dropped at f+48 for 1 frame(s)
+[2026-10-02 16:12:45.841] [REFramework] [info] [visceral_holdexit] f+48 hold=1 inputHOLD=1 layer0=pl00_0160_HG_Hold_Idle_Loop mf=0.4/432.0 layers:  precede=0 petient=16 IsForbidAim=false forbid{<isStarted>k__BackingField=true}
+[2026-10-02 16:12:45.848] [REFramework] [info] [visceral_holdexit] GAP: HOLD input back at f+49
+[2026-10-02 16:12:45.848] [REFramework] [info] [visceral_holdexit] f+49 hold=0 inputHOLD=0 layer0=pl00_0160_OFF_Gazing_Idle_F_Loop mf=0.4/432.0 layers:  precede=0 petient=1 IsForbidAim=false forbid{<isStarted>k__BackingField=true}  <<< HOLD DROPPED (input 0)
+[2026-10-02 16:12:45.855] [REFramework] [info] [visceral_holdexit] f+50 hold=1 inputHOLD=1 layer0=pl00_0150_HG_Hold_Start_R0 mf=0.4/20.0 layers:  precede=0 petient=16 IsForbidAim=false forbid{<isStarted>k__BackingField=true}  <<< hold back
+[2026-10-02 16:12:46.083] [REFramework] [info] [visceral_holdexit] f+85 hold=1 inputHOLD=1 layer0=pl00_0160_HG_Hold_Idle_Loop mf=0.1/432.0 layers:  precede=0 petient=16 IsForbidAim=false forbid{<isStarted>k__BackingField=true}
+[2026-10-02 16:12:46.967] [REFramework] [info] [visceral_holdexit] SHOT #4 done (fire requests 1, gap 1): HOLD DROPPED at frame 49, back at 50  (drops so far: 2 of 4 shots)
+[2026-10-02 16:12:49.297] [REFramework] [info] [visceral_holdexit] NUM4: GAP mode OFF (drop HOLD at f+48 for 1 frame(s) after each shot)
+[2026-10-02 16:13:21.693] [REFramework] [info] [visceral_holdexit] NUM9: GAP length now 3 frame(s)
+[2026-10-02 16:13:22.416] [REFramework] [info] [visceral_holdexit] NUM9: GAP length now 6 frame(s)
+[2026-10-02 16:13:23.145] [REFramework] [info] [visceral_holdexit] NUM9: GAP length now 12 frame(s)
+[2026-10-02 16:13:23.864] [REFramework] [info] [visceral_holdexit] NUM4: GAP mode ON (drop HOLD at f+48 for 12 frame(s) after each shot)
+[2026-10-02 16:13:24.844] [REFramework] [info] [visceral_holdexit] f+7035 hold=1 inputHOLD=1 layer0=pl00_0190_OFF_GazingWalk_F_Loop mf=0.3/65.0 layers:  precede=0 petient=64 IsForbidAim=false forbid{<isStarted>k__BackingField=true}
+[2026-10-02 16:13:26.012] [REFramework] [info] [visceral_holdexit] SHOT #5 requested: hold=true inputHOLD=1 layer0=pl00_0190_OFF_GazingWalk_F_Loop f=5.5/63.0 gap=12 layers:  precede=0 petient=64 IsForbidAim=false forbid{<isStarted>k__BackingField=true}
+[2026-10-02 16:13:26.015] [REFramework] [info] [visceral_holdexit] FIRE REQUEST #5 at f+1
+[2026-10-02 16:13:26.246] [REFramework] [info] [visceral_holdexit] GAP: HOLD input dropped at f+48 for 12 frame(s)
+[2026-10-02 16:13:26.252] [REFramework] [info] [visceral_holdexit] f+49 hold=0 inputHOLD=0 layer0=pl00_0190_OFF_GazingWalk_F_Loop mf=20.7/65.0 layers:  precede=0 petient=4 IsForbidAim=false forbid{<isStarted>k__BackingField=true}  <<< HOLD DROPPED (input 0)
+[2026-10-02 16:13:26.287] [REFramework] [info] [visceral_holdexit] f+56 hold=0 inputHOLD=0 layer0=pl00_0193_OFF_GazingWalk_End_RL mf=0.3/60.0 layers:  precede=0 petient=1 IsForbidAim=false forbid{<isStarted>k__BackingField=true}
+[2026-10-02 16:13:26.309] [REFramework] [info] [visceral_holdexit] GAP: HOLD input back at f+60
+[2026-10-02 16:13:26.315] [REFramework] [info] [visceral_holdexit] f+61 hold=1 inputHOLD=1 layer0=pl00_0150_HG_Hold_Start_R0 mf=0.3/20.0 layers:  precede=0 petient=16 IsForbidAim=false forbid{<isStarted>k__BackingField=true}  <<< hold back
+[2026-10-02 16:13:26.548] [REFramework] [info] [visceral_holdexit] f+108 hold=1 inputHOLD=1 layer0=pl00_0160_HG_Hold_Idle_Loop mf=0.3/432.0 layers:  precede=0 petient=16 IsForbidAim=false forbid{<isStarted>k__BackingField=true}
+[2026-10-02 16:13:27.218] [REFramework] [info] [visceral_holdexit] SHOT #5 done (fire requests 1, gap 12): HOLD DROPPED at frame 49, back at 61  (drops so far: 3 of 5 shots)
+[2026-10-02 16:13:29.740] [REFramework] [info] [visceral_holdexit] NUM4: GAP mode OFF (drop HOLD at f+48 for 12 frame(s) after each shot)
+[2026-10-02 16:14:26.476] [REFramework] [info] [visceral_holdexit] f+12216 hold=1 inputHOLD=1 layer0=pl00_0190_OFF_GazingWalk_F_Loop mf=0.3/65.0 layers:  precede=0 petient=64 IsForbidAim=false forbid{<isStarted>k__BackingField=true}
+[2026-10-02 16:14:29.446] [REFramework] [info] [visceral_holdexit] f+12817 hold=1 inputHOLD=1 layer0=pl00_0160_HG_Hold_Idle_Loop mf=0.3/432.0 layers:  precede=0 petient=16 IsForbidAim=false forbid{<isStarted>k__BackingField=true}
