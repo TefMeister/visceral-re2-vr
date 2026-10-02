@@ -1466,7 +1466,7 @@ the firing order. Two traps paid for: a value-type argument cannot be written fr
   the socket; the gun follows. Stripping the kick's left-arm tracks only changed the angle `[disproved 2026-10-02 as a fix]`.
 - **The fix, built and installed (b045)** `[compile-verified 2026-10-02]`: `dev-archive/reframework-patch/2026-10-02-re2-grip-socket-freeze.patch`
   keeps the socket taken at the grip while `m_was_gripping_weapon`, thaws on release. Build recipe and traps in
-  `modding-notes/2026-10-02-the-swing-fix-freeze-the-grip-socket-in-reframework.md`. Unworn.
+  `modding-notes/2026-10-02-the-swing-fix-freeze-the-grip-socket-in-reframework.md`. **Worn 2026-10-02 23:45: the swing is gone** `[verified-live 2026-10-02, n=1 round]`.
 - Tooling: `[visceral_trace]` per-frame lines after each fire request (b043 probe) + `plot_trace.py`; the Virtual Desktop
   headset recording (`D:/CCCC`) is the frame-exact picture, since the desktop window is black in VR.
 

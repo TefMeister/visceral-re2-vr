@@ -61,3 +61,10 @@ Build traps, for next time (all three cost a rebuild): the tree needs `build-loc
 space in the path, so compile the shaders by hand first (`shaders-only.bat` in the worktree: `CompileShadersOutput` =
 `<build>/_deps/directxtk-build/Shaders/Compiled`, plain for DXTK and `dxil` for DXTK12, called by FULL path) and build from
 the junction; MSBuild needs the VS environment (`vcvars64.bat`).
+
+## Worn `[verified-live 2026-10-02 ~23:45, Tefa, n=1 round]`
+
+Tefa, in the headset with b045: *"you've done it!"* — the swing is gone. Ten days of bisects (b001–b045) close on a 24-line
+patch to REFramework. What ships: the patched `dinput8.dll` (a modified file, allowed in releases since 2026-09-27) with the
+patch file beside it so anyone can rebuild; worth offering upstream to praydog as a PR (`FirstPerson.cpp`, freeze the grip
+socket while gripping — the Village `RE8VR.cpp` has the same bug).
