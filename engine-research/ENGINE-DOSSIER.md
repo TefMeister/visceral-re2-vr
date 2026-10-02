@@ -1402,6 +1402,49 @@ the firing order. Two traps paid for: a value-type argument cannot be written fr
 `visceral_core.dll`), and in a native pre-hook `arg_tys[i]` are handles, not pointers. The two-hand half
 (knowing both hands are on the gun) is not built anywhere yet. Idea is floating on `mod-ideas`, not settled.
 
+### 8g.5 ⭐⭐ The hold state has no writer: it follows the HOLD input one-to-one, and flat it never drops (2026-10-02, reader static + two flat launches)
+
+- **`IsHold` is a read-out, not a switch.** `get_IsHold` = `StateTagHandle.hasTag(HOLD)`; the tag bits are rewritten only
+  when the motion FSM sets up a node on a layer (`MotionFsmTagCollector.onTransitionHandler`, TransitionState Setuped);
+  nothing in the chain reads a motion ID or bank, so a splice is invisible to the tag `[measured 2026-10-02, reader,
+  disassembly]`.
+- **HOLD is a Petient order (16; HOLD_WALK 64), decided per frame by `PlayerActionOrderer.checkOrder(Petient)`** @0x140db4280:
+  !InConstraint · Force bit · `ForbidHoldDeferTimer` (+0xf0, 0.5 s, runs while `Condition.IsForbidAim` =
+  `PlayerForbidAimController.get_IsForbid`, the stock gun-lowers-at-a-wall cast from the camera's view position along its
+  forward axis) not completed · equipment valid · `InputSystem.isOn(HOLD 0x40)` · `Equipment.get_EnabledHoldMainWeapon`
+  `[measured 2026-10-02, reader]`. `SurvivorRejectPrecedeOrdersTrack` (the shot's clip track) is Precede-only and cannot
+  touch HOLD; FSM state actions can (`setInhibitPetient`). Transition conditions: `ActionOrderCondition.doEvaluate`
+  (order / motion end / action timer / under-layer end by EndType) `[measured 2026-10-02, reader]`.
+- **Flat, HOLD latched through `InputSystem.setForce(64, true)`, the hold never dropped on the splice** — 14 real shots at
+  the stop (ammo counted, `requestFire` hooked), W released before / at / after the shot; layer 0 relaxed walk →
+  `HG_Hold_Idle_Loop`, `IsForbidAim=false` throughout `[verified-live 2026-10-02, n=14]`. **So the FSM does not exit on its
+  own; in VR the HOLD order is being refused.**
+- **The hold follows the input one-to-one**: a 1-frame input gap → hold 0 for one frame then `HG_Hold_Start` (raise);
+  a 12-frame gap → `OFF_GazingWalk_End_*` on layer 0 then the raise = the 2026-09-30 shape `[verified-live 2026-10-02,
+  n=3]`. The 09-30 drops lasted ≥ 0.7 s, so the refusal in VR is long: the input missing for a stretch (praydog's
+  `re8_vr.lua` makes LTrigBottom from the right grip every frame) or the forbid-aim timer (in VR the cast runs from the
+  headset) `[hypothesis]`. The wall rule did not fire flat with the muzzle ~0.5 m from a board `[verified-live 2026-10-02,
+  n=2]` — why is open.
+- **Levers, both in `visceral_hold_exit_probe.lua` (b041)**: NUM5 post-hooks `PlayerForbidAimController.get_IsForbid` →
+  false; NUM6 latches HOLD on while the right grip is active (`vrmod:is_action_active`). The decisive VR line is the
+  probe's `inputHOLD=` / `IsForbidAim=` at the drop. Notes: `modding-notes/2026-10-02-the-hold-follows-the-input-one-to-one-flat-never-drops.md`.
+- **The forbid-aim rule in full (reader 2026-10-02, disassembly) `[measured 2026-10-02]`:** `PlayerForbidAimController.lateUpdate`
+  @0x1410d68a0 casts every 0.1 s from `CameraSystem.get_ViewPosition` along `get_ViewAxisZ` (the camera GameObject's
+  TRANSFORM, which praydog's `re8_vr.lua` sets to the full headset pose each frame — so in VR the cast runs from the
+  headset along the gaze), length 1.0 m, a ray (vision) and a 0.1 m sphere (aim). **`get_IsHit` is true only when the
+  nearest sphere hit carries an `app.ropeway.AimCandidate` whose `_IsForbidAim` (+0x51) is set** — walls, floors and
+  props never forbid, which is why the flat board test did nothing. Which objects carry the flag is data (44 setter
+  sites; ally NPCs / gimmicks `[hypothesis]`). No hysteresis: it clears the next update after the sphere stops hitting,
+  and the hold returns the first frame after (raise). `updateForbidHold` @0x140e22580 runs the 0.5 s timer while
+  forbidden, resets it otherwise. No VR-mod code touches any of this. So for the wall rule to be the VR cause, a flagged
+  AimCandidate must sit within 1 m in front of the headset at the shot; the b042 probe names the target at a drop.
+
+- Useful surfaces (dumped live): `via.motion.MotionFsm2Layer` has no state-name getter (getMotionInfo/
+  getMotionTransitionInfo/setCurrentNode only); `SurvivorActionOrderer.onMotionTransitionEvent(UInt32 layer,
+  TransitionState)` fires per layer per state and is hookable; `PlayerActionOrderer` fields: `ForbidHoldDeferTimer`,
+  `HoldJogDeferTimer`, `HoldJogExtendTimer`; `SurvivorCondition` holds `ForbidAimController`, `StateTagHandle`,
+  `ActionOrderer` as backing fields `[measured 2026-10-02]`.
+
 ### 8i. Leon (pl00): the item-22 hold-bank recipe carries over unchanged (reader plan 2026-09-24, built and installed by /pd)
 
 - Leon's `pl00/list/hdg/base_hdg_hold.motlist.524` has **the same 30 slot numbers and the same 30 motion-name
