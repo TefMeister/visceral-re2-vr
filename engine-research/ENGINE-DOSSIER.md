@@ -1589,3 +1589,17 @@ See **[`EXTERNAL-RESOURCES.md`](EXTERNAL-RESOURCES.md)** for the annotated link
 list — REFramework, its Lua/API documentation, the EMV Engine toolkit, and
 general RE Engine references — that this project's engine-side knowledge draws
 on.
+
+### 8m. The title-screen rain
+
+- **⭐ The Story page's rain is ONE EFFECT requested by `MenuStoryBehavior.open` itself (reader 2026-10-02, disassembly)
+  `[measured 2026-10-02]`:** after `toSubCamera`, `open` @0x141875970 picks `effectID` from the latest save's location
+  (`SaveDataManager.getLastTimeStampSlotIndex` → `getGameDataLocation`: RPD 16 → element 2, GasStation2 → 0, OrphanAsylum → 4,
+  OrphanApproach → 3, Opening3 → 1, anything else → none) and calls the PRIVATE
+  `ObjectEffectManager.requestEffectInternal(EffectID, GameObject=null, Int32=-1)` @0x141783b40, keeping the
+  `CreatedEffectContainer`; `close(_, killEffect)` / `update` on fade-out set its `KillAllRequest`. Nothing else in `open`
+  is non-GUI. The 09-27 hooks sat on the public `requestEffect` wrapper, which the game never calls here, and round 4's own
+  request passed the menu object and index 0 instead of null and −1 `[inferred-static]`. **Live test (one flat launch, main
+  menu): call `requestEffectInternal(eid, nil, -1)` with `eid` = `EffectID(0, 2)` on the Story object's
+  `ObjectEffectManagerComponent`** — rain on the main menu ⇒ this is it; then the title script requests it at flow state 10
+  and kills it on leaving. Note: `modding-notes/2026-10-02-title-rain-the-story-page-requests-an-effect.md`.
