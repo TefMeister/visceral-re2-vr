@@ -259,8 +259,28 @@ enum Slot : int {
     S_LGRIP = 26, S_LTRIG = 27, S_RGRIP = 28, S_RTRIG = 29,
     S_CINE = 30,                    // v0.8: 1.0 while visceral_cinematic_gate.lua says the player is not in first-person control
     S_FP = 31,                      // v0.8: 1.0 while REFramework's FirstPerson mod reports will_be_used() (Lua-only API)
+    // ---- bridge v2 (2026-10-03, the RELOADED port; modding-notes/2026-10-03-reloaded-native-architecture.md section 2)
+    S_WRITE_PT = 32,                // 1 = last write at UpdateHID pre, 2 = at LateUpdateBehavior post
+    S_WRITE_SEQ = 33,               // +1 per shim write
+    S_STAND = 34,                   // standing origin xyz (valid when S_STAND_OK == 1)
+    S_ROTOFF = 37,                  // rotation offset quaternion xyzw
+    S_RSTICK = 41,                  // x, y
+    S_LA = 43, S_LB = 44, S_RA = 45, S_RB = 46,   // A/X and B/Y per hand
+    S_LCLICK = 47, S_RCLICK = 48,   // stick clicks
+    S_RUMBLE_L_AMP = 49, S_RUMBLE_L_SEC = 50,     // PLUGIN writes a request; the shim fires it at the next UpdateHID and zeroes it
+    S_RUMBLE_R_AMP = 51, S_RUMBLE_R_SEC = 52,
+    S_LPOS_HID = 53,                // the left position as written at UpdateHID pre (timing probe: compare with S_LPOS at the late tick)
+    S_LATE_SEEN = 56,               // plugin: 1.0 once its late tick has run (v2 handshake, shown in the shim's UI)
+    S_STAND_OK = 57,
+    S_BRIDGE_VER = 61,              // shim: 2.0
     S_ACK = 62, S_SENTINEL = 63,
 };
+constexpr float BRIDGE_VERSION_WANTED = 2.0f;
+constexpr double BRIDGE_PROBE_REPORT_S = 5.0;       // how often the late tick reports its differ count
+constexpr int BRIDGE_PROBE_ORDER_FRAME = 300;       // which frame's entry order is logged (one line, once)
+constexpr int BRIDGE_RUMBLE_PROOF_PRESSES = 10;     // the first N grip presses after launch rumble that hand (proof the out-channel works)
+constexpr float BRIDGE_RUMBLE_PROOF_AMP = 0.6f;
+constexpr float BRIDGE_RUMBLE_PROOF_SEC = 0.06f;
 constexpr const char* PLUG_MESH_PATH = "visceral/visceral_neckplug_neck0local.mesh";   // natives/stm/ + this + .2109108288, via REFramework's loose-file loader
 constexpr const char* PLUG_MDF_PATH  = "sectionroot/character/player/pl1000/pl1000/pl1000.mdf2";   // v0.9: CLAIRE is pl1000 (pl3000 is Sherry, found 2026-09-06 13:15); her skin material is pl1000_Body_Mat
 struct alignas(16) V4 { float x{}, y{}, z{}, w{}; };   // via.vec3 / via.Quaternion as the engine lays them out (16 bytes)
@@ -380,6 +400,12 @@ void catch_mesh_args(int argc, void** argv, const char* how);
 double now_s();
 bool bridge_live();
 Vec3 bridge_vec3(int slot);
+float bridge_f32(int slot);
+Quat bridge_quat(int slot);
+bool bridge_down(int slot);                      // button slot > 0.5
+void bridge_rumble(int side, float amp, float sec);   // side 0 = left, 1 = right; lands at the shim's next UpdateHID
+void bridge_late_tick();                         // LateUpdateBehavior post: v2 probe + handshake + rumble proof
+void install_entry_order_probe();                // logs the real via.Application entry order once
 void dump_joints(API::ManagedObject* transform, const char* who, bool all, API::ManagedObject** l_hand, API::ManagedObject** r_hand);
 void log_nullable_mat(const char* label, bool ok, bool has, const Mat4& m);
 void dump_weapon();
