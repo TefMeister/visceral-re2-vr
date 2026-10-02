@@ -19,8 +19,9 @@
 --   NUM3  dump the type surfaces this probe leans on (also done once at the first player bind)
 --   NUM4  GAP mode on/off: after every NUM2 shot, at frame GAP_AT, drop HOLD for GAP_LEN frames, then re-assert
 --   NUM5  forbid-aim (the game lowering the gun at a wall) forced OFF / back on
---   NUM6  VR grip latch: HOLD input forced on while the right grip is squeezed (vrmod), off when released
---   NUM9  cycle GAP_LEN 1 -> 3 -> 6 -> 12 -> 1
+--   NUM6  VR grip latch: HOLD forced on while the right grip is squeezed (vrmod), kept on 0.5 s after it reads released
+--         (a shorter dip is bridged AND measured: 'grip BACK after N ms')
+--   NUM8  cycle GAP_LEN (was NUM9: that key is the title script's one-scene swap, and three presses on 2026-10-02 turned it off) 1 -> 3 -> 6 -> 12 -> 1
 -- What it logs: one line per CHANGE of (hold, layer-0 motion) with the frame count since the last shot, whether
 -- the game sees the HOLD input on, the motion frame / end frame, the orderer's Precede/Petient, and the forbid-aim
 -- controller's plain fields. SHOT #n lines mark each shot; FIRE REQUEST lines prove the game fired (hook on
@@ -35,19 +36,21 @@ end
 
 local TAG = "[visceral_holdexit]"
 local NS = sdk.game_namespace
-local VK_NUMPAD1, VK_NUMPAD2, VK_NUMPAD3, VK_NUMPAD4, VK_NUMPAD5, VK_NUMPAD6, VK_NUMPAD9 = 0x61, 0x62, 0x63, 0x64, 0x65, 0x66, 0x69
+local VK_NUMPAD1, VK_NUMPAD2, VK_NUMPAD3, VK_NUMPAD4, VK_NUMPAD5, VK_NUMPAD6, VK_NUMPAD8 = 0x61, 0x62, 0x63, 0x64, 0x65, 0x66, 0x68
 local PETIENT_HOLD = 16         -- reader 2026-10-02: HOLD is a Petient order (16), decided by PlayerActionOrderer.checkOrder(Petient)
 local KIND_HOLD, KIND_ATTACK = 64, 256
 local ATTACK_FRAMES = 8          -- proven 2026-09-05: 8 frames of ATTACK under HOLD fires a real shot
 local FOLLOW_FRAMES = 240        -- the drop came at ~50 frames; follow well past the hold coming back
 local GAP_AT = 48                -- frames after the shot request; the 09-30 drops were at ~50
 local GAP_LENS = { 1, 3, 6, 12 }
+local GRIP_HOLDOVER = 0.5         -- s: NUM6 keeps HOLD on this long after the grip reads released (a dip shorter than this is bridged and measured)
 
 local cfg = { hold = false, gap = false, gap_len_i = 1, noforbid = false, griplatch = false }
-local st = { k1 = false, k2 = false, k3 = false, k4 = false, k5 = false, k6 = false, k9 = false, co_arg = nil, co_last = nil, bound = false, attack_left = 0, shots = 0,
+local st = { k1 = false, k2 = false, k3 = false, k4 = false, k5 = false, k6 = false, k8 = false, co_arg = nil, co_last = nil, bound = false, attack_left = 0, shots = 0,
     since_shot = -1, last = "", orderer = nil, forbid_fields = nil, drops = {}, dumped = false, follow = nil,
-    gap_left = 0, fire_seen = 0, layers_debug = false, frame_n = 0, grip_latched = false }
+    gap_left = 0, fire_seen = 0, layers_debug = false, frame_n = 0, grip_latched = false, grip_lost_at = nil }
 
+local tr = { left = 0, n = 0, joints = {} }   -- the after-shot trace (declared before the hooks that arm it)
 local function safe(fn) local ok, r = pcall(fn); if ok then return r end return nil end
 local function log_line(m) log.info(TAG .. " " .. m) end
 
@@ -105,6 +108,7 @@ do
         sdk.hook(m, function(args)
             st.fire_seen = st.fire_seen + 1
             log_line(string.format("FIRE REQUEST #%d at f+%d", st.fire_seen, st.since_shot))
+            tr.n = st.fire_seen; tr.left = 240
         end, function(rv) return rv end)
         log_line("hooked Equipment.requestFire (proof of a shot)")
     else
@@ -268,6 +272,55 @@ local function forbid_target(cond)
     return "unnamed"
 end
 
+-- ---- frame-by-frame trace after every real shot (2026-10-02 evening): the desktop stays black in VR even with the
+-- mirror setting off, so pictures are impossible from the PC; this is the picture in numbers. For TRACE_FRAMES after
+-- each fire request, one line per frame: gun joint and both wrists relative to the head in the camera's right/up/forward
+-- axes (cm), the two controllers relative to the headset (cm, vrmod), hold, layer-0 motion + frame. Plotted afterwards.
+local TRACE_FRAMES = 240
+local function joint(tf, name)
+    local j = tr.joints[name]
+    if j == nil then j = safe(function() return tf:call("getJointByName", name) end) or false; tr.joints[name] = j end
+    return j or nil
+end
+local function cam_axes()
+    local cam = sdk.get_primary_camera()
+    local go = cam and safe(function() return cam:call("get_GameObject") end)
+    local ctf = go and safe(function() return go:call("get_Transform") end)
+    if not ctf then return nil end
+    local ax = safe(function() return ctf:call("get_AxisX") end)
+    local ay = safe(function() return ctf:call("get_AxisY") end)
+    local az = safe(function() return ctf:call("get_AxisZ") end)
+    if ax and ay and az then return ax, ay, az end
+    return nil
+end
+local function rel(p, h, ax, ay, az)
+    if not p or not h then return "(? ? ?)" end
+    local d = { p.x - h.x, p.y - h.y, p.z - h.z }
+    if not ax then return string.format("(%+.1f %+.1f %+.1f)w", d[1] * 100, d[2] * 100, d[3] * 100) end
+    return string.format("(%+.1f %+.1f %+.1f)", (d[1] * ax.x + d[2] * ax.y + d[3] * ax.z) * 100,
+        (d[1] * ay.x + d[2] * ay.y + d[3] * ay.z) * 100, (d[1] * az.x + d[2] * az.y + d[3] * az.z) * 100)
+end
+local function trace_frame(p, hold, mname, frame)
+    local tf = safe(function() return p:call("get_Transform") end); if not tf then return end
+    local pos = function(j) return j and safe(function() return j:call("get_Position") end) or nil end
+    local head = pos(joint(tf, "head"))
+    local ax, ay, az = cam_axes()
+    local gun = pos(joint(tf, "r_weapon")) or pos(joint(tf, "r_arm_wrist"))
+    local rw, lw = pos(joint(tf, "r_arm_wrist")), pos(joint(tf, "l_arm_wrist"))
+    local ctl = "ctl=?"
+    if vrmod then
+        local hmd = safe(function() return vrmod:get_position(0) end)
+        local rc = safe(function() return vrmod:get_position(vrmod:get_right_controller_index()) end)
+        local lc = safe(function() return vrmod:get_position(vrmod:get_left_controller_index()) end)
+        if hmd and rc and lc then
+            ctl = string.format("rctl=(%+.1f %+.1f %+.1f) lctl=(%+.1f %+.1f %+.1f)", (rc.x - hmd.x) * 100, (rc.y - hmd.y) * 100, (rc.z - hmd.z) * 100,
+                (lc.x - hmd.x) * 100, (lc.y - hmd.y) * 100, (lc.z - hmd.z) * 100)
+        end
+    end
+    log.info(string.format("[visceral_trace] shot%d f=%d hold=%d gun=%s rwrist=%s lwrist=%s %s layer0=%s mf=%.1f",
+        tr.n, TRACE_FRAMES - tr.left, hold and 1 or 0, rel(gun, head, ax, ay, az), rel(rw, head, ax, ay, az), rel(lw, head, ax, ay, az), ctl, tostring(mname), frame or -1))
+end
+
 -- ---- the per-frame trace ------------------------------------------------------------------------------------
 re.on_frame(function()
     st.frame_n = st.frame_n + 1
@@ -296,12 +349,12 @@ re.on_frame(function()
         log_line(string.format("NUM4: GAP mode %s (drop HOLD at f+%d for %d frame(s) after each shot)", cfg.gap and "ON" or "OFF", GAP_AT, GAP_LENS[cfg.gap_len_i]))
     end
     st.k4 = k4
-    local k9 = reframework:is_key_down(VK_NUMPAD9)
-    if k9 and not st.k9 then
+    local k8 = reframework:is_key_down(VK_NUMPAD8)
+    if k8 and not st.k8 then
         cfg.gap_len_i = cfg.gap_len_i % #GAP_LENS + 1
-        log_line(string.format("NUM9: GAP length now %d frame(s)", GAP_LENS[cfg.gap_len_i]))
+        log_line(string.format("NUM8: GAP length now %d frame(s)", GAP_LENS[cfg.gap_len_i]))
     end
-    st.k9 = k9
+    st.k8 = k9
     local k5 = reframework:is_key_down(VK_NUMPAD5)
     if k5 and not st.k5 then
         cfg.noforbid = not cfg.noforbid
@@ -319,8 +372,19 @@ re.on_frame(function()
     -- input frame nor the forbid-aim refusal can drop it (the refusal is a hard AND, so forbid still wins -- NUM5 for that)
     if cfg.griplatch and vrmod then
         local grip = safe(function() return vrmod:is_action_active(vrmod:get_action_grip(), vrmod:get_right_joystick()) end)
-        if grip and not st.grip_latched then st.grip_latched = true; set_force(KIND_HOLD, true); log_line("grip latch: HOLD forced on")
-        elseif (not grip) and st.grip_latched then st.grip_latched = false; set_force(KIND_HOLD, false); log_line("grip latch: HOLD released") end
+        local now = os.clock()
+        if grip then
+            if st.grip_lost_at then
+                log_line(string.format("grip latch: grip BACK after %d ms away (bridged, hold never dropped)", math.floor((now - st.grip_lost_at) * 1000)))
+                st.grip_lost_at = nil
+            end
+            if not st.grip_latched then st.grip_latched = true; set_force(KIND_HOLD, true); log_line("grip latch: HOLD forced on") end
+        elseif st.grip_latched then
+            if not st.grip_lost_at then st.grip_lost_at = now; log_line("grip latch: grip reads RELEASED, holding over " .. GRIP_HOLDOVER .. " s")
+            elseif now - st.grip_lost_at >= GRIP_HOLDOVER then
+                st.grip_latched = false; st.grip_lost_at = nil; set_force(KIND_HOLD, false); log_line("grip latch: HOLD released (grip gone for the whole hold-over)")
+            end
+        end
     end
     local k2 = reframework:is_key_down(VK_NUMPAD2)
     if k2 and not st.k2 and st.attack_left == 0 then
@@ -385,6 +449,8 @@ re.on_frame(function()
         st.last = key
     end
 
+    if tr.left > 0 then trace_frame(p, hold, mname, frame); tr.left = tr.left - 1 end
+
     if st.follow and st.since_shot >= FOLLOW_FRAMES then
         local f = st.follow
         local fired = st.fire_seen - f.fire0
@@ -408,4 +474,4 @@ re.on_draw_ui(function()
     imgui.tree_pop()
 end)
 
-log_line("loaded: NUM1 forced HOLD, NUM2 one shot, NUM3 dump, NUM4 gap mode, NUM9 gap length; every state change is logged")
+log_line("loaded: NUM1 forced HOLD, NUM2 one shot, NUM3 dump, NUM4 gap mode, NUM8 gap length; every state change is logged")

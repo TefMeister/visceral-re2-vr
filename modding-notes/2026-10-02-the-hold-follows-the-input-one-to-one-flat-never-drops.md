@@ -67,6 +67,31 @@ sphere stops hitting; the hold comes back the next frame (raise) — the 09-30 s
 flagged object (ally NPC, gimmick — data, unknown) must be within 1 m in front of the headset at the shot. The b042
 probe prints the target's name at a drop when `IsForbidAim` is true. Full text: dossier §8g.5.
 
+## Evening, Tefa in the headset (three rounds, b042): THE THROW HAPPENS WITH THE AIM STATE UP — the 09-30 reading is withdrawn
+
+- Round 1 (as installed), round 2 (NUM5, forbid-aim off), round 3 (NUM6, grip latch): three shots each, **the gun threw
+  every round** (Tefa), and `IsHold` stayed 1 through all nine shots; `IsForbidAim` was false at every change; the only
+  drops came 0.7–1.8 s after each third shot, with `inputHOLD=0`, and Tefa confirms they let go of the grip then to reach
+  the keyboard `[verified-live 2026-10-02, n=9 shots]`. A second session with the grip held 3 s after stopping: same — hold
+  up through all shots, throw every time (Tefa), and the throw *starts a moment after the shot* `[verified-live, n=9]`.
+- So **the aim state does not drop during the throw**. The 2026-09-30 "hold 1 → 0 at frame ~50" drops were most likely
+  the grip relaxing after a shot, read as a release, not the throw `[hypothesis]`; the swing row's cause is open again,
+  and it sits on the VR side with the hold intact (praydog's hand steering / wrist IK, or the kick on the spliced walk).
+  The forbid-aim lever (NUM5) and the grip latch (NUM6) are **not** fixes `[disproved 2026-10-02]`.
+- Also seen: with NUM6's latch on, `setForce(HOLD, true)` did NOT keep the hold up once praydog's pad input stopped
+  sending LTrigBottom — the hold dropped the same frame the grip read released `[verified-live 2026-10-02, n=4]`. In VR the
+  injected pad state evidently overrides the force bit (flat it was a latch) `[hypothesis]`.
+- The desktop window stays black in VR even with `VR_DesktopRecordingFixSkipPresent=false` (checked at the title and
+  in-game, mean brightness unchanged), so frame-by-frame screenshots are impossible from the PC `[verified-live 2026-10-02]`.
+  Setting put back to true. Instead the probe now writes a per-frame trace for 4 s after every shot (`[visceral_trace]`:
+  gun, both wrists, both controllers relative to the head, hold, layer-0 motion). **The first attempt logged nothing
+  (a scoping bug: the hook armed a global, the frame loop read a local) — fixed and installed, unrun.** The next headset
+  run produces the numbers; plot them (matplotlib) for Tefa.
+- Housekeeping: `visceral_swing_probe.lua` taken out of the test copy (answered; it shared NUM5/NUM6 with the new probe),
+  kept in the archive; the title one-scene swap had been switched off by my three NUM9 presses in the flat gap test (NUM9
+  is its toggle, saved to `reframework/data/visceral_title_one_scene.json`) — put back on, and the probe's gap-length key
+  moved to NUM8.
+
 ## Side notes
 
 - **The game went back to the title by itself once** (16:02:55, 3.5 s after shot #12, mid-rest, no key sent, window
