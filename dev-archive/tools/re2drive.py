@@ -18,6 +18,11 @@ Usage:
     python re2drive.py tail 40                # last N [visceral] lines
     python re2drive.py watch                  # rendering?
     python re2drive.py close                  # WM_CLOSE to the main window, wait for exit
+    python re2drive.py launch                 # start re2.exe WITH THE GAME FOLDER AS ITS WORKING DIRECTORY
+
+⚠️ 2026-10-03: RE2 reads and writes re2_config.ini in its WORKING DIRECTORY, not beside the exe. Started from any other
+folder it boots with a fresh config that lacks TargetPlatform=DirectX12 and stays BLACK before the title (VR logs
+"Failed to get primary camera" every frame). Always use `launch`, never a bare `start re2.exe` from another folder.
 """
 import ctypes, ctypes.wintypes as w, importlib.util, os, sys, time
 
@@ -91,6 +96,10 @@ if __name__ == "__main__":
     if cmd == "since":
         print(since_mark()[-int(rest[0]) if rest else -20000:]); sys.exit()
     hwnd, title = H.find_window(WINDOW)
+    if cmd == "launch":
+        import subprocess
+        subprocess.Popen([os.path.join(GAME, "re2.exe")], cwd=GAME, creationflags=0x00000008)  # DETACHED_PROCESS
+        print("launched with cwd", GAME); sys.exit()
     if cmd == "close":
         u.PostMessageW(hwnd, 0x0010, 0, 0)
         for _ in range(30):
