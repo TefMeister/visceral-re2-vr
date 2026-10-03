@@ -130,6 +130,12 @@ if flow_set then
     sdk.hook(flow_set, function(args)
         local v = safe(function() return sdk.to_int64(args[3]) & 0xFFFFFFFF end)
         if v and v ~= state.last_flow and v ~= 100 then log_line("title flow state " .. tostring(v)) end
+        -- the title flow starts again at 1 (launch, or back from a game): the scene we remembered went with the old title,
+        -- so forget it -- keeping it skipped the MAIN request after quitting a game and left the menu black (Tefa, 2026-10-03)
+        if v == 1 and v ~= state.last_flow and state.current ~= -1 then
+            state.current, state.skip_story_change, state.recut_at = -1, false, nil
+            log_line("title restarted: remembered scene cleared")
+        end
         if v then state.last_flow = v end
     end, function(retval) return retval end)
 end
