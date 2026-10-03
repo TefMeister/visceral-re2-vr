@@ -9,7 +9,8 @@
 --   * main menu: request the same effect ourselves, retrying every RETRY_S until the call is accepted -- the first
 --     attempt can be refused ("Invoke threw") while the effect data is still loading [verified-live 2026-10-02: one press
 --     accepted, two refused, same code]
---   * Story page opens: kill ours (the game requests its own, otherwise it would rain twice)
+--   * Story page opens: keep ours running, cancel the copy the game requests and give ours to the Story object (killing
+--     ours and letting the game start fresh blipped: a new effect begins with no drops in the air, Tefa 2026-10-03)
 --   * Story page closes: keep the game's container alive (clear the field before close / fade-out can kill it) and adopt
 --     it as ours, so backing out keeps the rain
 -- The element is the game's own choice: the Story object's effectID once filled, else the same latest-save lookup the game
@@ -45,18 +46,32 @@ end
 
 local function kill(c) if c then safe(function() c:set_field("KillAllRequest", true) end) end end
 
-local function hook_pre(name, fn)
+local function hook_pre(name, fn, post)
     local m = story_t:get_method(name)
     if not m then log_line(name .. " not found"); return end
+    local last
     sdk.hook(m, function(args)
         local o = safe(function() return sdk.to_managed_object(args[2]) end)
+        last = o
         if o then fn(o) end
-    end, function(rv) return rv end)
+    end, function(rv)
+        if post and last then post(last) end
+        return rv
+    end)
 end
+-- Story opens: keep OUR rain running and cancel the copy the game just asked for, then hand ours to the Story object so
+-- close / the fade-out treat it as the game's. Killing ours and letting the game start its own made a visible blip:
+-- a fresh effect starts with no drops in the air (Tefa, 2026-10-03).
 hook_pre("open", function(o)
     st.menu = st.menu or o
     st.story_open = true
-    if st.ours then kill(st.ours); st.ours = nil; log_line("Story opened: ours killed, the game requests its own") end
+end, function(o)
+    if not st.ours then return end
+    local theirs = safe(function() return o:get_field("EffectContainer") end)
+    if theirs and theirs ~= st.ours then kill(theirs) end
+    safe(function() o:set_field("EffectContainer", st.ours) end)
+    st.ours = nil
+    log_line("Story opened: kept our rain running, the game's copy cancelled")
 end)
 hook_pre("close", function(o)
     st.story_open = false
