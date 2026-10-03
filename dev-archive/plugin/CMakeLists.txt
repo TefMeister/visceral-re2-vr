@@ -18,6 +18,12 @@ add_library(visceral_core SHARED
     src/head_probes.cpp
     src/dock.cpp
     src/IdlePhase.cpp
+    # the RELOADED port (2026-10-03; modding-notes/2026-10-03-reloaded-native-architecture.md), one file per feature
+    src/port/rld_data.cpp
+    src/port/rld_sfx.cpp
+    src/port/rld_dryfire.cpp
+    # miniaudio + stb_vorbis (public domain, third_party/miniaudio/LICENSE): the port's sound player
+    third_party/miniaudio_impl.c
     # MinHook (Tsuda Kageyu, BSD-2, third_party/minhook/LICENSE.txt) -- the native detour for IdlePhase
     third_party/minhook/src/buffer.c
     third_party/minhook/src/hook.c
@@ -36,4 +42,6 @@ if(MSVC)
     # differently, which is exactly the defect that let a stale build sit on The Evil Within for days.
     # The scope project has carried this since 2026-09-09; this one had not.
     target_link_options(visceral_core PRIVATE "/Brepro")
+    # third-party C: no warnings of ours to see there
+    set_source_files_properties(third_party/miniaudio_impl.c PROPERTIES COMPILE_OPTIONS "/W0")
 endif()
