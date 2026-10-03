@@ -116,14 +116,9 @@ void bridge_late_tick() {
         else
             LOGI("%s bridge v2 handshake: shim %.0f, late tick live", TAG, f[S_BRIDGE_VER]);
     }
-    // the timing probe: did the left hand move between the UpdateHID write and this one, inside one frame?
-    if (f[S_WRITE_PT] == 2.0f) {
-        g_late.frames++;
-        const bool diff = f[S_LPOS] != f[S_LPOS_HID] || f[S_LPOS + 1] != f[S_LPOS_HID + 1] || f[S_LPOS + 2] != f[S_LPOS_HID + 2];
-        if (diff) g_late.differ++;
-    }
-    if (g_late.last_seq >= 0.0f && f[S_WRITE_SEQ] - g_late.last_seq != 2.0f) g_late.missed_seq++;   // two shim writes per frame expected
-    g_late.last_seq = f[S_WRITE_SEQ];
+    // 2026-10-03 first VR run: frames=0 -- REFramework runs this plugin callback BEFORE the Lua shim's own
+    // LateUpdateBehavior post write, so S_WRITE_PT still reads 1 here. The comparison moved to PrepareRendering pre
+    // (bridge_prerender_tick), the next entry after LateUpdateBehavior in the measured order.
     const double t = now_s();
     if (t - g_late.last_report >= BRIDGE_PROBE_REPORT_S) {
         g_late.last_report = t;
@@ -141,6 +136,20 @@ void bridge_late_tick() {
         if (lg && !g_late.lgrip_prev) { g_late.grip_presses++; bridge_rumble(0, BRIDGE_RUMBLE_PROOF_AMP, BRIDGE_RUMBLE_PROOF_SEC); LOGI("%s rumble proof #%u -> left", TAG, g_late.grip_presses); }
     }
     g_late.rgrip_prev = rg; g_late.lgrip_prev = lg;
+}
+
+// The timing probe, at PrepareRendering pre: both shim writes of this frame have landed by now. Did the left hand
+// move between the UpdateHID write and the LateUpdateBehavior one?
+void bridge_prerender_tick() {
+    if (!g_api_ok.load() || !bridge_live()) return;
+    float* f = arr_f32(g.bridge);
+    if (f[S_WRITE_PT] == 2.0f) {
+        g_late.frames++;
+        const bool diff = f[S_LPOS] != f[S_LPOS_HID] || f[S_LPOS + 1] != f[S_LPOS_HID + 1] || f[S_LPOS + 2] != f[S_LPOS_HID + 2];
+        if (diff) g_late.differ++;
+    }
+    if (g_late.last_seq >= 0.0f && f[S_WRITE_SEQ] - g_late.last_seq != 2.0f) g_late.missed_seq++;   // two shim writes per frame expected
+    g_late.last_seq = f[S_WRITE_SEQ];
 }
 
 // ---- entry-order probe: which via.Application entries run, in what order, inside one frame.
