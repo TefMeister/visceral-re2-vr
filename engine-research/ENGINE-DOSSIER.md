@@ -1631,3 +1631,16 @@ on.
 - **Built: `visceral_title_rain.lua` puts it on the main menu** `[verified-live 2026-10-02, flat, n=2]`: managed `EffectID`
   (a ValueType is refused), `requestEffectInternal(id, nil, -1)`, **retried every 0.5 s — the first call is refused while the
   effect data loads**; kills ours when Story opens, adopts the game's container on close (field cleared first). ESC = back.
+
+## RELOADED port step 2, first run (2026-10-03, /lm flat)
+
+- **`app.ropeway.survivor.Equipment.requestFire` is the shot hook on this build; `app.ropeway.implement.Gun.requestFire`
+  does not resolve** (the drawn pistol is an `implement.Gun`) `[verified-live 2026-10-03, n=29 shots]`. RELOADED hooked both;
+  the Equipment one alone sees every shot.
+- `getBulletNumber` on `Equipment.get_EquipWeapon()` read in that pre-hook is the count BEFORE the shot `[verified-live 2026-10-03]`.
+- **At 0 rounds the stock game still calls `requestFire`** on each trigger pull (no automatic reload in this save)
+  `[verified-live 2026-10-03, n=5]`: the dry-fire click needs no blocking layer to fire.
+- **via.Application entry order, measured** (frame 299, from LockScene pre): LockScene, WaitRendering, BeginRendering,
+  EndRendering, UpdateScene, UpdateHID, UpdateBehavior, UpdateMotion, LateUpdateBehavior, PrepareRendering,
+  UpdateJointExpression `[verified-live 2026-10-03, n=1]`. UpdateJointExpression comes after PrepareRendering.
+- Note: `modding-notes/2026-10-03-reloaded-port-step-2-first-run.md`.
