@@ -95,11 +95,11 @@ if __name__ == "__main__":
         print("\n".join(tail(int(rest[0]) if rest else 40))); sys.exit()
     if cmd == "since":
         print(since_mark()[-int(rest[0]) if rest else -20000:]); sys.exit()
-    hwnd, title = H.find_window(WINDOW)
     if cmd == "launch":
         import subprocess
         subprocess.Popen([os.path.join(GAME, "re2.exe")], cwd=GAME, creationflags=0x00000008)  # DETACHED_PROCESS
         print("launched with cwd", GAME); sys.exit()
+    hwnd, title = H.find_window(WINDOW)
     if cmd == "close":
         u.PostMessageW(hwnd, 0x0010, 0, 0)
         for _ in range(30):
