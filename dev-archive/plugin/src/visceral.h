@@ -404,6 +404,7 @@ float bridge_f32(int slot);
 Quat bridge_quat(int slot);
 bool bridge_down(int slot);                      // button slot > 0.5
 void bridge_rumble(int side, float amp, float sec);   // side 0 = left, 1 = right; lands at the shim's next UpdateHID
+void bridge_prerender_tick();                    // PrepareRendering pre: the v2 timing probe (after both shim writes)
 void bridge_late_tick();                         // LateUpdateBehavior post: v2 probe + handshake + rumble proof
 void install_entry_order_probe();                // logs the real via.Application entry order once
 void dump_joints(API::ManagedObject* transform, const char* who, bool all, API::ManagedObject** l_hand, API::ManagedObject** r_hand);
