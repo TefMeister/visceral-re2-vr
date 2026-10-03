@@ -1,0 +1,112 @@
+[REFramework] [info] [Plugin] [visceral] native core v0.8 loaded — HEAD HIDER (per-pass draw flags, shadow kept; NUM. off/on/forced, NUM+ rescan; needs HideJointMesh OFF) + PLUG read-back, on top of v0.7 — NECK PLUG (own mesh pinned to neck_0, NUM0 toggles) on top of v0.6 — THE DOCK (final-space blend mapped into the getIKLeftArmMatrix hook, HOLD latched while docked, M measured every frame, target clamped to the measured arm length). NUM7 dump / NUM8 trace / NUM9 layers / NUM4 force-HOLD / NUM5 ATTACK pulse / NUM6 synthetic dock (flat) / NUM1 VR space mode / NUM3 rotation write / NUM2 reach clamp
+[REFramework] [info] [Plugin] [visceral] rld data: weapon_sfx from reframework\data\visceral\reloaded\re2_vr_reload.json -- enabled=1 master=1.00, 24 weapon(s)
+[REFramework] [info] [Plugin] [visceral] sfx: miniaudio 0.11.21 engine OPEN (result 0), sounds folder D:\RE2 test copy\reframework\data\visceral\reloaded\custom_sfx
+[REFramework] [warning] [Plugin] [visceral] dryfire: app.ropeway.implement.Gun.requestFire not found
+[REFramework] [info] [Plugin] [visceral] dryfire: hooked app.ropeway.survivor.Equipment.requestFire id=64
+[REFramework] [info] [Plugin] [visceral] dryfire: 1 of 2 requestFire hooks in; the first 3 right-B presses play dry_fire as a sound self-test
+[REFramework] [info] [Plugin] [visceral] bridge v2 handshake: shim 2, late tick live
+[REFramework] [info] [Plugin] [visceral] bridge v2 probe: no HMD (frames=0 seq_gaps=0) -- the differ count needs the headset and controllers awake
+[REFramework] [info] [Plugin] [visceral] ENTRY ORDER (frame 299, '-' = pre, '+' = post, from LockScene pre): LockScene- LockScene+ WaitRendering- WaitRendering+ BeginRendering- BeginRendering+ EndRendering- EndRendering+ UpdateScene- UpdateScene+ UpdateHID- UpdateHID+ UpdateBehavior- UpdateBehavior+ UpdateMotion- UpdateMotion+ LateUpdateBehavior- LateUpdateBehavior+ PrepareRendering- PrepareRendering+ UpdateJointExpression- UpdateJointExpression+ 
+[REFramework] [info] [Plugin] [visceral] bridge v2 probe: no HMD (frames=0 seq_gaps=0) -- the differ count needs the headset and controllers awake
+[REFramework] [info] [Plugin] [visceral] bridge v2 probe: no HMD (frames=0 seq_gaps=0) -- the differ count needs the headset and controllers awake
+[REFramework] [info] [Plugin] [visceral] bridge v2 probe: no HMD (frames=0 seq_gaps=0) -- the differ count needs the headset and controllers awake
+[REFramework] [info] [Plugin] [visceral] bridge v2 probe: no HMD (frames=0 seq_gaps=0) -- the differ count needs the headset and controllers awake
+[REFramework] [info] [Plugin] [visceral] bridge v2 probe: no HMD (frames=0 seq_gaps=0) -- the differ count needs the headset and controllers awake
+[REFramework] [info] [Plugin] [visceral] bridge v2 probe: no HMD (frames=0 seq_gaps=0) -- the differ count needs the headset and controllers awake
+[REFramework] [info] [Plugin] [visceral] bridge v2 probe: no HMD (frames=0 seq_gaps=0) -- the differ count needs the headset and controllers awake
+[REFramework] [info] [Plugin] [visceral] bridge v2 probe: no HMD (frames=0 seq_gaps=0) -- the differ count needs the headset and controllers awake
+[REFramework] [info] [Plugin] [visceral] bridge v2 probe: no HMD (frames=0 seq_gaps=0) -- the differ count needs the headset and controllers awake
+[REFramework] [info] [Plugin] [visceral] bridge v2 probe: no HMD (frames=0 seq_gaps=0) -- the differ count needs the headset and controllers awake
+[REFramework] [info] [Plugin] [visceral] bridge v2 probe: no HMD (frames=0 seq_gaps=0) -- the differ count needs the headset and controllers awake
+[REFramework] [info] [Plugin] [visceral] bridge v2 probe: no HMD (frames=0 seq_gaps=0) -- the differ count needs the headset and controllers awake
+[REFramework] [info] [Plugin] [visceral] bridge v2 probe: no HMD (frames=0 seq_gaps=0) -- the differ count needs the headset and controllers awake
+[REFramework] [info] [Plugin] [visceral] bridge v2 probe: no HMD (frames=0 seq_gaps=0) -- the differ count needs the headset and controllers awake
+[REFramework] [info] [Plugin] [visceral] bridge v2 probe: no HMD (frames=0 seq_gaps=0) -- the differ count needs the headset and controllers awake
+[REFramework] [info] [Plugin] [visceral] bridge v2 probe: no HMD (frames=0 seq_gaps=0) -- the differ count needs the headset and controllers awake
+[REFramework] [info] [Plugin] [visceral] bridge v2 probe: no HMD (frames=0 seq_gaps=0) -- the differ count needs the headset and controllers awake
+[REFramework] [info] [Plugin] [visceral] bridge v2 probe: no HMD (frames=0 seq_gaps=0) -- the differ count needs the headset and controllers awake
+[REFramework] [info] [Plugin] [visceral] bridge v2 probe: no HMD (frames=0 seq_gaps=0) -- the differ count needs the headset and controllers awake
+[REFramework] [info] [Plugin] [visceral] bridge v2 probe: no HMD (frames=0 seq_gaps=0) -- the differ count needs the headset and controllers awake
+[REFramework] [info] [Plugin] [visceral] bridge v2 probe: no HMD (frames=0 seq_gaps=0) -- the differ count needs the headset and controllers awake
+[REFramework] [info] [Plugin] [visceral] bridge v2 probe: no HMD (frames=0 seq_gaps=0) -- the differ count needs the headset and controllers awake
+[REFramework] [info] [Plugin] [visceral] bridge v2 probe: no HMD (frames=0 seq_gaps=0) -- the differ count needs the headset and controllers awake
+[REFramework] [info] [Plugin] [visceral] bridge v2 probe: no HMD (frames=0 seq_gaps=0) -- the differ count needs the headset and controllers awake
+[REFramework] [info] [Plugin] [visceral] bridge v2 probe: no HMD (frames=0 seq_gaps=0) -- the differ count needs the headset and controllers awake
+[REFramework] [info] [Plugin] [visceral] bridge v2 probe: no HMD (frames=0 seq_gaps=0) -- the differ count needs the headset and controllers awake
+[REFramework] [info] [Plugin] [visceral] bridge v2 probe: no HMD (frames=0 seq_gaps=0) -- the differ count needs the headset and controllers awake
+[REFramework] [info] [Plugin] [visceral] WEAPON CHANGED -> app.ropeway.implement.Gun (go=wp0000)
+[REFramework] [info] [Plugin] [visceral] bridge v2 probe: no HMD (frames=0 seq_gaps=0) -- the differ count needs the headset and controllers awake
+[REFramework] [info] [Plugin] [visceral] bridge v2 probe: no HMD (frames=0 seq_gaps=0) -- the differ count needs the headset and controllers awake
+[REFramework] [info] [Plugin] [visceral] bridge v2 probe: no HMD (frames=0 seq_gaps=0) -- the differ count needs the headset and controllers awake
+[REFramework] [info] [Plugin] [visceral] bridge v2 probe: no HMD (frames=0 seq_gaps=0) -- the differ count needs the headset and controllers awake
+[REFramework] [info] [Plugin] [visceral] bridge v2 probe: no HMD (frames=0 seq_gaps=0) -- the differ count needs the headset and controllers awake
+[REFramework] [info] [Plugin] [visceral] bridge v2 probe: no HMD (frames=0 seq_gaps=0) -- the differ count needs the headset and controllers awake
+[REFramework] [info] [Plugin] [visceral] NUM5: ATTACK pulse (8 frames)
+[REFramework] [info] [Plugin] [visceral] dryfire: requestFire #1, weapon wp0000, rounds 24
+[REFramework] [info] [Plugin] [visceral] bridge v2 probe: no HMD (frames=0 seq_gaps=0) -- the differ count needs the headset and controllers awake
+[REFramework] [info] [Plugin] [visceral] NUM5: ATTACK pulse (8 frames)
+[REFramework] [info] [Plugin] [visceral] dryfire: requestFire #2, weapon wp0000, rounds 23
+[REFramework] [info] [Plugin] [visceral] NUM5: ATTACK pulse (8 frames)
+[REFramework] [info] [Plugin] [visceral] dryfire: requestFire #3, weapon wp0000, rounds 22
+[REFramework] [info] [Plugin] [visceral] bridge v2 probe: no HMD (frames=0 seq_gaps=0) -- the differ count needs the headset and controllers awake
+[REFramework] [info] [Plugin] [visceral] bridge v2 probe: no HMD (frames=0 seq_gaps=0) -- the differ count needs the headset and controllers awake
+[REFramework] [info] [Plugin] [visceral] bridge v2 probe: no HMD (frames=0 seq_gaps=0) -- the differ count needs the headset and controllers awake
+[REFramework] [info] [Plugin] [visceral] NUM5: ATTACK pulse (8 frames)
+[REFramework] [info] [Plugin] [visceral] dryfire: requestFire #4, weapon wp0000, rounds 21
+[REFramework] [info] [Plugin] [visceral] NUM5: ATTACK pulse (8 frames)
+[REFramework] [info] [Plugin] [visceral] dryfire: requestFire #5, weapon wp0000, rounds 20
+[REFramework] [info] [Plugin] [visceral] bridge v2 probe: no HMD (frames=0 seq_gaps=0) -- the differ count needs the headset and controllers awake
+[REFramework] [info] [Plugin] [visceral] NUM5: ATTACK pulse (8 frames)
+[REFramework] [info] [Plugin] [visceral] dryfire: requestFire #6, weapon wp0000, rounds 19
+[REFramework] [info] [Plugin] [visceral] NUM5: ATTACK pulse (8 frames)
+[REFramework] [info] [Plugin] [visceral] dryfire: requestFire #7, weapon wp0000, rounds 18
+[REFramework] [info] [Plugin] [visceral] NUM5: ATTACK pulse (8 frames)
+[REFramework] [info] [Plugin] [visceral] dryfire: requestFire #8, weapon wp0000, rounds 17
+[REFramework] [info] [Plugin] [visceral] bridge v2 probe: no HMD (frames=0 seq_gaps=0) -- the differ count needs the headset and controllers awake
+[REFramework] [info] [Plugin] [visceral] NUM5: ATTACK pulse (8 frames)
+[REFramework] [info] [Plugin] [visceral] dryfire: requestFire #9, weapon wp0000, rounds 16
+[REFramework] [info] [Plugin] [visceral] NUM5: ATTACK pulse (8 frames)
+[REFramework] [info] [Plugin] [visceral] dryfire: requestFire #10, weapon wp0000, rounds 15
+[REFramework] [info] [Plugin] [visceral] NUM5: ATTACK pulse (8 frames)
+[REFramework] [info] [Plugin] [visceral] dryfire: requestFire #11, weapon wp0000, rounds 14
+[REFramework] [info] [Plugin] [visceral] bridge v2 probe: no HMD (frames=0 seq_gaps=0) -- the differ count needs the headset and controllers awake
+[REFramework] [info] [Plugin] [visceral] NUM5: ATTACK pulse (8 frames)
+[REFramework] [info] [Plugin] [visceral] dryfire: requestFire #12, weapon wp0000, rounds 13
+[REFramework] [info] [Plugin] [visceral] NUM5: ATTACK pulse (8 frames)
+[REFramework] [info] [Plugin] [visceral] NUM5: ATTACK pulse (8 frames)
+[REFramework] [info] [Plugin] [visceral] bridge v2 probe: no HMD (frames=0 seq_gaps=0) -- the differ count needs the headset and controllers awake
+[REFramework] [info] [Plugin] [visceral] NUM5: ATTACK pulse (8 frames)
+[REFramework] [info] [Plugin] [visceral] NUM5: ATTACK pulse (8 frames)
+[REFramework] [info] [Plugin] [visceral] bridge v2 probe: no HMD (frames=0 seq_gaps=0) -- the differ count needs the headset and controllers awake
+[REFramework] [info] [Plugin] [visceral] NUM5: ATTACK pulse (8 frames)
+[REFramework] [info] [Plugin] [visceral] NUM5: ATTACK pulse (8 frames)
+[REFramework] [info] [Plugin] [visceral] NUM5: ATTACK pulse (8 frames)
+[REFramework] [info] [Plugin] [visceral] bridge v2 probe: no HMD (frames=0 seq_gaps=0) -- the differ count needs the headset and controllers awake
+[REFramework] [info] [Plugin] [visceral] NUM5: ATTACK pulse (8 frames)
+[REFramework] [info] [Plugin] [visceral] NUM5: ATTACK pulse (8 frames)
+[REFramework] [info] [Plugin] [visceral] NUM5: ATTACK pulse (8 frames)
+[REFramework] [info] [Plugin] [visceral] bridge v2 probe: no HMD (frames=0 seq_gaps=0) -- the differ count needs the headset and controllers awake
+[REFramework] [info] [Plugin] [visceral] NUM5: ATTACK pulse (8 frames)
+[REFramework] [info] [Plugin] [visceral] NUM5: ATTACK pulse (8 frames)
+[REFramework] [info] [Plugin] [visceral] NUM5: ATTACK pulse (8 frames)
+[REFramework] [info] [Plugin] [visceral] sfx: PLAYED dry_fire for wp0000 -> handgun\dry_fire.ogg at volume 4.00
+[REFramework] [info] [Plugin] [visceral] bridge v2 probe: no HMD (frames=0 seq_gaps=0) -- the differ count needs the headset and controllers awake
+[REFramework] [info] [Plugin] [visceral] NUM5: ATTACK pulse (8 frames)
+[REFramework] [info] [Plugin] [visceral] sfx: PLAYED dry_fire for wp0000 -> handgun\dry_fire.ogg at volume 4.00
+[REFramework] [info] [Plugin] [visceral] NUM5: ATTACK pulse (8 frames)
+[REFramework] [info] [Plugin] [visceral] sfx: PLAYED dry_fire for wp0000 -> handgun\dry_fire.ogg at volume 4.00
+[REFramework] [info] [Plugin] [visceral] bridge v2 probe: no HMD (frames=0 seq_gaps=0) -- the differ count needs the headset and controllers awake
+[REFramework] [info] [Plugin] [visceral] NUM5: ATTACK pulse (8 frames)
+[REFramework] [info] [Plugin] [visceral] sfx: PLAYED dry_fire for wp0000 -> handgun\dry_fire.ogg at volume 4.00
+[REFramework] [info] [Plugin] [visceral] NUM5: ATTACK pulse (8 frames)
+[REFramework] [info] [Plugin] [visceral] sfx: PLAYED dry_fire for wp0000 -> handgun\dry_fire.ogg at volume 4.00
+[REFramework] [info] [Plugin] [visceral] bridge v2 probe: no HMD (frames=0 seq_gaps=0) -- the differ count needs the headset and controllers awake
+[REFramework] [info] [Plugin] [visceral] bridge v2 probe: no HMD (frames=0 seq_gaps=0) -- the differ count needs the headset and controllers awake
+[REFramework] [info] [Plugin] [visceral] bridge v2 probe: no HMD (frames=0 seq_gaps=0) -- the differ count needs the headset and controllers awake
+[REFramework] [info] [Plugin] [visceral] bridge v2 probe: no HMD (frames=0 seq_gaps=0) -- the differ count needs the headset and controllers awake
+[REFramework] [info] [Plugin] [visceral] bridge v2 probe: no HMD (frames=0 seq_gaps=0) -- the differ count needs the headset and controllers awake
+[REFramework] [info] [VR] Could not load openvr_api.dll
+[REFramework] [info] [VR] Initializing OpenXR
+[REFramework] [info] [VR] Creating OpenXR instance
+[REFramework] [info] [VR] Creating OpenXR system
+[REFramework] [error] [VR] Could not create openxr system: XR_ERROR_FORM_FACTOR_UNAVAILABLE                                
