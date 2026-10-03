@@ -57,6 +57,7 @@
 // |Rwrist - muzzle| (the right hand must not move on dock/undock).
 
 #include "visceral.h"
+#include "port/port.h"
 #include "IdlePhase.h"   // v0.18: native idle-phase keeper (own file; Plugin.cpp only wires it)
 
 namespace visceral {
@@ -202,6 +203,7 @@ void on_frame() {
         update_dock(tn, dt);
     }
     plug_update();   // v0.7
+    port::dryfire_frame();   // 2026-10-03: the port's sound self-test (first right-B presses)
     bracelets_update();   // v0.10
     head_update();   // v0.8
     {
@@ -229,6 +231,7 @@ void on_initialized() {
     install_bridge_hook();
     install_shift_hooks();
     install_mesh_catch_hooks();   // v0.15
+    port::dryfire_install();      // 2026-10-03: RELOADED port step 2 (sound player + dry-fire)
 }
 
 } // namespace visceral
