@@ -25,8 +25,8 @@ import shutil
 import sys
 import time
 
-# 2026-09-27 (Tefa): nothing of Visceral goes into the real game folder any more; this targets the TEST COPY.
-GAME = r"D:\RE2 test copy"
+# 2026-09-27 (Tefa): this targeted the D: TEST COPY. 2026-10-04 (Tefa): the copy is deleted; we mod the Steam game again.
+GAME = r"C:\Steam\steamapps\common\RESIDENT EVIL 2  BIOHAZARD RE2"
 HOME = r"D:\Visceral build versions"
 SERIES = "0.2.0"
 # Everything of ours that can live in the game folder. The game's own files are never copied.
