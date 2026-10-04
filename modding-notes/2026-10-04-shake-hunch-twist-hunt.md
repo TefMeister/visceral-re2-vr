@@ -42,7 +42,8 @@ All four at once, in the headset, on the current saves:
 | b062 | b061 with our straightener swapped for Arcade Controls' own, unchanged (ACVR_final_unfinished.zip) | **YES** | - | - | torso straight; legs a little right | "screen shakes, body twist is gone on torso, legs are still facing right a little" -> **not the script: something around it** |
 | b063 | b062 + layer probe (read-only) | - | - | - | - | Leon: gun away = KFF_ clips; gun out = OFF_; aiming = **HG2_** idle/strafes, not in our spliced file |
 | b064 | b063 + the cpA path filled with the game's own cpB list (one quick-reload slot), so the stock Matilda falls back to our spliced aim file | - | - | - | - | not worn; replaced by b065 |
-| b065 | b060 + that cpA fallback + layer probe (no straightener) | ? | ? | ? | ? | testing |
+| b065 | b060 + that cpA fallback + layer probe (no straightener) | **no** | gone | slow, careful | body and legs right | layer probe: pistol out = OFF_ (gun-drawn, angled stance); our aim splice also uses OFF_ since 09-24 |
+| b066 | b065 with Leon's pistol-out file (every OFF_ slot) and aiming file (walks, idle, raise) filled with the KFF_ no-weapon clips | ? | ? | ? | ? | testing: Tefa's idea, body straight like pistol-away? |
 
 ## What is known so far
 
