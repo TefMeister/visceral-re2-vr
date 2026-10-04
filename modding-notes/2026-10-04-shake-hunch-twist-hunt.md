@@ -45,7 +45,7 @@ All four at once, in the headset, on the current saves:
 | b065 | b060 + that cpA fallback + layer probe (no straightener) | **no** | gone | slow, careful | body and legs right | layer probe: pistol out = OFF_ (gun-drawn, angled stance); our aim splice also uses OFF_ since 09-24 |
 | b066 | b065 with Leon's pistol-out file (every OFF_ slot) and aiming file (walks, idle, raise) filled with the KFF_ no-weapon clips | **no** | gone | slow (wanted) | **pistol out = straight, same as no gun**; aim-walk turns body LEFT | ⭐ BREAKTHROUGH: "no gun and gun out movement are identical ... everything is turned the right way". Probe: aiming still plays HG2_ |
 | b067 | b066 + file-access log | - | - | - | - | log: the upgraded Matilda (stock + a second part) aims with `hdg_hold_cpAC_01` (+ stLIGHT_/stWATER_ versions); the cpA stand-in missed it |
-| b068 | b066 + the six stock-part lists (cpA, cpAC x plain/stLIGHT/stWATER) replaced by the game's own EMPTY list `hdg_hold_01` | ? | ? | ? | ? | testing: aim-walk straight now? |
+| b068 | b066 + the six stock-part lists (cpA, cpAC x plain/stLIGHT/stWATER) replaced by the game's own EMPTY list `hdg_hold_01` | **no** | gone | **not slow, preferred** | **straight** | ⭐ "aim-walk is straight now, no shake, this is like it was meant to be like this" |
 
 ## What is known so far
 
@@ -75,7 +75,15 @@ All four at once, in the headset, on the current saves:
 - `visceral_locomotion`'s speed-up is OFF (multiplier 1.0), so the slow careful aim-walk is the game's own aim-walk
   speed. Raising it properly means finding where the game sets it `[hypothesis]`.
 
-## GOLDEN (empty until reached)
+## GOLDEN
 
-When all four goals hold in one build: its number, its full file list with sha256, Tefa's words, and a copy in
-`D:\Visceral build versions\GOLDEN\` that nothing ever writes into again.
+**Candidate: b068 (2026-10-04 23:40), Leon only - all four goals met in the headset** `[reported 2026-10-04, n=1, home PC]`.
+Tefa: *"aim-walk is straight now, no shake, this is like it was meant to be like this. also aim walking is not slow, and that is good,
+i was wrong, i prefer it to be faster like it is now!"* Becomes GOLDEN once it passes Tefa's fresh-install test (too many times the
+body poses held and then failed later).
+
+The recipe (on top of the b057 base): Leon's `hdg/base_hdg_move` with every slot = the no-weapon KFF_ clip of the same number;
+`hdg/base_hdg_hold` with walks, idle and raise = KFF_ clips; the six upgraded-Matilda lists (`hdg_hold_cpA_01`, `cpAC_01`, each also
+`stLIGHT_` / `stWATER_`) = the game's own empty list `hdg_hold_01`; the nine LookAt Hold files; `visceral_body_anchor`,
+`visceral_body_direct`, `visceral_lefthand_hold` (in the build, not proven needed); LooseFileLoader on. NO spine straightener.
+Package with install steps and MANIFEST: `D:\Visceral build versions\GOLDEN6-10-04 Leon pose fix (from b068)\`.
