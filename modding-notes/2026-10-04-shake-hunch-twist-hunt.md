@@ -39,7 +39,7 @@ All four at once, in the headset, on the current saves:
 | b060 | b059 minus spine_straighten, locomotion, cinematic_gate | **no** | gone | slow, careful | body and legs right | the three out = no shake |
 | b061 | b060 + spine_straighten alone | **YES** | - | - | not said | "camera shake is back" -> **the straightener causes the shake** |
 | b061, menu | strength 0, then ENABLED off | **no** (both) | - | - | - | shakes only at strength 1 -> **the bending itself shakes the view, not the timing of the writes** |
-| b062 | b061 with our straightener swapped for Arcade Controls' own, unchanged (ACVR_final_unfinished.zip) | ? | ? | ? | ? | testing: shakes too = it's the files around it; smooth = our rebuild differs |
+| b062 | b061 with our straightener swapped for Arcade Controls' own, unchanged (ACVR_final_unfinished.zip) | **YES** | - | - | torso straight; legs a little right | "screen shakes, body twist is gone on torso, legs are still facing right a little" -> **not the script: something around it** |
 
 ## What is known so far
 
@@ -57,6 +57,7 @@ All four at once, in the headset, on the current saves:
   standing, walking, running and turning with no camera sway `[reported 2026-08-16]`. Its REFramework settings match ours too. So what
   differs is around the script, not in it `[hypothesis]`. AC's aim-walk speed (a changed `re2_smooth_movement.lua` that drives speed from
   the stick while aiming) is the push-the-player method Tefa does not want; not used.
+- **b062: Arcade Controls' own straightener shakes here too** `[verified-live 2026-10-04, n=1]`, so the cause is what it runs WITH. `body_anchor`, `body_direct` and `lefthand_hold` only act while aiming, and the shake is while running `[inferred-static]`. Left: our walk/posture files (`base_hdg_hold` lists put ordinary walk clips in the pistol bank, which the straightener's average then follows) `[hypothesis]`. Free test: in b062, run with the pistol put away, then with it in hand.
 - The leg twist cannot come from this script: it never touches the legs. Body AND legs turned the same way = the whole character
   facing slightly off the view direction `[hypothesis]`.
 - The shake is one of `visceral_spine_straighten`, `visceral_locomotion`, `visceral_cinematic_gate`
