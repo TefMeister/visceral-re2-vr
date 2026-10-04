@@ -1,6 +1,8 @@
 # Research index
 
-**Last `/gr` pass: 2026-09-29 (estate sweep) — CHECK-IN.** Nothing new. REFramework master's commits since 2026-09-05 (pak-loader redesign for DD2, a Proton/Wine startup-deadlock fix for Onimusha, hook fixes) and the pd-upscaler branch (last a24c3459, 2026-09-05, the build installed) add nothing RE2-VR-specific.
+**Last `/gr` pass: 2026-10-04 (estate sweep, second pass) — CHECK-IN.** Inbox empty; board `OPEN` rows read: the fresh-start rows are headset work. REFramework nightly is still 2026-09-16 and its release still v1.5.9.1. Nothing new.
+
+_Previous: **Last `/gr` pass: 2026-09-29 (estate sweep) — CHECK-IN.** Nothing new. REFramework master's commits since 2026-09-05 (pak-loader redesign for DD2, a Proton/Wine startup-deadlock fix for Onimusha, hook fixes) and the pd-upscaler branch (last a24c3459, 2026-09-05, the build installed) add nothing RE2-VR-specific._
 
 _Previous: **Last `/gr` pass: 2026-09-23 (estate sweep) — CHECK-IN.** Checked phunkaeg's *VR Modding Playbook*: its RE Engine entries (REFramework, Talemann RE4, vrframework) are already tracked; it also lists this repo as a studied source. Nothing new._
 
