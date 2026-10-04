@@ -39,6 +39,7 @@ All four at once, in the headset, on the current saves:
 | b060 | b059 minus spine_straighten, locomotion, cinematic_gate | **no** | gone | slow, careful | body and legs right | the three out = no shake |
 | b061 | b060 + spine_straighten alone | **YES** | - | - | not said | "camera shake is back" -> **the straightener causes the shake** |
 | b061, menu | strength 0, then ENABLED off | **no** (both) | - | - | - | shakes only at strength 1 -> **the bending itself shakes the view, not the timing of the writes** |
+| b062 | b061 with our straightener swapped for Arcade Controls' own, unchanged (ACVR_final_unfinished.zip) | ? | ? | ? | ? | testing: shakes too = it's the files around it; smooth = our rebuild differs |
 
 ## What is known so far
 
