@@ -38,6 +38,7 @@ All four at once, in the headset, on the current saves:
 | b059 | b058 + walk lists + nine LookAt Hold files + LooseFileLoader on | **yes, running** | gone | slow, careful | legs left, less | |
 | b060 | b059 minus spine_straighten, locomotion, cinematic_gate | **no** | gone | slow, careful | body and legs right | the three out = no shake |
 | b061 | b060 + spine_straighten alone | **YES** | - | - | not said | "camera shake is back" -> **the straightener causes the shake** |
+| b061, menu | strength 0, then ENABLED off | **no** (both) | - | - | - | shakes only at strength 1 -> **the bending itself shakes the view, not the timing of the writes** |
 
 ## What is known so far
 
@@ -47,6 +48,14 @@ All four at once, in the headset, on the current saves:
   from, and while running the average lags the stride; (b) the repeated writes land at different moments than the camera reads the head.
   Live test without a new build: REFramework menu -> *Visceral: spine straighten* -> strength 0 (still writes, bends nothing).
   Shake stays at 0 = (b) the writing/timing; shake goes at 0 = (a) the bending.
+- **The bending itself is what shakes** (strength 0 and disabled = smooth, strength 1 = shake) `[verified-live 2026-10-04, n=1]`.
+- **Arcade Controls' final unpublished build (`staging/arcade-controls-re2-vr/ACVR_final_unfinished.zip`, 2026-08-23) runs the SAME soft-mode
+  maths as ours, line for line** (EMA baseline tau 0.4 s, straighten the baseline, re-apply the live deviation, freeze while aiming, stale-read
+  guard, LateUpdateBehavior + every IkArmFit.updateIk) `[inferred-static 2026-10-04]`, and its case study
+  (`arcade-controls-re2-vr/modding-notes/case-studies/2026-08-16-subtract-the-offset-not-the-motion.md`) says it ran at full strength
+  standing, walking, running and turning with no camera sway `[reported 2026-08-16]`. Its REFramework settings match ours too. So what
+  differs is around the script, not in it `[hypothesis]`. AC's aim-walk speed (a changed `re2_smooth_movement.lua` that drives speed from
+  the stick while aiming) is the push-the-player method Tefa does not want; not used.
 - The leg twist cannot come from this script: it never touches the legs. Body AND legs turned the same way = the whole character
   facing slightly off the view direction `[hypothesis]`.
 - The shake is one of `visceral_spine_straighten`, `visceral_locomotion`, `visceral_cinematic_gate`
