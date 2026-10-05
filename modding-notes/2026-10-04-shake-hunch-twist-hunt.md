@@ -50,7 +50,7 @@ All four at once, in the headset, on the current saves:
 | b070 | b069 with Leon's `base_hdg_move` + `base_hdg_hold` rebuilt by `motlist_clip_swap.py` (/pd 2026-10-05): every no-weapon KFF_ motion keeps its bones and sync clip and takes the stock pistol motion's switch clip (left-hand hold `IKBlendRatio` 1.0 and the other stock pistol switches) | - | - | - | - | worn 2026-10-05 (Tefa): **the left hand still does not go on the gun** -> the missing switch is NOT the dock cause |
 | b071 | b070 + **every Leon gun on the relaxed pose** (detour step 1), built by `motlist_relax.py` (reproduces the golden pistol files byte for byte): `base_<wp>_hold` for mag, smg, stg, gnl, rkl, etc = KFF_ walks/idle/raise; `stg/base_stg_move` every slot = KFF_; override lists' own walk/idle/raise slots EMPTIED (hdg_hold_03, hdg_hold_07 + stLIGHT/stWATER, smg_hold_03, rkl_hold_02, etc_hold_02), their shots and reloads kept. Matilda files untouched. Knife (mle) and grenades (sup) not done | - | - | - | - | not worn yet. Unknown: which walk set the magnum, SMG and launchers use with the gun out (they have no move file of their own) |
 | b072 | b071 + knife (`base_mle_hold`) and grenades (`base_sup_hold`) walks/idle/raise = KFF_ (Tefa: "knife and grenades as well"); their override lists have no walking slots. Weapons with no upgrades use the base lists, so they are covered | - | - | - | - | not worn yet |
-| b073 | b072 + **Claire (pl10, 24 files) and Ada (pl20, 23 files), every weapon**, by the new `relax_character.py` (archive name-hash search + `motlist_relax.py`; reproduces Leon's b072 files byte for byte). Their handgun upgrade lists get walk slots emptied (not Leon's whole-list empty). Ada's own set is mostly Claire-named (pl10_) motions in pl20 lists. Hunk (ID 4000 per the RE Modding forum ID thread): no animation lists of his own in the archive (only pl00/pl10/pl20 and an all-empty pl64 exist), so he borrows another set, probably Leon's `[hypothesis]` | - | - | - | - | not worn yet |
+| b073 | b072 + **Claire (pl10, 24 files) and Ada (pl20, 23 files), every weapon**, by the new `relax_character.py` (archive name-hash search + `motlist_relax.py`; reproduces Leon's b072 files byte for byte). Their handgun upgrade lists get walk slots emptied (not Leon's whole-list empty). Ada's own set is mostly Claire-named (pl10_) motions in pl20 lists. Hunk (ID 4000 per the RE Modding forum ID thread): no animation lists of his own in the archive (only pl00/pl10/pl20 and an all-empty pl64 exist), so he borrows another set, probably Leon's `[hypothesis]` | - | - | - | - | ⭐ **WORN 2026-10-05: all weapons done (Tefa, save with every weapon); Hunk works too.** Saved as GOLDEN 2 |
 
 ## What is known so far
 
@@ -81,6 +81,9 @@ All four at once, in the headset, on the current saves:
   speed. Raising it properly means finding where the game sets it `[hypothesis]`.
 
 ## GOLDEN
+
+**GOLDEN 2 (2026-10-05): all weapons relaxed, every character = b073** `[verified-live 2026-10-05, n=1]`. Tefa: *"so far it looks like all the weapons are done, the save i have gives me all the weapons, and i checked Hunk, that works too."* Roll-back package: `D:\Visceral build versions\GOLDEN6-10-05 All weapons relaxed, every character (from b073)\` (README + MANIFEST; copy in Desktop `RE2 mod builds`). Built by `relax_character.py --character pl00|pl10|pl20` (Leon's eight Matilda lists are the b068/b070 versions).
+
 
 **GOLDEN for the body pose: b068 (2026-10-04 23:40), Leon only - all four goals met in the headset, and CONFIRMED on a fresh install from the package alone (2026-10-05 ~00:10, Tefa: "the body pose is working exactly like we left it")** `[verified-live 2026-10-05, n=2: worn build + fresh install]`.
 
