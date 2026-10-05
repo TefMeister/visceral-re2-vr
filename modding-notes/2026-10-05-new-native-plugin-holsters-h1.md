@@ -49,3 +49,24 @@ and forward offsets turn with the headset's yaw only.
   facing one way is Tefa's call after feeling it.
 - The knife, grenade and EMF visualizer WP numbers: read from the log the first time each is held.
 - Weapon names come from RELOADED's data; the GM 79 appears there as both WP1300 and WP4100.
+
+## b075 worn (2026-10-05 ~23:30): every zone buzzes `[verified-live 2026-10-05, n=1]`
+
+The log showed the bridge attached, zone entries, grip presses and weapons: the hand grenade is **WP6200**
+`[verified-live]`, confirming the forum ID mapping. The flashlight zone was entered about once a minute during
+ordinary play (no grip), so it may sit where the left hand passes naturally; watch it.
+
+## Step H2, b076 (installed, unworn): the holsters ARE the game's shortcut cross
+
+Tefa's redesign: each spot holds whatever is in one slot of the game's own 4-way weapon shortcut, so the player
+chooses with the game's own menu. Right = right hip, down = left hip, left = left shoulder, up = right shoulder.
+A grenade or knife must be in the cross to be reached. Spots turn left/right with the head, never tilt (Tefa).
+
+- Take out: `survivor.Inventory.equipMainSlot(EquipmentDefine.Shortcut)` (the game's own d-pad call).
+- Put away (when the held weapon is that slot's): `unequipEquipedWeapon(WeaponType)`, `Equipment.requestHolster` fallback.
+- Slot contents: `Inventory.get_ShortcutSlots()` list, read by direction index `[hypothesis: index = Shortcut value
+  Up 0 / Down 1 / Left 2 / Right 3]`; the log prints `shortcut up/down/left/right: <weapon>` to check against the HUD.
+- Knife + grenades in the cross: post-hook on `EquipmentDefine.enableShortcut(WeaponType)` answers yes for WP4500,
+  4510, 6200, 6300. The first 8 calls are logged with their argument to confirm the hook reads it right.
+- Grenade rule for later (Tefa): hold RT, release it while the hand moves = throw; release with a still hand =
+  drops at the feet. RG does nothing while a sub weapon is held.
