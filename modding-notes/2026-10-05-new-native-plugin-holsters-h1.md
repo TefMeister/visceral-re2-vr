@@ -70,3 +70,20 @@ A grenade or knife must be in the cross to be reached. Spots turn left/right wit
   4510, 6200, 6300. The first 8 calls are logged with their argument to confirm the hook reads it right.
 - Grenade rule for later (Tefa): hold RT, release it while the hand moves = throw; release with a still hand =
   drops at the feet. RG does nothing while a sub weapon is held.
+
+## b078 broke the game, rolled back to b077's plugin (2026-10-06 ~00:40) `[verified-live 2026-10-06, n=1]`
+
+Tefa: after equipping the grenade nothing could be selected, the grenade did not appear in the bottom slot, left hip +
+RG did not bring it out, LG still did, the main-menu controls were dead, and the game flickered between play and
+inventory before settling. Log: the latch toggled, the grenade was in hand for a moment and then the shotgun, and
+`Inventory.equipSubSlot*` fired ~20 times in a burst.
+
+Suspects `[hypothesis]`, to settle statically before the next try:
+1. **The SUPPORT_HOLD force stayed on outside play** (inventory, main menu). Nothing released it when a menu opened;
+   if menus read that input too, that explains the flicker and the dead controls. Next try: force only while the
+   player is in control, and drop it the moment a menu, cutscene or the title screen is up.
+2. **The bit clearing ran in menus as well**, every frame, and clearing HOLD/SUPPORT_HOLD may remove menu inputs.
+   It also did NOT stop LG, so UpdateBehavior pre is too late; RELOADED clears at UpdateHID post and again after
+   `PlayerActionOrderer.doSurvivorActionOrdererUpdate`.
+3. Writing the bits through `find_field(...)->get_data` may not hit the field (RELOADED writes by offset: Down 0x10,
+   On 0x18, Up 0x20); a wrong write would corrupt the input object. Check by reading back what was written.
