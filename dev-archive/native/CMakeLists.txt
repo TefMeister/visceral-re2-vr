@@ -11,6 +11,7 @@ add_library(visceral_native SHARED
     src/common.cpp
     src/bridge.cpp
     src/weapons.cpp
+    src/shortcut.cpp
     src/holster.cpp)
 target_include_directories(visceral_native PRIVATE include src)
 set_target_properties(visceral_native PROPERTIES OUTPUT_NAME "visceral_native" PREFIX "")

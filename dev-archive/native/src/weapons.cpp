@@ -70,15 +70,23 @@ std::map<int, int>& enum_to_wp() {
 }
 } // namespace
 
+int wp_of_enum(int v) {
+    auto& m = enum_to_wp();
+    auto it = m.find(v);
+    return it == m.end() ? -1 : it->second;
+}
+
+int enum_of_wp(int wp) {
+    for (auto& [e, w] : enum_to_wp()) if (w == wp) return e;
+    return -1;
+}
+
 int current_id() {
     auto* pm = API::get()->get_managed_singleton("app.ropeway.PlayerManager");
     auto* go = call_ptr(pm, "get_CurrentPlayer");
     auto* eq = component(go, "app.ropeway.survivor.Equipment");
     if (eq == nullptr) return -1;
-    const int v = call_direct<int>(eq, "get_EquipType", -1);
-    auto& m = enum_to_wp();
-    auto it = m.find(v);
-    return it == m.end() ? -1 : it->second;
+    return wp_of_enum(call_direct<int>(eq, "get_EquipType", -1));
 }
 
 const char* name(int wp) {
