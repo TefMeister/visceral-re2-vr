@@ -143,7 +143,19 @@ void frame() {
     const int idx = (sub != nullptr && !call_direct<bool>(sub, "get_IsEmpty", true)) ? call_direct<int>(sub, "get_Index", -1) : -1;
     if (idx == g_sub_index_done) return;
     g_sub_index_done = idx;
-    if (idx < 0) return;
+    if (idx < 0) {
+        // unequipped: clear the bottom slot if it still shows a sub weapon (Tefa, b079: the icon stayed).
+        // gamemastering.InventoryManager.setShortcutWeaponSlotIndex(WeaponShortcut.DOWN = 1, -1) [hypothesis: -1 = empty]
+        const int held_there = weapon_in(DOWN);
+        bool sub_there = false;
+        for (int s : SUB_WEAPONS) if (s == held_there) sub_there = true;
+        if (!sub_there) return;
+        auto* im = API::get()->get_managed_singleton("app.ropeway.gamemastering.InventoryManager");
+        auto* m = im ? find_method_deep(im->get_type_definition(), "setShortcutWeaponSlotIndex") : nullptr;
+        if (m != nullptr) m->call<void>(API::get()->get_vm_context(), (void*)im, 1, -1);
+        LOGI("%s sub weapon unequipped: bottom slot cleared -> now holds %s", TAG, weapons::name(weapon_in(DOWN)));
+        return;
+    }
     const int wp = weapons::wp_of_enum(call_direct<int>(sub, "get_WeaponType", -1));
     if (weapon_in(DOWN) == wp) { LOGI("%s bottom slot already holds %s", TAG, weapons::name(wp)); return; }
     const bool ok = call_direct<bool>(inv, "setShortcutSlot(System.Int32, app.ropeway.EquipmentDefine.Shortcut)", false, idx, (int)DOWN);
