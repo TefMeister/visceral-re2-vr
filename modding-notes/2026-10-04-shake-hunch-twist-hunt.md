@@ -46,6 +46,8 @@ All four at once, in the headset, on the current saves:
 | b066 | b065 with Leon's pistol-out file (every OFF_ slot) and aiming file (walks, idle, raise) filled with the KFF_ no-weapon clips | **no** | gone | slow (wanted) | **pistol out = straight, same as no gun**; aim-walk turns body LEFT | ⭐ BREAKTHROUGH: "no gun and gun out movement are identical ... everything is turned the right way". Probe: aiming still plays HG2_ |
 | b067 | b066 + file-access log | - | - | - | - | log: the upgraded Matilda (stock + a second part) aims with `hdg_hold_cpAC_01` (+ stLIGHT_/stWATER_ versions); the cpA stand-in missed it |
 | b068 | b066 + the six stock-part lists (cpA, cpAC x plain/stLIGHT/stWATER) replaced by the game's own EMPTY list `hdg_hold_01` | **no** | gone | **not slow, preferred** | **straight** | ⭐ "aim-walk is straight now, no shake, this is like it was meant to be like this" |
+| b069 | the golden package alone, on a fresh Steam install | **no** | gone | not slow | straight | "the body pose is working exactly like we left it"; NEW: gun flickers / turns slightly in the right hand, left hand cannot dock |
+| b070 | b069 with Leon's `base_hdg_move` + `base_hdg_hold` rebuilt by `motlist_clip_swap.py` (/pd 2026-10-05): every no-weapon KFF_ motion keeps its bones and sync clip and takes the stock pistol motion's switch clip (left-hand hold `IKBlendRatio` 1.0 and the other stock pistol switches) | - | - | - | - | not worn yet; aim: the left hand docks on the Matilda again and the gun stops flickering, with the pose unchanged |
 
 ## What is known so far
 
@@ -80,6 +82,16 @@ All four at once, in the headset, on the current saves:
 **GOLDEN for the body pose: b068 (2026-10-04 23:40), Leon only - all four goals met in the headset, and CONFIRMED on a fresh install from the package alone (2026-10-05 ~00:10, Tefa: "the body pose is working exactly like we left it")** `[verified-live 2026-10-05, n=2: worn build + fresh install]`.
 
 **Open on top of it (Tefa, fresh install):** the gun flickers and sometimes turns slightly in the right hand; the left hand cannot dock on it. Tefa's read: "like something got removed with the slow aim-walking pose". Suspects `[hypothesis]`: (1) the no-weapon KFF_ clips carry no weapon IK tracks (e.g. SurvivorIkLeftArmTrack, which `visceral_lefthand_hold` notes the hold needs), so hand IK switches off and on; (2) ~~the dock lived in our native plugin~~ WRONG (Tefa 2026-10-05): the magnum docks fine with none of our files, so the dock is praydog's own and our Matilda files broke it. Static check: game pistol clips carry `SurvivorIkLeftArmTrack` + `IKBlendRatio`; the KFF_ idle/walk do not `[verified-numerically 2026-10-05]`. Next: give the KFF_ clips that track (new code). Rule from Tefa: no old C++ plugin, only new code.
+**b070, the left-hand switch put back (2026-10-05, /pd, static; the game was not launched)** `[verified-numerically 2026-10-05]`:
+the stock pistol-out list has the left-hand hold switch in **all 46 slots**; the golden list has it in **1** (the stock
+`KFF_Gazing_Idle_F_Relax_Loop`). Same in the aiming list for the 20 slots the golden recipe filled. A motion's switches live in
+ONE property clip (kind 0) next to an optional sync clip (kind 3); the game never has two property clips in one motion
+(counted over 129 entries), so `motlist_clip_swap.py` REPLACES the KFF_ property clip with the stock one from the same slot,
+instead of adding beside it. Bones, sync clip and everything else stay byte-identical (independent re-check: 45 + 20 slots OK,
+0 problems). Side effects to watch `[hypothesis]`: the jog cycles lose KFF's `IkTwoLegFootLock` (the stock jog has none) and
+gain the stock `SurvivorChainGroupControlTrack`; the walks gain `PlayerGazingSwitchLimitedTrack`. If the pose changes, those
+are the suspects, not the hold switch. Installed in the Steam game, snapshot `v0.2.0-b070`.
+
 Tefa: *"aim-walk is straight now, no shake, this is like it was meant to be like this. also aim walking is not slow, and that is good,
 i was wrong, i prefer it to be faster like it is now!"* Becomes GOLDEN once it passes Tefa's fresh-install test (too many times the
 body poses held and then failed later).
