@@ -3,7 +3,6 @@
 #include "bridge.h"
 #include "settings.h"
 #include "shortcut.h"
-#include "subhold.h"
 #include "weapons.h"
 
 namespace vn::holster {
@@ -11,7 +10,6 @@ namespace vn::holster {
 namespace {
 using bridge::Hand;
 constexpr int NO_SHORTCUT = -1;
-constexpr int SUB_WEAPON = -2;     // left hip: holds the equipped sub weapon out (subhold.cpp)
 
 struct Zone {
     const char* name;
@@ -22,13 +20,12 @@ struct Zone {
     bool inside = false;
 };
 
-// Tefa 2026-10-05: right = right hip, bottom = left hip, left = left shoulder, top = right shoulder.
-// 2026-10-06: the bottom is the sub-weapon box: shortcut.cpp keeps the equipped knife/grenade in it.
+// Tefa 2026-10-05: right = right hip, bottom = left hip, left = left shoulder, top = right shoulder
 Zone g_zones[] = {
     {"flashlight (upper left of the head)", cfg::FLASHLIGHT,     bridge::LEFT,  bridge::S_LGRIP, NO_SHORTCUT},
     {"ammo pouch (left hip)",                cfg::LEFT_HIP,       bridge::LEFT,  bridge::S_LGRIP, NO_SHORTCUT},
     {"right hip",                            cfg::RIGHT_HIP,      bridge::RIGHT, bridge::S_RGRIP, shortcut::RIGHT},
-    {"left hip (sub weapon)",                cfg::LEFT_HIP,       bridge::RIGHT, bridge::S_RGRIP, SUB_WEAPON},
+    {"left hip",                             cfg::LEFT_HIP,       bridge::RIGHT, bridge::S_RGRIP, shortcut::DOWN},
     {"left shoulder",                        cfg::LEFT_SHOULDER,  bridge::RIGHT, bridge::S_RGRIP, shortcut::LEFT},
     {"right shoulder",                       cfg::RIGHT_SHOULDER, bridge::RIGHT, bridge::S_RGRIP, shortcut::UP},
 };
@@ -67,9 +64,6 @@ void track_slots() {
 }
 
 void grab(const Zone& z) {
-    // the game refuses equipMainSlot(Down) for a grenade ("game said no", b079), so the left hip holds it out instead
-    if (z.dir == SUB_WEAPON) { bridge::rumble(z.hand, cfg::BUZZ_GRAB_AMP, cfg::BUZZ_GRAB_SEC); subhold::toggle(); return; }
-    if (subhold::out()) subhold::toggle();          // reaching for a gun lets go of the sub weapon first
     const auto d = (shortcut::Dir)z.dir;
     const int in_slot = shortcut::weapon_in(d);
     const int held = weapons::current_id();

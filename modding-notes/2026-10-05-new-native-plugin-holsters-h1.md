@@ -87,3 +87,17 @@ Suspects `[hypothesis]`, to settle statically before the next try:
    `PlayerActionOrderer.doSurvivorActionOrdererUpdate`.
 3. Writing the bits through `find_field(...)->get_data` may not hit the field (RELOADED writes by offset: Down 0x10,
    On 0x18, Up 0x20); a wrong write would corrupt the input object. Check by reading back what was written.
+
+## Sub weapon in the bottom slot: b079-b080 tried, rolled back to b077 (2026-10-06 ~00:45)
+
+- b079: the equipped sub weapon was put into the bottom of the cross with the game's `Inventory.setShortcutSlot(index,
+  Down)` and **showed there** `[verified-live 2026-10-06]`, but the icon stayed after unequipping, and
+  `equipMainSlot(Down)` refuses a grenade (logged "game said no" every try) `[verified-live 2026-10-06]`.
+- Tefa explained the real shape: a sub weapon is only out while LG is HELD (released = the gun comes back); with LG
+  held, RG throws and RT drops it at the feet. So a holster draw needs a continuous hold.
+- b080 latched SUPPORT_HOLD (only "in control") and swapped RT/RG: **menus kept scrolling down**, the hip did not
+  draw it, LG still did. Tefa: change of plans, the four slots hold weapons again; back to b077.
+- Code kept in `dev-archive/native/archive/`. **Lesson** `[hypothesis]`: forcing or editing input bits leaks into the
+  GUI (twice now); the in-control check by `GUIMaster.get_IsOpen*` was not enough. Any later sub-weapon attempt
+  should avoid global input forcing.
+- Tefa's save may still have the grenade in the bottom slot: putting a gun there with the menu replaces it.
