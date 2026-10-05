@@ -75,14 +75,9 @@ void post_enable_set(void** ret_val, REFrameworkTypeDefinitionHandle, unsigned l
     *ret_val = (void*)(uintptr_t)1;
 }
 
-// Tefa: holding LG must not equip the sub weapon; it comes out only from a holster. The game's request for it is
-// PlayerActionOrderer.set_RequestSubShortcut [hypothesis: LG drives it]; the setter is skipped, so the request
-// stays empty. Every call into Inventory.equipSubSlot* is LOGGED (not blocked) so the next build knows the path.
-std::atomic<int> g_blocked{0};
-int pre_block_sub_request(int, void**, REFrameworkTypeDefinitionHandle*, unsigned long long) {
-    if (g_blocked.fetch_add(1) < LOG_FIRST_CALLS) LOGI("%s sub-weapon request from the game: BLOCKED", TAG);
-    return REFRAMEWORK_HOOK_SKIP_ORIGINAL;
-}
+// b077 skipped PlayerActionOrderer.set_RequestSubShortcut to stop LG; it never fired, so it is not the LG path
+// [verified-live 2026-10-05] and is gone. (b078 then tried clearing SUPPORT_HOLD bits: broke the game, archived.)
+// Every call into Inventory.equipSubSlot* is still LOGGED (not blocked) to see who equips sub weapons.
 std::atomic<int> g_sub_equips{0};
 int pre_log_sub_equip(int, void**, REFrameworkTypeDefinitionHandle*, unsigned long long) {
     if (g_sub_equips.fetch_add(1) < 20) LOGI("%s Inventory.equipSubSlot* called (not blocked yet)", TAG);
@@ -99,7 +94,6 @@ void hook(const char* type, const char* method, REFPreHookFn pre, REFPostHookFn 
 
 void install() {
     hook("app.ropeway.survivor.Inventory", "enableSetShortcut", pre_enable_set, post_enable_set, "sub weapons get the menu's Shortcut option");
-    hook("app.ropeway.survivor.player.PlayerActionOrderer", "set_RequestSubShortcut", pre_block_sub_request, nullptr, "LG no longer draws the sub weapon");
     hook("app.ropeway.survivor.Inventory", "equipSubSlot(app.ropeway.inventory.Slot)", pre_log_sub_equip, nullptr, "log");
     hook("app.ropeway.survivor.Inventory", "equipSubSlot(app.ropeway.EquipmentDefine.Shortcut)", pre_log_sub_equip, nullptr, "log");
     hook("app.ropeway.survivor.Inventory", "equipSubSlotLastWeapon", pre_log_sub_equip, nullptr, "log");
@@ -135,6 +129,38 @@ bool put_away(int wp) {
 const char* dir_name(Dir d) {
     switch (d) { case UP: return "up"; case DOWN: return "down"; case LEFT: return "left"; case RIGHT: return "right"; }
     return "?";
+}
+
+// The bottom of the cross is the sub-weapon box (Tefa 2026-10-06). The menu never offers "Shortcut" for a knife or
+// grenade, so the plugin does what that menu option would: Inventory.setShortcutSlot(index, Down) with the inventory
+// index of the slot marked "E" (Inventory.get_SubSlot). Only when the equipped sub weapon changes, never every frame,
+// and it is logged with the game's answer. A gun in the bottom slot is replaced by it.
+namespace { int g_sub_index_done = -2; }
+
+void frame() {
+    auto* inv = inventory();
+    auto* sub = call_ptr(inv, "get_SubSlot");
+    const int idx = (sub != nullptr && !call_direct<bool>(sub, "get_IsEmpty", true)) ? call_direct<int>(sub, "get_Index", -1) : -1;
+    if (idx == g_sub_index_done) return;
+    g_sub_index_done = idx;
+    if (idx < 0) {
+        // unequipped: clear the bottom slot if it still shows a sub weapon (Tefa, b079: the icon stayed).
+        // gamemastering.InventoryManager.setShortcutWeaponSlotIndex(WeaponShortcut.DOWN = 1, -1) [hypothesis: -1 = empty]
+        const int held_there = weapon_in(DOWN);
+        bool sub_there = false;
+        for (int s : SUB_WEAPONS) if (s == held_there) sub_there = true;
+        if (!sub_there) return;
+        auto* im = API::get()->get_managed_singleton("app.ropeway.gamemastering.InventoryManager");
+        auto* m = im ? find_method_deep(im->get_type_definition(), "setShortcutWeaponSlotIndex") : nullptr;
+        if (m != nullptr) m->call<void>(API::get()->get_vm_context(), (void*)im, 1, -1);
+        LOGI("%s sub weapon unequipped: bottom slot cleared -> now holds %s", TAG, weapons::name(weapon_in(DOWN)));
+        return;
+    }
+    const int wp = weapons::wp_of_enum(call_direct<int>(sub, "get_WeaponType", -1));
+    if (weapon_in(DOWN) == wp) { LOGI("%s bottom slot already holds %s", TAG, weapons::name(wp)); return; }
+    const bool ok = call_direct<bool>(inv, "setShortcutSlot(System.Int32, app.ropeway.EquipmentDefine.Shortcut)", false, idx, (int)DOWN);
+    LOGI("%s sub weapon %s (inventory slot %d) -> bottom of the cross: game said %s; bottom now holds %s", TAG,
+         weapons::name(wp), idx, ok ? "yes" : "no", weapons::name(weapon_in(DOWN)));
 }
 
 void log_slots() {
