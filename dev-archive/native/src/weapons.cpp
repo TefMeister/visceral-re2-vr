@@ -1,6 +1,8 @@
 // weapons.cpp -- see weapons.h. Names from RELOADED 1.0.1's data (re2_vr_reload.json / re2_vr_recoil.json);
-// holster sorting is Tefa's (2026-10-05). The knife, grenades and the EMF visualizer are not in that data:
-// their numbers are logged live the first time they are held, then sorted here.
+// holster sorting is Tefa's (2026-10-05). The knife, grenades, EMF visualizer and the extra minigun numbers come
+// from the RE Modding forum's ID thread (residentevilmodding.boards.net/thread/9864): its hex weapon list is the
+// game's WeaponType enum value (01 handgun = WP0000, 0B shotgun = WP1000, 2E knife = WP4500 ...), which matches
+// every weapon we could cross-check [inferred-static 2026-10-05]; the live log confirms each one when held.
 #include "weapons.h"
 
 #include <map>
@@ -40,6 +42,14 @@ const std::map<int, Info>& table() {
         {4700, {"Minigun", Holster::SPECIAL}},
         {8400, {"ATM-4 Unlimited", Holster::SPECIAL}},
         {8700, {"Minigun Unlimited", Holster::SPECIAL}},
+        {4520, {"Minigun", Holster::SPECIAL}},
+        {4900, {"Minigun", Holster::SPECIAL}},
+        {3300, {"EMF Visualizer (Ada)", Holster::SPECIAL}},     // Tefa: a tool, left shoulder with the special weapons
+        {4000, {"EMF Visualizer (Ada)", Holster::SPECIAL}},
+        {4500, {"Combat Knife", Holster::SUB}},
+        {4510, {"Survival Knife (unbreakable)", Holster::SUB}},
+        {6200, {"Hand Grenade", Holster::SUB}},
+        {6300, {"Flash Grenade", Holster::SUB}},
     };
     return t;
 }
