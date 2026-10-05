@@ -28,7 +28,6 @@ enum class First { NONE, RG, LG, HOLSTER };   // HOLSTER = RG pressed inside a h
 First g_first = First::NONE;
 bool g_forcing = false;
 int g_clear_in = 0;
-bool g_rg_at_holster = false;    // RG went down inside a holster spot while a sub weapon was out
 
 MO* equipment() {
     auto* pm = API::get()->get_managed_singleton("app.ropeway.PlayerManager");
@@ -85,7 +84,6 @@ bool sub_weapon_in_hand() {
 //   isOn(Kind) / isDown(Kind) / isOn(UInt64, Boolean) / isDown(UInt64, Boolean), on InputSystem and InputUnit.
 // b082 hooked only isOn(Kind): never asked for ATTACK during a throw [verified-live 2026-10-06]. Each is now hooked
 // and the first answers per method are logged, so the next build can keep only the one the throw really asks.
-constexpr uint64_t KIND_HOLD = 64;            // InputDefine.Kind.HOLD (RG)
 std::atomic<uint64_t> g_block_mask{0};
 thread_local uint64_t t_asked = 0;
 
@@ -141,11 +139,10 @@ void frame() {
     else if (g_forcing) { g_forcing = false; g_clear_in = CLEAR_DELAY_FRAMES; }
     if (g_clear_in > 0 && --g_clear_in == 0 && eq != nullptr) clear_force(eq);
 
+    // RT never drops a knife/grenade held out with LG. RG still throws it, also at a holster spot (Tefa 2026-10-06:
+    // throwing there "like was supposed to" is right; b083 blocked it by a misreading, removed).
     const bool sub_out = g_first == First::LG && lg && sub_weapon_in_hand();
-    if (bridge::pressed(bridge::S_RGRIP)) g_rg_at_holster = sub_out && holster::right_hand_in_zone();
-    if (!rg) g_rg_at_holster = false;
-    // RT never drops it; RG pressed at a holster spot does not throw it (Tefa 2026-10-06)
-    g_block_mask = sub_out ? (KIND_ATTACK | (g_rg_at_holster ? KIND_HOLD : 0)) : 0;
+    g_block_mask = sub_out ? KIND_ATTACK : 0;
 }
 
 } // namespace vn::suppress
