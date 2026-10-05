@@ -6,4 +6,5 @@
 
 namespace vn::holster {
 void frame();
+bool right_hand_in_zone();   // the right hand is inside a holster spot right now
 } // namespace vn::holster
