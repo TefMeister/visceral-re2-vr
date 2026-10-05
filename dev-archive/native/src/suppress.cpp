@@ -28,8 +28,7 @@ enum class First { NONE, RG, LG, HOLSTER };   // HOLSTER = RG pressed inside a h
 First g_first = First::NONE;
 bool g_forcing = false;
 int g_clear_in = 0;
-std::atomic<bool> g_block_attack{false};
-std::atomic<int> g_attack_answers{0};
+bool g_rg_at_holster = false;    // RG went down inside a holster spot while a sub weapon was out
 
 MO* equipment() {
     auto* pm = API::get()->get_managed_singleton("app.ropeway.PlayerManager");
@@ -82,31 +81,53 @@ bool sub_weapon_in_hand() {
     return wp == 4500 || wp == 4510 || wp == 6200 || wp == 6300;   // knives, hand + flash grenade
 }
 
-// isOn(InputDefine.Kind) is an instance method: argv[1] = this, argv[2] = Kind
-thread_local bool t_asked_attack = false;
-int pre_is_on(int argc, void** argv, REFrameworkTypeDefinitionHandle*, unsigned long long) {
-    t_asked_attack = argc > 2 && ((uint64_t)(uintptr_t)argv[2] == KIND_ATTACK);
+// The game's input questions, all instance methods (argv[1] = this, argv[2] = the asked Kind or bit mask):
+//   isOn(Kind) / isDown(Kind) / isOn(UInt64, Boolean) / isDown(UInt64, Boolean), on InputSystem and InputUnit.
+// b082 hooked only isOn(Kind): never asked for ATTACK during a throw [verified-live 2026-10-06]. Each is now hooked
+// and the first answers per method are logged, so the next build can keep only the one the throw really asks.
+constexpr uint64_t KIND_HOLD = 64;            // InputDefine.Kind.HOLD (RG)
+std::atomic<uint64_t> g_block_mask{0};
+thread_local uint64_t t_asked = 0;
+
+int pre_ask(int argc, void** argv, REFrameworkTypeDefinitionHandle*, unsigned long long) {
+    t_asked = argc > 2 ? (uint64_t)(uintptr_t)argv[2] : 0;
     return REFRAMEWORK_HOOK_CALL_ORIGINAL;
 }
-void post_is_on(void** ret_val, REFrameworkTypeDefinitionHandle, unsigned long long) {
-    if (!t_asked_attack || ret_val == nullptr || !g_block_attack.load()) return;
-    if (((uintptr_t)*ret_val & 0xFF) != 0 && g_attack_answers.fetch_add(1) < 5)
-        LOGI("%s RT while the sub weapon is out: the game asked isOn(ATTACK), answered NO", TAG);
+template <int N>
+void post_ask(void** ret_val, REFrameworkTypeDefinitionHandle, unsigned long long) {
+    static std::atomic<int> logged{0};
+    static const char* names[] = {"InputSystem.isOn(Kind)", "InputSystem.isDown(Kind)", "InputSystem.isOn(bits)", "InputSystem.isDown(bits)",
+                                  "InputUnit.isOn(Kind)", "InputUnit.isDown(Kind)", "InputUnit.isOn(bits)", "InputUnit.isDown(bits)"};
+    const uint64_t mask = g_block_mask.load();
+    if (ret_val == nullptr || mask == 0 || (t_asked & mask) == 0) return;
+    if (((uintptr_t)*ret_val & 0xFF) != 0 && logged.fetch_add(1) < 3)
+        LOGI("%s blocked: the game asked %s for 0x%llx while a sub weapon is out, answered NO", TAG, names[N], (unsigned long long)t_asked);
     *ret_val = (void*)(uintptr_t)0;
+}
+
+void hook_ask(const char* type, const char* method, REFPostHookFn post) {
+    auto* m = API::get()->tdb()->find_method(type, method);
+    if (m == nullptr) { LOGW("%s %s.%s not found", TAG, type, method); return; }
+    m->add_hook(pre_ask, post, false);
 }
 } // namespace
 
 void install() {
-    for (const char* type : {"app.ropeway.InputSystem", "app.ropeway.InputUnit"}) {
-        auto* m = API::get()->tdb()->find_method(type, "isOn(app.ropeway.InputDefine.Kind)");
-        if (m == nullptr) { LOGE("%s %s.isOn(Kind) not found", TAG, type); continue; }
-        m->add_hook(pre_is_on, post_is_on, false);
-        LOGI("%s hook in: %s.isOn(Kind) (RT blocked while a sub weapon is out)", TAG, type);
-    }
+    const char* S = "app.ropeway.InputSystem";
+    const char* U = "app.ropeway.InputUnit";
+    hook_ask(S, "isOn(app.ropeway.InputDefine.Kind)", post_ask<0>);
+    hook_ask(S, "isDown(app.ropeway.InputDefine.Kind)", post_ask<1>);
+    hook_ask(S, "isOn(System.UInt64, System.Boolean)", post_ask<2>);
+    hook_ask(S, "isDown(System.UInt64, System.Boolean)", post_ask<3>);
+    hook_ask(U, "isOn(app.ropeway.InputDefine.Kind)", post_ask<4>);
+    hook_ask(U, "isDown(app.ropeway.InputDefine.Kind)", post_ask<5>);
+    hook_ask(U, "isOn(System.UInt64, System.Boolean)", post_ask<6>);
+    hook_ask(U, "isDown(System.UInt64, System.Boolean)", post_ask<7>);
+    LOGI("%s input-question hooks in (RT, and RG at a holster, blocked while a sub weapon is out)", TAG);
 }
 
 void frame() {
-    if (!bridge::live()) { g_block_attack = false; return; }
+    if (!bridge::live()) { g_block_mask = 0; return; }
     const bool rg = bridge::held(bridge::S_RGRIP), lg = bridge::held(bridge::S_LGRIP);
     // whichever went down first wins (Arcade Controls' "engagement order"), so LG-then-RG (a throw) is left alone
     if (bridge::pressed(bridge::S_RGRIP)) g_first = lg ? First::LG : holster::right_hand_in_zone() ? First::HOLSTER : First::RG;
@@ -120,7 +141,11 @@ void frame() {
     else if (g_forcing) { g_forcing = false; g_clear_in = CLEAR_DELAY_FRAMES; }
     if (g_clear_in > 0 && --g_clear_in == 0 && eq != nullptr) clear_force(eq);
 
-    g_block_attack = g_first == First::LG && lg && sub_weapon_in_hand();
+    const bool sub_out = g_first == First::LG && lg && sub_weapon_in_hand();
+    if (bridge::pressed(bridge::S_RGRIP)) g_rg_at_holster = sub_out && holster::right_hand_in_zone();
+    if (!rg) g_rg_at_holster = false;
+    // RT never drops it; RG pressed at a holster spot does not throw it (Tefa 2026-10-06)
+    g_block_mask = sub_out ? (KIND_ATTACK | (g_rg_at_holster ? KIND_HOLD : 0)) : 0;
 }
 
 } // namespace vn::suppress
