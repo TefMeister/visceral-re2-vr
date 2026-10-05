@@ -17,3 +17,5 @@ One line per idea, so nothing is offered twice.
 - 2026-09-24 chosen `all-games--two-hands-on-the-weapon-makes-the-bullet-spread-go-away` — Two hands on the weapon makes the bullet spread go away
 - 2026-09-24 chosen `all-games--software-that-cancels-controller-drift-when-one-controller-hides-behin` — Software that cancels controller drift when one controller hides behind the other
 - 2026-09-24 chosen `all-games--bullet-casings-stay-on-the-floor-until-the-level-ends` — Bullet casings stay on the floor until the level ends
+- 2026-10-05 chosen `re2-visceral--one-background-everywhere-the-last-save-scene` - One background everywhere: the last-save scene
+- 2026-10-05 chosen `all-games--a-launcher-to-switch-gameplay-features-on-or-off-before-playing` - A launcher to switch gameplay features on or off before playing
