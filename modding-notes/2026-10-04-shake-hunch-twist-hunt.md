@@ -47,7 +47,7 @@ All four at once, in the headset, on the current saves:
 | b067 | b066 + file-access log | - | - | - | - | log: the upgraded Matilda (stock + a second part) aims with `hdg_hold_cpAC_01` (+ stLIGHT_/stWATER_ versions); the cpA stand-in missed it |
 | b068 | b066 + the six stock-part lists (cpA, cpAC x plain/stLIGHT/stWATER) replaced by the game's own EMPTY list `hdg_hold_01` | **no** | gone | **not slow, preferred** | **straight** | ⭐ "aim-walk is straight now, no shake, this is like it was meant to be like this" |
 | b069 | the golden package alone, on a fresh Steam install | **no** | gone | not slow | straight | "the body pose is working exactly like we left it"; NEW: gun flickers / turns slightly in the right hand, left hand cannot dock |
-| b070 | b069 with Leon's `base_hdg_move` + `base_hdg_hold` rebuilt by `motlist_clip_swap.py` (/pd 2026-10-05): every no-weapon KFF_ motion keeps its bones and sync clip and takes the stock pistol motion's switch clip (left-hand hold `IKBlendRatio` 1.0 and the other stock pistol switches) | - | - | - | - | not worn yet; aim: the left hand docks on the Matilda again and the gun stops flickering, with the pose unchanged |
+| b070 | b069 with Leon's `base_hdg_move` + `base_hdg_hold` rebuilt by `motlist_clip_swap.py` (/pd 2026-10-05): every no-weapon KFF_ motion keeps its bones and sync clip and takes the stock pistol motion's switch clip (left-hand hold `IKBlendRatio` 1.0 and the other stock pistol switches) | - | - | - | - | worn 2026-10-05 (Tefa): **the left hand still does not go on the gun** -> the missing switch is NOT the dock cause |
 
 ## What is known so far
 
@@ -91,6 +91,11 @@ instead of adding beside it. Bones, sync clip and everything else stay byte-iden
 0 problems). Side effects to watch `[hypothesis]`: the jog cycles lose KFF's `IkTwoLegFootLock` (the stock jog has none) and
 gain the stock `SurvivorChainGroupControlTrack`; the walks gain `PlayerGazingSwitchLimitedTrack`. If the pose changes, those
 are the suspects, not the hold switch. Installed in the Steam game, snapshot `v0.2.0-b070`.
+**Worn 2026-10-05 morning, Tefa: the left hand still does not go on the gun** `[verified-live 2026-10-05, n=1]`. So the
+missing hold switch alone is not why the dock fails `[disproved 2026-10-05]` (it may still be needed). b070 is still installed.
+Next suspects `[hypothesis]`: the KFF_ ARM bones (the no-weapon hands are not posed on the gun, so the animated left-hand
+socket praydog's grip looks for is somewhere else) -> graft the stock arm/hand/weapon bones back (`motlist_graft_arms.py`
+method); or praydog's grip reads something the pistol-out state sets.
 
 Tefa: *"aim-walk is straight now, no shake, this is like it was meant to be like this. also aim walking is not slow, and that is good,
 i was wrong, i prefer it to be faster like it is now!"* Becomes GOLDEN once it passes Tefa's fresh-install test (too many times the
