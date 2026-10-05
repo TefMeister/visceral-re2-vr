@@ -82,7 +82,7 @@ All four at once, in the headset, on the current saves:
 
 ## GOLDEN
 
-**GOLDEN 2 (2026-10-05): all weapons relaxed, every character = b073** `[verified-live 2026-10-05, n=1]`. Tefa: *"so far it looks like all the weapons are done, the save i have gives me all the weapons, and i checked Hunk, that works too."* Roll-back package: `D:\Visceral build versions\GOLDEN6-10-05 All weapons relaxed, every character (from b073)\` (README + MANIFEST; copy in Desktop `RE2 mod builds`). Built by `relax_character.py --character pl00|pl10|pl20` (Leon's eight Matilda lists are the b068/b070 versions).
+**GOLDEN 2 (2026-10-05): all weapons relaxed, every character = b073** `[verified-live 2026-10-05, n=1]`. Tefa: *"so far it looks like all the weapons are done, the save i have gives me all the weapons, and i checked Hunk, that works too."* Roll-back package: `D:\Visceral build versions\GOLDEN\2026-10-05 All weapons relaxed, every character (from b073)\` (README + MANIFEST; copy in Desktop `RE2 mod builds`). Built by `relax_character.py --character pl00|pl10|pl20` (Leon's eight Matilda lists are the b068/b070 versions).
 
 
 **GOLDEN for the body pose: b068 (2026-10-04 23:40), Leon only - all four goals met in the headset, and CONFIRMED on a fresh install from the package alone (2026-10-05 ~00:10, Tefa: "the body pose is working exactly like we left it")** `[verified-live 2026-10-05, n=2: worn build + fresh install]`.
@@ -111,4 +111,4 @@ The recipe (on top of the b057 base): Leon's `hdg/base_hdg_move` with every slot
 `hdg/base_hdg_hold` with walks, idle and raise = KFF_ clips; the six upgraded-Matilda lists (`hdg_hold_cpA_01`, `cpAC_01`, each also
 `stLIGHT_` / `stWATER_`) = the game's own empty list `hdg_hold_01`; the nine LookAt Hold files; `visceral_body_anchor`,
 `visceral_body_direct`, `visceral_lefthand_hold` (in the build, not proven needed); LooseFileLoader on. NO spine straightener.
-Package with install steps and MANIFEST: `D:\Visceral build versions\GOLDEN6-10-04 Leon pose fix (from b068)\`.
+Package with install steps and MANIFEST: `D:\Visceral build versions\GOLDEN\2026-10-04 Leon pose fix (from b068)\`.
