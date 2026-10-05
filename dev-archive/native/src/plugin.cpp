@@ -5,8 +5,7 @@
 //
 // Features so far:
 //   holster.cpp  step H2 -- holster spots bound to the headset hold the game's 4 shortcut slots (take out / put away)
-//   shortcut.cpp the game's shortcut cross (top/left/right = guns)
-//   subweapon.cpp the bottom of the cross = the sub-weapon box: left hip readies it, LG no longer does
+//   shortcut.cpp the game's shortcut cross: top/left/right = guns, bottom = the equipped sub weapon
 #include <windows.h>
 
 #include <atomic>
@@ -15,7 +14,6 @@
 #include "common.h"
 #include "holster.h"
 #include "shortcut.h"
-#include "subweapon.h"
 
 using namespace vn;
 
@@ -24,8 +22,8 @@ void on_frame() {
     static std::atomic<bool> installed{false};
     if (!installed.exchange(true)) { bridge::install(); shortcut::install(); }   // hooks need the type database: first game frame
     bridge::frame_begin();
+    shortcut::frame();
     holster::frame();
-    subweapon::frame();     // after the holsters, so a grab this frame is applied before the game reads input
 }
 } // namespace
 

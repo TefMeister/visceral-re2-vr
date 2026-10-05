@@ -14,5 +14,6 @@ bool take_out(Dir d);          // the game's own Inventory.equipMainSlot(Shortcu
 bool put_away(int wp);         // Inventory.unequipEquipedWeapon(type), Equipment.requestHolster as a fallback
 const char* dir_name(Dir d);
 void log_slots();              // one line per slot, on demand
+void frame();                  // keeps the equipped sub weapon in the bottom slot (Tefa 2026-10-06)
 
 } // namespace vn::shortcut

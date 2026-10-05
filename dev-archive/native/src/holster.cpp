@@ -3,7 +3,6 @@
 #include "bridge.h"
 #include "settings.h"
 #include "shortcut.h"
-#include "subweapon.h"
 #include "weapons.h"
 
 namespace vn::holster {
@@ -11,7 +10,6 @@ namespace vn::holster {
 namespace {
 using bridge::Hand;
 constexpr int NO_SHORTCUT = -1;
-constexpr int SUB_WEAPON = -2;     // the bottom of the cross is the sub-weapon box (Tefa 2026-10-06)
 
 struct Zone {
     const char* name;
@@ -23,12 +21,12 @@ struct Zone {
 };
 
 // Tefa 2026-10-05: right = right hip, bottom = left hip, left = left shoulder, top = right shoulder.
-// 2026-10-06: the bottom is the sub-weapon box: the left hip readies the equipped knife or grenade.
+// 2026-10-06: the bottom is the sub-weapon box: shortcut.cpp keeps the equipped knife/grenade in it.
 Zone g_zones[] = {
     {"flashlight (upper left of the head)", cfg::FLASHLIGHT,     bridge::LEFT,  bridge::S_LGRIP, NO_SHORTCUT},
     {"ammo pouch (left hip)",                cfg::LEFT_HIP,       bridge::LEFT,  bridge::S_LGRIP, NO_SHORTCUT},
     {"right hip",                            cfg::RIGHT_HIP,      bridge::RIGHT, bridge::S_RGRIP, shortcut::RIGHT},
-    {"left hip (sub weapon)",                cfg::LEFT_HIP,       bridge::RIGHT, bridge::S_RGRIP, SUB_WEAPON},
+    {"left hip (sub weapon)",                cfg::LEFT_HIP,       bridge::RIGHT, bridge::S_RGRIP, shortcut::DOWN},
     {"left shoulder",                        cfg::LEFT_SHOULDER,  bridge::RIGHT, bridge::S_RGRIP, shortcut::LEFT},
     {"right shoulder",                       cfg::RIGHT_SHOULDER, bridge::RIGHT, bridge::S_RGRIP, shortcut::UP},
 };
@@ -67,8 +65,6 @@ void track_slots() {
 }
 
 void grab(const Zone& z) {
-    if (z.dir == SUB_WEAPON) { bridge::rumble(z.hand, cfg::BUZZ_GRAB_AMP, cfg::BUZZ_GRAB_SEC); subweapon::toggle(); return; }
-    if (subweapon::out()) subweapon::toggle();      // a gun spot while the sub weapon is out: put the sub weapon back first
     const auto d = (shortcut::Dir)z.dir;
     const int in_slot = shortcut::weapon_in(d);
     const int held = weapons::current_id();
