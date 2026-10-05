@@ -36,14 +36,24 @@ RELAXED = set(WALK) | set(RAISE)
 
 
 def prefix_of(m):
+    """The character prefix of the no-weapon set: the MOST COMMON plNN_ in cmn/base_cmn_move. Claire and Ada borrow
+    a few pl00_ door motions and Ada's whole set is pl10_, so the first name found is not enough (2026-10-05)."""
+    count = {}
     for n in m.entry_name.values():
         if n and n[:2] == "pl" and n[4] == "_":
-            return n[:4]
-    raise SystemExit("no plNN_ motion names in %s" % m.path)
+            count[n[:4]] = count.get(n[:4], 0) + 1
+    if not count:
+        raise SystemExit("no plNN_ motion names in %s" % m.path)
+    return max(count, key=count.get)
+
+
+def key_of(name, pre):
+    # exactly the rule motlist_splice.build uses to look a slot up in the mapping
+    return name[len(pre) + 1:] if name.startswith(pre + "_") else name
 
 
 def base_hold(lst, cmn, log):
-    pre = prefix_of(lst)
+    pre = prefix_of(cmn)
     mapping, fill = {}, {}
     for i, o in enumerate(lst.slots):
         num = lst.slot_number(i)
@@ -51,7 +61,7 @@ def base_hold(lst, cmn, log):
             continue
         if o == 0:
             continue                      # empty in the stock list: leave it empty
-        suffix = lst.entry_name[o][len(pre) + 1:]
+        suffix = key_of(lst.entry_name[o], pre)
         if num in RAISE:
             frames = lst.mot_info(lst.blob[o])[0]
             target = "%s@%g" % (IDLE, frames)
@@ -65,17 +75,18 @@ def base_hold(lst, cmn, log):
 
 
 def base_move(lst, cmn, log):
-    pre = prefix_of(lst)
+    pre = prefix_of(cmn)
     by_num = {}
     for i, o in enumerate(cmn.slots):
         if o:
-            by_num.setdefault(cmn.slot_number(i), cmn.entry_name[o][len(pre) + 1:])
+            if cmn.entry_name[o].startswith(pre + "_"):
+                by_num.setdefault(cmn.slot_number(i), cmn.entry_name[o][len(pre) + 1:])
     mapping, split = {}, []
     for i, o in enumerate(lst.slots):
         num = lst.slot_number(i)
         if o == 0 or num not in by_num:
             continue
-        suffix = lst.entry_name[o][len(pre) + 1:]
+        suffix = key_of(lst.entry_name[o], pre)
         if suffix in mapping and mapping[suffix] != by_num[num]:
             split.append(i)     # shares a stock motion with a slot that wants another target (stg 0xa0/0xa1)
             continue
