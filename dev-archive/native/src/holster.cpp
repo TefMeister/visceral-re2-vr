@@ -80,6 +80,11 @@ void grab(const Zone& z) {
 }
 } // namespace
 
+bool right_hand_in_zone() {
+    for (auto& z : g_zones) if (z.hand == bridge::RIGHT && z.inside) return true;
+    return false;
+}
+
 void frame() {
     ++g_frame;
     track_weapon();
