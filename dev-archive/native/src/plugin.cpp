@@ -4,7 +4,8 @@
 // read for ideas only. This file only wires things together; every feature lives in its own file.
 //
 // Features so far:
-//   holster.cpp  step H1 -- holster zones bound to the headset: buzz on entering, log what a grip would do.
+//   holster.cpp  step H2 -- holster spots bound to the headset hold the game's 4 shortcut slots (take out / put away)
+//   shortcut.cpp the game's shortcut cross; the knife and grenades are allowed into it
 #include <windows.h>
 
 #include <atomic>
@@ -12,13 +13,14 @@
 #include "bridge.h"
 #include "common.h"
 #include "holster.h"
+#include "shortcut.h"
 
 using namespace vn;
 
 namespace {
 void on_frame() {
     static std::atomic<bool> installed{false};
-    if (!installed.exchange(true)) bridge::install();   // hooks need the type database: first game frame
+    if (!installed.exchange(true)) { bridge::install(); shortcut::install(); }   // hooks need the type database: first game frame
     bridge::frame_begin();
     holster::frame();
 }
@@ -38,7 +40,7 @@ extern "C" __declspec(dllexport) bool reframework_plugin_initialize(const REFram
         param->functions->log_error("%s API init failed, nothing will run", TAG);
         return true;
     }
-    param->functions->log_info("%s loaded: step H1 holster zones (bound to the headset)", TAG);
+    param->functions->log_info("%s loaded: step H2 holsters = the shortcut cross", TAG);
     // the bridge Lua writes buttons at UpdateHID pre; reading after it, at UpdateBehavior pre, sees this frame's presses
     param->functions->on_pre_application_entry("UpdateBehavior", []() { on_frame(); });
     return true;
