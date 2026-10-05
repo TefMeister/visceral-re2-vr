@@ -75,14 +75,9 @@ void post_enable_set(void** ret_val, REFrameworkTypeDefinitionHandle, unsigned l
     *ret_val = (void*)(uintptr_t)1;
 }
 
-// Tefa: holding LG must not equip the sub weapon; it comes out only from a holster. The game's request for it is
-// PlayerActionOrderer.set_RequestSubShortcut [hypothesis: LG drives it]; the setter is skipped, so the request
-// stays empty. Every call into Inventory.equipSubSlot* is LOGGED (not blocked) so the next build knows the path.
-std::atomic<int> g_blocked{0};
-int pre_block_sub_request(int, void**, REFrameworkTypeDefinitionHandle*, unsigned long long) {
-    if (g_blocked.fetch_add(1) < LOG_FIRST_CALLS) LOGI("%s sub-weapon request from the game: BLOCKED", TAG);
-    return REFRAMEWORK_HOOK_SKIP_ORIGINAL;
-}
+// b077 skipped PlayerActionOrderer.set_RequestSubShortcut to stop LG; it never fired, so it is not the LG path
+// [verified-live 2026-10-05] and is gone. LG is now stopped in subweapon.cpp (SUPPORT_HOLD bits cleared).
+// Every call into Inventory.equipSubSlot* is still LOGGED (not blocked) to see who equips sub weapons.
 std::atomic<int> g_sub_equips{0};
 int pre_log_sub_equip(int, void**, REFrameworkTypeDefinitionHandle*, unsigned long long) {
     if (g_sub_equips.fetch_add(1) < 20) LOGI("%s Inventory.equipSubSlot* called (not blocked yet)", TAG);
@@ -99,7 +94,6 @@ void hook(const char* type, const char* method, REFPreHookFn pre, REFPostHookFn 
 
 void install() {
     hook("app.ropeway.survivor.Inventory", "enableSetShortcut", pre_enable_set, post_enable_set, "sub weapons get the menu's Shortcut option");
-    hook("app.ropeway.survivor.player.PlayerActionOrderer", "set_RequestSubShortcut", pre_block_sub_request, nullptr, "LG no longer draws the sub weapon");
     hook("app.ropeway.survivor.Inventory", "equipSubSlot(app.ropeway.inventory.Slot)", pre_log_sub_equip, nullptr, "log");
     hook("app.ropeway.survivor.Inventory", "equipSubSlot(app.ropeway.EquipmentDefine.Shortcut)", pre_log_sub_equip, nullptr, "log");
     hook("app.ropeway.survivor.Inventory", "equipSubSlotLastWeapon", pre_log_sub_equip, nullptr, "log");
