@@ -64,6 +64,9 @@ void track_slots() {
 }
 
 void grab(const Zone& z) {
+    // a knife or grenade in hand: RG is the game's throw, so the holster stays out of it (Tefa 2026-10-06)
+    const int in_hand = weapons::current_id();
+    if (in_hand == 4500 || in_hand == 4510 || in_hand == 6200 || in_hand == 6300) return;
     const auto d = (shortcut::Dir)z.dir;
     const int in_slot = shortcut::weapon_in(d);
     const int held = weapons::current_id();
