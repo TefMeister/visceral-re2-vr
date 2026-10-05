@@ -6,7 +6,7 @@
 // Features so far:
 //   holster.cpp  step H2 -- holster spots bound to the headset hold the game's 4 shortcut slots (take out / put away)
 //   shortcut.cpp the game's shortcut cross; the knife and grenades are allowed into it
-//   suppress.cpp RG first blocks LG's sub weapon; LG first (knife/grenade in hand) blocks RT's drop
+//   suppress.cpp RG first keeps the gun in hand (Arcade Controls' force-equip); LG first with a knife/grenade: RT ignored
 #include <windows.h>
 
 #include <atomic>
@@ -22,9 +22,10 @@ using namespace vn;
 namespace {
 void on_frame() {
     static std::atomic<bool> installed{false};
-    if (!installed.exchange(true)) { bridge::install(); shortcut::install(); }   // hooks need the type database: first game frame
+    if (!installed.exchange(true)) { bridge::install(); shortcut::install(); suppress::install(); }   // hooks need the type database: first game frame
     bridge::frame_begin();
     holster::frame();
+    suppress::frame();
 }
 } // namespace
 
@@ -45,7 +46,5 @@ extern "C" __declspec(dllexport) bool reframework_plugin_initialize(const REFram
     param->functions->log_info("%s loaded: step H2 holsters = the shortcut cross", TAG);
     // the bridge Lua writes buttons at UpdateHID pre; reading after it, at UpdateBehavior pre, sees this frame's presses
     param->functions->on_pre_application_entry("UpdateBehavior", []() { on_frame(); });
-    // input edits right after the game reads the pad (where RELOADED made its edits); clearing only, never forcing
-    param->functions->on_post_application_entry("UpdateHID", []() { suppress::after_hid(); });
     return true;
 }
