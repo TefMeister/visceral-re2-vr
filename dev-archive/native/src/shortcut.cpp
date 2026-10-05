@@ -55,9 +55,54 @@ void post_enable(void** ret_val, REFrameworkTypeDefinitionHandle, unsigned long 
     }
     *ret_val = (void*)(uintptr_t)1;
 }
+// The inventory menu's "Shortcut" option asks Inventory.enableSetShortcut(Slot), not enableShortcut (b076: the
+// latter was never called while Tefa browsed the menu) [verified-live 2026-10-05]. Instance method: argv[1] = this,
+// argv[2] = the Slot [hypothesis; the first calls are logged].
+thread_local MO* t_asked_slot = nullptr;
+std::atomic<int> g_logged_set{0};
+
+int pre_enable_set(int argc, void** argv, REFrameworkTypeDefinitionHandle*, unsigned long long) {
+    t_asked_slot = argc > 2 && is_managed(argv[2]) ? (MO*)argv[2] : nullptr;
+    if (g_logged_set.fetch_add(1) < LOG_FIRST_CALLS)
+        LOGI("%s enableSetShortcut asked: argc=%d slot=%s sub=%d", TAG, argc, type_name(t_asked_slot).c_str(),
+             t_asked_slot ? (int)call_direct<bool>(t_asked_slot, "get_IsSubWeapon", false) : -1);
+    return REFRAMEWORK_HOOK_CALL_ORIGINAL;
+}
+
+void post_enable_set(void** ret_val, REFrameworkTypeDefinitionHandle, unsigned long long) {
+    if (ret_val == nullptr || t_asked_slot == nullptr) return;
+    if (!call_direct<bool>(t_asked_slot, "get_IsSubWeapon", false)) return;
+    *ret_val = (void*)(uintptr_t)1;
+}
+
+// Tefa: holding LG must not equip the sub weapon; it comes out only from a holster. The game's request for it is
+// PlayerActionOrderer.set_RequestSubShortcut [hypothesis: LG drives it]; the setter is skipped, so the request
+// stays empty. Every call into Inventory.equipSubSlot* is LOGGED (not blocked) so the next build knows the path.
+std::atomic<int> g_blocked{0};
+int pre_block_sub_request(int, void**, REFrameworkTypeDefinitionHandle*, unsigned long long) {
+    if (g_blocked.fetch_add(1) < LOG_FIRST_CALLS) LOGI("%s sub-weapon request from the game: BLOCKED", TAG);
+    return REFRAMEWORK_HOOK_SKIP_ORIGINAL;
+}
+std::atomic<int> g_sub_equips{0};
+int pre_log_sub_equip(int, void**, REFrameworkTypeDefinitionHandle*, unsigned long long) {
+    if (g_sub_equips.fetch_add(1) < 20) LOGI("%s Inventory.equipSubSlot* called (not blocked yet)", TAG);
+    return REFRAMEWORK_HOOK_CALL_ORIGINAL;
+}
+
+void hook(const char* type, const char* method, REFPreHookFn pre, REFPostHookFn post, const char* what) {
+    auto* m = API::get()->tdb()->find_method(type, method);
+    if (m == nullptr) { LOGE("%s %s.%s not found: %s off", TAG, type, method, what); return; }
+    m->add_hook(pre, post, false);
+    LOGI("%s hook in: %s.%s (%s)", TAG, type, method, what);
+}
 } // namespace
 
 void install() {
+    hook("app.ropeway.survivor.Inventory", "enableSetShortcut", pre_enable_set, post_enable_set, "sub weapons get the menu's Shortcut option");
+    hook("app.ropeway.survivor.player.PlayerActionOrderer", "set_RequestSubShortcut", pre_block_sub_request, nullptr, "LG no longer draws the sub weapon");
+    hook("app.ropeway.survivor.Inventory", "equipSubSlot(app.ropeway.inventory.Slot)", pre_log_sub_equip, nullptr, "log");
+    hook("app.ropeway.survivor.Inventory", "equipSubSlot(app.ropeway.EquipmentDefine.Shortcut)", pre_log_sub_equip, nullptr, "log");
+    hook("app.ropeway.survivor.Inventory", "equipSubSlotLastWeapon", pre_log_sub_equip, nullptr, "log");
     auto* m = API::get()->tdb()->find_method("app.ropeway.EquipmentDefine", "enableShortcut");
     if (m == nullptr) { LOGE("%s EquipmentDefine.enableShortcut not found: knife/grenades stay out of the cross", TAG); return; }
     m->add_hook(pre_enable, post_enable, false);
@@ -75,8 +120,10 @@ bool take_out(Dir d) {
 }
 
 bool put_away(int wp) {
+    // BOTH calls, like RELOADED's native_holster_stow: b076 showed unequipEquipedWeapon alone returns true and
+    // leaves the gun in hand [verified-live 2026-10-05, n=3]; requestHolster is what plays the put-away.
     const int e = weapons::enum_of_wp(wp);
-    if (e >= 0 && call_direct<bool>(inventory(), "unequipEquipedWeapon", false, e)) return true;
+    if (e >= 0) call_direct<bool>(inventory(), "unequipEquipedWeapon", false, e);
     auto* pm = API::get()->get_managed_singleton("app.ropeway.PlayerManager");
     auto* eq = component(call_ptr(pm, "get_CurrentPlayer"), "app.ropeway.survivor.Equipment");
     auto* m = eq ? find_method_deep(eq->get_type_definition(), "requestHolster") : nullptr;
