@@ -1322,7 +1322,8 @@ inside the unit; kind 0 = property tracks (ALL of a motion's switches in one cli
 stock `base_hdg_move` carries the left-arm track in all 46 slots; the golden KFF_ recipe (b068) in 1 -- the left hand
 cannot dock (Tefa 2026-10-05). `dev-archive/tools/re-engine/motlist_clip_swap.py` replaces each spliced motion's property
 clip with the stock one from the same slot (bones and sync clip untouched; verified byte-for-byte, 65 slots)
-`[verified-numerically 2026-10-05]`; in the game as b070, unworn.
+`[verified-numerically 2026-10-05]`; in the game as b070. Worn the same morning: **the left hand still does not dock**
+`[verified-live 2026-10-05, n=1]` -- the missing switch is not the dock cause on its own `[disproved 2026-10-05]`.
 
 ### 8g.3 ⭐⭐ What the hold (aim) state does to the body, and which lever answers each (2026-09-24, 19 runs)
 
