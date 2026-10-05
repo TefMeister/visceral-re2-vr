@@ -9,12 +9,13 @@ namespace vn::cfg {
 // Offsets in metres from the headset: SIDE = to the right (+) / left (-), UP = up (+) / down (-),
 // FWD = in front (+) / behind (-). The set turns left/right with the headset but never tilts
 // (Tefa 2026-10-05: "no tilt please, just left and right turn"). First guesses; tuned by wearing it.
+// b077: shoulders moved 10 cm further out each side (Tefa: "quite close to the headset").
 struct ZoneOffset { float side, up, fwd; };
 constexpr ZoneOffset FLASHLIGHT   {-0.14f,  0.10f,  0.00f};   // upper left of the head, left hand + LG
 constexpr ZoneOffset RIGHT_HIP    { 0.20f, -0.62f,  0.02f};   // shortcut RIGHT, right hand + RG
 constexpr ZoneOffset LEFT_HIP     {-0.20f, -0.62f,  0.02f};   // shortcut DOWN (right hand + RG) / ammo pouch (left hand + LG)
-constexpr ZoneOffset RIGHT_SHOULDER{ 0.18f, -0.22f, -0.08f};  // shortcut UP, right hand + RG
-constexpr ZoneOffset LEFT_SHOULDER{-0.18f, -0.22f, -0.08f};   // shortcut LEFT, right hand + RG
+constexpr ZoneOffset RIGHT_SHOULDER{ 0.28f, -0.22f, -0.08f};  // shortcut UP, right hand + RG
+constexpr ZoneOffset LEFT_SHOULDER{-0.28f, -0.22f, -0.08f};   // shortcut LEFT, right hand + RG
 
 constexpr float ZONE_ENTER_M    = 0.15f;   // hand closer than this = in the zone
 constexpr float ZONE_LEAVE_M    = 0.22f;   // and must go further than this to leave (no flicker at the edge)
