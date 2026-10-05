@@ -6,6 +6,7 @@
 // Features so far:
 //   holster.cpp  step H2 -- holster spots bound to the headset hold the game's 4 shortcut slots (take out / put away)
 //   shortcut.cpp the game's shortcut cross; the knife and grenades are allowed into it
+//   suppress.cpp RG first blocks LG's sub weapon; LG first (knife/grenade in hand) blocks RT's drop
 #include <windows.h>
 
 #include <atomic>
@@ -14,6 +15,7 @@
 #include "common.h"
 #include "holster.h"
 #include "shortcut.h"
+#include "suppress.h"
 
 using namespace vn;
 
@@ -43,5 +45,7 @@ extern "C" __declspec(dllexport) bool reframework_plugin_initialize(const REFram
     param->functions->log_info("%s loaded: step H2 holsters = the shortcut cross", TAG);
     // the bridge Lua writes buttons at UpdateHID pre; reading after it, at UpdateBehavior pre, sees this frame's presses
     param->functions->on_pre_application_entry("UpdateBehavior", []() { on_frame(); });
+    // input edits right after the game reads the pad (where RELOADED made its edits); clearing only, never forcing
+    param->functions->on_post_application_entry("UpdateHID", []() { suppress::after_hid(); });
     return true;
 }
