@@ -1314,6 +1314,16 @@ the animated left-hand socket every frame (`re-village-scope-vr` dossier §9cf/�
 the pin gone, the kick moves the socket and the steering throws the gun — only while LG is held
 `[inferred-static 2026-09-30]`. The socket freeze lives in Village's patched REFramework, not in stock praydog.
 
+**8g.2c — the clip layout, and the data route built (2026-10-05, `/pd`, static).** Mot v492: header `+0x30` = clip
+pointer array, `+0x74` u8 = clip count, `+0x75` u8 = sync-clip count. Each clip unit = a 0x40-byte header
+`{u64 0, u64 CLIP, u64 end, u32 0, u32 track groups, u32 1, u32 kind}` + its `CLIP` block, all pointers entry-relative and
+inside the unit; kind 0 = property tracks (ALL of a motion's switches in one clip), kind 3 = `MotionSyncPoint`. Counted over
+129 pl00 entries: (0,3) x48, (0,) x41, (3,) x20, none x20 -- **never two property clips** `[measured 2026-10-05]`. Leon's
+stock `base_hdg_move` carries the left-arm track in all 46 slots; the golden KFF_ recipe (b068) in 1 -- the left hand
+cannot dock (Tefa 2026-10-05). `dev-archive/tools/re-engine/motlist_clip_swap.py` replaces each spliced motion's property
+clip with the stock one from the same slot (bones and sync clip untouched; verified byte-for-byte, 65 slots)
+`[verified-numerically 2026-10-05]`; in the game as b070, unworn.
+
 ### 8g.3 ⭐⭐ What the hold (aim) state does to the body, and which lever answers each (2026-09-24, 19 runs)
 
 | what the aim state changes | where | lever, proven live 2026-09-24 |
