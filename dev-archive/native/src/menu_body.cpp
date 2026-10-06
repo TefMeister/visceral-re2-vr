@@ -92,7 +92,69 @@ void restore() {
     g_hidden.clear();
     g_is_hidden = false;
 }
+// ---- the camera: kept where it was before the menu opened (Tefa 2026-10-06: "the menus ... make the picture
+// jump forward a bit"; the menus move the camera to their own outside spot, Arcade Controls' notes) ----
+struct Cam {
+    Vec3 last{}; bool has_last = false;          // the camera position at the end of the last frame with no menu
+    Vec3 pin{}; bool pinned = false;             // where it is held while a menu is open
+    int logs = 0; float max_moved = 0.0f; bool where_logged = false;
+} g_cam;
+
+MO* camera_transform() {
+    static API::Method* main_view = API::get()->tdb()->find_method("via.SceneManager", "get_MainView");
+    static API::Method* primary = API::get()->tdb()->find_method("via.SceneView", "get_PrimaryCamera");
+    void* sm = API::get()->get_native_singleton("via.SceneManager");
+    if (main_view == nullptr || primary == nullptr || sm == nullptr) return nullptr;
+    auto* ctx = API::get()->get_vm_context();
+    void* view = main_view->call<void*>(ctx, sm);
+    if (view == nullptr) return nullptr;
+    auto* cam = (MO*)primary->call<void*>(ctx, view);
+    return cam != nullptr ? call_ptr(call_ptr(cam, "get_GameObject"), "get_Transform") : nullptr;
+}
+
+void set_pos(MO* tf, const Vec3& p) {
+    auto* m = tf ? find_method_deep(tf->get_type_definition(), "set_Position") : nullptr;
+    if (m != nullptr) m->call<void>(API::get()->get_vm_context(), (void*)tf, (void*)&p);
+}
 } // namespace
+
+void camera_point(bool last_point) {
+    if (!bridge::live()) { g_cam.has_last = false; return; }
+    auto* tf = camera_transform();
+    if (tf == nullptr) {
+        if (!g_cam.where_logged) { g_cam.where_logged = true; LOGW("%s menu: camera transform not found, the menu camera hold is off", TAG); }
+        return;
+    }
+    Vec3 p;
+    if (!call_vec3(tf, "get_Position", p)) return;
+    if (!g_is_hidden) {
+        if (last_point) { g_cam.last = p; g_cam.has_last = true; }
+        if (g_cam.pinned) {
+            LOGI("%s menu: camera hold off (it had been moved up to %.3f m from where it was)", TAG, g_cam.max_moved);
+            g_cam.pinned = false;
+        }
+        return;
+    }
+    if (!g_cam.pinned) {
+        if (!g_cam.has_last) return;
+        g_cam.pin = g_cam.last;
+        g_cam.pinned = true;
+        g_cam.logs = 0;
+        g_cam.max_moved = 0.0f;
+        LOGI("%s menu: camera held at %.3f %.3f %.3f", TAG, g_cam.pin.x, g_cam.pin.y, g_cam.pin.z);
+    }
+    const float moved = dist(p, g_cam.pin);
+    if (moved > g_cam.max_moved) g_cam.max_moved = moved;
+    if (moved > 0.001f) {
+        set_pos(tf, g_cam.pin);
+        Vec3 back;
+        if (g_cam.logs < 6 && call_vec3(tf, "get_Position", back)) {
+            ++g_cam.logs;
+            LOGI("%s menu: camera had moved %.3f m (%s), put back; now %.3f m off", TAG, moved,
+                 last_point ? "PrepareRendering" : "LockScene", dist(back, g_cam.pin));
+        }
+    }
+}
 
 void frame() {
     const bool want = bridge::live() && menu_open();
