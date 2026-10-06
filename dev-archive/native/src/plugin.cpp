@@ -7,6 +7,7 @@
 //   holster.cpp  step H2 -- holster spots bound to the headset hold the game's 4 shortcut slots (take out / put away)
 //   shortcut.cpp the game's shortcut cross; the knife and grenades are allowed into it
 //   suppress.cpp RG first keeps the gun in hand (Arcade Controls' force-equip); LG first with a knife/grenade: RT ignored
+//   ladder.cpp   ladder + cupboard view hold and the climbing body guard (Arcade Controls' v12.2, in C++)
 #include <windows.h>
 
 #include <atomic>
@@ -14,6 +15,7 @@
 #include "bridge.h"
 #include "common.h"
 #include "holster.h"
+#include "ladder.h"
 #include "shortcut.h"
 #include "suppress.h"
 
@@ -46,5 +48,10 @@ extern "C" __declspec(dllexport) bool reframework_plugin_initialize(const REFram
     param->functions->log_info("%s loaded: step H2 holsters = the shortcut cross", TAG);
     // the bridge Lua writes buttons at UpdateHID pre; reading after it, at UpdateBehavior pre, sees this frame's presses
     param->functions->on_pre_application_entry("UpdateBehavior", []() { on_frame(); });
+    // ladder: the bridge Lua writes the view readings at LateUpdateBehavior PRE; the hold reads them at POST.
+    // The climbing body guard puts the body back after FirstPerson turns it (Arcade Controls' two late points).
+    param->functions->on_post_application_entry("LateUpdateBehavior", []() { ladder::late_update(); });
+    param->functions->on_pre_application_entry("LockScene", []() { ladder::restore(false); });
+    param->functions->on_post_application_entry("PrepareRendering", []() { ladder::restore(true); });
     return true;
 }

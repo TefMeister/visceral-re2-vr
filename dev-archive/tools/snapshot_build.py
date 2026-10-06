@@ -10,9 +10,14 @@ Each snapshot is a folder `D:\\Visceral build versions\\v0.2.0-bNNN - <title>\\`
   - MANIFEST.sha256, and CHANGES.md: what changed since the previous build, the note, and the test result;
 and a line in INDEX.md at the top. Nothing is ever overwritten; a new change is a new number.
 
-  py snapshot_build.py "<title>" --note "<what changed and why>" [--result "<what Tefa saw>"] [--source DIR]
+  py snapshot_build.py "<title>" --note "<what changed and why>" [--feature "Ladder climb"] [--result "..."] [--source DIR]
   py snapshot_build.py --result-for 3 "<what Tefa saw>"     (fill in a result later)
   py snapshot_build.py --list
+
+`--feature` (Tefa 2026-10-06: "make separate builds of every different feature we work on, so all the ladder climb
+stuff is stored in a different place than running stop") puts the build in its own feature folder,
+`D:\\Visceral build versions\\<feature>\\v0.2.0-bNNN - <title>\\`. The bNNN numbers stay ONE running sequence across
+every folder, so a number is never reused. Builds before b086 stay at the top level, where they always were.
 
 `--source` snapshots a folder instead of the live game (for reconstructing a build already tested).
 To go back to a build: copy its files (all but MANIFEST/CHANGES) over the game after removing ours.
@@ -37,9 +42,16 @@ VERSION_RE = re.compile(r"^v" + re.escape(SERIES) + r"-b(\d{3}) - ")
 
 
 def builds():
+    """(number, path relative to HOME) for every build, top level and inside feature folders."""
     if not os.path.isdir(HOME):
         return []
-    out = [(int(m.group(1)), name) for name in os.listdir(HOME) if (m := VERSION_RE.match(name))]
+    out = []
+    for name in os.listdir(HOME):
+        if (m := VERSION_RE.match(name)):
+            out.append((int(m.group(1)), name))
+        elif os.path.isdir(os.path.join(HOME, name)):
+            out.extend((int(m.group(1)), f"{name}/{sub}") for sub in os.listdir(os.path.join(HOME, name))
+                       if (m := VERSION_RE.match(sub)))
     return sorted(out)
 
 
@@ -78,11 +90,13 @@ def safe_title(t):
     return re.sub(r"[^\w .,+()-]", "", t).strip()[:70]
 
 
-def snapshot(title, note, result, source):
+def snapshot(title, note, result, source, feature=None):
     os.makedirs(HOME, exist_ok=True)
     existing = builds()
     num = existing[-1][0] + 1 if existing else 1
     name = f"v{SERIES}-b{num:03d} - {safe_title(title)}"
+    if feature:
+        name = f"{safe_title(feature)}/{name}"
     dest = os.path.join(HOME, name)
     os.makedirs(dest)
     src = source or GAME
@@ -149,6 +163,7 @@ def main():
     ap.add_argument("--note", default="")
     ap.add_argument("--result", default="")
     ap.add_argument("--source")
+    ap.add_argument("--feature", help="feature folder, e.g. 'Ladder climb'")
     ap.add_argument("--result-for", type=int, metavar="N")
     ap.add_argument("--list", action="store_true")
     a = ap.parse_args()
@@ -161,7 +176,7 @@ def main():
         return
     if not a.title or not a.note:
         ap.error("a title and --note are needed")
-    snapshot(a.title, a.note, a.result, a.source)
+    snapshot(a.title, a.note, a.result, a.source, a.feature)
 
 
 if __name__ == "__main__":
