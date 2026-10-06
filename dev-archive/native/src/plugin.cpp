@@ -8,6 +8,7 @@
 //   shortcut.cpp the game's shortcut cross; the knife and grenades are allowed into it
 //   suppress.cpp RG first keeps the gun in hand (Arcade Controls' force-equip); LG first with a knife/grenade: RT ignored
 //   ladder.cpp   ladder + cupboard view hold and the climbing body guard (Arcade Controls' v12.2, in C++)
+//   run.cpp      running stops at once: stick let go or a second click (Arcade Controls' set_JogMode override)
 #include <windows.h>
 
 #include <atomic>
@@ -16,6 +17,7 @@
 #include "common.h"
 #include "holster.h"
 #include "ladder.h"
+#include "run.h"
 #include "shortcut.h"
 #include "suppress.h"
 
@@ -24,10 +26,11 @@ using namespace vn;
 namespace {
 void on_frame() {
     static std::atomic<bool> installed{false};
-    if (!installed.exchange(true)) { bridge::install(); shortcut::install(); suppress::install(); }   // hooks need the type database: first game frame
+    if (!installed.exchange(true)) { bridge::install(); shortcut::install(); suppress::install(); run::install(); }   // hooks need the type database: first game frame
     bridge::frame_begin();
     holster::frame();
     suppress::frame();
+    run::frame();
 }
 } // namespace
 

@@ -24,6 +24,7 @@ local S_RUMBLE_L_AMP, S_RUMBLE_L_SEC, S_RUMBLE_R_AMP, S_RUMBLE_R_SEC = 10, 11, 1
 local S_HMD_POS, S_HMD_ROT, S_LPOS, S_RPOS = 14, 17, 21, 24
 local S_ACK, S_SENTINEL = 30, 31
 local S_FP_USED, S_HMD_YAW, S_OFFEXT_YAW, S_CAM_YAW, S_RENDER_YAW = 32, 33, 34, 35, 36
+local S_LCLICK, S_LSTICK_MAG = 37, 38   -- running stop (src/run.cpp)
 local SENTINEL = 54321.0
 local NO_VALUE = 999.0
 local RUMBLE_FREQ_HZ = 160.0
@@ -79,6 +80,7 @@ local function buttons()
     w(S_HMD, live and 1 or 0)
     if not live then
         for s = S_LGRIP, S_RB do w(s, 0) end
+        w(S_LCLICK, 0); w(S_LSTICK_MAG, 0)
         return
     end
     poses(vr)
@@ -94,6 +96,9 @@ local function buttons()
     end
     w(S_LGRIP, on(grip, lj)); w(S_LTRIG, on(trig, lj)); w(S_RGRIP, on(grip, rj)); w(S_RTRIG, on(trig, rj))
     w(S_LA, on(a, lj)); w(S_LB, on(b, lj)); w(S_RA, on(a, rj)); w(S_RB, on(b, rj))
+    w(S_LCLICK, on(safe(function() return vr:get_action_joystick_click() end), lj))
+    local axis = safe(function() return vr:get_left_stick_axis() end)
+    w(S_LSTICK_MAG, axis and safe(function() return axis:length() end) or 0)
 end
 
 local function rumble()
