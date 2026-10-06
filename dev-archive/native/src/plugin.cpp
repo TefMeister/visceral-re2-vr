@@ -59,7 +59,7 @@ extern "C" __declspec(dllexport) bool reframework_plugin_initialize(const REFram
     param->functions->on_pre_application_entry("UpdateBehavior", []() { on_frame(); });
     // ladder: the bridge Lua writes the view readings at LateUpdateBehavior PRE; the hold reads them at POST.
     // The climbing body guard puts the body back after FirstPerson turns it (Arcade Controls' two late points).
-    param->functions->on_post_application_entry("LateUpdateBehavior", []() { ladder::late_update(); menu_probe::point("LateUpdateBehavior.post"); });
+    param->functions->on_post_application_entry("LateUpdateBehavior", []() { ladder::late_update(); menu_body::early_hide(); menu_probe::point("LateUpdateBehavior.post"); });
     param->functions->on_pre_application_entry("UpdateScene", []() { menu_probe::point("UpdateScene.pre"); });
     param->functions->on_post_application_entry("UpdateScene", []() { menu_probe::point("UpdateScene.post"); });
     param->functions->on_pre_application_entry("LockScene", []() { menu_probe::point("LockScene.pre"); ladder::restore(false); menu_body::camera_point(false); menu_probe::point("LockScene.ours-done"); });

@@ -55,6 +55,7 @@ constexpr int   RUN_LOG_FIRST      = 10;      // log the first few jog-flag chan
 constexpr int   MENU_WALK_DEPTH    = 12;      // how deep the player's transform tree is searched for meshes
 constexpr int   MENU_WALK_CHILDREN = 500;     // and at most this many children under one transform
 constexpr float MENU_CAM_BACK_M    = 0.10f;   // after a menu closes, the camera counts as back this close to the held spot
+constexpr float MENU_CAM_BACK_DEG  = 2.0f;    // and within this many degrees of the held turn
 constexpr int   MENU_CAM_RELEASE_FRAMES = 20; // and is held at most this many frames while it comes back
 
 } // namespace vn::cfg
