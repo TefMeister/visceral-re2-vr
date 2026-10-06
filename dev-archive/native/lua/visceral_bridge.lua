@@ -2,9 +2,12 @@
 --
 -- REFramework's plugin API (1.15, the DLSS build we run) gives C++ no controller BUTTONS and no rumble;
 -- those live in Lua's vrmod only. This file decides nothing. It copies the headset pose, the two controller
--- positions and the buttons into one shared System.Single[32] every frame, and fires the rumble the plugin
+-- positions and the buttons into one shared System.Single[40] every frame, and fires the rumble the plugin
 -- asks for. Poses stay in VR TRACKING space (the player's real room): holsters are bound to the headset,
 -- never to the character's body (Tefa 2026-10-05).
+-- 2026-10-06: also five VIEW readings for the ladder/cupboard hold (src/ladder.cpp) that only Lua's vrmod and
+-- firstpersonmod can give: FirstPerson on/off, raw headset yaw, rotation-offset yaw, camera yaw, rendered yaw.
+-- Written at LateUpdateBehavior PRE so the plugin reads them at LateUpdateBehavior POST of the same frame.
 --
 -- Hand-over: the array is passed once to a "mailbox" method the plugin hooks
 -- (app.ropeway.RagdollControlZoneManager.set_AccessMutex, a real compiled game function); the plugin
@@ -13,14 +16,16 @@
 -- Slot map must match src/bridge.h.
 
 local TAG = "[visceral-bridge]"
-local N = 32
+local N = 40
 local S_FRAME, S_HMD = 0, 1
 local S_LGRIP, S_LTRIG, S_RGRIP, S_RTRIG = 2, 3, 4, 5
 local S_LA, S_LB, S_RA, S_RB = 6, 7, 8, 9
 local S_RUMBLE_L_AMP, S_RUMBLE_L_SEC, S_RUMBLE_R_AMP, S_RUMBLE_R_SEC = 10, 11, 12, 13
 local S_HMD_POS, S_HMD_ROT, S_LPOS, S_RPOS = 14, 17, 21, 24
 local S_ACK, S_SENTINEL = 30, 31
+local S_FP_USED, S_HMD_YAW, S_OFFEXT_YAW, S_CAM_YAW, S_RENDER_YAW = 32, 33, 34, 35, 36
 local SENTINEL = 54321.0
+local NO_VALUE = 999.0
 local RUMBLE_FREQ_HZ = 160.0
 local HANDOVER_EVERY_FRAMES = 180
 local HANDOVER_TRIES = 5
@@ -37,6 +42,7 @@ local function setup()
     if not arr then log.error(TAG .. " could not create the array"); return false end
     arr:add_ref()
     for i = 0, N - 1 do w(i, 0.0) end
+    for s = S_HMD_YAW, S_RENDER_YAW do w(s, NO_VALUE) end
     w(S_SENTINEL, SENTINEL)
     local t = sdk.find_type_definition("app.ropeway.RagdollControlZoneManager")
     mailbox = t and t:get_method("set_AccessMutex")
@@ -121,6 +127,24 @@ re.on_pre_application_entry("UpdateHID", function()
     end
     rumble()
     buttons()
+end)
+
+-- the view readings (2026-10-06). Same reads Arcade Controls' ladder hold made; each one NO_VALUE on failure.
+local function fwd_yaw(q, z)
+    local f = q * Vector3f.new(0, 0, z)
+    return math.atan(f.x, f.z)
+end
+
+re.on_pre_application_entry("LateUpdateBehavior", function()
+    if not arr then return end
+    local vr = _G.vrmod
+    local fp = _G.firstpersonmod
+    w(S_FP_USED, (fp and safe(function() return fp:will_be_used() end) == true) and 1 or 0)
+    local rawq = vr and safe(function() return vr:get_transform(0):to_quat() end)
+    w(S_HMD_YAW, rawq and safe(function() return fwd_yaw(rawq, -1) end) or NO_VALUE)
+    w(S_OFFEXT_YAW, rawq and safe(function() return fwd_yaw(vr:get_rotation_offset() * rawq, -1) end) or NO_VALUE)
+    w(S_CAM_YAW, safe(function() return fwd_yaw(sdk.get_primary_camera():call("get_WorldMatrix"):to_quat(), -1) end) or NO_VALUE)
+    w(S_RENDER_YAW, vr and safe(function() return fwd_yaw(vr:get_last_render_matrix():to_quat(), -1) end) or NO_VALUE)
 end)
 
 re.on_draw_ui(function()

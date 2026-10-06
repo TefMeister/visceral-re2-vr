@@ -34,14 +34,6 @@ MO* equipment() {
     return component(call_ptr(pm, "get_CurrentPlayer"), "app.ropeway.survivor.Equipment");
 }
 
-API::Field* find_field_deep(API::TypeDefinition* td, const char* name) {
-    for (int i = 0; td != nullptr && i < 12; ++i) {
-        if (auto* f = td->find_field(name)) return f;
-        td = td->get_parent_type();
-    }
-    return nullptr;
-}
-
 // write a System.Nullable`1<enum> field of obj: HasValue + Value
 bool write_nullable(MO* obj, const char* field, bool has, int value) {
     auto* f = find_field_deep(obj->get_type_definition(), field);
