@@ -35,6 +35,8 @@ constexpr float HOLD_REAIM_S       = 0.30f;   // re-aim the held view for this l
 constexpr float SERVO_GAIN         = 0.25f;   // share of the measured view error corrected per frame
 constexpr float SERVO_MAX_DEG_S    = 180.0f;  // fastest the held view may be turned
 constexpr float SERVO_DEADBAND_DEG = 2.0f;    // closer than this = leave it alone
+constexpr float SNAP_WINDOW_S      = 0.5f;    // a jack's first moments: correct the whole measured error at once...
+constexpr int   SNAP_SETTLE_FRAMES = 2;       // ...then wait this many frames for the view to show it before measuring again
 constexpr float WATCHDOG_GROW_RAD  = 0.02f;   // the error growing by more than this per frame...
 constexpr float WATCHDOG_S         = 0.6f;    // ...for this long = the turn direction is inverted: flip it once
 constexpr float K_LEARN_AFTER_S    = 0.5f;    // learn the view constant only once a hold is this old
