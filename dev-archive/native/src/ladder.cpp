@@ -114,6 +114,7 @@ struct Anchor {
     std::vector<Quat> hold_sync;
     float hmd0 = bridge::NO_VALUE, vt0 = bridge::NO_VALUE, body0 = bridge::NO_VALUE;
     float view_cal = 0.0f; bool has_cal = false;
+    bool measured = false;                       // this jack's hold came from the measured view, not a formula
     float body_prev = 0.0f; bool has_body_prev = false;
 
     float jack_t = 0.0f, last_t = -1.0f;
@@ -249,7 +250,12 @@ void capture_hold(MO* tf, float now) {
     bool has_desired = false;
     float desired = 0.0f;
     const char* branch = "none";
-    if (A.has_k && has_b0 && A.has_yaw) { desired = b0 - A.k; has_desired = true; branch = "K"; }
+    // measured: turn the held yaw by exactly the gap between the view on screen now and the body. The formula
+    // and K branches below came out ~150 degrees off on the first worn test (2026-10-06: "camera teleports 180
+    // and then slowly turns right"): they leave out the headset's own turn and recentre offset.
+    A.measured = A.has_yaw && has_b0 && bridge::has(A.vt0);
+    if (A.measured) { desired = A.hold_yaw + wrap_pi(b0 - A.vt0); has_desired = true; branch = "measured"; }
+    else if (A.has_k && has_b0 && A.has_yaw) { desired = b0 - A.k; has_desired = true; branch = "K"; }
     else if (bridge::has(A.hmd0) && bridge::has(offext) && (has_b0 || bridge::has(A.vt0)) && A.has_yaw) {
         desired = (has_b0 ? b0 : A.vt0) - offext - A.hmd0;
         has_desired = true;
@@ -301,7 +307,7 @@ void update_hold(float now) {
     if (!A.hold_valid) capture_hold(tf, now);
 
     // the first moments of a jack: re-measure and re-aim (the headset-side offset may settle a frame late)
-    if (A.hold_valid && A.has_yaw && bridge::has(A.vt0) && bridge::has(A.hmd0) && now - A.jack_t < cfg::HOLD_REAIM_S) {
+    if (A.hold_valid && !A.measured && A.has_yaw && bridge::has(A.vt0) && bridge::has(A.hmd0) && now - A.jack_t < cfg::HOLD_REAIM_S) {
         const float offext = bridge::view(bridge::S_OFFEXT_YAW);
         if (bridge::has(offext)) {
             const float from = A.has_body_prev ? A.body_prev : bridge::has(A.body0) ? A.body0 : A.vt0;
