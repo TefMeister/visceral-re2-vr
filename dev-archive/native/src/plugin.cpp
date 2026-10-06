@@ -19,6 +19,7 @@
 #include "holster.h"
 #include "ladder.h"
 #include "menu_body.h"
+#include "menu_probe.h"
 #include "run.h"
 #include "shortcut.h"
 #include "suppress.h"
@@ -29,11 +30,13 @@ namespace {
 void on_frame() {
     static std::atomic<bool> installed{false};
     if (!installed.exchange(true)) { bridge::install(); shortcut::install(); suppress::install(); run::install(); }   // hooks need the type database: first game frame
+    menu_probe::point("UpdateBehavior.pre");
     bridge::frame_begin();
     holster::frame();
     suppress::frame();
     run::frame();
     menu_body::frame();
+    menu_probe::point("UpdateBehavior.ours-done");
 }
 } // namespace
 
@@ -56,8 +59,12 @@ extern "C" __declspec(dllexport) bool reframework_plugin_initialize(const REFram
     param->functions->on_pre_application_entry("UpdateBehavior", []() { on_frame(); });
     // ladder: the bridge Lua writes the view readings at LateUpdateBehavior PRE; the hold reads them at POST.
     // The climbing body guard puts the body back after FirstPerson turns it (Arcade Controls' two late points).
-    param->functions->on_post_application_entry("LateUpdateBehavior", []() { ladder::late_update(); });
-    param->functions->on_pre_application_entry("LockScene", []() { ladder::restore(false); menu_body::camera_point(false); });
-    param->functions->on_post_application_entry("PrepareRendering", []() { ladder::restore(true); menu_body::camera_point(true); });
+    param->functions->on_post_application_entry("LateUpdateBehavior", []() { ladder::late_update(); menu_probe::point("LateUpdateBehavior.post"); });
+    param->functions->on_pre_application_entry("UpdateScene", []() { menu_probe::point("UpdateScene.pre"); });
+    param->functions->on_post_application_entry("UpdateScene", []() { menu_probe::point("UpdateScene.post"); });
+    param->functions->on_pre_application_entry("LockScene", []() { menu_probe::point("LockScene.pre"); ladder::restore(false); menu_body::camera_point(false); menu_probe::point("LockScene.ours-done"); });
+    param->functions->on_post_application_entry("PrepareRendering", []() { menu_probe::point("PrepareRendering.post"); ladder::restore(true); menu_body::camera_point(true); menu_probe::point("PrepareRendering.ours-done"); });
+    param->functions->on_pre_application_entry("UnlockScene", []() { menu_probe::point("UnlockScene.pre"); });
+    param->functions->on_post_application_entry("UnlockScene", []() { menu_probe::point("UnlockScene.post"); });
     return true;
 }
