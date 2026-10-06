@@ -94,10 +94,12 @@ void restore() {
 }
 // ---- the camera: kept where it was before the menu opened (Tefa 2026-10-06: "the menus ... make the picture
 // jump forward a bit"; the menus move the camera to their own outside spot, Arcade Controls' notes) ----
+// Position AND turn are held: the probe (b094, 2026-10-06) showed the position move while the menu is open, and the
+// TURN swing 10-20 degrees for two or three frames right after it closes (the flicker on closing).
 struct Cam {
-    Vec3 last{}; bool has_last = false;          // the camera position at the end of the last frame with no menu
-    Vec3 pin{}; bool pinned = false;             // where it is held while a menu is open
-    int logs = 0; float max_moved = 0.0f; bool where_logged = false;
+    Vec3 last{}; Quat last_rot{0, 0, 0, 1}; bool has_last = false;   // the camera at the end of the last no-menu frame
+    Vec3 pin{}; Quat pin_rot{0, 0, 0, 1}; bool pinned = false;         // where it is held while a menu is open
+    int logs = 0; float max_moved = 0.0f, max_turned = 0.0f; bool where_logged = false;
     int release_frames = 0;                      // frames held on after the menu closed
 } g_cam;
 
@@ -117,7 +119,24 @@ void set_pos(MO* tf, const Vec3& p) {
     auto* m = tf ? find_method_deep(tf->get_type_definition(), "set_Position") : nullptr;
     if (m != nullptr) m->call<void>(API::get()->get_vm_context(), (void*)tf, (void*)&p);
 }
+
+void set_rot(MO* tf, const Quat& q) {
+    auto* m = tf ? find_method_deep(tf->get_type_definition(), "set_Rotation") : nullptr;
+    if (m != nullptr) m->call<void>(API::get()->get_vm_context(), (void*)tf, (void*)&q);
+}
+
+float turn_between(const Quat& a, const Quat& b) {        // degrees
+    const float d = std::fabs(a.x * b.x + a.y * b.y + a.z * b.z + a.w * b.w);
+    return 2.0f * std::acos(std::fmin(1.0f, d)) * 57.29578f;
+}
 } // namespace
+
+void early_hide() {
+    // the frame order in this game is UpdateBehavior -> LateUpdateBehavior -> PrepareRendering -> LockScene: the menu
+    // first reads open at LateUpdateBehavior POST, so the body is hidden right there, before the frame is prepared
+    // (the probe, b094: hiding at LockScene was after PrepareRendering, and that frame showed the inside of the head)
+    if (bridge::live() && !g_is_hidden && menu_open()) hide();
+}
 
 void camera_point(bool last_point) {
     if (!bridge::live()) { g_cam.has_last = false; return; }
@@ -126,46 +145,48 @@ void camera_point(bool last_point) {
         if (!g_cam.where_logged) { g_cam.where_logged = true; LOGW("%s menu: camera transform not found, the menu camera hold is off", TAG); }
         return;
     }
-    // the menu's first frame: hide the body here, before this frame is drawn. Waiting for the next UpdateBehavior
-    // showed one frame from inside Leon's head (Tefa's clip, 2026-10-06 23:16, frame 2.73 s)
     if (!last_point && !g_is_hidden && menu_open()) hide();
     Vec3 p;
-    if (!call_vec3(tf, "get_Position", p)) return;
+    Quat q;
+    if (!call_vec3(tf, "get_Position", p) || !call_quat(tf, "get_Rotation", q)) return;
     if (!g_is_hidden) {
-        // after the menu closes the game's camera takes a frame or more to come back from the menu's spot (the
-        // same clip, 4.08 s): keep holding until it is back near the held spot, or for MENU_CAM_RELEASE_FRAMES
+        // after the menu closes the game's camera takes a few frames to settle (the turn swings, then comes back):
+        // keep holding until it is back near the held spot and turn, or for MENU_CAM_RELEASE_FRAMES
         if (g_cam.pinned) {
-            const float off = dist(p, g_cam.pin);
-            if (off > cfg::MENU_CAM_BACK_M && g_cam.release_frames < cfg::MENU_CAM_RELEASE_FRAMES) {
+            const float off = dist(p, g_cam.pin), turned = turn_between(q, g_cam.pin_rot);
+            if ((off > cfg::MENU_CAM_BACK_M || turned > cfg::MENU_CAM_BACK_DEG) && g_cam.release_frames < cfg::MENU_CAM_RELEASE_FRAMES) {
                 if (last_point) ++g_cam.release_frames;
                 set_pos(tf, g_cam.pin);
+                set_rot(tf, g_cam.pin_rot);
                 return;
             }
-            LOGI("%s menu: camera hold off after %d frames (it had been moved up to %.3f m; now %.3f m off)", TAG,
-                 g_cam.release_frames, g_cam.max_moved, off);
+            LOGI("%s menu: camera hold off after %d frames (moved up to %.3f m, turned up to %.1f deg; now %.3f m, %.1f deg off)",
+                 TAG, g_cam.release_frames, g_cam.max_moved, g_cam.max_turned, off, turned);
             g_cam.pinned = false;
         }
-        if (last_point) { g_cam.last = p; g_cam.has_last = true; }
+        if (last_point) { g_cam.last = p; g_cam.last_rot = q; g_cam.has_last = true; }
         return;
     }
     g_cam.release_frames = 0;
     if (!g_cam.pinned) {
         if (!g_cam.has_last) return;
         g_cam.pin = g_cam.last;
+        g_cam.pin_rot = g_cam.last_rot;
         g_cam.pinned = true;
         g_cam.logs = 0;
-        g_cam.max_moved = 0.0f;
+        g_cam.max_moved = g_cam.max_turned = 0.0f;
         LOGI("%s menu: camera held at %.3f %.3f %.3f", TAG, g_cam.pin.x, g_cam.pin.y, g_cam.pin.z);
     }
-    const float moved = dist(p, g_cam.pin);
+    const float moved = dist(p, g_cam.pin), turned = turn_between(q, g_cam.pin_rot);
     if (moved > g_cam.max_moved) g_cam.max_moved = moved;
-    if (moved > 0.001f) {
+    if (turned > g_cam.max_turned) g_cam.max_turned = turned;
+    if (moved > 0.001f || turned > 0.05f) {
         set_pos(tf, g_cam.pin);
-        Vec3 back;
-        if (g_cam.logs < 6 && call_vec3(tf, "get_Position", back)) {
+        set_rot(tf, g_cam.pin_rot);
+        if (g_cam.logs < 6) {
             ++g_cam.logs;
-            LOGI("%s menu: camera had moved %.3f m (%s), put back; now %.3f m off", TAG, moved,
-                 last_point ? "PrepareRendering" : "LockScene", dist(back, g_cam.pin));
+            LOGI("%s menu: camera had moved %.3f m and turned %.1f deg (%s), put back", TAG, moved, turned,
+                 last_point ? "PrepareRendering" : "LockScene");
         }
     }
 }
