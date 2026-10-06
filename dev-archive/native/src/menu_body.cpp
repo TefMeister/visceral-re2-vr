@@ -98,6 +98,7 @@ struct Cam {
     Vec3 last{}; bool has_last = false;          // the camera position at the end of the last frame with no menu
     Vec3 pin{}; bool pinned = false;             // where it is held while a menu is open
     int logs = 0; float max_moved = 0.0f; bool where_logged = false;
+    int release_frames = 0;                      // frames held on after the menu closed
 } g_cam;
 
 MO* camera_transform() {
@@ -125,16 +126,29 @@ void camera_point(bool last_point) {
         if (!g_cam.where_logged) { g_cam.where_logged = true; LOGW("%s menu: camera transform not found, the menu camera hold is off", TAG); }
         return;
     }
+    // the menu's first frame: hide the body here, before this frame is drawn. Waiting for the next UpdateBehavior
+    // showed one frame from inside Leon's head (Tefa's clip, 2026-10-06 23:16, frame 2.73 s)
+    if (!last_point && !g_is_hidden && menu_open()) hide();
     Vec3 p;
     if (!call_vec3(tf, "get_Position", p)) return;
     if (!g_is_hidden) {
-        if (last_point) { g_cam.last = p; g_cam.has_last = true; }
+        // after the menu closes the game's camera takes a frame or more to come back from the menu's spot (the
+        // same clip, 4.08 s): keep holding until it is back near the held spot, or for MENU_CAM_RELEASE_FRAMES
         if (g_cam.pinned) {
-            LOGI("%s menu: camera hold off (it had been moved up to %.3f m from where it was)", TAG, g_cam.max_moved);
+            const float off = dist(p, g_cam.pin);
+            if (off > cfg::MENU_CAM_BACK_M && g_cam.release_frames < cfg::MENU_CAM_RELEASE_FRAMES) {
+                if (last_point) ++g_cam.release_frames;
+                set_pos(tf, g_cam.pin);
+                return;
+            }
+            LOGI("%s menu: camera hold off after %d frames (it had been moved up to %.3f m; now %.3f m off)", TAG,
+                 g_cam.release_frames, g_cam.max_moved, off);
             g_cam.pinned = false;
         }
+        if (last_point) { g_cam.last = p; g_cam.has_last = true; }
         return;
     }
+    g_cam.release_frames = 0;
     if (!g_cam.pinned) {
         if (!g_cam.has_last) return;
         g_cam.pin = g_cam.last;
