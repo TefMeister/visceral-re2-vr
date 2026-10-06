@@ -9,6 +9,7 @@
 //   suppress.cpp RG first keeps the gun in hand (Arcade Controls' force-equip); LG first with a knife/grenade: RT ignored
 //   ladder.cpp   ladder + cupboard view hold and the climbing body guard (Arcade Controls' v12.2, in C++)
 //   run.cpp      running stops at once: stick let go or a second click (Arcade Controls' set_JogMode override)
+//   menu_body.cpp no third-person body in the inventory, map and pause menus (Arcade Controls' menu hide)
 #include <windows.h>
 
 #include <atomic>
@@ -17,6 +18,7 @@
 #include "common.h"
 #include "holster.h"
 #include "ladder.h"
+#include "menu_body.h"
 #include "run.h"
 #include "shortcut.h"
 #include "suppress.h"
@@ -31,6 +33,7 @@ void on_frame() {
     holster::frame();
     suppress::frame();
     run::frame();
+    menu_body::frame();
 }
 } // namespace
 
