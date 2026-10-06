@@ -115,6 +115,7 @@ struct Anchor {
     float hmd0 = bridge::NO_VALUE, vt0 = bridge::NO_VALUE, body0 = bridge::NO_VALUE;
     float view_cal = 0.0f; bool has_cal = false;
     bool measured = false;                       // this jack's hold came from the measured view, not a formula
+    int snap_wait = 0, snaps = 0;                // the jack-start snap: frames left to wait, snaps done
     float body_prev = 0.0f; bool has_body_prev = false;
 
     float jack_t = 0.0f, last_t = -1.0f;
@@ -349,7 +350,19 @@ void update_hold(float now) {
                 A.k = kn;
                 A.has_k = true;
             }
-            if (av > cfg::SERVO_DEADBAND_DEG * DEG) {
+            // the jack's own extra turn of the view differs every time and only shows once the jack has begun
+            // (2026-10-06 wear: "it teleports there and turns to the right spot"), so in the first moments the
+            // whole measured error is corrected at once, then the view is given a frame or two to show it
+            if (now - A.jack_t < cfg::SNAP_WINDOW_S && av > cfg::SERVO_DEADBAND_DEG * DEG) {
+                if (A.snap_wait > 0) {
+                    --A.snap_wait;
+                } else {
+                    rotate_hold(verr * A.vsign);
+                    A.snap_wait = cfg::SNAP_SETTLE_FRAMES;
+                    if (++A.snaps <= 4)
+                        LOGI("%s ladder: snap %d: view was %.1f deg off the body, turned in one go", TAG, A.snaps, verr / DEG);
+                }
+            } else if (av > cfg::SERVO_DEADBAND_DEG * DEG) {
                 const float maxd = cfg::SERVO_MAX_DEG_S * DEG * dt;
                 rotate_hold(std::fmax(-maxd, std::fmin(maxd, cfg::SERVO_GAIN * verr * A.vsign)));
             }
@@ -390,6 +403,8 @@ void late_update() {
             A.vsign = 1.0f;
             A.v_flipped = false;
             A.v_grow = A.v_last_abs = -1.0f;
+            A.snap_wait = 1;        // the capture's own turn needs a frame to show
+            A.snaps = 0;
         } else {
             if (A.hold_valid) release();
             A.hold_valid = false;
