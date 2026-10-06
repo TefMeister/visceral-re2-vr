@@ -11,4 +11,7 @@
 
 namespace vn::menu_body {
 void frame();   // once per frame
+// the camera is held where it was before a menu opened, so the picture does not jump to the menus' outside spot
+// (Tefa 2026-10-06). Called at LockScene PRE (false) and PrepareRendering POST (true, also records the no-menu spot).
+void camera_point(bool last_point);
 } // namespace vn::menu_body
