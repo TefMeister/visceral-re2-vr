@@ -49,4 +49,8 @@ constexpr int   MOTION_LOG_MAX     = 400;     // and at most this many times per
 constexpr float RUN_STICK_DEADZONE = 0.05f;   // left stick nearer the middle than this = let go: running stops
 constexpr int   RUN_LOG_FIRST      = 10;      // log the first few jog-flag changes, to prove the write lands
 
+// ---- no body in menus (2026-10-06, ported from Arcade Controls' re2_vr_menu_hide_player.lua) -------------------
+constexpr int   MENU_WALK_DEPTH    = 12;      // how deep the player's transform tree is searched for meshes
+constexpr int   MENU_WALK_CHILDREN = 500;     // and at most this many children under one transform
+
 } // namespace vn::cfg
