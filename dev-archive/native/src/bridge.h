@@ -19,6 +19,9 @@ enum Slot : int {
     S_OFFEXT_YAW = 34,    // yaw of rotation_offset * raw headset
     S_CAM_YAW = 35,       // the game camera's yaw (primary camera world matrix)
     S_RENDER_YAW = 36,    // the yaw actually rendered last frame (vrmod:get_last_render_matrix)
+    // running stop (2026-10-06), written with the buttons at UpdateHID
+    S_LCLICK = 37,        // left stick click (vrmod joystick-click action on the left hand)
+    S_LSTICK_MAG = 38,    // how far the left stick is pushed, 0..1
     S_COUNT = 40,
 };
 constexpr float SENTINEL = 54321.0f;
