@@ -1,6 +1,8 @@
 // common.cpp -- see common.h
 #include "common.h"
 
+#include <windows.h>
+
 #include <cstring>
 
 namespace vn {
@@ -23,6 +25,30 @@ API::Method* find_method_deep(API::TypeDefinition* td, std::string_view name) {
         td = td->get_parent_type();
     }
     return nullptr;
+}
+
+API::Field* find_field_deep(API::TypeDefinition* td, std::string_view name) {
+    for (int i = 0; td != nullptr && i < 12; ++i) {
+        if (auto* f = td->find_field(name)) return f;
+        td = td->get_parent_type();
+    }
+    return nullptr;
+}
+
+MO* field_obj(MO* o, std::string_view field) {
+    auto** p = field_ptr<MO*>(o, field);
+    return p != nullptr && is_managed(*p) ? *p : nullptr;
+}
+
+std::string read_string(void* s) {
+    if (!is_managed(s) || type_name((MO*)s) != "System.String") return "";
+    const auto len = *(const int32_t*)((const char*)s + 0x10);              // System.String: length, then UTF-16
+    const auto* w = (const wchar_t*)((const char*)s + 0x14);
+    if (len <= 0 || len > 512) return "";
+    const int n = WideCharToMultiByte(CP_UTF8, 0, w, len, nullptr, 0, nullptr, nullptr);
+    std::string out(n > 0 ? n : 0, '\0');
+    if (n > 0) WideCharToMultiByte(CP_UTF8, 0, w, len, out.data(), n, nullptr, nullptr);
+    return out;
 }
 
 static bool invoke(MO* o, std::string_view method, std::vector<void*> args, reframework::InvokeRet& r) {
