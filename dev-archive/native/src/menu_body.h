@@ -1,0 +1,14 @@
+// menu_body.h -- no third-person body in menus (Tefa 2026-10-06), ported to C++ from Arcade Controls'
+// re2_vr_menu_hide_player.lua (worn and liked 2026-08-20; on by default from then).
+//
+// The inventory, map and pause menus swing the camera round to look at the player from outside. Until the camera
+// itself can be kept first person, the player (body and weapon in hand) simply is not drawn while one is open, the
+// way the item box already looks. Per mesh: DrawDefault, DrawShadowCast and DrawRaytracing off on open, re-asserted
+// every frame while open (the game may rewrite them), each mesh's own values put back on close.
+// Menu detection: GUIMaster get_IsOpenInventory / get_IsOpenMap / get_IsOpenPause / get_IsOpenPauseForEvent
+// (all proven in Arcade Controls). Only while the headset is live; flat play is left alone.
+#pragma once
+
+namespace vn::menu_body {
+void frame();   // once per frame
+} // namespace vn::menu_body
