@@ -1,6 +1,8 @@
 # Research index
 
-**Last `/gr` pass: 2026-10-04 (estate sweep, second pass) — CHECK-IN.** Inbox empty; board `OPEN` rows read: the fresh-start rows are headset work. REFramework nightly is still 2026-09-16 and its release still v1.5.9.1. Nothing new.
+**Last `/gr` pass: 2026-10-07 (estate sweep) — CHECK-IN.** Inbox empty. REFramework master still 2026-09-16 (nightly-01424). One search for a public 'fire without aiming' mod found none; Andyalpa's RE2VRModReloaded is already known. Nothing new.
+
+_Previous: **Last `/gr` pass: 2026-10-04 (estate sweep, second pass) — CHECK-IN.** Inbox empty; board `OPEN` rows read: the fresh-start rows are headset work. REFramework nightly is still 2026-09-16 and its release still v1.5.9.1. Nothing new._
 
 _Previous: **Last `/gr` pass: 2026-09-29 (estate sweep) — CHECK-IN.** Nothing new. REFramework master's commits since 2026-09-05 (pak-loader redesign for DD2, a Proton/Wine startup-deadlock fix for Onimusha, hook fixes) and the pd-upscaler branch (last a24c3459, 2026-09-05, the build installed) add nothing RE2-VR-specific._
 
