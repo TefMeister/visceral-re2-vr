@@ -64,7 +64,7 @@ extern "C" __declspec(dllexport) bool reframework_plugin_initialize(const REFram
     // The climbing body guard puts the body back after FirstPerson turns it (Arcade Controls' two late points).
     param->functions->on_post_application_entry("LateUpdateBehavior", []() { ladder::late_update(); menu_body::early_hide(); menu_body::camera_point(false); menu_probe::point("LateUpdateBehavior.post"); });
     // b103: the held menu camera written into the camera's root joint right where the VR layer writes it, after its pass
-    param->functions->on_pre_application_entry("BeginRendering", []() { menu_body::render_point(); });
+    param->functions->on_pre_application_entry("BeginRendering", []() { menu_body::render_point(); menu_probe::point("BeginRendering.pre"); });
     param->functions->on_pre_application_entry("UpdateScene", []() { menu_probe::point("UpdateScene.pre"); });
     param->functions->on_post_application_entry("UpdateScene", []() { menu_probe::point("UpdateScene.post"); });
     param->functions->on_pre_application_entry("LockScene", []() { menu_probe::point("LockScene.pre"); ladder::restore(false); menu_body::camera_point(false); menu_probe::point("LockScene.ours-done"); });
