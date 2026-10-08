@@ -129,9 +129,12 @@ void frame() {
             LOGI("%s fire: RT without RG, shot #%d | bullets %d IsHold %d ATTACK input %d Precede %d", TAG, g_shots,
                  g_bullets_before, (int)call_direct<bool>(p.cond, "get_IsHold", false), (int)attack_input_on(),
                  call_direct<int>(p.orderer, "get_Precede", -1));
-    } else if (g_forcing && want) {
+    } else if (g_forcing && want && g_in_flight && g_eq_exec == 0) {
         set_precede(p.orderer, true);
     } else if (g_forcing) {
+        // b097 kept the order on for as long as RT was held: one round went, then the shoot clip replayed with no
+        // round, the slide cycling until RT was let go (Tefa 2026-10-08). So the order ends once the round has gone:
+        // one shot per pull. Holding RT does nothing more until it is pulled again.
         g_forcing = false;
         set_precede(want ? p.orderer : player().orderer, false);
     }
