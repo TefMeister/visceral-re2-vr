@@ -22,7 +22,12 @@ enum Slot : int {
     // running stop (2026-10-06), written with the buttons at UpdateHID
     S_LCLICK = 37,        // left stick click (vrmod joystick-click action on the left hand)
     S_LSTICK_MAG = 38,    // how far the left stick is pushed, 0..1
-    S_COUNT = 40,
+    // menu camera (2026-10-08, src/menu_body.cpp): what the VR layer will multiply onto the camera while FirstPerson
+    // is not driving. Written at LateUpdateBehavior PRE with the view readings; first component NO_VALUE on failure.
+    S_HMD_Q = 40,         // raw headset turn as a quaternion x y z w (vrmod:get_transform(0):to_quat(), proven path)
+    S_ROT_OFF = 44,       // the VR layer's rotation offset, quaternion x y z w (vrmod:get_rotation_offset())
+    S_ORIGIN = 48,        // the VR layer's standing origin x y z (vrmod:get_standing_origin())
+    S_COUNT = 52,
 };
 constexpr float SENTINEL = 54321.0f;
 constexpr float NO_VALUE = 999.0f;
@@ -39,6 +44,8 @@ Vec3 hmd_pos();
 Quat hmd_rot();
 Vec3 hand_pos(Hand h);
 float view(Slot s);                // read a view slot NOW (not the frame-start snapshot); NO_VALUE if not live
+Quat view_quat(Slot s);            // four slots read NOW; check has(.x) before use
+Vec3 view_vec3(Slot s);            // three slots read NOW; check has(.x) before use
 inline bool has(float v) { return v < NO_VALUE * 0.5f; }
 
 } // namespace vn::bridge

@@ -49,6 +49,7 @@ inline Quat qnorm(Quat q) {
     const float n = std::sqrt(q.x * q.x + q.y * q.y + q.z * q.z + q.w * q.w);
     return n > 0.0f ? Quat{q.x / n, q.y / n, q.z / n, q.w / n} : Quat{0, 0, 0, 1};
 }
+inline Quat qinv(Quat q) { return {-q.x, -q.y, -q.z, q.w}; }   // unit quaternions only
 inline Quat yaw_quat(float rad) { return {0.0f, std::sin(rad * 0.5f), 0.0f, std::cos(rad * 0.5f)}; }
 inline float wrap_pi(float a) { return std::atan2(std::sin(a), std::cos(a)); }
 inline float yaw_of(Vec3 f) { return std::atan2(f.x, f.z); }    // the game's yaw convention (Arcade Controls)

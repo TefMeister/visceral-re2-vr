@@ -12,7 +12,9 @@
 namespace vn::menu_body {
 void frame();   // once per frame
 // the camera is held where it was before a menu opened, so the picture does not jump to the menus' outside spot
-// (Tefa 2026-10-06). Called at LockScene PRE (false) and PrepareRendering POST (true, also records the no-menu spot).
+// (Tefa 2026-10-06). Called at LockScene PRE (false) and PrepareRendering POST (true). Since b100 (2026-10-08) the
+// held camera is written STRIPPED of the headset turn whenever FirstPerson is not driving, because the VR layer then
+// multiplies the headset turn back on itself (see menu_body.cpp, "the camera in menus").
 void camera_point(bool last_point);
 // LateUpdateBehavior POST: hide the body the moment the menu first reads open, before the frame is prepared
 void early_hide();
@@ -20,5 +22,6 @@ bool is_menu_open();   // inventory, map or pause open now (fire.cpp leaves RT a
 // for menu_probe.cpp only
 bool probe_menu_open();
 bool probe_body_hidden();
+int probe_gui_state();   // GUIMaster State_ (FirstPerson steps aside on PAUSE and INVENTORY)
 void* probe_camera_tf();
 } // namespace vn::menu_body

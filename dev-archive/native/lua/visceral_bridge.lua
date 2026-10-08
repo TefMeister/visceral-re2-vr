@@ -16,7 +16,7 @@
 -- Slot map must match src/bridge.h.
 
 local TAG = "[visceral-bridge]"
-local N = 40
+local N = 52
 local S_FRAME, S_HMD = 0, 1
 local S_LGRIP, S_LTRIG, S_RGRIP, S_RTRIG = 2, 3, 4, 5
 local S_LA, S_LB, S_RA, S_RB = 6, 7, 8, 9
@@ -25,6 +25,7 @@ local S_HMD_POS, S_HMD_ROT, S_LPOS, S_RPOS = 14, 17, 21, 24
 local S_ACK, S_SENTINEL = 30, 31
 local S_FP_USED, S_HMD_YAW, S_OFFEXT_YAW, S_CAM_YAW, S_RENDER_YAW = 32, 33, 34, 35, 36
 local S_LCLICK, S_LSTICK_MAG = 37, 38   -- running stop (src/run.cpp)
+local S_HMD_Q, S_ROT_OFF, S_ORIGIN = 40, 44, 48   -- menu camera (src/menu_body.cpp, 2026-10-08)
 local SENTINEL = 54321.0
 local NO_VALUE = 999.0
 local RUMBLE_FREQ_HZ = 160.0
@@ -44,6 +45,7 @@ local function setup()
     arr:add_ref()
     for i = 0, N - 1 do w(i, 0.0) end
     for s = S_HMD_YAW, S_RENDER_YAW do w(s, NO_VALUE) end
+    w(S_HMD_Q, NO_VALUE); w(S_ROT_OFF, NO_VALUE); w(S_ORIGIN, NO_VALUE)
     w(S_SENTINEL, SENTINEL)
     local t = sdk.find_type_definition("app.ropeway.RagdollControlZoneManager")
     mailbox = t and t:get_method("set_AccessMutex")
@@ -150,6 +152,17 @@ re.on_pre_application_entry("LateUpdateBehavior", function()
     w(S_OFFEXT_YAW, rawq and safe(function() return fwd_yaw(vr:get_rotation_offset() * rawq, -1) end) or NO_VALUE)
     w(S_CAM_YAW, safe(function() return fwd_yaw(sdk.get_primary_camera():call("get_WorldMatrix"):to_quat(), -1) end) or NO_VALUE)
     w(S_RENDER_YAW, vr and safe(function() return fwd_yaw(vr:get_last_render_matrix():to_quat(), -1) end) or NO_VALUE)
+    -- the menu camera's three readings (2026-10-08): the raw headset turn, the VR layer's rotation offset and its
+    -- standing origin. The plugin strips them off the held camera while FirstPerson is not driving, because the VR
+    -- layer multiplies them back on at BeginRendering (REFramework VR.cpp update_camera_origin / apply_hmd_transform).
+    local function wq(slot, q)
+        if q and type(q.w) == "number" then w(slot, q.x); w(slot + 1, q.y); w(slot + 2, q.z); w(slot + 3, q.w)
+        else w(slot, NO_VALUE); w(slot + 1, 0); w(slot + 2, 0); w(slot + 3, 1) end
+    end
+    wq(S_HMD_Q, rawq)
+    wq(S_ROT_OFF, vr and safe(function() return vr:get_rotation_offset() end))
+    local origin = vr and safe(function() return vr:get_standing_origin() end)
+    if origin and type(origin.x) == "number" then w3(S_ORIGIN, origin) else w(S_ORIGIN, NO_VALUE); w(S_ORIGIN + 1, 0); w(S_ORIGIN + 2, 0) end
 end)
 
 re.on_draw_ui(function()
