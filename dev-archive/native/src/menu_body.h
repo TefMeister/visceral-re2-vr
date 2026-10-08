@@ -16,6 +16,12 @@ void frame();   // once per frame
 // held camera is written STRIPPED of the headset turn whenever FirstPerson is not driving, because the VR layer then
 // multiplies the headset turn back on itself (see menu_body.cpp, "the camera in menus").
 void camera_point(bool last_point);
+// BeginRendering PRE, after the VR layer's own camera pass (b103, 2026-10-09): while the camera is held, the camera's
+// root joint is written with the final view, pin x inv(H0) x H, whatever FirstPerson or the VR layer did this frame.
+// The VR layer itself writes joint 0 at this point, so it is the one write the renderer is sure to use. Why: the
+// bridge's FirstPerson reading is a frame late at the close (FirstPerson flips back late in the frame), so b100-b102
+// wrote a stripped view into a frame the VR layer did not add the headset turn to: one un-pitched frame = the flicker.
+void render_point();
 // LateUpdateBehavior POST: hide the body the moment the menu first reads open, before the frame is prepared
 void early_hide();
 bool is_menu_open();   // inventory, map or pause open now (fire.cpp leaves RT alone then)
