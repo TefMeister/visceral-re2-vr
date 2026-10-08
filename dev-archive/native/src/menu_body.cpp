@@ -119,6 +119,7 @@ struct Cam {
     int logs = 0; float max_moved = 0.0f, max_turned = 0.0f; bool where_logged = false;
     int release_frames = 0;                      // frames held on after the menu closed
     int stripped = 0, plain = 0;                 // writes of each kind during this hold (for the log)
+    int render_writes = 0, render_misses = 0;    // joint writes at BeginRendering during this hold
     int settled = 0;                             // frames in a row FirstPerson's camera sat at the held view after the close
     float max_swing = 0.0f;                      // the biggest turn FirstPerson's camera made away from the held view after the close
 } g_cam;
@@ -228,8 +229,8 @@ void camera_point(bool last_point) {
                 write_pin(tf, fp);
                 return;
             }
-            LOGI("%s menu: camera hold off after %d frames (FirstPerson's camera swung up to %.1f deg from the held view after the close, settled %d frames; menu moved it up to %.3f m / %.1f deg; %d stripped + %d plain writes; FirstPerson driving %d, gui %d)",
-                 TAG, g_cam.release_frames, g_cam.max_swing, g_cam.settled, g_cam.max_moved, g_cam.max_turned, g_cam.stripped, g_cam.plain, (int)fp, gui_state());
+            LOGI("%s menu: camera hold off after %d frames (FirstPerson's camera swung up to %.1f deg from the held view after the close, settled %d frames; menu moved it up to %.3f m / %.1f deg; %d stripped + %d plain writes, %d joint writes at render (%d misses); FirstPerson driving %d, gui %d)",
+                 TAG, g_cam.release_frames, g_cam.max_swing, g_cam.settled, g_cam.max_moved, g_cam.max_turned, g_cam.stripped, g_cam.plain, g_cam.render_writes, g_cam.render_misses, (int)fp, gui_state());
             g_cam.pinned = false;
         }
         // the spot to hold is FirstPerson's own camera, with the headset turn it folded in this frame
@@ -249,6 +250,7 @@ void camera_point(bool last_point) {
         g_cam.stripped = g_cam.plain = 0;
         g_cam.settled = 0;
         g_cam.max_swing = 0.0f;
+        g_cam.render_writes = g_cam.render_misses = 0;
         LOGI("%s menu: camera held at %.3f %.3f %.3f (FirstPerson driving %d, gui %d)", TAG, g_cam.pin.x, g_cam.pin.y, g_cam.pin.z, (int)fp, gui_state());
     }
     const float moved = dist(p, g_cam.pin), turned = turn_between(q, g_cam.pin_rot);
@@ -260,6 +262,32 @@ void camera_point(bool last_point) {
         LOGI("%s menu: camera had moved %.3f m and turned %.1f deg (%s), written %s", TAG, moved, turned,
              last_point ? "PrepareRendering" : "LockScene", fp ? "as the full pin (FirstPerson driving)" : "stripped of the headset turn");
     }
+}
+
+void render_point() {
+    if (!bridge::live() || !g_cam.pinned) return;
+    auto* tf = camera_transform();
+    auto* joints = tf ? call_ptr(tf, "get_Joints") : nullptr;                  // via.Joint[]; element 0 is the root joint
+    MO* j0 = joints != nullptr ? *(MO**)((char*)joints + 0x20) : nullptr;
+    static API::Method* set_rot = nullptr;
+    static API::Method* set_pos = nullptr;
+    static bool looked = false;
+    if (!is_managed(j0) || type_name(j0) != "via.Joint") { ++g_cam.render_misses; return; }
+    if (!looked) {
+        looked = true;
+        set_rot = find_method_deep(j0->get_type_definition(), "set_Rotation");
+        set_pos = find_method_deep(j0->get_type_definition(), "set_Position");
+        LOGI("%s menu: camera root joint %s; set_Rotation %s, set_Position %s", TAG, type_name(j0).c_str(), set_rot ? "found" : "MISSING", set_pos ? "found" : "MISSING");
+    }
+    if (set_rot == nullptr || set_pos == nullptr) { ++g_cam.render_misses; return; }
+    const Quat h = bridge::view_quat(bridge::S_HMD_Q);
+    if (!bridge::has(h.x)) { ++g_cam.render_misses; return; }
+    const Quat rot = qnorm(qmul(qmul(g_cam.pin_rot, qinv(g_cam.pin_hmd)), h));
+    const Vec3 pos = g_cam.pin;
+    auto* ctx = API::get()->get_vm_context();
+    set_pos->call<void>(ctx, (void*)j0, (void*)&pos);
+    set_rot->call<void>(ctx, (void*)j0, (void*)&rot);
+    ++g_cam.render_writes;
 }
 
 bool is_menu_open() { return menu_open(); }
