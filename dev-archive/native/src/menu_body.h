@@ -21,7 +21,12 @@ void camera_point(bool last_point);
 // The VR layer itself writes joint 0 at this point, so it is the one write the renderer is sure to use. Why: the
 // bridge's FirstPerson reading is a frame late at the close (FirstPerson flips back late in the frame), so b100-b102
 // wrote a stripped view into a frame the VR layer did not add the headset turn to: one un-pitched frame = the flicker.
-void render_point();   // b104: empty (b103's write is out), kept so the hook line stays simple
+void render_point();
+// LockScene POST (b106, 2026-10-09): the held view written once more, after the game's own camera step inside LockScene.
+// The probe (b105) showed the inventory's closing flicker: in the close frame the camera's yaw moved ~2 deg between
+// LockScene PRE (after our write) and BeginRendering (the game handing the camera back from the inventory camera);
+// the pause menu does not do this. No counting here; just the write.
+void late_write();   // b104: empty (b103's write is out), kept so the hook line stays simple
 // LateUpdateBehavior POST: hide the body the moment the menu first reads open, before the frame is prepared
 void early_hide();
 bool is_menu_open();   // inventory, map or pause open now (fire.cpp leaves RT alone then)
@@ -30,4 +35,5 @@ bool probe_menu_open();
 bool probe_body_hidden();
 int probe_gui_state();   // GUIMaster State_ (FirstPerson steps aside on PAUSE and INVENTORY)
 void* probe_camera_tf();
+void* probe_camera();     // the primary via.Camera (b105: FOV and tone mapping in the probe line)
 } // namespace vn::menu_body

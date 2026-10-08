@@ -31,7 +31,7 @@ void emit(const std::string& s) {
 } // namespace
 
 void point(const char* where) {
-    if (!bridge::live() || g_dumps >= 6) return;
+    if (!bridge::live() || g_dumps >= 30) return;   // b105: was 6, which ran out before the inventory closes
     if (std::string(where) == "UpdateBehavior.pre") ++g_frame;
     const bool open = menu_body::probe_menu_open();
     if (open != g_last_open) {
@@ -47,10 +47,20 @@ void point(const char* where) {
     Quat q{0, 0, 0, 1};
     const bool hp = tf && call_vec3(tf, "get_Position", p);
     const bool hq = tf && call_quat(tf, "get_Rotation", q);
-    char buf[256];
-    std::snprintf(buf, sizeof buf, "f%d %-24s open=%d gui=%d fp=%d hidden=%d pos=%s%.3f %.3f %.3f rot=%s%.3f %.3f %.3f %.3f",
+    // b105: the picture's zoom (camera FOV) and the dark-edge effect (ToneMapping vignetting) per step, to see whether
+    // the inventory close changes either for a frame (Tefa 2026-10-09: "a flicker of the world" on closing the inventory)
+    // b107: b105 read the camera, a ToneMapping component (never found) and three values at every point of every frame;
+    // Tefa then saw the view jitter on slow head turns. The tone mapping reads are gone and the camera is looked up
+    // once per frame; FOV stays (one call). Cost check: the jitter must go with this build, or it was not the probe.
+    static int cam_frame = -1;
+    static MO* cam = nullptr;
+    static API::Method* get_fov = nullptr;
+    if (cam_frame != g_frame) { cam_frame = g_frame; cam = (MO*)menu_body::probe_camera(); if (cam && !get_fov) get_fov = find_method_deep(cam->get_type_definition(), "get_FOV"); }
+    const float fov = (cam && get_fov) ? get_fov->call<float>(API::get()->get_vm_context(), (void*)cam) : -1.0f;
+    char buf[320];
+    std::snprintf(buf, sizeof buf, "f%d %-24s open=%d gui=%d fp=%d hidden=%d fov=%.1f pos=%s%.3f %.3f %.3f rot=%s%.3f %.3f %.3f %.3f",
                   g_frame, where, (int)open, menu_body::probe_gui_state(), (int)(bridge::view(bridge::S_FP_USED) > 0.5f),
-                  (int)menu_body::probe_body_hidden(), hp ? "" : "?", p.x, p.y, p.z, hq ? "" : "?", q.x, q.y, q.z, q.w);
+                  (int)menu_body::probe_body_hidden(), fov, hp ? "" : "?", p.x, p.y, p.z, hq ? "" : "?", q.x, q.y, q.z, q.w);
     emit(buf);
 }
 
