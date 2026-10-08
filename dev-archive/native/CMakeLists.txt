@@ -16,6 +16,7 @@ add_library(visceral_native SHARED
     src/holster.cpp
     src/ladder.cpp
     src/run.cpp
+    src/fire.cpp
     src/menu_body.cpp
     src/menu_probe.cpp)
 target_include_directories(visceral_native PRIVATE include src)
