@@ -157,7 +157,22 @@ int gui_state() {
     return p != nullptr ? *p : -1;
 }
 
-bool fp_driving() { return bridge::view(bridge::S_FP_USED) > 0.5f; }
+// FirstPerson drives when the GUI state is not PAUSE(2)/INVENTORY(1) and the camera type is PLAYER(0) (FirstPerson.cpp
+// is_first_person_allowed; ShowInCutscenes is off). Read fresh here, because the bridge's will_be_used() reading is
+// taken at LateUpdateBehavior PRE and FirstPerson flips its own flag later in the frame: at a menu close the bridge is
+// a frame late (b103 log) [measured 2026-10-09]. Falls back to the bridge when the camera system cannot be read.
+constexpr int GUI_INVENTORY = 1, GUI_PAUSE = 2, CAMERA_PLAYER = 0;
+bool fp_driving() {
+    const bool bridge_says = bridge::view(bridge::S_FP_USED) > 0.5f;
+    auto* cs = API::get()->get_managed_singleton("app.ropeway.camera.CameraSystem");
+    const int cam_type = call_direct<int>(cs, "get_BusyCameraType", -1);
+    const int gui = gui_state();
+    if (cam_type < 0 || gui < 0) return bridge_says;
+    const bool now = gui != GUI_INVENTORY && gui != GUI_PAUSE && cam_type == CAMERA_PLAYER;
+    static int disagreed = 0;
+    if (now != bridge_says && disagreed < 10) { ++disagreed; LOGI("%s menu: FirstPerson driving read fresh = %d (gui %d, camera type %d), the bridge said %d", TAG, (int)now, gui, cam_type, (int)bridge_says); }
+    return now;
+}
 
 // the view to write: while FirstPerson drives, the pre-menu base with THIS frame's headset turn (pin x inv(H0) x H), so
 // the head keeps tracking; while the VR layer drives, the same stripped of what it will add itself
@@ -264,31 +279,9 @@ void camera_point(bool last_point) {
     }
 }
 
-void render_point() {
-    if (!bridge::live() || !g_cam.pinned) return;
-    auto* tf = camera_transform();
-    auto* joints = tf ? call_ptr(tf, "get_Joints") : nullptr;                  // via.Joint[]; element 0 is the root joint
-    MO* j0 = joints != nullptr ? *(MO**)((char*)joints + 0x20) : nullptr;
-    static API::Method* set_rot = nullptr;
-    static API::Method* set_pos = nullptr;
-    static bool looked = false;
-    if (!is_managed(j0) || type_name(j0) != "via.Joint") { ++g_cam.render_misses; return; }
-    if (!looked) {
-        looked = true;
-        set_rot = find_method_deep(j0->get_type_definition(), "set_Rotation");
-        set_pos = find_method_deep(j0->get_type_definition(), "set_Position");
-        LOGI("%s menu: camera root joint %s; set_Rotation %s, set_Position %s", TAG, type_name(j0).c_str(), set_rot ? "found" : "MISSING", set_pos ? "found" : "MISSING");
-    }
-    if (set_rot == nullptr || set_pos == nullptr) { ++g_cam.render_misses; return; }
-    const Quat h = bridge::view_quat(bridge::S_HMD_Q);
-    if (!bridge::has(h.x)) { ++g_cam.render_misses; return; }
-    const Quat rot = qnorm(qmul(qmul(g_cam.pin_rot, qinv(g_cam.pin_hmd)), h));
-    const Vec3 pos = g_cam.pin;
-    auto* ctx = API::get()->get_vm_context();
-    set_pos->call<void>(ctx, (void*)j0, (void*)&pos);
-    set_rot->call<void>(ctx, (void*)j0, (void*)&rot);
-    ++g_cam.render_writes;
-}
+// b103 wrote joint 0 at BeginRendering PRE with the bridge's (one pose old) headset turn: 61-147 writes per hold, no misses,
+// the flicker stayed and the menu view lagged a pose (Tefa 2026-10-09: "the camera felt a bit shaky"). Out again (b104).
+void render_point() {}
 
 bool is_menu_open() { return menu_open(); }
 bool probe_menu_open() { return menu_open(); }
@@ -300,7 +293,12 @@ void frame() {
     const bool want = bridge::live() && menu_open();
     if (want && !g_is_hidden) hide();
     else if (want) reassert();
-    else if (g_is_hidden) restore();
+    else if (g_is_hidden) {
+        // b104: put the body back only once the bridge's (frame-late) flag says FirstPerson drives, so FirstPerson has
+        // already hidden the head in the frame before; b088-b103 put it back on the first frame after the close, when
+        // FirstPerson had not yet (Tefa 2026-10-09: "when I close a menu I see Leon's meshes for a quick frame")
+        if (bridge::view(bridge::S_FP_USED) > 0.5f || !bridge::live()) restore(); else reassert();
+    }
 }
 
 } // namespace vn::menu_body
