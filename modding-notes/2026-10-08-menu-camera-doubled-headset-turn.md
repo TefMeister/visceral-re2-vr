@@ -80,3 +80,20 @@ PrepareRendering POST.
   `.w` is nil, so slot `S_HMD_ROT` has very likely been the identity since 2026-10-05 and the holster set never turned
   with the head `[inferred-static 2026-10-08]`. Not changed in b100 (one change per build); the fix is
   `vr:get_transform(0):to_quat()`, the path `S_HMD_Q` now uses.
+
+## Worn (2026-10-08 23:50) and the closing flicker found (b102)
+
+b100 worn by Tefa: *"the flicker is there but no tilt at all, it feel so good in vr"* `[verified-live 2026-10-08]`. The
+doubled headset turn was the tilt. GUI states seen: inventory = 1, pause = 2; FirstPerson stepped aside for both (fp 0).
+
+The probe lines around the closes (b100 log) show the flicker: at the first frame after the close FirstPerson drives again
+and its camera is already within 2 deg of the held view (so the hold released), and on the NEXT frame its camera turns
+~20 deg (f1041 rot w=0.031 -> f1042 w=0.157, z=-0.121) for a frame or two before coming back `[measured 2026-10-08,
+n=2 closes]`. Reading `[inferred-static]`: `FirstPerson::on_update_camera_controller` records `m_last_controller_rotation`
+from whichever controller is current, so during the menu it holds the MENU camera's rotation; after the close
+`update_camera_transform` builds its wanted rotation from that for the switching frames and interpolates toward it.
+
+b102: the hold after the close now lasts until FirstPerson's camera has sat at the held view 3 frames in a row (20 max),
+judged at LockScene PRE after FirstPerson's write; while held, the written view is `pin x inv(H0) x H_now` in FirstPerson
+frames (the head keeps tracking) and the stripped view in VR-layer frames. Log line: `hold off after N frames
+(FirstPerson's camera swung up to X deg from the held view after the close, settled 3 frames ...)`.
