@@ -22,6 +22,7 @@ std::atomic<bool> g_in_flight{false};         // from our press until Equipment.
 std::atomic<int> g_yes{0};                    // enableAttack answers turned to YES during this shot
 std::atomic<int> g_request{0}, g_gun_exec{0}, g_eq_exec{0};   // doorbells during this shot
 bool g_forcing = false;                       // switch 1 is on
+bool g_auto = false;                          // this pull is with an automatic weapon: fire while RT is held
 int g_window = 0;                             // frames left for switch 3
 int g_bullets_before = -1;
 int g_shots = 0;
@@ -49,6 +50,11 @@ bool gun_in_hand() {
     const int wp = weapons::current_id();
     if (wp < 0) return false;
     return weapons::holster_for(wp) != weapons::Holster::SUB;   // knife and grenades go through other actions
+}
+
+bool automatic(int wp) {
+    for (int a : cfg::FIRE_AUTOMATIC_WP) if (a == wp) return true;
+    return false;
 }
 
 bool attack_input_on() {
@@ -83,7 +89,7 @@ int pre_request(int, void**, REFrameworkTypeDefinitionHandle*, unsigned long lon
 int pre_gun_exec(int, void**, REFrameworkTypeDefinitionHandle*, unsigned long long) { if (g_in_flight) g_gun_exec.fetch_add(1); return REFRAMEWORK_HOOK_CALL_ORIGINAL; }
 int pre_eq_exec(int, void**, REFrameworkTypeDefinitionHandle*, unsigned long long) { if (g_in_flight) g_eq_exec.fetch_add(1); return REFRAMEWORK_HOOK_CALL_ORIGINAL; }
 // switch 3 ends once the shot has really gone (the next frame, so the post-hooks of this one still see it)
-void post_eq_exec(void**, REFrameworkTypeDefinitionHandle, unsigned long long) { if (g_in_flight && g_window > 1) g_window = 1; }
+void post_eq_exec(void**, REFrameworkTypeDefinitionHandle, unsigned long long) { if (g_in_flight && !g_auto && g_window > 1) g_window = 1; }
 
 void hook(const char* type, const char* method, REFPreHookFn pre, REFPostHookFn post, const char* what) {
     auto* m = API::get()->tdb()->find_method(type, method);
@@ -95,7 +101,7 @@ void hook(const char* type, const char* method, REFPreHookFn pre, REFPostHookFn 
 void end_shot(const Player& p) {
     const int after = bullets(p.eq);
     if (g_shots <= cfg::FIRE_LOG_FIRST)
-        LOGI("%s fire: shot #%d bullets %d -> %d | requestFire %d, Gun.executeFire %d, Equipment.executeFire %d, enableAttack YES %d",
+        LOGI("%s fire: pull #%d bullets %d -> %d | requestFire %d, Gun.executeFire %d, Equipment.executeFire %d, enableAttack YES %d",
              TAG, g_shots, g_bullets_before, after, g_request.load(), g_gun_exec.load(), g_eq_exec.load(), g_yes.load());
     g_in_flight = false;
 }
@@ -117,6 +123,7 @@ void frame() {
     // switch 1, for as long as the trigger is down; the latch is cleared the frame it is let go
     if (want && bridge::pressed(bridge::S_RTRIG) && !call_direct<bool>(p.cond, "get_IsHold", false)) {
         g_forcing = true;
+        g_auto = automatic(weapons::current_id());
         ++g_shots;
         g_request = 0; g_gun_exec = 0; g_eq_exec = 0; g_yes = 0;
         g_bullets_before = bullets(p.eq);
@@ -126,9 +133,14 @@ void frame() {
         auto* set_fire = p.updater ? find_method_deep(p.updater->get_type_definition(), "set_Fire") : nullptr;
         if (set_fire != nullptr) set_fire->call<void>(API::get()->get_vm_context(), (void*)p.updater, true);   // switch 2
         if (g_shots <= cfg::FIRE_LOG_FIRST)
-            LOGI("%s fire: RT without RG, shot #%d | bullets %d IsHold %d ATTACK input %d Precede %d", TAG, g_shots,
+            LOGI("%s fire: RT without RG, pull #%d (automatic %d) | bullets %d IsHold %d ATTACK input %d Precede %d", TAG, g_shots, (int)g_auto,
                  g_bullets_before, (int)call_direct<bool>(p.cond, "get_IsHold", false), (int)attack_input_on(),
                  call_direct<int>(p.orderer, "get_Precede", -1));
+    } else if (g_forcing && want && g_auto) {
+        // automatics (Tefa 2026-10-08: b098 "automatic weapons also just fire one round and stop"): the order and the
+        // gun's YES stay on while RT is held, so the game's own rapid-fire loop keeps going; let go = stop
+        set_precede(p.orderer, true);
+        g_window = cfg::FIRE_WINDOW_FRAMES;
     } else if (g_forcing && want && g_in_flight && g_eq_exec == 0) {
         set_precede(p.orderer, true);
     } else if (g_forcing) {
