@@ -191,6 +191,7 @@ void camera_point(bool last_point) {
     }
 }
 
+bool is_menu_open() { return menu_open(); }
 bool probe_menu_open() { return menu_open(); }
 bool probe_body_hidden() { return g_is_hidden; }
 void* probe_camera_tf() { return camera_transform(); }

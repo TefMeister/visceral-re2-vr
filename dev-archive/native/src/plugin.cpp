@@ -9,6 +9,7 @@
 //   suppress.cpp RG first keeps the gun in hand (Arcade Controls' force-equip); LG first with a knife/grenade: RT ignored
 //   ladder.cpp   ladder + cupboard view hold and the climbing body guard (Arcade Controls' v12.2, in C++)
 //   run.cpp      running stops at once: stick let go or a second click (Arcade Controls' set_JogMode override)
+//   fire.cpp     RT fires without RG: no aim stance, no latch (the game's own three switches, found flat 2026-10-07)
 //   menu_body.cpp no third-person body in the inventory, map and pause menus (Arcade Controls' menu hide)
 #include <windows.h>
 
@@ -16,6 +17,7 @@
 
 #include "bridge.h"
 #include "common.h"
+#include "fire.h"
 #include "holster.h"
 #include "ladder.h"
 #include "menu_body.h"
@@ -29,12 +31,13 @@ using namespace vn;
 namespace {
 void on_frame() {
     static std::atomic<bool> installed{false};
-    if (!installed.exchange(true)) { bridge::install(); shortcut::install(); suppress::install(); run::install(); }   // hooks need the type database: first game frame
+    if (!installed.exchange(true)) { bridge::install(); shortcut::install(); suppress::install(); run::install(); fire::install(); }   // hooks need the type database: first game frame
     menu_probe::point("UpdateBehavior.pre");
     bridge::frame_begin();
     holster::frame();
     suppress::frame();
     run::frame();
+    fire::frame();
     menu_body::frame();
     menu_probe::point("UpdateBehavior.ours-done");
 }
