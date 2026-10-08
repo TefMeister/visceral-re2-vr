@@ -60,6 +60,8 @@ constexpr int   MENU_CAM_RELEASE_FRAMES = 20; // and is held at most this many f
 
 // ---- RT fires without RG (2026-10-08, detour step 2; the three switches found flat 2026-10-07) -----------------
 constexpr int   FIRE_WINDOW_FRAMES = 20;      // the gun's "may fire" answer stays YES at most this long after the press
-constexpr int   FIRE_LOG_FIRST     = 30;      // log the first shots in full (press + bullets before/after + doorbells)
+constexpr int   FIRE_LOG_FIRST     = 30;
+// automatics fire while RT is held (WP numbers): MQ 11, LE 5, flamethrower, the miniguns. Everything else: one per pull
+constexpr int   FIRE_AUTOMATIC_WP[] = {2000, 2200, 4200, 4700, 8700, 4520, 4900};      // log the first shots in full (press + bullets before/after + doorbells)
 
 } // namespace vn::cfg
