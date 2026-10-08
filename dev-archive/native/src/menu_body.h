@@ -16,6 +16,7 @@ void frame();   // once per frame
 void camera_point(bool last_point);
 // LateUpdateBehavior POST: hide the body the moment the menu first reads open, before the frame is prepared
 void early_hide();
+bool is_menu_open();   // inventory, map or pause open now (fire.cpp leaves RT alone then)
 // for menu_probe.cpp only
 bool probe_menu_open();
 bool probe_body_hidden();

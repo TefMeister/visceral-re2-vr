@@ -24,7 +24,7 @@ HOLD tag), then 0 again.
 | 3 | **the gun's question:** `Equipment.enableAttack(WeaponType)` answered YES while our shot is in flight (hooked; it is `checkHold(type) && !checkEmpty(type)`, so unaimed it says no). `Gun.executeFire` begins with this question inlined and returns at once on no. | the FSM plays the real shoot clip, `requestFire` and `Gun.executeFire` run -- and no round is spent | `[verified-live 2026-10-07]` |
 
 Also seen: with 1+2 the FSM first showed `pl00_1120_HG_Hold_Shoot_NoAmmo` for one frame, then the real shoot clip -- so the
-09-25 "dry fire" reading was the first frame of the same thing, not a separate branch `[inferred 2026-10-07]`.
+09-25 "dry fire" reading was the first frame of the same thing, not a separate branch `[inferred-static 2026-10-07]`.
 Writing the weapon's own `Hold` variable (`Arm.set_CommonVariablesHold`) is overwritten by the game the same frame; the
 player's `HoldUp` variable sticks but changes nothing `[verified-live 2026-10-07, n=1 each]`. Neither is needed.
 
@@ -59,3 +59,10 @@ named switch 2. The gun's refusal was read from the disassembly of `Gun.executeF
   recording of this run. RE2's music volume lives in the in-game options (save data), not in a file; still not muted.
 - Flat launch notes: the first relaunch after a close died before the title (no window, log stopped at "Hooked DirectX 12");
   the second try was fine. ENTER at the title needed two presses once (~30 s after launch the first was swallowed).
+
+## Built (2026-10-08, /pd, Opus)
+
+`dev-archive/native/src/fire.cpp` = the plan above, as b097 (feature folder `Shooting without RG`), installed and unworn
+`[compile-verified 2026-10-08]`. Switch 3 answers YES only when `Equipment.checkEmpty(type)` says no, so an empty gun still
+clicks. Skipped when RG is held, a menu is open, the knife or a grenade is in hand, or the character already aims (IsHold).
+Not established: whether the VR RT reaches the game as the ATTACK input (logged at the press as `ATTACK input`).

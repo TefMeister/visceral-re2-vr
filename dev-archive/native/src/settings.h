@@ -58,4 +58,8 @@ constexpr float MENU_CAM_BACK_M    = 0.10f;   // after a menu closes, the camera
 constexpr float MENU_CAM_BACK_DEG  = 2.0f;    // and within this many degrees of the held turn
 constexpr int   MENU_CAM_RELEASE_FRAMES = 20; // and is held at most this many frames while it comes back
 
+// ---- RT fires without RG (2026-10-08, detour step 2; the three switches found flat 2026-10-07) -----------------
+constexpr int   FIRE_WINDOW_FRAMES = 20;      // the gun's "may fire" answer stays YES at most this long after the press
+constexpr int   FIRE_LOG_FIRST     = 30;      // log the first shots in full (press + bullets before/after + doorbells)
+
 } // namespace vn::cfg
