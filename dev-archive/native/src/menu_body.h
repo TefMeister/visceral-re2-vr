@@ -21,7 +21,7 @@ void camera_point(bool last_point);
 // The VR layer itself writes joint 0 at this point, so it is the one write the renderer is sure to use. Why: the
 // bridge's FirstPerson reading is a frame late at the close (FirstPerson flips back late in the frame), so b100-b102
 // wrote a stripped view into a frame the VR layer did not add the headset turn to: one un-pitched frame = the flicker.
-void render_point();
+void render_point();   // b104: empty (b103's write is out), kept so the hook line stays simple
 // LateUpdateBehavior POST: hide the body the moment the menu first reads open, before the frame is prepared
 void early_hide();
 bool is_menu_open();   // inventory, map or pause open now (fire.cpp leaves RT alone then)

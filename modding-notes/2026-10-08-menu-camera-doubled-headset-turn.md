@@ -97,3 +97,13 @@ b102: the hold after the close now lasts until FirstPerson's camera has sat at t
 judged at LockScene PRE after FirstPerson's write; while held, the written view is `pin x inv(H0) x H_now` in FirstPerson
 frames (the head keeps tracking) and the stripped view in VR-layer frames. Log line: `hold off after N frames
 (FirstPerson's camera swung up to X deg from the held view after the close, settled 3 frames ...)`.
+
+## b102 and b103 worn (2026-10-09 00:15-00:40): the camera pose is not the closing flicker
+
+- b102 (hold until settled): still flickers; log: hold 4-5 frames, FirstPerson's camera swung 0.0 deg in 3 of 4 closes.
+- b103 (joint 0 written at BeginRendering PRE with the bridge's pose): 61-147 writes per hold, 0 misses, still flickers,
+  and the menu view lagged a pose (Tefa: "the camera felt a bit shaky"). Taken out in b104.
+- Tefa's description: pause close = "I see Leon's meshes for a quick frame"; inventory close = "a flicker of the world".
+- b104: FirstPerson's state read fresh (GUI state + `CameraSystem.get_BusyCameraType` == PLAYER), the body put back one
+  frame later than the close (so FirstPerson's head hide comes first), probe point at BeginRendering PRE.
+  `[all hypothesis until worn]`
