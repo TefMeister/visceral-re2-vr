@@ -119,10 +119,21 @@ struct Cam {
     int logs = 0; float max_moved = 0.0f, max_turned = 0.0f; bool where_logged = false;
     int release_frames = 0;                      // frames held on after the menu closed
     int stripped = 0, plain = 0;                 // writes of each kind during this hold (for the log)
+    int late_writes = 0;                         // LockScene POST writes during this hold (b106)
     int render_writes = 0, render_misses = 0;    // joint writes at BeginRendering during this hold
     int settled = 0;                             // frames in a row FirstPerson's camera sat at the held view after the close
     float max_swing = 0.0f;                      // the biggest turn FirstPerson's camera made away from the held view after the close
 } g_cam;
+
+MO* primary_camera() {
+    static API::Method* main_view = API::get()->tdb()->find_method("via.SceneManager", "get_MainView");
+    static API::Method* primary = API::get()->tdb()->find_method("via.SceneView", "get_PrimaryCamera");
+    void* sm = API::get()->get_native_singleton("via.SceneManager");
+    if (main_view == nullptr || primary == nullptr || sm == nullptr) return nullptr;
+    auto* ctx = API::get()->get_vm_context();
+    void* view = main_view->call<void*>(ctx, sm);
+    return view != nullptr ? (MO*)primary->call<void*>(ctx, view) : nullptr;
+}
 
 MO* camera_transform() {
     static API::Method* main_view = API::get()->tdb()->find_method("via.SceneManager", "get_MainView");
@@ -171,7 +182,12 @@ bool fp_driving() {
     const bool now = gui != GUI_INVENTORY && gui != GUI_PAUSE && cam_type == CAMERA_PLAYER;
     static int disagreed = 0;
     if (now != bridge_says && disagreed < 10) { ++disagreed; LOGI("%s menu: FirstPerson driving read fresh = %d (gui %d, camera type %d), the bridge said %d", TAG, (int)now, gui, cam_type, (int)bridge_says); }
-    return now;
+    // b108: the BRIDGE wins. The VR layer does not read the truth, it reads FirstPerson's own flag (will_be_used), and
+    // that flag lags the truth by a frame at a menu close -- which is exactly what the bridge reports. b104's "fresh"
+    // answer said FirstPerson drives in the close frame, we wrote the full view, the VR layer still added the headset
+    // turn on top: a 2.6 deg yaw jump for one frame at BeginRendering (probe, b107 f1701) = the inventory's world
+    // flicker. The fresh read stays as a log line only.
+    return bridge_says;
 }
 
 // the view to write: while FirstPerson drives, the pre-menu base with THIS frame's headset turn (pin x inv(H0) x H), so
@@ -244,8 +260,8 @@ void camera_point(bool last_point) {
                 write_pin(tf, fp);
                 return;
             }
-            LOGI("%s menu: camera hold off after %d frames (FirstPerson's camera swung up to %.1f deg from the held view after the close, settled %d frames; menu moved it up to %.3f m / %.1f deg; %d stripped + %d plain writes, %d joint writes at render (%d misses); FirstPerson driving %d, gui %d)",
-                 TAG, g_cam.release_frames, g_cam.max_swing, g_cam.settled, g_cam.max_moved, g_cam.max_turned, g_cam.stripped, g_cam.plain, g_cam.render_writes, g_cam.render_misses, (int)fp, gui_state());
+            LOGI("%s menu: camera hold off after %d frames (FirstPerson's camera swung up to %.1f deg from the held view after the close, settled %d frames; menu moved it up to %.3f m / %.1f deg; %d stripped + %d plain writes, %d joint writes at render (%d misses), %d late writes; FirstPerson driving %d, gui %d)",
+                 TAG, g_cam.release_frames, g_cam.max_swing, g_cam.settled, g_cam.max_moved, g_cam.max_turned, g_cam.stripped, g_cam.plain, g_cam.render_writes, g_cam.render_misses, g_cam.late_writes, (int)fp, gui_state());
             g_cam.pinned = false;
         }
         // the spot to hold is FirstPerson's own camera, with the headset turn it folded in this frame
@@ -266,6 +282,7 @@ void camera_point(bool last_point) {
         g_cam.settled = 0;
         g_cam.max_swing = 0.0f;
         g_cam.render_writes = g_cam.render_misses = 0;
+        g_cam.late_writes = 0;
         LOGI("%s menu: camera held at %.3f %.3f %.3f (FirstPerson driving %d, gui %d)", TAG, g_cam.pin.x, g_cam.pin.y, g_cam.pin.z, (int)fp, gui_state());
     }
     const float moved = dist(p, g_cam.pin), turned = turn_between(q, g_cam.pin_rot);
@@ -283,11 +300,20 @@ void camera_point(bool last_point) {
 // the flicker stayed and the menu view lagged a pose (Tefa 2026-10-09: "the camera felt a bit shaky"). Out again (b104).
 void render_point() {}
 
+void late_write() {
+    if (!bridge::live() || !g_cam.pinned) return;
+    auto* tf = camera_transform();
+    if (tf == nullptr) return;
+    write_pin(tf, fp_driving());
+    ++g_cam.late_writes;
+}
+
 bool is_menu_open() { return menu_open(); }
 bool probe_menu_open() { return menu_open(); }
 bool probe_body_hidden() { return g_is_hidden; }
 int probe_gui_state() { return gui_state(); }
 void* probe_camera_tf() { return camera_transform(); }
+void* probe_camera() { return primary_camera(); }
 
 void frame() {
     const bool want = bridge::live() && menu_open();
