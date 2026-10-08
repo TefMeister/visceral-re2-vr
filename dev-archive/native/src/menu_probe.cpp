@@ -48,9 +48,9 @@ void point(const char* where) {
     const bool hp = tf && call_vec3(tf, "get_Position", p);
     const bool hq = tf && call_quat(tf, "get_Rotation", q);
     char buf[256];
-    std::snprintf(buf, sizeof buf, "f%d %-24s open=%d hidden=%d cam=%p pos=%s%.3f %.3f %.3f rot=%s%.3f %.3f %.3f %.3f",
-                  g_frame, where, (int)open, (int)menu_body::probe_body_hidden(), (void*)tf, hp ? "" : "?", p.x, p.y, p.z,
-                  hq ? "" : "?", q.x, q.y, q.z, q.w);
+    std::snprintf(buf, sizeof buf, "f%d %-24s open=%d gui=%d fp=%d hidden=%d pos=%s%.3f %.3f %.3f rot=%s%.3f %.3f %.3f %.3f",
+                  g_frame, where, (int)open, menu_body::probe_gui_state(), (int)(bridge::view(bridge::S_FP_USED) > 0.5f),
+                  (int)menu_body::probe_body_hidden(), hp ? "" : "?", p.x, p.y, p.z, hq ? "" : "?", q.x, q.y, q.z, q.w);
     emit(buf);
 }
 

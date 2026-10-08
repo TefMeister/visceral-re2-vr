@@ -94,13 +94,31 @@ void restore() {
 }
 // ---- the camera: kept where it was before the menu opened (Tefa 2026-10-06: "the menus ... make the picture
 // jump forward a bit"; the menus move the camera to their own outside spot, Arcade Controls' notes) ----
-// Position AND turn are held: the probe (b094, 2026-10-06) showed the position move while the menu is open, and the
-// TURN swing 10-20 degrees for two or three frames right after it closes (the flicker on closing).
+//
+// THE CAMERA IN MENUS -- read from REFramework's own source on 2026-10-08 (src/mods/VR.cpp update_camera,
+// update_camera_origin, apply_hmd_transform, restore_camera; src/mods/FirstPerson.cpp update_camera_transform,
+// is_first_person_allowed) [inferred-static 2026-10-08]:
+//   * While FirstPerson is "used" (not paused, player camera) IT writes the camera every frame: body view x raw
+//     headset turn, and recenters the VR layer's rotation offset to the headset's yaw. The VR layer then leaves the
+//     camera alone (it only remembers it).
+//   * In the inventory and pause menus (GUI state PAUSE / INVENTORY) FirstPerson steps aside, and the VR layer takes
+//     over: at BeginRendering it takes the camera AS IT FINDS IT as the base, multiplies (rotation offset x raw
+//     headset turn) on top, adds the headset's offset from the standing origin, renders, and puts the base back at
+//     EndRendering.
+// So a held camera that already carries the headset turn gets it twice. With the offset = the yaw at the last
+// recenter, what doubles is the head's pitch and roll: the slight left-down tilt on opening that b095/b096 could not
+// hold away, and the swing after closing is the same doubling during the game's camera switch back. The fix: while
+// FirstPerson is not driving, write the camera STRIPPED of what the VR layer will add back:
+//   rot = pin x inv(H0) x inv(R_off)          H0 = the raw headset turn FirstPerson folded in at the pin frame
+//   pos = pin_pos - rot x (R_off x (P - origin))   R_off, P, origin read fresh from the bridge each frame
+// Then the VR layer renders pin x inv(H0) x H: the pre-menu view, turning with the head by exactly what it has
+// turned since. While FirstPerson drives, the camera is its own and the old hold (full pin) is kept as before.
 struct Cam {
-    Vec3 last{}; Quat last_rot{0, 0, 0, 1}; bool has_last = false;   // the camera at the end of the last no-menu frame
-    Vec3 pin{}; Quat pin_rot{0, 0, 0, 1}; bool pinned = false;         // where it is held while a menu is open
+    Vec3 last{}; Quat last_rot{0, 0, 0, 1}; Quat last_hmd{0, 0, 0, 1}; bool has_last = false;   // the camera at the end of the last FirstPerson frame
+    Vec3 pin{}; Quat pin_rot{0, 0, 0, 1}; Quat pin_hmd{0, 0, 0, 1}; bool pinned = false;        // where it is held while a menu is open
     int logs = 0; float max_moved = 0.0f, max_turned = 0.0f; bool where_logged = false;
     int release_frames = 0;                      // frames held on after the menu closed
+    int stripped = 0, plain = 0;                 // writes of each kind during this hold (for the log)
 } g_cam;
 
 MO* camera_transform() {
@@ -129,6 +147,34 @@ float turn_between(const Quat& a, const Quat& b) {        // degrees
     const float d = std::fabs(a.x * b.x + a.y * b.y + a.z * b.z + a.w * b.w);
     return 2.0f * std::acos(std::fmin(1.0f, d)) * 57.29578f;
 }
+
+int gui_state() {
+    auto* gm = API::get()->get_managed_singleton("app.ropeway.gui.GUIMaster");
+    auto* p = field_ptr<int32_t>(gm, "<State_>k__BackingField");
+    return p != nullptr ? *p : -1;
+}
+
+bool fp_driving() { return bridge::view(bridge::S_FP_USED) > 0.5f; }
+
+// write the held camera: stripped while the VR layer will add the headset turn itself, the full pin otherwise
+void write_pin(MO* tf, bool fp) {
+    Quat rot = g_cam.pin_rot;
+    Vec3 pos = g_cam.pin;
+    bool stripped = false;
+    if (!fp) {
+        const Quat roff = bridge::view_quat(bridge::S_ROT_OFF);
+        const Vec3 origin = bridge::view_vec3(bridge::S_ORIGIN);
+        const Vec3 hp = bridge::view_vec3(bridge::S_HMD_POS);
+        if (bridge::has(roff.x) && bridge::has(origin.x) && bridge::has(hp.x)) {
+            rot = qnorm(qmul(qmul(g_cam.pin_rot, qinv(g_cam.pin_hmd)), qinv(roff)));
+            pos = g_cam.pin - rotate(rot, rotate(roff, hp - origin));
+            stripped = true;
+        }
+    }
+    set_pos(tf, pos);
+    set_rot(tf, rot);
+    if (stripped) ++g_cam.stripped; else ++g_cam.plain;
+}
 } // namespace
 
 void early_hide() {
@@ -139,7 +185,7 @@ void early_hide() {
 }
 
 void camera_point(bool last_point) {
-    if (!bridge::live()) { g_cam.has_last = false; return; }
+    if (!bridge::live()) { g_cam.has_last = false; g_cam.pinned = false; return; }
     auto* tf = camera_transform();
     if (tf == nullptr) {
         if (!g_cam.where_logged) { g_cam.where_logged = true; LOGW("%s menu: camera transform not found, the menu camera hold is off", TAG); }
@@ -149,22 +195,27 @@ void camera_point(bool last_point) {
     Vec3 p;
     Quat q;
     if (!call_vec3(tf, "get_Position", p) || !call_quat(tf, "get_Rotation", q)) return;
+    const bool fp = fp_driving();
     if (!g_is_hidden) {
-        // after the menu closes the game's camera takes a few frames to settle (the turn swings, then comes back):
-        // keep holding until it is back near the held spot and turn, or for MENU_CAM_RELEASE_FRAMES
         if (g_cam.pinned) {
+            // after the menu closes the game switches cameras for a few frames. While FirstPerson is not driving yet
+            // the VR layer still renders what we write, so the stripped hold goes on; once FirstPerson drives again
+            // the camera is its own, and the old rule applies: hold only until it is back near the held spot.
             const float off = dist(p, g_cam.pin), turned = turn_between(q, g_cam.pin_rot);
-            if ((off > cfg::MENU_CAM_BACK_M || turned > cfg::MENU_CAM_BACK_DEG) && g_cam.release_frames < cfg::MENU_CAM_RELEASE_FRAMES) {
+            const bool room = g_cam.release_frames < cfg::MENU_CAM_RELEASE_FRAMES;
+            const bool keep = room && (!fp || off > cfg::MENU_CAM_BACK_M || turned > cfg::MENU_CAM_BACK_DEG);
+            if (keep) {
                 if (last_point) ++g_cam.release_frames;
-                set_pos(tf, g_cam.pin);
-                set_rot(tf, g_cam.pin_rot);
+                write_pin(tf, fp);
                 return;
             }
-            LOGI("%s menu: camera hold off after %d frames (moved up to %.3f m, turned up to %.1f deg; now %.3f m, %.1f deg off)",
-                 TAG, g_cam.release_frames, g_cam.max_moved, g_cam.max_turned, off, turned);
+            LOGI("%s menu: camera hold off after %d frames (moved up to %.3f m, turned up to %.1f deg; now %.3f m, %.1f deg off; %d stripped + %d plain writes; FirstPerson driving %d, gui %d)",
+                 TAG, g_cam.release_frames, g_cam.max_moved, g_cam.max_turned, off, turned, g_cam.stripped, g_cam.plain, (int)fp, gui_state());
             g_cam.pinned = false;
         }
-        if (last_point) { g_cam.last = p; g_cam.last_rot = q; g_cam.has_last = true; }
+        // the spot to hold is FirstPerson's own camera, with the headset turn it folded in this frame
+        const Quat h = bridge::view_quat(bridge::S_HMD_Q);
+        if (fp && bridge::has(h.x)) { g_cam.last = p; g_cam.last_rot = q; g_cam.last_hmd = h; g_cam.has_last = true; }
         return;
     }
     g_cam.release_frames = 0;
@@ -172,28 +223,28 @@ void camera_point(bool last_point) {
         if (!g_cam.has_last) return;
         g_cam.pin = g_cam.last;
         g_cam.pin_rot = g_cam.last_rot;
+        g_cam.pin_hmd = g_cam.last_hmd;
         g_cam.pinned = true;
         g_cam.logs = 0;
         g_cam.max_moved = g_cam.max_turned = 0.0f;
-        LOGI("%s menu: camera held at %.3f %.3f %.3f", TAG, g_cam.pin.x, g_cam.pin.y, g_cam.pin.z);
+        g_cam.stripped = g_cam.plain = 0;
+        LOGI("%s menu: camera held at %.3f %.3f %.3f (FirstPerson driving %d, gui %d)", TAG, g_cam.pin.x, g_cam.pin.y, g_cam.pin.z, (int)fp, gui_state());
     }
     const float moved = dist(p, g_cam.pin), turned = turn_between(q, g_cam.pin_rot);
     if (moved > g_cam.max_moved) g_cam.max_moved = moved;
     if (turned > g_cam.max_turned) g_cam.max_turned = turned;
-    if (moved > 0.001f || turned > 0.05f) {
-        set_pos(tf, g_cam.pin);
-        set_rot(tf, g_cam.pin_rot);
-        if (g_cam.logs < 6) {
-            ++g_cam.logs;
-            LOGI("%s menu: camera had moved %.3f m and turned %.1f deg (%s), put back", TAG, moved, turned,
-                 last_point ? "PrepareRendering" : "LockScene");
-        }
+    write_pin(tf, fp);
+    if (g_cam.logs < 6) {
+        ++g_cam.logs;
+        LOGI("%s menu: camera had moved %.3f m and turned %.1f deg (%s), written %s", TAG, moved, turned,
+             last_point ? "PrepareRendering" : "LockScene", fp ? "as the full pin (FirstPerson driving)" : "stripped of the headset turn");
     }
 }
 
 bool is_menu_open() { return menu_open(); }
 bool probe_menu_open() { return menu_open(); }
 bool probe_body_hidden() { return g_is_hidden; }
+int probe_gui_state() { return gui_state(); }
 void* probe_camera_tf() { return camera_transform(); }
 
 void frame() {
