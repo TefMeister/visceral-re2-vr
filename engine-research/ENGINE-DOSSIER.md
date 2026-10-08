@@ -1655,3 +1655,17 @@ on.
   EndRendering, UpdateScene, UpdateHID, UpdateBehavior, UpdateMotion, LateUpdateBehavior, PrepareRendering,
   UpdateJointExpression `[verified-live 2026-10-03, n=1]`. UpdateJointExpression comes after PrepareRendering.
 - Note: `modding-notes/2026-10-03-reloaded-port-step-2-first-run.md`.
+
+## VR layer: who owns the camera, frame by frame (2026-10-08, read from REFramework's source) `[inferred-static 2026-10-08]`
+
+Two regimes, decided by `FirstPerson::will_be_used()` (enabled, GUI state not PAUSE/INVENTORY, camera type PLAYER):
+- **FirstPerson driving:** it writes the camera every frame = body view x raw headset turn (transform and joint 0), and
+  recenters the VR rotation offset to the headset yaw. The VR mod only remembers the camera.
+- **FirstPerson aside (menus, cutscenes, probably jacks):** the VR mod takes the camera AS FOUND at BeginRendering as the
+  base, multiplies (rotation offset x raw headset turn) on it, adds the headset offset from the standing origin, renders,
+  restores the base at EndRendering. **Anything we write into the camera in these frames must NOT carry the headset
+  turn** -- the VR mod adds it. Mod order VR, FirstPerson, then PluginLoader: our pre-hooks run after theirs in the same
+  entry, so a LockScene-PRE write is the last word before BeginRendering reads the camera.
+Consequence: a held camera copied from a FirstPerson frame gets the head's pitch/roll twice in a menu (the b095/b096 tilt;
+fixed in b100 by stripping). The ladder start flick is probably the same thing. Full write-up:
+`modding-notes/2026-10-08-menu-camera-doubled-headset-turn.md`.
