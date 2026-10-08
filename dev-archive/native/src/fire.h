@@ -9,7 +9,7 @@
 //   3. Equipment.enableAttack(WeaponType) answered YES while our shot is in flight -- but only when the gun is not
 //      empty, so an empty gun still clicks (the game's answer is checkHold && !checkEmpty; we drop only checkHold)
 // Only while the headset is live, RG is NOT held, a gun (not the knife or a grenade) is in hand, no menu is open and
-// the character is not already aiming. RG + RT (the aimed shot) is never touched.
+// the character is not already aiming. Automatics (settings.h FIRE_AUTOMATIC_WP) keep firing while RT is held (b099). RG + RT (the aimed shot) is never touched.
 #pragma once
 
 namespace vn::fire {
