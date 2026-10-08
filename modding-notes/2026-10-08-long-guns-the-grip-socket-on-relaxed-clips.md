@@ -54,3 +54,12 @@ say so.
 
 Roll back: `builds.py restore visceral-re2-vr 100 --yes`. Other long guns (smg, gnl, rkl, etc, mag) get the same once
 the shotgun says yes; Claire's (`pl10`) lists untouched.
+
+## Worn (2026-10-08 23:50): no change -- the reading above is wrong for the one-handed case
+
+Tefa: *"shotgun is still in my hands the same way one handed, left hand doesn't go on the gun yet we still have to figure
+this part out"* `[verified-live 2026-10-08]`. One-handed there is no pistol fix, and the grafted `r_weapon` changed nothing
+either, so the off-right angle is not in the body clips. Next lead `[hypothesis]`: the weapon's OWN animation state (RE2
+carries a lowered long gun at an angle and turns it into the shooting grip only in Hold; the no-aim detour never enters
+Hold). Probe next: the weapon GameObject's motion layer names and its rotation relative to `r_arm_wrist`, light vs dark,
+RG held vs not. The b101 arms stay in unless the body looks wrong.

@@ -57,6 +57,7 @@ constexpr int   MENU_WALK_CHILDREN = 500;     // and at most this many children 
 constexpr float MENU_CAM_BACK_M    = 0.10f;   // after a menu closes, the camera counts as back this close to the held spot
 constexpr float MENU_CAM_BACK_DEG  = 2.0f;    // and within this many degrees of the held turn
 constexpr int   MENU_CAM_RELEASE_FRAMES = 20; // and is held at most this many frames while it comes back
+constexpr int   MENU_CAM_SETTLE_FRAMES  = 3;  // b102: released only once FirstPerson's camera has sat at the held view this many frames in a row
 
 // ---- RT fires without RG (2026-10-08, detour step 2; the three switches found flat 2026-10-07) -----------------
 constexpr int   FIRE_WINDOW_FRAMES = 20;      // the gun's "may fire" answer stays YES at most this long after the press
