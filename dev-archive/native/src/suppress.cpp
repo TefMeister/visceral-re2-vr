@@ -99,6 +99,26 @@ void set_support_force(bool on, const char* why = "") {
          weapons::current_id(), is_hold_now() ? 1 : 0, why);
 }
 
+// b114: setForce did not cover the VR layer's own clear. b113's probe (2026-10-09 16:58, 10 cycles) read the game's
+// SUPPORT_HOLD bit at 0 for exactly one frame every 1.5-2.5 s with setForce on and LG held, IsHold dropping in the same
+// frame, then Down again the next frame [verified-live 2026-10-09, n=10]: that one-frame release puts the grenade away.
+// The bits ARE readable at UpdateBehavior pre (b081's "empty" read was LT, not this). So while we hold SUPPORT_HOLD the
+// bit is written back: On set, Down/Up cleared, after the VR layer's write and before the game's behaviour reads it.
+constexpr uint32_t OFF_DOWN = 0x10, OFF_ON = 0x18, OFF_UP = 0x20;   // Button fields (RELOADED's offsets)
+int g_fills = 0;
+
+void fill_support_hold_bit() {
+    auto* bb = call_ptr(API::get()->get_managed_singleton("app.ropeway.InputSystem"), "get_ButtonBits");
+    if (!is_managed(bb)) return;
+    auto& down = *(uint64_t*)((char*)bb + OFF_DOWN);
+    auto& on = *(uint64_t*)((char*)bb + OFF_ON);
+    auto& up = *(uint64_t*)((char*)bb + OFF_UP);
+    if ((down | on) & KIND_SUPPORT_HOLD) { up &= ~KIND_SUPPORT_HOLD; return; }
+    on |= KIND_SUPPORT_HOLD;
+    up &= ~KIND_SUPPORT_HOLD;
+    if (++g_fills <= cfg::SUBPROBE_MAX_LINES) LOGI("%s LG first: SUPPORT_HOLD bit was cleared by the VR layer, put back (#%d)", TAG, g_fills);
+}
+
 bool sub_weapon_in_hand() {
     const int wp = weapons::current_id();
     return wp == 4500 || wp == 4510 || wp == 6200 || wp == 6300;   // knives, hand + flash grenade
@@ -136,6 +156,7 @@ void frame() {
     const char* why = !lg ? " -- LG released" : g_first != First::LG ? (g_first == First::RG ? " -- RG went first" : " -- not LG first")
                     : eq == nullptr ? " -- no player" : menu ? " -- menu open" : "";
     set_support_force(keep, why);
+    if (g_sh_forced) fill_support_hold_bit();
 }
 
 } // namespace vn::suppress
