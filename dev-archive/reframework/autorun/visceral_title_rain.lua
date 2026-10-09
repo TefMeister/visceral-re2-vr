@@ -159,7 +159,7 @@ re.on_frame(function()
             tostring(ok), tostring(r), tostring(active)))
         -- 2026-10-10 00:40: the refusals come while the Story object is NOT updating (UpdateSelf=false: at boot for ~2 s,
         -- and on the press-any-button screen after a game until A is pressed). Switch its update on once and retry.
-        if active == false and st.attempts >= 3 and not st.nudged then
+        if active == false and not st.nudged then   -- 2026-10-10 01:00: at once (waiting 3 tries cost Tefa ~6 s on the title)
             st.nudged = true
             local done = safe(function() go:call("set_UpdateSelf", true); return true end)
             log_line("Story object was not updating: switched its update on (" .. tostring(done) .. ")")
