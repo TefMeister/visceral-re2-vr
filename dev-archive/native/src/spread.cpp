@@ -34,8 +34,10 @@ Choice choose(const Player& p) {
     const bool two_hands = bridge::held(bridge::S_LGRIP) &&
                            dist(bridge::hand_pos(bridge::LEFT), bridge::hand_pos(bridge::RIGHT)) < cfg::SPREAD_DOCK_HANDS_M;
     if (running) return {cfg::SPREAD_RUNNING, "running"};
-    if (walking) return long_gun ? Choice{cfg::SPREAD_WALKING, two_hands ? "walking, long gun two hands" : "walking, long gun one hand"}
-                                 : Choice{cfg::SPREAD_WALKING_HANDGUN, two_hands ? "walking, handgun two hands" : "walking, handgun one hand"};
+    if (walking) {
+        if (long_gun) return two_hands ? Choice{cfg::SPREAD_WALKING_LONG_TWO_HANDS, "walking, long gun two hands"} : Choice{cfg::SPREAD_WALKING, "walking, long gun one hand"};
+        return two_hands ? Choice{cfg::SPREAD_WALKING_HANDGUN_TWO_HANDS, "walking, handgun two hands"} : Choice{cfg::SPREAD_WALKING_HANDGUN, "walking, handgun one hand"};
+    }
     if (two_hands) return {cfg::SPREAD_STILL_TWO_HANDS, "still, two hands"};
     return long_gun ? Choice{cfg::SPREAD_STILL_LONG_ONE_HAND, "still, long gun one hand"} : Choice{cfg::SPREAD_STILL_HANDGUN_ONE_HAND, "still, handgun one hand"};
 }
