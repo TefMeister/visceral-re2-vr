@@ -51,8 +51,8 @@ constexpr int   MOTION_LOG_MAX     = 400;     // and at most this many times per
 // The VR layer sends the game's SUPPORT_HOLD only while FirstPerson is NOT docking the left hand on a weapon, and the
 // dock can switch on with the knife/grenade itself in hand: it went in and out in a loop (Tefa 2026-10-09 00:15).
 // true = while LG is held first, the game's own InputSystem.setForce(SUPPORT_HOLD) keeps it held; false = old way.
-constexpr bool  KEEP_SUPPORT_HOLD_ON_LG = true;
-constexpr bool  NO_FORBID_AIM_WITH_LG = true;   // b115: the game's gun-lowers-at-something rule off while LG holds the sub weapon
+constexpr bool  KEEP_SUPPORT_HOLD_ON_LG = false;  // b116: OFF -- b115 worn: grenade still drops once, then menus dead (Tefa 2026-10-09 22:25)
+constexpr bool  NO_FORBID_AIM_WITH_LG = false;   // b116: off with it (never fired in b115)   // b115: the game's gun-lowers-at-something rule off while LG holds the sub weapon
 constexpr int   SUBPROBE_MAX_LINES = 400;   // b113 probe: change lines logged per launch while LG is held
 
 // ---- item pick-up without the black screen (b110, 2026-10-09, board row 6b) -----------------------------------
