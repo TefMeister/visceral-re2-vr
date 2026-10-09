@@ -1669,3 +1669,19 @@ Two regimes, decided by `FirstPerson::will_be_used()` (enabled, GUI state not PA
 Consequence: a held camera copied from a FirstPerson frame gets the head's pitch/roll twice in a menu (the b095/b096 tilt;
 fixed in b100 by stripping). The ladder start flick is probably the same thing. Full write-up:
 `modding-notes/2026-10-08-menu-camera-doubled-headset-turn.md`.
+
+## VR layer: left grip, holster heading, pick-up GUI, options (2026-10-09, read from REFramework's source + type database)
+- **SUPPORT_HOLD (LG) = left grip AND NOT FirstPerson's dock** (`VR.cpp openvr_input_to_re2_re3`); the dock needs only
+  `IsHold`, not reloading, and the left hand within 0.1 m of the playing clip's left-wrist spot (sticky while the left
+  grip stays held) (`FirstPerson.cpp update_player_arm_ik`) `[inferred-static 2026-10-09]`. With a knife/grenade out this
+  can loop the sub weapon in and out `[hypothesis]`; b109 holds SUPPORT_HOLD with `InputSystem.setForce(128, true)` while
+  LG is held first.
+- **Lua `vr:get_rotation(i)` returns a `Matrix4x4f`, which has no `.x/.y/.z/.w`**; use `:to_quat()` (ScriptRunner.cpp)
+  `[inferred-static 2026-10-09]`. Our holster heading read `.w` from it and was the identity until b111.
+- **A pick-up = the inventory in get-item mode**: `GUIMaster.openInventoryGetItemMode`, from fsm action
+  `app.ropeway.fsmv2.ItemGetMenu` `[inferred-static 2026-10-09]`. The VR layer draws `GUIBlackMask`, `BlackFade` and the
+  other fade elements untouched (screen-wide) and skips `GuiBack` in RE2/RE3. The plugin API's `on_pre_gui_draw_element`
+  can skip any element (return false).
+- **Options**: `OptionManager.OnOff` ON = 0, OFF = 1; `set_ControllerRunType` / `set_ControllerAutoReloadValue` take
+  OnOff, `set_CameraAimAssistLevel` a UInt32; `InputSystem.setOptionToggleRunType(OnOff)` ON = toggle (so Hold = OFF);
+  `saveSystemSaveData_PC` writes the system save `[inferred-static 2026-10-09; aim-assist 0 = off is a hypothesis]`.
