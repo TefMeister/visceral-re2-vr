@@ -67,6 +67,10 @@ constexpr unsigned OPTIONS_AIM_ASSIST_LEVEL = 0;   // OptionManager.CameraAimAss
 constexpr int   OPTIONS_SETTLE_FRAMES = 120;       // frames in play (headset live) before the options are touched
 constexpr int   OPTIONS_TRIES = 3;                 // set + read back at most this many times per launch
 
+// ---- spread probe (b124, 2026-10-10) ---------------------------------------------------------------------------
+constexpr int   SPREADPROBE_MAX_LINES = 600;   // log lines per launch
+constexpr float SPREADPROBE_FIT_STEP = 0.05f;  // log the fit point when it moved more than this since the last line
+
 // ---- running stop (2026-10-06, ported from Arcade Controls' re2_vr_run_toggle_fix.lua) -------------------------
 constexpr float RUN_STICK_DEADZONE = 0.05f;   // left stick nearer the middle than this = let go: running stops
 constexpr int   RUN_LOG_FIRST      = 10;      // log the first few jog-flag changes, to prove the write lands
