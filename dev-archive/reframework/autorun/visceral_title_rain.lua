@@ -31,7 +31,7 @@ local RAIN_CONTAINER = 0
 local RAIN_BY_LOCATION = { [16] = 2, [23] = 0, [24] = 4, [25] = 3, [30] = 1 }   -- RPD, GasStation2, OrphanAsylum, OrphanApproach, Opening3
 local ORPHAN_ASYLUM, NO_RAIN_SURVIVOR = 24, 3
 
-local st = { menu = nil, ours = nil, story_open = false, attempts = 0, next_try = 0, next_find = 0, gave_up = false, logged_fail = false }
+local st = { menu = nil, ours = nil, story_open = false, attempts = 0, next_try = 0, next_find = 0, gave_up = false, logged_fail = false, nudged = false }
 
 local function safe(fn) local ok, r = pcall(fn); if ok then return r end return nil end
 local function log_line(m) log.info(TAG .. " " .. m) end
@@ -41,7 +41,7 @@ if not story_t then log_line("MenuStoryBehavior NOT FOUND -- off"); return end
 
 local function reset(why)
     if st.menu then log_line("title left (" .. why .. ")") end
-    st.menu, st.ours, st.story_open, st.attempts, st.gave_up, st.logged_fail, st.logged_el = nil, nil, false, 0, false, false, false
+    st.menu, st.ours, st.story_open, st.attempts, st.gave_up, st.logged_fail, st.logged_el, st.nudged = nil, nil, false, 0, false, false, false, false
 end
 
 local function kill(c) if c then safe(function() c:set_field("KillAllRequest", true) end) end end
@@ -157,6 +157,13 @@ re.on_frame(function()
         local active = go and safe(function() return go:call("get_UpdateSelf") end)
         log_line(string.format("request refused (attempt %d): ok=%s result=%s | Story object UpdateSelf=%s", st.attempts,
             tostring(ok), tostring(r), tostring(active)))
+        -- 2026-10-10 00:40: the refusals come while the Story object is NOT updating (UpdateSelf=false: at boot for ~2 s,
+        -- and on the press-any-button screen after a game until A is pressed). Switch its update on once and retry.
+        if active == false and st.attempts >= 3 and not st.nudged then
+            st.nudged = true
+            local done = safe(function() go:call("set_UpdateSelf", true); return true end)
+            log_line("Story object was not updating: switched its update on (" .. tostring(done) .. ")")
+        end
     end
 end)
 
