@@ -84,3 +84,21 @@ once-a-second `[Visceral] socket:` line (real left wrist's distance to the aid j
 Rain: at boot the request is now accepted at attempt 5; after a game, on the press-any-button screen, it is refused
 ("Invoke threw") while the Story object has `UpdateSelf=false`, until A is pressed `[verified-live 2026-10-10]`. The rain
 script now calls `set_UpdateSelf(true)` on it after 3 refusals; unworn.
+
+## 2026-10-10 01:15 -- b120 worn: it docks; b121 latches the socket
+
+b120 worn (Tefa, 00:50): the left hand took the MQ 11, the shotgun, the Spark Shot and the Matilda in the relaxed pose,
+and Tefa ran with the gun in both hands `[verified-live 2026-10-10, n=4 guns]`. Saved as the 2026-10-10 GOLDEN at
+Tefa's request. The aid joint is an anchor, not a follower: the real left wrist read 0.4-0.6 m from it while the hand
+was away, 0.0 when docked `[verified-live 2026-10-10]` -- the 09-04 doubt is closed.
+
+Fault: while docked the gun teleported between two spots. Tefa's video (VirtualDesktop.Android-20261010-005111-0.mp4,
+18.2-18.7 s, 29 frames at 60 fps) shows a strict every-other-frame alternation `[measured 2026-10-10]`. Cause
+`[hypothesis, fits the two-frame period]`: b120 read the socket fresh every frame from the joint matrices (last frame's
+final pose); the dock's "pistol fix" turns the right hand, the gun (attached to it) follows one frame later, the next
+reading is taken against the turned gun, the turn comes out differently, and so on - a two-frame loop. b121 latches the
+socket at the press and keeps it while docked (the 10-02 freeze did the same for the animation socket), and logs the raw
+and the latched socket for 60 frames after each dock, which will show the loop in the raw numbers if the reading is it.
+
+Rain after a game: the wake-up worked (the request was accepted 1.5 s after `set_UpdateSelf(true)`) but fired only
+at the tenth refusal, ~6 s late; now at the first.
