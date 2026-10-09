@@ -11,6 +11,7 @@
 //   run.cpp      running stops at once: stick let go or a second click (Arcade Controls' set_JogMode override)
 //   fire.cpp     RT fires without RG: no aim stance, no latch (the game's own three switches, found flat 2026-10-07)
 //   menu_body.cpp no third-person body in the inventory, map and pause menus (Arcade Controls' menu hide)
+//   options.cpp  Run Type Hold, auto reload off, aim assist off: set once through the game's OptionManager (b112)
 //   pickup.cpp   item pick-up: logs the GUI drawn and skips the black mask (b110, probe + first try)
 #include <windows.h>
 
@@ -23,6 +24,7 @@
 #include "ladder.h"
 #include "menu_body.h"
 #include "menu_probe.h"
+#include "options.h"
 #include "pickup.h"
 #include "run.h"
 #include "shortcut.h"
@@ -42,6 +44,7 @@ void on_frame() {
     fire::frame();
     menu_body::frame();
     pickup::frame();
+    options::frame();
     menu_probe::point("UpdateBehavior.ours-done");
 }
 } // namespace

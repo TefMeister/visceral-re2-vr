@@ -60,6 +60,11 @@ constexpr const char* PICKUP_HIDE[] = {"GUIBlackMask"};    // GUI elements not d
 constexpr int   PICKUP_GIVE_UP_FRAMES = 300;               // the inventory never read open this long after the call: stop
 constexpr int   PICKUP_NAME_CACHE = 512;                   // element names remembered per pick-up
 
+// ---- game options set once (b112, 2026-10-09, board row 5) -------------------------------------------------------
+constexpr unsigned OPTIONS_AIM_ASSIST_LEVEL = 0;   // OptionManager.CameraAimAssistLevel wanted [hypothesis: 0 = off]
+constexpr int   OPTIONS_SETTLE_FRAMES = 120;       // frames in play (headset live) before the options are touched
+constexpr int   OPTIONS_TRIES = 3;                 // set + read back at most this many times per launch
+
 // ---- running stop (2026-10-06, ported from Arcade Controls' re2_vr_run_toggle_fix.lua) -------------------------
 constexpr float RUN_STICK_DEADZONE = 0.05f;   // left stick nearer the middle than this = let go: running stops
 constexpr int   RUN_LOG_FIRST      = 10;      // log the first few jog-flag changes, to prove the write lands
