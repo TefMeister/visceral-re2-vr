@@ -68,7 +68,9 @@ end
 
 local function poses(vr)
     w3(S_HMD_POS, safe(function() return vr:get_position(0) end))
-    local q = safe(function() return vr:get_rotation(0) end)
+    -- b111: get_rotation returns a Matrix4x4f in Lua (no .w), so this slot was the identity from 2026-10-05 to b110 and
+    -- the holster spots never turned with the head; to_quat() is the path S_HMD_Q has used since b100
+    local q = safe(function() return vr:get_rotation(0):to_quat() end)
     if q and type(q.w) == "number" then w(S_HMD_ROT, q.x); w(S_HMD_ROT + 1, q.y); w(S_HMD_ROT + 2, q.z); w(S_HMD_ROT + 3, q.w)
     else w(S_HMD_ROT, 0); w(S_HMD_ROT + 1, 0); w(S_HMD_ROT + 2, 0); w(S_HMD_ROT + 3, 1) end
     local c = safe(function() return vr:get_controllers() end)
