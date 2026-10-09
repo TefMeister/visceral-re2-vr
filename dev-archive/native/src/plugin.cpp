@@ -28,6 +28,7 @@
 #include "pickup.h"
 #include "run.h"
 #include "shortcut.h"
+#include "spread.h"
 #include "spreadprobe.h"
 #include "suppress.h"
 
@@ -36,11 +37,12 @@ using namespace vn;
 namespace {
 void on_frame() {
     static std::atomic<bool> installed{false};
-    if (!installed.exchange(true)) { bridge::install(); shortcut::install(); suppress::install(); run::install(); fire::install(); pickup::install(); }   // hooks need the type database: first game frame
+    if (!installed.exchange(true)) { bridge::install(); shortcut::install(); suppress::install(); run::install(); fire::install(); pickup::install(); spread::install(); }   // hooks need the type database: first game frame
     menu_probe::point("UpdateBehavior.pre");
     bridge::frame_begin();
     holster::frame();
     suppress::frame();
+    spread::frame();                               // b125: bullet spread tiers
     spreadprobe::frame();                          // b124 probe: bullet spread tiers
     run::frame();
     fire::frame();
