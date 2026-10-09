@@ -1,0 +1,196 @@
+diff --git a/src/mods/FirstPerson.cpp b/src/mods/FirstPerson.cpp
+index 71c87795..837e9ae4 100644
+--- a/src/mods/FirstPerson.cpp
++++ b/src/mods/FirstPerson.cpp
+@@ -1,4 +1,6 @@
+ #include <unordered_set>
++#include <filesystem>
++#include <fstream>
+ 
+ #include <spdlog/spdlog.h>
+ #include <imgui.h>
+@@ -892,12 +894,6 @@ void FirstPerson::update_player_arm_ik(RETransform* transform) {
+     auto [rh_rotation, rh_pos] = calculate_joint_pos_rot(r_arm_wrist_hash, 1);
+     auto [lh_rotation, lh_pos] = calculate_joint_pos_rot(l_arm_wrist_hash, 0);
+ 
+-    auto lh_grip_position = rh_pos + (rh_rotation * original_left_pos_relative);
+-    const auto lh_delta_to_rh = (lh_pos - rh_pos);
+-    const auto lh_grip_delta_to_rh = (lh_grip_position - rh_pos);
+-    const auto lh_grip_delta = (lh_grip_position - lh_pos);
+-    const auto lh_grip_distance = glm::length(lh_grip_delta);
+-
+     const auto& vr = VR::get();
+     const auto is_holding_left_grip = vr->is_action_active(vr->get_action_grip(), vr->get_left_joystick());
+ 
+@@ -905,10 +901,103 @@ void FirstPerson::update_player_arm_ik(RETransform* transform) {
+     const auto player_condition = utility::re_component::find<REComponent>(transform, player_condition_def->get_type());
+     const bool is_reloading = player_condition != nullptr ? sdk::call_object_func_easy<bool>(player_condition, "get_IsReload") : false;
+     const bool is_aiming = player_condition != nullptr ? sdk::call_object_func_easy<bool>(player_condition, "get_IsHold") : false;
+-    
+-    if (is_aiming && !is_reloading && (lh_grip_distance <= 0.1 || (m_was_gripping_weapon && is_holding_left_grip))) {
+-        // pistol "fix"
+-        if (glm::length(Vector3f{original_left_pos_relative}) >= 0.1f) {
++
++    // Visceral (RE2 VR), 2026-10-09: never dock the left hand while a SUB weapon (knife, grenade) is in hand.
++    // VR.cpp sends the game's SUPPORT_HOLD (ready the sub weapon) as "left grip AND NOT was_gripping_weapon". With the
++    // grenade out the game is in its hold state, so the dock below could switch on whenever the real left hand came
++    // within 10 cm of the animation's left-wrist spot: the dock drops SUPPORT_HOLD, the grenade goes away, the hold
++    // ends, the dock lets go, SUPPORT_HOLD comes back - the grenade flipping in and out that Tefa saw (probe
++    // 2026-10-09: SUPPORT_HOLD off for one frame every 1.5-2.5 s while held). The two-handed dock is for guns; a sub
++    // weapon is held in the left hand by the game itself, so the left hand simply follows its controller.
++    bool sub_weapon_in_hand = false;
++    REManagedObject* weapon = nullptr;
++    {
++        static auto equipment_t = sdk::find_type_definition(game_namespace("survivor.Equipment"));
++        static auto implement_melee_t = sdk::find_type_definition(game_namespace("implement.Melee"));
++        static auto throw_grenade_generator_t = sdk::find_type_definition(game_namespace("weapon.generator.ThrowGrenadeGenerator"));
++        const auto equipment = equipment_t != nullptr ? utility::re_component::find<REComponent>(transform, equipment_t->get_type()) : nullptr;
++        const auto weapon_field = equipment_t != nullptr ? equipment_t->get_field("<EquipWeapon>k__BackingField") : nullptr;
++        weapon = (equipment != nullptr && weapon_field != nullptr) ? weapon_field->get_data<REManagedObject*>(equipment) : nullptr;
++        if (weapon != nullptr) {
++            const auto weapon_t = utility::re_managed_object::get_type_definition(weapon);
++            if (weapon_t != nullptr && implement_melee_t != nullptr && weapon_t->is_a(implement_melee_t)) {
++                sub_weapon_in_hand = true;
++            } else if (throw_grenade_generator_t != nullptr) {
++                const auto shell_generator = *sdk::get_object_field<REManagedObject*>(weapon, "<ShellGenerator>k__BackingField");
++                const auto shell_generator_t = shell_generator != nullptr ? utility::re_managed_object::get_type_definition(shell_generator) : nullptr;
++                if (shell_generator_t != nullptr && shell_generator_t->is_a(throw_grenade_generator_t)) {
++                    sub_weapon_in_hand = true;
++                }
++            }
++        }
++    }
++
++    // Visceral (RE2 VR), 2026-10-10: the two-handed grip without the aim stance, and a grip that never swings.
++    // The grip socket (left wrist relative to the right wrist) used to come from the playing animation every frame,
++    // which only puts both hands on the gun in the HOLD (aim) state - so the left hand could only dock while aiming,
++    // and the shot's kick moved the socket (the swing of 2026-10-02). Now, while aiming, the animation's socket is
++    // REMEMBERED per weapon type once it has sat still for 15 frames, kept in reframework/data/visceral_grip_sockets.txt,
++    // and from then on that remembered socket is the grip in every state: relaxed, walking, running, aiming. Tefa's
++    // rule (2026-09-22): the left hand docks ONLY while the left grip is held, the gun snaps forestock-into-hand at the
++    // press (the "pistol fix" below), no angle cap, and the dock holds until the grip is released whatever the distance.
++    // Docking never touches the game's inputs, so the pose stays as it is. A gun never aimed yet has no socket: aim it
++    // once with the right grip and it is learned. Reloads still follow the animation's own left-hand position.
++    constexpr float VISCERAL_DOCK_M = 0.15f;
++    constexpr int VISCERAL_LEARN_FRAMES = 15;
++    const bool is_gun = weapon != nullptr && !sub_weapon_in_hand;
++    const int32_t weapon_type = is_gun ? sdk::call_object_func_easy<int32_t>(weapon, "get_WeaponType") : -1;
++    const bool anim_socket_valid = via_motion != nullptr && glm::length(Vector3f{original_left_pos_relative}) >= 0.1f;
++    if (!m_sockets_loaded) {
++        m_sockets_loaded = true;
++        std::ifstream f(REFramework::get_persistent_dir() / "visceral_grip_sockets.txt");
++        int32_t t{}; float px{}, py{}, pz{}, qx{}, qy{}, qz{}, qw{};
++        while (f >> t >> px >> py >> pz >> qx >> qy >> qz >> qw) {
++            m_learned_sockets[t] = GripSocket{Vector4f{px, py, pz, 0.0f}, glm::quat{qw, qx, qy, qz}};
++        }
++        spdlog::info("[Visceral] grip sockets loaded: {}", m_learned_sockets.size());
++    }
++    if (is_gun && is_aiming && !is_reloading && anim_socket_valid && m_learned_sockets.find(weapon_type) == m_learned_sockets.end()) {
++        if (weapon_type == m_socket_sample_type && glm::length(Vector3f{original_left_pos_relative - m_socket_sample_pos}) < 0.01f) {
++            if (++m_socket_stable_frames >= VISCERAL_LEARN_FRAMES) {
++                m_learned_sockets[weapon_type] = GripSocket{original_left_pos_relative, original_left_rot_relative};
++                std::ofstream f(REFramework::get_persistent_dir() / "visceral_grip_sockets.txt");
++                for (const auto& [wt, gs] : m_learned_sockets) {
++                    f << wt << " " << gs.pos.x << " " << gs.pos.y << " " << gs.pos.z << " "
++                      << gs.rot.x << " " << gs.rot.y << " " << gs.rot.z << " " << gs.rot.w << "\n";
++                }
++                spdlog::info("[Visceral] grip socket learned for weapon type {}: ({:.3f} {:.3f} {:.3f}), {} on file",
++                             weapon_type, original_left_pos_relative.x, original_left_pos_relative.y, original_left_pos_relative.z, m_learned_sockets.size());
++            }
++        } else {
++            m_socket_sample_type = weapon_type;
++            m_socket_sample_pos = original_left_pos_relative;
++            m_socket_stable_frames = 0;
++        }
++    }
++    bool have_socket = false;
++    Vector4f socket_pos = original_left_pos_relative;
++    glm::quat socket_rot = original_left_rot_relative;
++    if (is_gun) {
++        const auto it = m_learned_sockets.find(weapon_type);
++        if (it != m_learned_sockets.end()) {
++            socket_pos = it->second.pos;
++            socket_rot = it->second.rot;
++            have_socket = true;
++        } else if (is_aiming && anim_socket_valid) {
++            have_socket = true;
++        }
++    }
++
++    auto lh_grip_position = rh_pos + (rh_rotation * socket_pos);
++    const auto lh_delta_to_rh = (lh_pos - rh_pos);
++    const auto lh_grip_delta_to_rh = (lh_grip_position - rh_pos);
++    const auto lh_grip_delta = (lh_grip_position - lh_pos);
++    const auto lh_grip_distance = glm::length(lh_grip_delta);
++
++    const bool dock = have_socket && !is_reloading && is_holding_left_grip && (m_was_gripping_weapon || lh_grip_distance <= VISCERAL_DOCK_M);
++    if (dock) {
++        // pistol "fix": turn the gun so its socket meets the real left hand
++        if (glm::length(Vector3f{socket_pos}) >= 0.1f) {
+             const auto original_grip_rot = utility::math::to_quat(glm::normalize(lh_grip_delta_to_rh));
+             const auto current_grip_rot = utility::math::to_quat(glm::normalize(lh_delta_to_rh));
+ 
+@@ -918,24 +1007,29 @@ void FirstPerson::update_player_arm_ik(RETransform* transform) {
+             rh_rotation = glm::normalize(grip_rot_delta * rh_rotation);
+ 
+             // Adjust the grip position
+-            lh_grip_position = rh_pos + (rh_rotation * original_left_pos_relative);
++            lh_grip_position = rh_pos + (rh_rotation * socket_pos);
+             lh_grip_position.w = 1.0f;
+         }
+ 
+         // Set the left hand position and rotation to the grip position
+         lh_pos = lh_grip_position;
+-        lh_rotation = rh_rotation * original_left_rot_relative;
++        lh_rotation = rh_rotation * socket_rot;
+ 
++        if (!m_was_gripping_weapon) {
++            spdlog::info("[Visceral] left hand docked on weapon type {} (aiming {}, {:.3f} m from the socket)", weapon_type, is_aiming, lh_grip_distance);
++        }
+         m_was_gripping_weapon = true;
+     } else {
++        if (m_was_gripping_weapon) {
++            spdlog::info("[Visceral] left hand let go (grip {}, reloading {})", is_holding_left_grip, is_reloading);
++        }
+         m_was_gripping_weapon = false;
+ 
+-        if (is_reloading) {
+-            lh_pos = lh_grip_position;
++        if (is_reloading && via_motion != nullptr) {
++            // the reload animation moves the left hand itself (magazine): follow it, as before
++            lh_pos = rh_pos + (rh_rotation * original_left_pos_relative);
++            lh_pos.w = 1.0f;
+             lh_rotation = rh_rotation * original_left_rot_relative;
+-        } else {
+-            lh_pos = lh_pos;
+-            lh_rotation = lh_rotation;
+         }
+     }
+ 
+diff --git a/src/mods/FirstPerson.hpp b/src/mods/FirstPerson.hpp
+index d8908953..cbeb469f 100644
+--- a/src/mods/FirstPerson.hpp
++++ b/src/mods/FirstPerson.hpp
+@@ -1,5 +1,7 @@
+ #pragma once
+ 
++#include <unordered_map>
++
+ #include <chrono>
+ #include <mutex>
+ 
+@@ -165,6 +167,14 @@ private:
+     bool m_wants_disable{false};
+     bool m_was_hmd_active{false};
+     bool m_was_gripping_weapon{false};
++    // Visceral 2026-10-10: the remembered grip socket per weapon type (left wrist relative to the right wrist, from the
++    // aim animation), so the left hand can dock in any state and the grip never swings after a shot
++    struct GripSocket { Vector4f pos{}; glm::quat rot{glm::identity<glm::quat>()}; };
++    std::unordered_map<int32_t, GripSocket> m_learned_sockets{};
++    bool m_sockets_loaded{false};
++    int32_t m_socket_sample_type{-1};
++    Vector4f m_socket_sample_pos{};
++    int32_t m_socket_stable_frames{0};
+ 
+ 
+     const ModToggle::Ptr m_smooth_xz_movement{ ModToggle::create(generate_name("SmoothXZMovementVR"), true) };
