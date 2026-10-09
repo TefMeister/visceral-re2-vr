@@ -45,3 +45,23 @@ save file". This was solved on 2026-09-27 (`visceral_title_one_scene.lua`, round
 seamless"; `modding-notes/2026-09-27-one-title-background-nine-rounds.md`). The 2026-10-04 clean reinstall took only
 the rain script back (b058: "No ... other menu extras"), so the scene script was missing, not broken. Reinstalled as
 b117 (commit 4b9b559 of the script). The rain script was written to sit beside it.
+
+## 2026-10-10 00:25 -- b119: the left hand docks in any state (Fable)
+
+Tefa: "grabbing a gun with the left hand doesn't work yet ... put left hand on the gun so it docks and doesn't move the
+pose, and finally be able to run while holding on to the weapon." Grenade pinned behind it.
+
+Why it never could: FirstPerson's dock needed `IsHold` (the aim state) because its grip socket came from the playing
+animation every frame, and only the aim clips put both hands on the gun; the relaxed clips hang the left hand at the
+side, so that "socket" is nowhere near the gun. Patch `2026-10-10-re2-left-grip-dock-any-state.patch` (cumulative,
+contains the 10-09 change): the animation's socket is remembered per weapon type while aiming, once still for 15 frames
+(the kick moves it for ~0.35 s after a shot), saved to `reframework/data/visceral_grip_sockets.txt`, and used in every
+state. Dock rule = Tefa's 2026-09-22 rule: only while LG is held, within 0.15 m at the press, sticky until release, the
+gun turned so the socket meets the left hand (praydog's "pistol fix"). No input is touched, so the body pose is whatever
+the game plays; running keeps the dock (both wrists follow the controllers in every PLAYER-camera state). The learned
+socket is also used while aiming, which is the 10-02 swing fix by another route. Reloads follow the animation's own
+left-hand position, as before. A gun never aimed has no socket yet (aim it once with RG).
+`[compile-verified 2026-10-10]`, unworn. Log lines: `[Visceral] grip sockets loaded`, `grip socket learned`,
+`left hand docked`, `left hand let go`.
+
+Also in b119: `visceral_title_rain.lua` logs the reason the launch-time rain request is refused (10-03 note, step 1).
