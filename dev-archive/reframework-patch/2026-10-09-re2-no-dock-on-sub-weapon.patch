@@ -1,5 +1,5 @@
 diff --git a/src/mods/FirstPerson.cpp b/src/mods/FirstPerson.cpp
-index 71c87795..727e1da9 100644
+index 71c87795..5eba9f09 100644
 --- a/src/mods/FirstPerson.cpp
 +++ b/src/mods/FirstPerson.cpp
 @@ -906,7 +906,36 @@ void FirstPerson::update_player_arm_ik(RETransform* transform) {
@@ -23,12 +23,12 @@ index 71c87795..727e1da9 100644
 +        const auto weapon_field = equipment_t != nullptr ? equipment_t->get_field("<EquipWeapon>k__BackingField") : nullptr;
 +        const auto weapon = (equipment != nullptr && weapon_field != nullptr) ? weapon_field->get_data<REManagedObject*>(equipment) : nullptr;
 +        if (weapon != nullptr) {
-+            const auto weapon_t = weapon->get_type_definition();
++            const auto weapon_t = utility::re_managed_object::get_type_definition(weapon);
 +            if (weapon_t != nullptr && implement_melee_t != nullptr && weapon_t->is_a(implement_melee_t)) {
 +                sub_weapon_in_hand = true;
 +            } else if (throw_grenade_generator_t != nullptr) {
 +                const auto shell_generator = *sdk::get_object_field<REManagedObject*>(weapon, "<ShellGenerator>k__BackingField");
-+                const auto shell_generator_t = shell_generator != nullptr ? shell_generator->get_type_definition() : nullptr;
++                const auto shell_generator_t = shell_generator != nullptr ? utility::re_managed_object::get_type_definition(shell_generator) : nullptr;
 +                if (shell_generator_t != nullptr && shell_generator_t->is_a(throw_grenade_generator_t)) {
 +                    sub_weapon_in_hand = true;
 +                }
