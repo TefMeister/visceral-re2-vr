@@ -47,6 +47,12 @@ constexpr float STATUS_LOG_EVERY_S = 0.5f;    // status line while held (twice a
 constexpr float MOTION_LOG_EVERY_S = 0.25f;   // fastest the player's animation name is logged
 constexpr int   MOTION_LOG_MAX     = 400;     // and at most this many times per game run
 
+// ---- LG keeps the sub weapon out (b109, 2026-10-09, board row 6d) ----------------------------------------------
+// The VR layer sends the game's SUPPORT_HOLD only while FirstPerson is NOT docking the left hand on a weapon, and the
+// dock can switch on with the knife/grenade itself in hand: it went in and out in a loop (Tefa 2026-10-09 00:15).
+// true = while LG is held first, the game's own InputSystem.setForce(SUPPORT_HOLD) keeps it held; false = old way.
+constexpr bool  KEEP_SUPPORT_HOLD_ON_LG = true;
+
 // ---- running stop (2026-10-06, ported from Arcade Controls' re2_vr_run_toggle_fix.lua) -------------------------
 constexpr float RUN_STICK_DEADZONE = 0.05f;   // left stick nearer the middle than this = let go: running stops
 constexpr int   RUN_LOG_FIRST      = 10;      // log the first few jog-flag changes, to prove the write lands
