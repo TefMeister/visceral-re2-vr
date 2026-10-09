@@ -53,6 +53,13 @@ constexpr int   MOTION_LOG_MAX     = 400;     // and at most this many times per
 // true = while LG is held first, the game's own InputSystem.setForce(SUPPORT_HOLD) keeps it held; false = old way.
 constexpr bool  KEEP_SUPPORT_HOLD_ON_LG = true;
 
+// ---- item pick-up without the black screen (b110, 2026-10-09, board row 6b) -----------------------------------
+// Only while the game's get-item inventory is up (a pick-up) and the headset is live. See pickup.h.
+constexpr bool  PICKUP_HIDE_ON = true;                     // false = probe only, nothing skipped
+constexpr const char* PICKUP_HIDE[] = {"GUIBlackMask"};    // GUI elements not drawn during a pick-up (first guess)
+constexpr int   PICKUP_GIVE_UP_FRAMES = 300;               // the inventory never read open this long after the call: stop
+constexpr int   PICKUP_NAME_CACHE = 512;                   // element names remembered per pick-up
+
 // ---- running stop (2026-10-06, ported from Arcade Controls' re2_vr_run_toggle_fix.lua) -------------------------
 constexpr float RUN_STICK_DEADZONE = 0.05f;   // left stick nearer the middle than this = let go: running stops
 constexpr int   RUN_LOG_FIRST      = 10;      // log the first few jog-flag changes, to prove the write lands
