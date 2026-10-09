@@ -149,9 +149,14 @@ re.on_frame(function()
     elseif st.attempts >= MAX_ATTEMPTS then
         st.gave_up = true
         log_line(string.format("gave up after %d attempts (last: %s)", st.attempts, tostring(r)))
-    elseif not st.logged_fail then
+    elseif not st.logged_fail or st.attempts % 10 == 0 then
+        -- 2026-10-10: say WHY (the 2026-10-03 note's first step): the launch-time request is refused until the Story
+        -- page has been opened once; the exception text names what is missing
         st.logged_fail = true
-        log_line("first request refused (effect data still loading?) -- retrying every " .. RETRY_S .. " s")
+        local go = safe(function() return st.menu:call("get_GameObject") end)
+        local active = go and safe(function() return go:call("get_UpdateSelf") end)
+        log_line(string.format("request refused (attempt %d): ok=%s result=%s | Story object UpdateSelf=%s", st.attempts,
+            tostring(ok), tostring(r), tostring(active)))
     end
 end)
 
