@@ -10,7 +10,6 @@
 namespace vn::spread {
 
 namespace {
-enum class Tier { GAME, ONE_HAND_STILL, TWO_HANDS_STILL };
 std::atomic<bool> g_live{false};
 std::atomic<int> g_shots{0};
 
@@ -24,36 +23,43 @@ Player player() {
 
 bool is_gun(int wp) { return wp >= 0 && wp != 4500 && wp != 4510 && wp != 6200 && wp != 6300; }
 
-Tier tier(const Player& p) {
-    if (!g_live || p.eq == nullptr || p.cond == nullptr || !is_gun(weapons::current_id())) return Tier::GAME;
-    const bool moving = call_direct<bool>(p.cond, "get_IsWalk", false) || call_direct<bool>(p.cond, "get_IsJog", false);
-    if (moving) return Tier::GAME;   // the vanilla walk-aim value
+struct Choice { float share; const char* why; };   // share of the gun's best accuracy; < 0 = leave the game's value
+
+Choice choose(const Player& p) {
+    const int wp = weapons::current_id();
+    if (!g_live || p.eq == nullptr || p.cond == nullptr || !is_gun(wp)) return {-1.0f, "not a gun"};
+    const bool running = call_direct<bool>(p.cond, "get_IsJog", false);
+    const bool walking = call_direct<bool>(p.cond, "get_IsWalk", false);
+    const bool long_gun = weapons::holster_for(wp) == weapons::Holster::LONG || weapons::holster_for(wp) == weapons::Holster::SPECIAL;
     const bool two_hands = bridge::held(bridge::S_LGRIP) &&
                            dist(bridge::hand_pos(bridge::LEFT), bridge::hand_pos(bridge::RIGHT)) < cfg::SPREAD_DOCK_HANDS_M;
-    return two_hands ? Tier::TWO_HANDS_STILL : Tier::ONE_HAND_STILL;
+    if (running) return {cfg::SPREAD_RUNNING, "running"};
+    if (walking) return long_gun ? Choice{cfg::SPREAD_WALKING, two_hands ? "walking, long gun two hands" : "walking, long gun one hand"}
+                                 : Choice{cfg::SPREAD_WALKING_HANDGUN, two_hands ? "walking, handgun two hands" : "walking, handgun one hand"};
+    if (two_hands) return {cfg::SPREAD_STILL_TWO_HANDS, "still, two hands"};
+    return long_gun ? Choice{cfg::SPREAD_STILL_LONG_ONE_HAND, "still, long gun one hand"} : Choice{cfg::SPREAD_STILL_HANDGUN_ONE_HAND, "still, handgun one hand"};
 }
 
-const char* name(Tier t) { return t == Tier::TWO_HANDS_STILL ? "two hands still" : t == Tier::ONE_HAND_STILL ? "one hand still" : "moving (game's value)"; }
-
-// returns the fit after the write (or the game's, untouched)
-float apply(const Player& p, Tier t) {
+// returns the fit after the write
+float apply(const Player& p, const Choice& c) {
     auto* fit = field_ptr<float>(p.eq, "_ReticleFitPoint");
-    if (fit == nullptr) return -1.0f;
-    if (t == Tier::TWO_HANDS_STILL) {
-        *fit = cfg::SPREAD_TWO_HANDS_STILL;
-        if (auto* isfit = field_ptr<bool>(p.eq, "_IsReticleFit")) *isfit = true;
-    } else if (t == Tier::ONE_HAND_STILL && *fit < cfg::SPREAD_ONE_HAND_STILL) {
-        *fit = cfg::SPREAD_ONE_HAND_STILL;   // aiming still with RG climbs above this on its own: never pulled down
+    if (fit == nullptr || c.share < 0.0f) return fit ? *fit : -1.0f;
+    float best = 100.0f;
+    if (auto* rp = call_ptr(p.eq, "get_ReticleParam")) {
+        if (auto* mx = field_ptr<float>(rp, "MAX_POINT")) best = *mx;
+        if (auto* range = field_ptr<float>(rp, "_PointRange"); range != nullptr && range[1] > 0.0f) best = range[1];
     }
+    *fit = best * c.share;
+    if (auto* isfit = field_ptr<bool>(p.eq, "_IsReticleFit")) *isfit = c.share >= 1.0f;
     return *fit;
 }
 
 int pre_request_fire(int, void**, REFrameworkTypeDefinitionHandle*, unsigned long long) {
     const Player p = player();
-    const Tier t = tier(p);
-    const float after = apply(p, t);
+    const Choice c = choose(p);
+    const float after = apply(p, c);
     const int n = g_shots.fetch_add(1) + 1;
-    if (n <= cfg::SPREAD_LOG_SHOTS) LOGI("%s spread: shot #%d, %s, fit %.1f", TAG, n, name(t), after);
+    if (n <= cfg::SPREAD_LOG_SHOTS) LOGI("%s spread: shot #%d, %s, fit %.1f", TAG, n, c.why, after);
     return REFRAMEWORK_HOOK_CALL_ORIGINAL;
 }
 void post_request_fire(void**, REFrameworkTypeDefinitionHandle, unsigned long long) {}
@@ -64,15 +70,16 @@ void install() {
     auto* m = API::get()->tdb()->find_method("app.ropeway.survivor.Equipment", "requestFire");
     if (m == nullptr) { LOGW("%s spread: Equipment.requestFire not found, tiers only per frame", TAG); return; }
     m->add_hook(pre_request_fire, post_request_fire, false);
-    LOGI("%s spread: tiers on (one hand still >= %.0f, two hands still = %.0f, moving = the game's)", TAG,
-         cfg::SPREAD_ONE_HAND_STILL, cfg::SPREAD_TWO_HANDS_STILL);
+    LOGI("%s spread: tiers on (running %.0f%%, walking long gun %.0f%%, walking handgun %.0f%%, still long gun one hand %.0f%%, still handgun one hand %.0f%%, still two hands %.0f%%)",
+         TAG, cfg::SPREAD_RUNNING * 100, cfg::SPREAD_WALKING * 100, cfg::SPREAD_WALKING_HANDGUN * 100, cfg::SPREAD_STILL_LONG_ONE_HAND * 100,
+         cfg::SPREAD_STILL_HANDGUN_ONE_HAND * 100, cfg::SPREAD_STILL_TWO_HANDS * 100);
 }
 
 void frame() {
     g_live = bridge::live();
     if (!cfg::SPREAD_TIERS_ON) return;
     const Player p = player();
-    apply(p, tier(p));
+    apply(p, choose(p));
 }
 
 } // namespace vn::spread

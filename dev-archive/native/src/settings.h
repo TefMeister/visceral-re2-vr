@@ -70,8 +70,14 @@ constexpr int   OPTIONS_TRIES = 3;                 // set + read back at most th
 // ---- bullet spread by stance and hands (b125, 2026-10-10, Tefa's tiers; see spread.h) --------------------------
 // Reticle fit 0 = widest, 100 = dead on (Matilda's range; the game clamps per gun).
 constexpr bool  SPREAD_TIERS_ON = true;
-constexpr float SPREAD_ONE_HAND_STILL = 50.0f;    // "ok": a middle ground (first guess; Tefa tunes it)
-constexpr float SPREAD_TWO_HANDS_STILL = 100.0f;  // no spread
+// Share of each gun's best accuracy (1.0 = dead on). Tefa 2026-10-10 02:30 + 02:35 ("75% for walking with pistols").
+// Walking with two hands on a long gun was not named: set to the long-gun walking value.
+constexpr float SPREAD_RUNNING = 0.25f;                // running, one or two hands
+constexpr float SPREAD_WALKING = 0.50f;                // walking with a long gun (one or two hands)
+constexpr float SPREAD_WALKING_HANDGUN = 0.75f;        // walking with a handgun (one or two hands)
+constexpr float SPREAD_STILL_LONG_ONE_HAND = 0.75f;    // standing still, long gun, one hand
+constexpr float SPREAD_STILL_HANDGUN_ONE_HAND = 1.0f;  // standing still, handgun, one hand
+constexpr float SPREAD_STILL_TWO_HANDS = 1.0f;         // standing still, any gun, two hands
 constexpr float SPREAD_DOCK_HANDS_M = 0.75f;      // left grip held + controllers closer than this = two hands on the gun
 constexpr int   SPREAD_LOG_SHOTS = 200;           // shots logged per launch
 
