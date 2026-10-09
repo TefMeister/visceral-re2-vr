@@ -65,3 +65,22 @@ left-hand position, as before. A gun never aimed has no socket yet (aim it once 
 `left hand docked`, `left hand let go`.
 
 Also in b119: `visceral_title_rain.lua` logs the reason the launch-time rain request is refused (10-03 note, step 1).
+
+## 2026-10-10 00:40 -- b120: the socket is the gun's own aid joint
+
+b119 worn: the left grip did nothing. The log said why: the sockets it learned while aiming were (0.10, -0.55, -0.06) for
+the MQ 11 and (0.09, -0.54, -0.08) for the Matilda -- the left wrist 55 cm below the right. Our animation files carry the
+relaxed one-handed pose in every state since the Leon pose fix (2026-10-04), so the "animation socket" is the hanging
+hand, never the forestock `[verified-live 2026-10-10, n=2 guns]`. This is also why praydog's own dock never engaged
+after the pose fix (the b070 "left hand does not go on the gun" row): its 10 cm test was against the same hanging hand.
+
+b120 takes the socket from the game's own data instead: `Implement.get_AidJoint()` (weapon joint _101 / _100 by
+AidJointType), the anchor the stock two-hand hold pins the LEFT WRIST onto at 0.000 m (dossier 8c, 2026-09-04/05),
+read each frame relative to the right wrist (the gun is rigidly attached to it). The 09-04 doubt "is _101 an anchor
+or a follower of the hand" could never be tested flat (both hands always on the gun); in VR the hand is free, so the
+once-a-second `[Visceral] socket:` line (real left wrist's distance to the aid joint while the hand is away) settles it:
+~0 = follower (then the socket must come from elsewhere), > 0.1 = anchor. The stale learned file was removed.
+
+Rain: at boot the request is now accepted at attempt 5; after a game, on the press-any-button screen, it is refused
+("Invoke threw") while the Story object has `UpdateSelf=false`, until A is pressed `[verified-live 2026-10-10]`. The rain
+script now calls `set_UpdateSelf(true)` on it after 3 refusals; unworn.
