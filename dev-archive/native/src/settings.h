@@ -71,10 +71,12 @@ constexpr int   OPTIONS_TRIES = 3;                 // set + read back at most th
 // Reticle fit 0 = widest, 100 = dead on (Matilda's range; the game clamps per gun).
 constexpr bool  SPREAD_TIERS_ON = true;
 // Share of each gun's best accuracy (1.0 = dead on). Tefa 2026-10-10 02:30 + 02:35 ("75% for walking with pistols").
-// Walking with two hands on a long gun was not named: set to the long-gun walking value.
+// Walking with two hands: long gun 75%, handgun 90% (Tefa 02:50).
 constexpr float SPREAD_RUNNING = 0.25f;                // running, one or two hands
-constexpr float SPREAD_WALKING = 0.50f;                // walking with a long gun (one or two hands)
-constexpr float SPREAD_WALKING_HANDGUN = 0.75f;        // walking with a handgun (one or two hands)
+constexpr float SPREAD_WALKING = 0.50f;                // walking with a long gun, one hand
+constexpr float SPREAD_WALKING_HANDGUN = 0.75f;        // walking with a handgun, one hand
+constexpr float SPREAD_WALKING_LONG_TWO_HANDS = 0.75f;     // walking with a long gun, two hands (Tefa 02:50)
+constexpr float SPREAD_WALKING_HANDGUN_TWO_HANDS = 0.90f;  // walking with a handgun, two hands (Tefa 02:50)
 constexpr float SPREAD_STILL_LONG_ONE_HAND = 0.75f;    // standing still, long gun, one hand
 constexpr float SPREAD_STILL_HANDGUN_ONE_HAND = 1.0f;  // standing still, handgun, one hand
 constexpr float SPREAD_STILL_TWO_HANDS = 1.0f;         // standing still, any gun, two hands
