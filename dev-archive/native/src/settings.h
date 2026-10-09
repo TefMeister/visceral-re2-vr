@@ -67,6 +67,14 @@ constexpr unsigned OPTIONS_AIM_ASSIST_LEVEL = 0;   // OptionManager.CameraAimAss
 constexpr int   OPTIONS_SETTLE_FRAMES = 120;       // frames in play (headset live) before the options are touched
 constexpr int   OPTIONS_TRIES = 3;                 // set + read back at most this many times per launch
 
+// ---- bullet spread by stance and hands (b125, 2026-10-10, Tefa's tiers; see spread.h) --------------------------
+// Reticle fit 0 = widest, 100 = dead on (Matilda's range; the game clamps per gun).
+constexpr bool  SPREAD_TIERS_ON = true;
+constexpr float SPREAD_ONE_HAND_STILL = 50.0f;    // "ok": a middle ground (first guess; Tefa tunes it)
+constexpr float SPREAD_TWO_HANDS_STILL = 100.0f;  // no spread
+constexpr float SPREAD_DOCK_HANDS_M = 0.75f;      // left grip held + controllers closer than this = two hands on the gun
+constexpr int   SPREAD_LOG_SHOTS = 200;           // shots logged per launch
+
 // ---- spread probe (b124, 2026-10-10) ---------------------------------------------------------------------------
 constexpr int   SPREADPROBE_MAX_LINES = 600;   // log lines per launch
 constexpr float SPREADPROBE_FIT_STEP = 0.05f;  // log the fit point when it moved more than this since the last line
