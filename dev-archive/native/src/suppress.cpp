@@ -78,7 +78,7 @@ void clear_force(MO* eq) {
 }
 
 // b109: the game's own "hold this button" switch for SUPPORT_HOLD; logs both ways with what was in hand
-bool g_sh_forced = false;
+std::atomic<bool> g_sh_forced{false};
 int g_sh_count = 0;
 
 bool is_hold_now() {
@@ -119,6 +119,21 @@ void fill_support_hold_bit() {
     if (++g_fills <= cfg::SUBPROBE_MAX_LINES) LOGI("%s LG first: SUPPORT_HOLD bit was cleared by the VR layer, put back (#%d)", TAG, g_fills);
 }
 
+// b115: b114 closed the input gap (one drop in 52 s held, was every 1.5-2.5 s), but that one drop still came with IsHold
+// 0 for ~36 frames = the game's 0.5 s forbid-aim timer (ForbidHoldDeferTimer) [hypothesis]. The forbid cast runs from
+// the HEADSET along the gaze in VR (dossier 8g.5), so looking at the grenade can trip it. While we hold SUPPORT_HOLD,
+// PlayerForbidAimController.get_IsForbid answers false; each true answer turned is counted and logged.
+std::atomic<int> g_forbid_turned{0};
+int pre_forbid(int, void**, REFrameworkTypeDefinitionHandle*, unsigned long long) { return REFRAMEWORK_HOOK_CALL_ORIGINAL; }
+void post_forbid(void** ret_val, REFrameworkTypeDefinitionHandle, unsigned long long) {
+    if (ret_val == nullptr || !g_sh_forced || !cfg::NO_FORBID_AIM_WITH_LG) return;
+    if (((uintptr_t)*ret_val & 0xFF) == 0) return;
+    *ret_val = (void*)(uintptr_t)0;
+    const int n = g_forbid_turned.fetch_add(1) + 1;
+    if (n <= cfg::SUBPROBE_MAX_LINES && (n <= 5 || n % 50 == 0))
+        LOGI("%s LG first: the game's forbid-aim said YES, answered no (#%d, wp %d)", TAG, n, weapons::current_id());
+}
+
 bool sub_weapon_in_hand() {
     const int wp = weapons::current_id();
     return wp == 4500 || wp == 4510 || wp == 6200 || wp == 6300;   // knives, hand + flash grenade
@@ -132,6 +147,10 @@ void install() {
     // b083-b084 hooked the game's input questions (isOn/isDown) to stop RT: the argument read was wrong (an address,
     // not the button), so unrelated questions were answered NO and walking stopped while LG was held
     // [verified-live 2026-10-06]. Removed; code in archive/suppress-rt-block-b084.cpp. RT with a grenade is open.
+    auto* m = API::get()->tdb()->find_method("app.ropeway.survivor.player.PlayerForbidAimController", "get_IsForbid");
+    if (m == nullptr) { LOGW("%s forbid-aim: get_IsForbid not found, LG grenade may still drop at a look", TAG); return; }
+    m->add_hook(pre_forbid, post_forbid, false);
+    LOGI("%s forbid-aim: get_IsForbid hook in (answered no while LG holds the sub weapon)", TAG);
 }
 
 void frame() {
