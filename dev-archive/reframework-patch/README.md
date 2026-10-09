@@ -23,7 +23,7 @@ ef-76build-76b.bat` (target RE2) ->
 
 - `2026-10-10-re2-left-grip-dock-any-state.patch` — against `76298bd`, CONTAINS the 10-09 no-dock patch (same file,
   cumulative diff; apply this one alone). The grip socket (left wrist relative to the right, from the aim animation) is
-  learned per weapon type while aiming (15 still frames) and saved to `reframework/data/visceral_grip_sockets.txt`;
-  from then on the left hand docks in any state, only while the left grip is held (15 cm at the press, sticky until
+  read each frame from the weapon's own aid joint (`Implement.get_AidJoint()`, the game's support-hand anchor the stock hold pins the left wrist
+  onto; b119's learned-from-animation version was wrong, our clips hang the hand at the hip); the left hand docks in any state, only while the left grip is held (15 cm at the press, sticky until
   release), the gun turning forestock-into-hand at the press; aiming uses the learned socket too, so the kick no longer
   swings the gun (replaces the 10-02 freeze). Reloads follow the animation. `[Visceral]` lines in the REFramework log.
