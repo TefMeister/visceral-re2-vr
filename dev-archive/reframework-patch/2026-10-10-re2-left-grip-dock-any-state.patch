@@ -1,5 +1,5 @@
 diff --git a/src/mods/FirstPerson.cpp b/src/mods/FirstPerson.cpp
-index 71c87795..45165d5c 100644
+index 71c87795..f3cdecea 100644
 --- a/src/mods/FirstPerson.cpp
 +++ b/src/mods/FirstPerson.cpp
 @@ -1,4 +1,6 @@
@@ -22,7 +22,7 @@ index 71c87795..45165d5c 100644
      const auto& vr = VR::get();
      const auto is_holding_left_grip = vr->is_action_active(vr->get_action_grip(), vr->get_left_joystick());
  
-@@ -905,10 +901,106 @@ void FirstPerson::update_player_arm_ik(RETransform* transform) {
+@@ -905,10 +901,111 @@ void FirstPerson::update_player_arm_ik(RETransform* transform) {
      const auto player_condition = utility::re_component::find<REComponent>(transform, player_condition_def->get_type());
      const bool is_reloading = player_condition != nullptr ? sdk::call_object_func_easy<bool>(player_condition, "get_IsReload") : false;
      const bool is_aiming = player_condition != nullptr ? sdk::call_object_func_easy<bool>(player_condition, "get_IsHold") : false;
@@ -126,14 +126,19 @@ index 71c87795..45165d5c 100644
 +    const auto lh_grip_delta = (lh_grip_position - lh_pos);
 +    const auto lh_grip_distance = glm::length(lh_grip_delta);
 +
-+    const bool dock = have_socket && !is_reloading && is_holding_left_grip && (m_was_gripping_weapon || lh_grip_distance <= VISCERAL_DOCK_M);
++    // 2026-10-10 01:40 (b123): a reload while docked. The dock let go for the reload (the hand must follow the reload
++    // animation), so was_gripping_weapon went false, VR.cpp then sent SUPPORT_HOLD (left grip still held) and the game
++    // switched to the sub weapon, cancelling the reload; the hand snapped back on: Tefa "cannot reload while LG is docked
++    // on the gun". Now the GRIP is kept through the reload (no SUPPORT_HOLD) while the HAND follows the animation.
++    const bool dock_wanted = have_socket && is_holding_left_grip && (m_was_gripping_weapon || lh_grip_distance <= VISCERAL_DOCK_M);
++    const bool dock = dock_wanted && !is_reloading;
 +    if (dock) {
 +        // pistol "fix": turn the gun so its socket meets the real left hand
 +        if (glm::length(Vector3f{socket_pos}) >= 0.1f) {
              const auto original_grip_rot = utility::math::to_quat(glm::normalize(lh_grip_delta_to_rh));
              const auto current_grip_rot = utility::math::to_quat(glm::normalize(lh_delta_to_rh));
  
-@@ -918,24 +1010,36 @@ void FirstPerson::update_player_arm_ik(RETransform* transform) {
+@@ -918,24 +1015,45 @@ void FirstPerson::update_player_arm_ik(RETransform* transform) {
              rh_rotation = glm::normalize(grip_rot_delta * rh_rotation);
  
              // Adjust the grip position
@@ -154,10 +159,20 @@ index 71c87795..45165d5c 100644
 +        }
          m_was_gripping_weapon = true;
      } else {
-+        if (m_was_gripping_weapon) {
-+            spdlog::info("[Visceral] left hand let go (grip {}, reloading {})", is_holding_left_grip, is_reloading);
+-        m_was_gripping_weapon = false;
++        if (is_reloading && dock_wanted) {
++            if (!m_logged_reload_grip) {
++                m_logged_reload_grip = true;
++                spdlog::info("[Visceral] reloading with the left grip held: grip kept, hand follows the reload animation");
++            }
++            m_was_gripping_weapon = true;
++        } else {
++            if (m_was_gripping_weapon) {
++                spdlog::info("[Visceral] left hand let go (grip {}, reloading {})", is_holding_left_grip, is_reloading);
++            }
++            m_was_gripping_weapon = false;
++            m_logged_reload_grip = false;
 +        }
-         m_was_gripping_weapon = false;
 +        if (is_gun && ++m_socket_log_frames >= 90) {   // about once a second while a gun is held and not docked
 +            m_socket_log_frames = 0;
 +            spdlog::info("[Visceral] socket: weapon type {}, aid joint {}, real left wrist {:.3f} m from the aid joint, controller hand {:.3f} m from the socket, left grip {}, aiming {}",
@@ -178,7 +193,7 @@ index 71c87795..45165d5c 100644
      }
  
 diff --git a/src/mods/FirstPerson.hpp b/src/mods/FirstPerson.hpp
-index d8908953..b0a53ce4 100644
+index d8908953..f7f09d17 100644
 --- a/src/mods/FirstPerson.hpp
 +++ b/src/mods/FirstPerson.hpp
 @@ -1,5 +1,7 @@
@@ -189,7 +204,7 @@ index d8908953..b0a53ce4 100644
  #include <chrono>
  #include <mutex>
  
-@@ -165,6 +167,13 @@ private:
+@@ -165,6 +167,14 @@ private:
      bool m_wants_disable{false};
      bool m_was_hmd_active{false};
      bool m_was_gripping_weapon{false};
@@ -200,6 +215,7 @@ index d8908953..b0a53ce4 100644
 +    glm::quat m_latched_socket_rot{glm::identity<glm::quat>()};
 +    int32_t m_latched_socket_type{-1};
 +    int32_t m_dock_log_frames{0};
++    bool m_logged_reload_grip{false};
  
  
      const ModToggle::Ptr m_smooth_xz_movement{ ModToggle::create(generate_name("SmoothXZMovementVR"), true) };
