@@ -28,6 +28,7 @@
 #include "pickup.h"
 #include "run.h"
 #include "shortcut.h"
+#include "subprobe.h"
 #include "suppress.h"
 
 using namespace vn;
@@ -40,6 +41,7 @@ void on_frame() {
     bridge::frame_begin();
     holster::frame();
     suppress::frame();
+    subprobe::frame(suppress::support_forced());   // b113 probe, row 6d
     run::frame();
     fire::frame();
     menu_body::frame();

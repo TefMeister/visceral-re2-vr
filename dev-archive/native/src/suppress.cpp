@@ -87,7 +87,7 @@ bool is_hold_now() {
     return call_direct<bool>(cond, "get_IsHold", false);
 }
 
-void set_support_force(bool on) {
+void set_support_force(bool on, const char* why = "") {
     if (on == g_sh_forced) return;
     auto* is = API::get()->get_managed_singleton("app.ropeway.InputSystem");
     auto* m = is ? find_method_deep(is->get_type_definition(), "setForce") : nullptr;
@@ -95,8 +95,8 @@ void set_support_force(bool on) {
     m->call<void>(API::get()->get_vm_context(), (void*)is, KIND_SUPPORT_HOLD, on);
     g_sh_forced = on;
     if (on) ++g_sh_count;
-    LOGI("%s LG first: SUPPORT_HOLD %s (#%d, wp %d, IsHold %d)", TAG, on ? "HELD by setForce" : "let go", g_sh_count,
-         weapons::current_id(), is_hold_now() ? 1 : 0);
+    LOGI("%s LG first: SUPPORT_HOLD %s (#%d, wp %d, IsHold %d)%s", TAG, on ? "HELD by setForce" : "let go", g_sh_count,
+         weapons::current_id(), is_hold_now() ? 1 : 0, why);
 }
 
 bool sub_weapon_in_hand() {
@@ -105,6 +105,8 @@ bool sub_weapon_in_hand() {
 }
 
 } // namespace
+
+bool support_forced() { return g_sh_forced; }
 
 void install() {
     // b083-b084 hooked the game's input questions (isOn/isDown) to stop RT: the argument read was wrong (an address,
@@ -128,8 +130,12 @@ void frame() {
     if (g_clear_in > 0 && --g_clear_in == 0 && eq != nullptr) clear_force(eq);
 
     // b109: LG held first, in play (no menu, a player): the game keeps SUPPORT_HOLD on, whatever the dock does
-    const bool keep = cfg::KEEP_SUPPORT_HOLD_ON_LG && lg && g_first == First::LG && eq != nullptr && !menu_body::is_menu_open();
-    set_support_force(keep);
+    const bool menu = menu_body::is_menu_open();
+    const bool keep = cfg::KEEP_SUPPORT_HOLD_ON_LG && lg && g_first == First::LG && eq != nullptr && !menu;
+    // b113: say why it was let go (the first hold of 16:27:33 let go after 0.7 s with LG still held, per Tefa)
+    const char* why = !lg ? " -- LG released" : g_first != First::LG ? (g_first == First::RG ? " -- RG went first" : " -- not LG first")
+                    : eq == nullptr ? " -- no player" : menu ? " -- menu open" : "";
+    set_support_force(keep, why);
 }
 
 } // namespace vn::suppress
