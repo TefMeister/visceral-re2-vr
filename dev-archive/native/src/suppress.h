@@ -10,4 +10,5 @@
 namespace vn::suppress {
 void install();             // the isOn(Kind) hooks (once, from the game thread)
 void frame();               // once per frame (UpdateBehavior pre)
+bool support_forced();      // b109: SUPPORT_HOLD held by setForce right now (for subprobe.cpp)
 } // namespace vn::suppress
