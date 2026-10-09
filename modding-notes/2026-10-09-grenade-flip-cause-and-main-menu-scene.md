@@ -116,3 +116,12 @@ being the one WITH the Story-object wake-up; after a game 11.6 s (no wake-up), 1
 10.6 s with the wake-up at once. So the wake-up never helped and hurt the boot: removed (b122). The request is refused
 ("Invoke threw") until the title scene has its effect data, and is accepted the moment it is there. Earlier rain means
 loading that data earlier: open.
+
+## 2026-10-10 01:45 -- b123: reloading while docked
+
+Tefa: "cannot reload while LG is docked on the gun, game plays a short animation of a left hand coming off the gun and
+then snapping back on again." Cause, read from the code `[inferred-static 2026-10-10]`: the dock lets go during a reload
+(the hand must follow the reload animation), so `was_gripping_weapon` turned false, VR.cpp then sent SUPPORT_HOLD (the
+left grip is still held) and the game switched to the sub weapon, which cancels the reload; the reload over, the dock
+came back. b123 keeps the grip flag true through the reload while the hand follows the animation, so no SUPPORT_HOLD is
+sent. `[compile-verified 2026-10-10]`, unworn.
