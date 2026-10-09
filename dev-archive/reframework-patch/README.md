@@ -10,3 +10,11 @@
 Build: `git worktree add <dir> a24c3459`, apply the patch, `git submodule update --init --recursive`,
 `cmake .. -G "Visual Studio 17 2022" -A x64 -DDEVELOPER_MODE=ON` in `build/`, then
 `cmake --build . --config Release --target RE2`; the result is `build/bin/RE2/dinput8.dll`.
+
+- `2026-10-09-re2-no-dock-on-sub-weapon.patch` — against praydog's `pd-upscaler` branch at `76298bd` (the installed
+  DLSS-loader build, `dinput8.dll` 06f626da30fb). `FirstPerson.cpp update_player_arm_ik` docked the left hand on a
+  knife or grenade as if it were a gun, and the VR layer drops SUPPORT_HOLD while docked: the grenade went in and out
+  in a loop. The patch skips the dock while the equipped weapon is an `implement.Melee` or a grenade-throwing Gun.
+  Build: `git worktree add D:ef-76b 76298bd` (no space in the path), apply `build-local-no-csharp.patch` (+ drop the
+  CSharp lines from CMakeLists.txt), apply this patch, `D:ef-76build-76b.bat` (target RE2) ->
+  `build2/bin/RE2/dinput8.dll`. Note: `modding-notes/2026-10-09-grenade-flip-cause-and-main-menu-scene.md`.
