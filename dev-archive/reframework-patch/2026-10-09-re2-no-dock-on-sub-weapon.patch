@@ -1,0 +1,42 @@
+diff --git a/src/mods/FirstPerson.cpp b/src/mods/FirstPerson.cpp
+index 71c87795..727e1da9 100644
+--- a/src/mods/FirstPerson.cpp
++++ b/src/mods/FirstPerson.cpp
+@@ -906,7 +906,36 @@ void FirstPerson::update_player_arm_ik(RETransform* transform) {
+     const bool is_reloading = player_condition != nullptr ? sdk::call_object_func_easy<bool>(player_condition, "get_IsReload") : false;
+     const bool is_aiming = player_condition != nullptr ? sdk::call_object_func_easy<bool>(player_condition, "get_IsHold") : false;
+     
+-    if (is_aiming && !is_reloading && (lh_grip_distance <= 0.1 || (m_was_gripping_weapon && is_holding_left_grip))) {
++    // Visceral (RE2 VR), 2026-10-09: never dock the left hand while a SUB weapon (knife, grenade) is in hand.
++    // VR.cpp sends the game's SUPPORT_HOLD (ready the sub weapon) as "left grip AND NOT was_gripping_weapon". With the
++    // grenade out the game is in its hold state, so the dock below could switch on whenever the real left hand came
++    // within 10 cm of the animation's left-wrist spot: the dock drops SUPPORT_HOLD, the grenade goes away, the hold
++    // ends, the dock lets go, SUPPORT_HOLD comes back - the grenade flipping in and out that Tefa saw (probe
++    // 2026-10-09: SUPPORT_HOLD off for one frame every 1.5-2.5 s while held). The two-handed dock is for guns; a sub
++    // weapon is held in the left hand by the game itself, so the left hand simply follows its controller.
++    bool sub_weapon_in_hand = false;
++    {
++        static auto equipment_t = sdk::find_type_definition(game_namespace("survivor.Equipment"));
++        static auto implement_melee_t = sdk::find_type_definition(game_namespace("implement.Melee"));
++        static auto throw_grenade_generator_t = sdk::find_type_definition(game_namespace("weapon.generator.ThrowGrenadeGenerator"));
++        const auto equipment = equipment_t != nullptr ? utility::re_component::find<REComponent>(transform, equipment_t->get_type()) : nullptr;
++        const auto weapon_field = equipment_t != nullptr ? equipment_t->get_field("<EquipWeapon>k__BackingField") : nullptr;
++        const auto weapon = (equipment != nullptr && weapon_field != nullptr) ? weapon_field->get_data<REManagedObject*>(equipment) : nullptr;
++        if (weapon != nullptr) {
++            const auto weapon_t = weapon->get_type_definition();
++            if (weapon_t != nullptr && implement_melee_t != nullptr && weapon_t->is_a(implement_melee_t)) {
++                sub_weapon_in_hand = true;
++            } else if (throw_grenade_generator_t != nullptr) {
++                const auto shell_generator = *sdk::get_object_field<REManagedObject*>(weapon, "<ShellGenerator>k__BackingField");
++                const auto shell_generator_t = shell_generator != nullptr ? shell_generator->get_type_definition() : nullptr;
++                if (shell_generator_t != nullptr && shell_generator_t->is_a(throw_grenade_generator_t)) {
++                    sub_weapon_in_hand = true;
++                }
++            }
++        }
++    }
++
++    if (is_aiming && !is_reloading && !sub_weapon_in_hand && (lh_grip_distance <= 0.1 || (m_was_gripping_weapon && is_holding_left_grip))) {
+         // pistol "fix"
+         if (glm::length(Vector3f{original_left_pos_relative}) >= 0.1f) {
+             const auto original_grip_rot = utility::math::to_quat(glm::normalize(lh_grip_delta_to_rh));
