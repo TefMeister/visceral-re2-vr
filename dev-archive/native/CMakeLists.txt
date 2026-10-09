@@ -20,7 +20,8 @@ add_library(visceral_native SHARED
     src/menu_body.cpp
     src/menu_probe.cpp
     src/options.cpp
-    src/pickup.cpp)
+    src/pickup.cpp
+    src/subprobe.cpp)
 target_include_directories(visceral_native PRIVATE include src)
 set_target_properties(visceral_native PROPERTIES OUTPUT_NAME "visceral_native" PREFIX "")
 target_compile_definitions(visceral_native PRIVATE NOMINMAX WIN32_LEAN_AND_MEAN)
