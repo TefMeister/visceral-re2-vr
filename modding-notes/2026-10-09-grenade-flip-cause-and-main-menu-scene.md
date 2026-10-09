@@ -102,3 +102,17 @@ and the latched socket for 60 frames after each dock, which will show the loop i
 
 Rain after a game: the wake-up worked (the request was accepted 1.5 s after `set_UpdateSelf(true)`) but fired only
 at the tenth refusal, ~6 s late; now at the first.
+
+## 2026-10-10 01:30 -- b121 worn: DONE; b122 rain
+
+b121 worn (Tefa 01:10): "the weapon hold still now and it feel so liberating playing like this, i can now run and shoot
+at the same time" `[verified-live 2026-10-10]`. Saved as the 2026-10-10 BASELINE golden. The log shows the loop the
+latch removed: the raw socket alternates (-0.433 0.065 0.021) / (-0.470 0.084 0.009) in a three-frame pattern while
+docked, the latched value holds `[measured 2026-10-10]`. Tefa's follow-on: more zombies, so running-and-shooting is not
+overpowering (captured in mod-ideas DUMP.md for filing).
+
+Rain timing, three boots and three returns from a game `[verified-live 2026-10-10]`: boot 2.5 s / 2 s / 11 s, the 11 s
+being the one WITH the Story-object wake-up; after a game 11.6 s (no wake-up), 1.5 s after a wake-up that came at 6 s,
+10.6 s with the wake-up at once. So the wake-up never helped and hurt the boot: removed (b122). The request is refused
+("Invoke threw") until the title scene has its effect data, and is accepted the moment it is there. Earlier rain means
+loading that data earlier: open.
