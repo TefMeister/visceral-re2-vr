@@ -42,6 +42,8 @@ float g_travel = 0.0f;    // 0 = rest/parked, 1 = back
 float g_base = 0.0f;      // dot(left - right, forward) at the dock
 float g_pull_m = 0.0f;    // how far back the hand has moved since the dock (metres along the gun)
 int g_log_near = 0;
+int g_auto = 0;           // button mode: 0 idle, 1 travelling back, 2 travelling forward
+float g_auto_t0 = 0.0f;
 
 // the socket handed to the VR layer: the slide joint (plus an offset) in right-wrist space
 struct VisceralDockSocket { int version; int active; float px, py, pz; float qx, qy, qz, qw; };
@@ -164,6 +166,7 @@ void frame() {
         g_wp = wp;
         g_w = slide_weapon(wp);
         g_needed = g_parked = g_hand_on = g_pulled = false;
+        g_auto = 0;
         g_travel = 0.0f;
         g_have_rest = false;
         g_socket.active = 0;
@@ -174,6 +177,35 @@ void frame() {
     if (!is_pump(g_wp) && !g_parked && !reload::mag_out() && call_direct<int>(g_gun, "getBulletNumber", -1) == 0) slide_lock_empty();   // b142: polled
     const bool menu = menu_body::is_menu_open();
     const bool lg = bridge::held(bridge::S_LGRIP), lt = bridge::held(bridge::S_LTRIG);
+
+    // 2026-10-11 the release way: LG held + LT pressed = the whole rack / pump cycle, run by itself (no hand tracking)
+    if (cfg::RACK_ON_BUTTON) {
+        const float now = now_s();
+        if (g_auto == 0 && !menu && lg && bridge::pressed(bridge::S_LTRIG) && !reload::session_active()) {
+            g_auto = 1;
+            g_auto_t0 = now;
+            bridge::rumble(bridge::LEFT, cfg::RACK_BUZZ_AMP * 0.5f, cfg::RACK_BUZZ_SEC);
+            LOGI("%s rack: LG+LT: WP%04d %s on the button", TAG, g_wp, is_pump(g_wp) ? "pump" : "slide rack");
+        }
+        if (g_auto == 1) {
+            const float t = (now - g_auto_t0) / cfg::RACK_BUTTON_PULL_SEC;
+            g_travel = std::fmin(1.0f, t);
+            if (t >= 1.0f) {
+                g_pulled = true;
+                sfx::play("slide_rack_pull", is_pump(g_wp) ? pump_sfx(g_wp) : reload::sfx_folder_now(), is_pump(g_wp) ? 2.0f : reload::sfx_volume_now());
+                bridge::rumble(bridge::LEFT, cfg::RACK_BUZZ_AMP, cfg::RACK_BUZZ_SEC);
+                if (is_pump(g_wp)) pump_native::on_pulled_down();   // the spent shell leaves on the pull, not the return
+                g_auto = 2;
+                g_auto_t0 = now;
+            }
+        } else if (g_auto == 2) {
+            const float t = (now - g_auto_t0) / cfg::RACK_BUTTON_RETURN_SEC;
+            g_travel = std::fmax(0.0f, 1.0f - t);
+            if (t >= 1.0f) { g_travel = 0.0f; g_pulled = false; g_auto = 0; complete(); }
+        }
+        g_socket.active = 0;   // the hand never docks on the slide in this mode
+        return;
+    }
 
     // the hand goes on the slide / fore-end: LT pressed with LG held and the hand near it; LT or LG let go = off
     if (!g_hand_on && !menu && lg && bridge::pressed(bridge::S_LTRIG) && !reload::session_active()) {

@@ -150,6 +150,12 @@ constexpr float RACK_RETURN_PER_SEC = 5.0f;   // let go mid-way: the slide sprin
 constexpr float SLIDE_PARK_SCALE = 1.5f;      // the locked-open slide sits this much further back than his parked (Tefa: "a little further")
 constexpr Vec3  SLIDE_DOCK_OFF = {0.0f, 0.0f, 0.0f};   // where the hand sits on the slide, in the slide joint's axes (b143: the joint itself; his dock_off is for his hand model)
 constexpr float RACK_BUZZ_AMP = 0.7f, RACK_BUZZ_SEC = 0.06f;
+// 2026-10-11 (Tefa): the release racks and pumps on the BUTTON, Arcade Controls style: LG held + LT pressed runs the
+// whole cycle by itself, no hand near the gun, no pull. "the gameplay has to have fluid controls in combat". false =
+// the b143 motion racking (hand docks on the slide, the left controller pulls it), kept for tinkering after release.
+constexpr bool  RACK_ON_BUTTON = true;
+constexpr float RACK_BUTTON_PULL_SEC = 0.12f;    // the slide / fore-end travels back in this long
+constexpr float RACK_BUTTON_RETURN_SEC = 0.10f;  // and forward again in this long
 constexpr bool  PUMP_NATIVE_ON = true;        // cut the game's own pump animation, hold the shell eject for our pull
 constexpr float PUMP_WINDOW_SEC = 2.5f;       // his pump_window_sec
 constexpr float HUD_AFTER_RELOAD_SEC = 5.0f;  // the ammo counter stays up this long after a magazine / shell / rack (Tefa 2026-10-10)
