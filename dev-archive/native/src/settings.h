@@ -16,7 +16,7 @@ constexpr ZoneOffset RIGHT_HIP    { 0.20f, -0.62f,  0.02f};   // shortcut RIGHT,
 constexpr ZoneOffset LEFT_HIP     {-0.20f, -0.62f,  0.02f};   // shortcut DOWN (right hand + RG) / ammo pouch (left hand + LG)
 constexpr ZoneOffset RIGHT_SHOULDER{ 0.28f, -0.22f, -0.08f};  // shortcut UP, right hand + RG
 constexpr ZoneOffset LEFT_SHOULDER{-0.28f, -0.22f, -0.08f};   // shortcut LEFT, right hand + RG
-constexpr ZoneOffset BACK         { 0.00f, -0.12f, -0.28f};   // behind the head: the sub weapon (knife/grenade), right hand + RG (b134)
+constexpr ZoneOffset BACK         { 0.12f, -0.62f, -0.30f};   // the sub weapon (knife/grenade), right hand + RG: lower back, as low as the pistol, a little right and out (Tefa 2026-10-10, b135; was behind the head in b134)
 
 constexpr float ZONE_ENTER_M    = 0.15f;   // hand closer than this = in the zone
 constexpr float ZONE_LEAVE_M    = 0.22f;   // and must go further than this to leave (no flicker at the edge)
