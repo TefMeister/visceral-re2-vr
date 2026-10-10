@@ -25,6 +25,7 @@
 #include "common.h"
 #include "fire.h"
 #include "holster.h"
+#include "flashlight.h"
 #include "ladder.h"
 #include "menu_body.h"
 #include "menu_probe.h"
@@ -47,7 +48,7 @@ using namespace vn;
 namespace {
 void on_frame() {
     static std::atomic<bool> installed{false};
-    if (!installed.exchange(true)) { bridge::install(); shortcut::install(); suppress::install(); run::install(); fire::install(); pickup::install(); spread::install(); menu_tint::install(); reload_block::install(); pump_native::install(); }   // hooks need the type database: first game frame
+    if (!installed.exchange(true)) { bridge::install(); shortcut::install(); suppress::install(); run::install(); fire::install(); pickup::install(); spread::install(); menu_tint::install(); reload_block::install(); pump_native::install(); flashlight::install(); }   // hooks need the type database: first game frame
     menu_probe::point("UpdateBehavior.pre");
     bridge::frame_begin();
     reload_block::frame();                         // b132: before anything reads this frame's buttons
@@ -56,6 +57,7 @@ void on_frame() {
     rack::frame();                                 // b140: slide rack + pump
     pump_native::frame();
     holster::frame();
+    flashlight::frame();                           // 2026-10-11: the flashlight like RE3's
     suppress::frame();
     spread::frame();                               // b125: bullet spread tiers
     spreadprobe::frame();                          // b124 probe: bullet spread tiers
