@@ -220,10 +220,10 @@ index d8908953..f7f09d17 100644
  
      const ModToggle::Ptr m_smooth_xz_movement{ ModToggle::create(generate_name("SmoothXZMovementVR"), true) };
 diff --git a/src/mods/VR.cpp b/src/mods/VR.cpp
-index 736bcc08..44db8a61 100644
+index 736bcc08..bea7e6af 100644
 --- a/src/mods/VR.cpp
 +++ b/src/mods/VR.cpp
-@@ -3946,16 +3946,41 @@ void VR::openvr_input_to_re2_re3(REManagedObject* input_system) {
+@@ -3946,16 +3946,44 @@ void VR::openvr_input_to_re2_re3(REManagedObject* input_system) {
          }
      };
  
@@ -232,7 +232,7 @@ index 736bcc08..44db8a61 100644
 +    // without the plugin, or in a menu, nothing changes. Writing the game's button record from the plugin at
 +    // UpdateBehavior pre did NOT reach these three (b134, worn 2026-10-10: the clears ran, the game still readied the
 +    // sub weapon from the left grip), so the decision is taken here, where the VR layer writes them.
-+    struct VisceralVrButtons { int version; int sub_out; int rg_never_aims; int attack_ok; };
++    struct VisceralVrButtons { int version; int sub_out; int rg_never_aims; int attack_ok; int hold; };   // v2: hold added (b137)
 +    static VisceralVrButtons* (*visceral_buttons)() = nullptr;
 +    if (visceral_buttons == nullptr) {
 +        if (const auto h = GetModuleHandleA("visceral_native.dll"); h != nullptr) {
@@ -244,10 +244,13 @@ index 736bcc08..44db8a61 100644
 +    bool visceral_support = is_left_grip_down && !is_gripping_weapon;
 +    bool visceral_attack = is_trigger_down;
 +    if (visceral_buttons != nullptr) {
-+        if (const auto* vb = visceral_buttons(); vb != nullptr && vb->version == 1) {
-+            // the sub weapon is readied by the plugin's latch; HOLD goes with it (the throw stance), never from the grip alone
++        if (const auto* vb = visceral_buttons(); vb != nullptr && (vb->version == 1 || vb->version == 2)) {
++            // the sub weapon is readied by the plugin's latch. b136 (v1) sent HOLD with it and the game THREW the
++            // grenade the moment the grip was released (worn 2026-10-10: HOLD is the game's throw with a grenade
++            // readied; ATTACK drops it at the feet). v2: the plugin says when HOLD goes on (a short pulse on the
++            // throwing swing), and ATTACK is let through only when it says so (the knife's swing).
 +            visceral_support = vb->sub_out != 0;
-+            if (vb->rg_never_aims) visceral_hold = vb->sub_out != 0;
++            if (vb->rg_never_aims) visceral_hold = vb->version == 2 ? vb->hold != 0 : vb->sub_out != 0;
 +            if (vb->sub_out && !vb->attack_ok) visceral_attack = false;
 +        }
 +    }
