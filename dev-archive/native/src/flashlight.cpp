@@ -5,9 +5,9 @@
 // the left upper chest ... and only in cutscenes is the actual flashlight seen." Switch: LT, left hand at the left
 // shoulder.
 //
-// How the game's flashlight is switched comes from Arcade Controls' re2_vr_holster.lua (LT flashlight, 2026-08):
-// SurvivorCondition.set_ManuallyLight + the orderer's PrecedeBits.Accept(64) (the manual switch input), pulsed until
-// IsLight matches, with the LightSwitchTimer's limit raised so it does not time out. Where the light sits comes from
+// b148 switched the GAME's flashlight (Arcade Controls' set_ManuallyLight + PrecedeBits.Accept(64)): it worked, but Leon
+// raised his hand as if holding the torch and no beam was seen (Tefa, worn 00:50). b150 leaves the game's state alone
+// and switches the IES light itself. Where the light sits comes from
 // REFramework's FirstPerson::on_pre_flashlight_apply_transform: the FlashLight component carries an IESLight whose
 // transform is the beam, and the beam leaves along the light's local +Z (REMath to_quat = lookAtLH).
 #include "flashlight.h"
@@ -23,32 +23,12 @@ using namespace joints;
 
 namespace {
 bool g_want = false;          // the switch
-int g_pulses = 0;             // switch inputs still allowed before giving up
-int g_cooldown = 0;
 MO* g_this = nullptr;         // the player's FlashLight component seen in this applyTransform call
 int g_logs = 0;
+bool g_report = false;      // log the beam's numbers once after each switch
 
 MO* player_go() { return call_ptr(API::get()->get_managed_singleton("app.ropeway.PlayerManager"), "get_CurrentPlayer"); }
 MO* condition() { return component(player_go(), "app.ropeway.survivor.SurvivorCondition"); }
-MO* orderer() { return component(player_go(), "app.ropeway.survivor.player.PlayerActionOrderer"); }
-
-bool is_light_on(MO* cond) { return call_direct<bool>(cond, "get_IsLight", false); }
-
-void keep_switch(MO* cond) {
-    call_direct<void*>(cond, "set_ManuallyLight", nullptr, g_want);
-    if (g_want) {
-        if (auto* timer = field_obj(cond, "<LightSwitchTimer>k__BackingField")) {
-            if (auto* lim = field_ptr<float>(timer, "_TimeLimit")) *lim = cfg::FLASHLIGHT_TIMER_S;
-        }
-    }
-}
-
-bool pulse() {   // the game's own manual-switch input (Arcade Controls: PrecedeBits.Accept(64))
-    auto* bits = field_obj(orderer(), "<PrecedeBits>k__BackingField");
-    if (bits == nullptr) return false;
-    call_direct<void*>(bits, "set_Accept", nullptr, (uint32_t)64);
-    return true;
-}
 
 // gameplay = REFramework's FirstPerson drives the view (bridge slot 32); cutscenes = it does not. Flat runs (no
 // headset, no bridge) count as gameplay so the light can be checked on the monitor.
@@ -65,13 +45,19 @@ void show_torch(MO* flashlight, bool show) {
     if (mesh != nullptr && call_direct<bool>(mesh, "get_Enabled", show) != show) call_direct<void*>(mesh, "set_Enabled", nullptr, show);
 }
 
-// the beam: at the left upper chest, in the head's left/right turn, pointing where the head looks
+// the beam: at the left upper chest, in the head's left/right turn, pointing where the head looks. The IES light is
+// switched on and off here directly (b150), never through the game's flashlight state (that raises Leon's hand).
 void place_beam(MO* flashlight) {
     auto* ies = field_obj(flashlight, "<IESLight>k__BackingField");
     auto* ltf = call_ptr(call_ptr(ies, "get_GameObject"), "get_Transform");
     MO* ctf = (MO*)menu_body::probe_camera_tf();
     Vec3 cp; Quat cq;
-    if (ltf == nullptr || !get_v3(XFORM, ctf, "get_Position", cp) || !get_q(XFORM, ctf, "get_Rotation", cq)) return;
+    if (ies == nullptr || ltf == nullptr || !get_v3(XFORM, ctf, "get_Position", cp) || !get_q(XFORM, ctf, "get_Rotation", cq)) {
+        if (g_report) { g_report = false; LOGW("%s flashlight: beam NOT placed (ies %p, light transform %p, camera transform %p)", TAG, (void*)ies, (void*)ltf, (void*)ctf); }
+        return;
+    }
+    const bool was_on = call_direct<bool>(ies, "get_Enabled", false);
+    if (was_on != g_want) call_direct<void*>(ies, "set_Enabled", nullptr, g_want);
     cq = qnorm(cq);
     Vec3 fwd = rotate(cq, Vec3{0, 0, -1});   // RE Engine cameras look down -Z
     fwd.y = 0;
@@ -82,6 +68,13 @@ void place_beam(MO* flashlight) {
     const Quat rot = qnorm(qmul(cq, Quat{0, 1, 0, 0}));   // turn the camera's -Z look onto the light's +Z beam
     set_any(XFORM, ltf, "set_Position", &pos);
     set_any(XFORM, ltf, "set_Rotation", &rot);
+    if (g_report) {
+        g_report = false;
+        Vec3 dir{0, 0, 0}; get_v3("via.render.IESLight", ies, "get_Direction", dir);
+        Vec3 now{0, 0, 0}; get_v3(XFORM, ltf, "get_Position", now);
+        LOGI("%s flashlight: beam %s (was %s), type %s, Direction %.2f %.2f %.2f, at %.2f %.2f %.2f (camera %.2f %.2f %.2f, %.2f m away)",
+             TAG, g_want ? "ON" : "OFF", was_on ? "on" : "off", type_name(ies).c_str(), dir.x, dir.y, dir.z, now.x, now.y, now.z, cp.x, cp.y, cp.z, dist(now, cp));
+    }
 }
 
 int pre_apply(int argc, void** argv, REFrameworkTypeDefinitionHandle*, unsigned long long) {
@@ -109,23 +102,11 @@ void install() {
 void toggle() {
     if (!cfg::FLASHLIGHT_ON) return;
     g_want = !g_want;
-    g_pulses = cfg::FLASHLIGHT_PULSES;
-    g_cooldown = 0;
-    if (auto* cond = condition()) keep_switch(cond);
+    g_report = true;
     bridge::rumble(bridge::LEFT, cfg::BUZZ_GRAB_AMP, cfg::BUZZ_GRAB_SEC);
-    LOGI("%s flashlight: switched %s", TAG, g_want ? "ON" : "OFF");
+    LOGI("%s flashlight: switched %s (our beam only: the game's flashlight state is left off, so no hand pose)", TAG, g_want ? "ON" : "OFF");
 }
 
-void frame() {
-    if (!cfg::FLASHLIGHT_ON) return;
-    auto* cond = condition();
-    if (cond == nullptr) return;
-    if (g_want) keep_switch(cond);
-    if (g_pulses <= 0) return;
-    if (g_cooldown > 0) { --g_cooldown; return; }
-    if (is_light_on(cond) == g_want) { g_pulses = 0; LOGI("%s flashlight: the game's light is %s", TAG, g_want ? "on" : "off"); return; }
-    if (pulse()) { --g_pulses; g_cooldown = cfg::FLASHLIGHT_PULSE_GAP; }
-    else { g_pulses = 0; LOGW("%s flashlight: the orderer's PrecedeBits not found, cannot switch", TAG); }
-}
+void frame() {}
 
 } // namespace vn::flashlight
