@@ -40,14 +40,23 @@ void swing_speed() {   // the right controller's speed in the room, smoothed a l
 // HOLD / SUPPORT_HOLD / ATTACK from them. b134's writes into the button record at UpdateBehavior pre never reached
 // the game (worn 2026-10-10: the sub weapon still came from the left grip, never from the right), and setForce at
 // the back spot froze the picture for a second and left the menus scrolling.
-struct VisceralVrButtons { int version; int sub_out; int rg_never_aims; int attack_ok; };
-VisceralVrButtons g_buttons{1, 0, cfg::RG_NEVER_AIMS ? 1 : 0, 1};
+// b137 (v2, hold added): worn 2026-10-10 -- HOLD with a grenade readied IS the game's throw (b136 sent it with the
+// latch, so letting go of the grip threw), ATTACK drops the grenade at the feet. So now: the grenade is readied with
+// SUPPORT_HOLD only; the throwing swing with RT down sends HOLD for a short pulse (the throw); ATTACK never passes with
+// a grenade out. The knife attacks on ATTACK, so with the knife the swing lets ATTACK through instead. Letting go of
+// the right grip with no swing puts it back, nothing thrown.
+struct VisceralVrButtons { int version; int sub_out; int rg_never_aims; int attack_ok; int hold; };
+VisceralVrButtons g_buttons{2, 0, cfg::RG_NEVER_AIMS ? 1 : 0, 1, 0};
+int g_hold_frames = 0;   // the throw pulse
+bool g_hold_sent = false; // one pulse per RT press
+
+bool grenade_out() { const int wp = weapons::current_id(); return wp == 6200 || wp == 6300; }
 extern "C" __declspec(dllexport) VisceralVrButtons* visceral_vr_buttons() { return &g_buttons; }
 
 bool active() { return g_out; }
 
 void frame() {
-    if (!cfg::SUB_ON_RG || !bridge::live()) { g_out = false; g_buttons.sub_out = 0; g_buttons.attack_ok = 1; return; }
+    if (!cfg::SUB_ON_RG || !bridge::live()) { g_out = false; g_buttons.sub_out = 0; g_buttons.attack_ok = 1; g_buttons.hold = 0; g_hold_frames = 0; return; }
     const bool rg = bridge::held(bridge::S_RGRIP), rt = bridge::held(bridge::S_RTRIG);
     const bool menu = menu_body::is_menu_open();
     swing_speed();
@@ -76,10 +85,20 @@ void frame() {
                 LOGI("%s sub: SWING %.2f m/s -- throw let through", TAG, g_speed);
             }
         }
-        g_buttons.attack_ok = (g_thrown && g_speed >= cfg::THROW_SWING_MPS * 0.5f) ? 1 : 0;   // the swing is on: let the throw through
+        const bool swinging = g_thrown && g_speed >= cfg::THROW_SWING_MPS * 0.5f;
+        if (grenade_out()) {
+            if (swinging && g_hold_frames == 0 && !g_hold_sent) { g_hold_frames = cfg::THROW_HOLD_FRAMES; g_hold_sent = true; LOGI("%s sub: grenade throw: HOLD pulsed for %d frames", TAG, g_hold_frames); }
+            g_buttons.attack_ok = 0;                      // ATTACK would drop it at the feet
+        } else {
+            g_buttons.attack_ok = swinging ? 1 : 0;       // the knife: the swing is the attack
+        }
+        if (!rt) g_hold_sent = false;
     } else {
         g_buttons.attack_ok = 1;
+        g_hold_sent = false;
     }
+    g_buttons.hold = g_hold_frames > 0 ? 1 : 0;
+    if (g_hold_frames > 0) --g_hold_frames;
 }
 
 } // namespace vn::subweapon
