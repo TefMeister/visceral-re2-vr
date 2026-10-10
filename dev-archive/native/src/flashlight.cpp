@@ -65,15 +65,18 @@ void place_beam(MO* flashlight) {
     fwd = len > 1e-4f ? fwd * (1.0f / len) : Vec3{0, 0, -1};
     const Vec3 right = rotate(cq, Vec3{1, 0, 0});
     const Vec3 pos = cp + right * cfg::FLASHLIGHT_BEAM.side + Vec3{0, cfg::FLASHLIGHT_BEAM.up, 0} + fwd * cfg::FLASHLIGHT_BEAM.fwd;
-    const Quat rot = qnorm(qmul(cq, Quat{0, 1, 0, 0}));   // turn the camera's -Z look onto the light's +Z beam
+    // the IES light's Direction reads (0, 0, -1): it shines along its local -Z, the same way the camera looks, so the
+    // camera's turn is the beam's turn (b150 turned it 180 degrees and the beam went out behind the head, 2026-10-11)
+    const Quat rot = cq;
     set_any(XFORM, ltf, "set_Position", &pos);
     set_any(XFORM, ltf, "set_Rotation", &rot);
     if (g_report) {
         g_report = false;
         Vec3 dir{0, 0, 0}; get_v3("via.render.IESLight", ies, "get_Direction", dir);
         Vec3 now{0, 0, 0}; get_v3(XFORM, ltf, "get_Position", now);
-        LOGI("%s flashlight: beam %s (was %s), type %s, Direction %.2f %.2f %.2f, at %.2f %.2f %.2f (camera %.2f %.2f %.2f, %.2f m away)",
-             TAG, g_want ? "ON" : "OFF", was_on ? "on" : "off", type_name(ies).c_str(), dir.x, dir.y, dir.z, now.x, now.y, now.z, cp.x, cp.y, cp.z, dist(now, cp));
+        const float inten = call_direct<float>(ies, "get_Intensity", -1.0f);
+        LOGI("%s flashlight: beam %s (was %s), type %s, Direction %.2f %.2f %.2f, intensity %.1f, at %.2f %.2f %.2f (camera %.2f %.2f %.2f, %.2f m away)",
+             TAG, g_want ? "ON" : "OFF", was_on ? "on" : "off", type_name(ies).c_str(), dir.x, dir.y, dir.z, inten, now.x, now.y, now.z, cp.x, cp.y, cp.z, dist(now, cp));
     }
 }
 
