@@ -1,5 +1,5 @@
 diff --git a/src/mods/FirstPerson.cpp b/src/mods/FirstPerson.cpp
-index 71c87795..f3cdecea 100644
+index 71c87795..2df946b9 100644
 --- a/src/mods/FirstPerson.cpp
 +++ b/src/mods/FirstPerson.cpp
 @@ -1,4 +1,6 @@
@@ -22,7 +22,7 @@ index 71c87795..f3cdecea 100644
      const auto& vr = VR::get();
      const auto is_holding_left_grip = vr->is_action_active(vr->get_action_grip(), vr->get_left_joystick());
  
-@@ -905,10 +901,111 @@ void FirstPerson::update_player_arm_ik(RETransform* transform) {
+@@ -905,10 +901,134 @@ void FirstPerson::update_player_arm_ik(RETransform* transform) {
      const auto player_condition = utility::re_component::find<REComponent>(transform, player_condition_def->get_type());
      const bool is_reloading = player_condition != nullptr ? sdk::call_object_func_easy<bool>(player_condition, "get_IsReload") : false;
      const bool is_aiming = player_condition != nullptr ? sdk::call_object_func_easy<bool>(player_condition, "get_IsHold") : false;
@@ -104,8 +104,31 @@ index 71c87795..f3cdecea 100644
 +    // alternating): the dock turns the right hand, the gun follows a frame later, the fresh reading changes, the turn
 +    // changes back - a two-frame loop. Taken once, at the press, the socket cannot feed back. (The 10-02 freeze did the
 +    // same for the animation's socket.) The raw reading is logged for 60 frames after a dock to show the loop.
++    // Visceral 2026-10-10 (b143): the plugin may hand over its OWN socket (the left hand on the SLIDE for a rack, in
++    // right-wrist space), through visceral_native.dll's exported visceral_dock_socket(). While it does, that socket
++    // replaces the aid joint's and the latch is bypassed (the slide moves under the hand on purpose).
++    struct VisceralDockSocket { int version; int active; float px, py, pz; float qx, qy, qz, qw; };
++    static VisceralDockSocket* (*visceral_socket)() = nullptr;
++    if (visceral_socket == nullptr) {
++        if (const auto h = GetModuleHandleA("visceral_native.dll"); h != nullptr) {
++            visceral_socket = (VisceralDockSocket * (*)())GetProcAddress(h, "visceral_dock_socket");
++            if (visceral_socket != nullptr) spdlog::info("[Visceral] the dock socket can now come from visceral_native.dll");
++        }
++    }
++    bool visceral_override = false;
++    if (visceral_socket != nullptr && is_gun) {
++        if (const auto* vs = visceral_socket(); vs != nullptr && vs->version == 1 && vs->active) {
++            socket_pos = Vector4f{vs->px, vs->py, vs->pz, 0.0f};
++            socket_rot = glm::normalize(glm::quat{vs->qw, vs->qx, vs->qy, vs->qz});
++            have_socket = true;
++            visceral_override = true;
++        }
++    }
++
 +    const Vector4f raw_socket_pos = socket_pos;
-+    if (m_was_gripping_weapon && m_latched_socket_type == weapon_type) {
++    if (visceral_override) {
++        // no latch: the plugin's socket is the truth every frame
++    } else if (m_was_gripping_weapon && m_latched_socket_type == weapon_type) {
 +        socket_pos = m_latched_socket_pos;
 +        socket_rot = m_latched_socket_rot;
 +        have_socket = true;
@@ -138,7 +161,7 @@ index 71c87795..f3cdecea 100644
              const auto original_grip_rot = utility::math::to_quat(glm::normalize(lh_grip_delta_to_rh));
              const auto current_grip_rot = utility::math::to_quat(glm::normalize(lh_delta_to_rh));
  
-@@ -918,24 +1015,45 @@ void FirstPerson::update_player_arm_ik(RETransform* transform) {
+@@ -918,24 +1038,45 @@ void FirstPerson::update_player_arm_ik(RETransform* transform) {
              rh_rotation = glm::normalize(grip_rot_delta * rh_rotation);
  
              // Adjust the grip position

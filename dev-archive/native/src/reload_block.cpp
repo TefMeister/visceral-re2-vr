@@ -56,9 +56,19 @@ float now_s() {
 }
 
 float g_hud_until = -1.0f;
-void post_hud_request(void** ret_val, REFrameworkTypeDefinitionHandle, unsigned long long) {   // the ammo counter stays up
+MO* g_hud = nullptr;   // the RemainingBulletBehavior, caught from its own getter (b143: the getter's answer was ignored, b142 worn)
+int pre_hud_request(int argc, void** argv, REFrameworkTypeDefinitionHandle*, unsigned long long) {
+    if (argc > 1 && is_managed(argv[1]) && g_hud != (MO*)argv[1]) { g_hud = (MO*)argv[1]; g_hud->add_ref(); }
+    return REFRAMEWORK_HOOK_CALL_ORIGINAL;
+}
+void post_hud_request(void** ret_val, REFrameworkTypeDefinitionHandle, unsigned long long) {
     if (ret_val == nullptr || g_hud_until < 0.0f || now_s() > g_hud_until) return;
     *ret_val = (void*)(uintptr_t)1;
+}
+void hud_tick() {
+    if (g_hud == nullptr || g_hud_until < 0.0f || now_s() > g_hud_until) return;
+    call_direct<void*>(g_hud, "set_RequestDraw", nullptr, true);
+    call_direct<void*>(g_hud, "set_IsDraw", nullptr, true);
 }
 
 
@@ -156,7 +166,7 @@ void install() {
     hook(EQ, "requestFire", pre_fire, post_nop, "no shot with the magazine out");
     hook(EQ, "requestFire", pre_fire_count, post_fire_count, "dry-fire click on an empty gun");
     hook("app.ropeway.gamemastering.InventoryManager", "getMainWeaponRemainingBullet", pre_nop, post_hud_rounds, "HUD reads 0 with the magazine out");
-    hook("app.ropeway.gui.RemainingBulletBehavior", "get_RequestDraw", pre_nop, post_hud_request, "the ammo counter shown after a reload (Tefa: 5 s)");
+    hook("app.ropeway.gui.RemainingBulletBehavior", "get_RequestDraw", pre_hud_request, post_hud_request, "the ammo counter shown after a reload (Tefa: 5 s)");
     // b141: the get_IsReload spoof is OUT. Worn 2026-10-10 (b140): guns shot with sound but no flash and no counter, and a
     // shotgun sat in the game's shell-loading hand pose forever -- the game's own reload state had started and, told it
     // was not reloading while its inner steps were skipped, never left it [hypothesis]. The orderer inhibit alone is what
@@ -179,9 +189,13 @@ void frame() {
     if (!cfg::RELOAD_ON) return;
     const bool ours = reload::managed_now(), session = reload::session_active();
     if (ours) watch_game_reload();
+    hud_tick();
     // b142: the trigger with the magazine out or a rack needed: the click (fire.cpp no longer forces the shot, so
     // requestFire is never reached and the click has to come from the press itself)
-    if (ours && bridge::pressed(bridge::S_RTRIG) && (reload::mag_out() || rack::blocks_fire()) && !menu_body::is_menu_open()) dry_click();
+    if (ours && bridge::pressed(bridge::S_RTRIG) && !menu_body::is_menu_open()) {
+        auto* gun = field_obj(component(call_ptr(API::get()->get_managed_singleton("app.ropeway.PlayerManager"), "get_CurrentPlayer"), "app.ropeway.survivor.Equipment"), "<EquipWeapon>k__BackingField");
+        if (reload::mag_out() || rack::blocks_fire() || call_direct<int>(gun, "getBulletNumber", -1) == 0) dry_click();
+    }
     if (ours) inhibit_reload(true);
     else if (g_inhibited) inhibit_reload(false);   // a shotgun, revolver or no headset: the game's reload is back
     if (menu_body::is_menu_open()) return;
