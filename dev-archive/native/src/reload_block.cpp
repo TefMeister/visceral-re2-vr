@@ -17,6 +17,36 @@ int g_commit = 0;                       // >0 while our own reload call runs
 std::atomic<int> g_blocked{0}, g_fire_blocked{0}, g_bits_cleared{0};
 constexpr uint64_t KIND_SUPPORT_HOLD = 128, KIND_RELOAD = 512;     // app.ropeway.InputDefine.Kind
 constexpr uint32_t OFF_DOWN = 0x10, OFF_ON = 0x18, OFF_UP = 0x20;  // InputSystem ButtonBits fields (as suppress.cpp)
+constexpr uint32_t PRECEDE_RELOAD = 8;  // SurvivorDefine.ActionOrder.Precede.RELOAD (type database 2026-10-10)
+
+// b133: Tefa saw the game's reload animation play on B anyway (b132): the RELOAD action is started by the player's
+// action orderer, not by Equipment.requestReload (never called), and our input-bit clear came too late for it. So the
+// orderer is told not to start a reload (RELOADED's layer 1, setInhibitPrecede) and the reload state reads false
+// (his layer 3, get_IsReload). Both only while one of our guns is in hand with the headset on.
+bool g_inhibited = false;
+MO* orderer() {
+    auto* go = call_ptr(API::get()->get_managed_singleton("app.ropeway.PlayerManager"), "get_CurrentPlayer");
+    return call_ptr(component(go, "app.ropeway.survivor.SurvivorCondition"), "get_ActionOrderer");
+}
+void inhibit_reload(bool on) {
+    auto* o = orderer();
+    auto* m = o ? find_method_deep(o->get_type_definition(), "setInhibitPrecede") : nullptr;
+    if (m == nullptr) return;
+    m->call<void>(API::get()->get_vm_context(), (void*)o, on, PRECEDE_RELOAD);
+    if (on != g_inhibited) LOGI("%s block: the orderer's RELOAD action %s", TAG, on ? "INHIBITED" : "allowed again");
+    g_inhibited = on;
+}
+std::atomic<int> g_isreload_turned{0};
+void post_is_reload(void** ret_val, REFrameworkTypeDefinitionHandle, unsigned long long) {
+    if (ret_val == nullptr || g_commit > 0 || !cfg::RELOAD_ON || !reload::managed_now()) return;
+    if (((uintptr_t)*ret_val & 0xFF) == 0) return;
+    *ret_val = (void*)(uintptr_t)0;
+    const int n = g_isreload_turned.fetch_add(1) + 1;
+    if (n <= 10 || n % 200 == 0) LOGI("%s block: the game said it is reloading, answered no (#%d)", TAG, n);
+}
+void post_orderer_update(void**, REFrameworkTypeDefinitionHandle, unsigned long long) {
+    if (cfg::RELOAD_ON && reload::managed_now()) inhibit_reload(true);
+}
 
 float now_s() {
     static const auto t0 = std::chrono::steady_clock::now();
@@ -108,11 +138,16 @@ void install() {
     hook(EQ, "requestFire", pre_fire, post_nop, "no shot with the magazine out");
     hook(EQ, "requestFire", pre_fire_count, post_fire_count, "dry-fire click on an empty gun");
     hook("app.ropeway.gamemastering.InventoryManager", "getMainWeaponRemainingBullet", pre_nop, post_hud_rounds, "HUD reads 0 with the magazine out");
+    hook("app.ropeway.survivor.SurvivorCondition", "get_IsReload", pre_nop, post_is_reload, "no reload state for our guns");
+    hook("app.ropeway.survivor.player.PlayerActionOrderer", "doSurvivorActionOrdererUpdate", pre_nop, post_orderer_update, "no reload action for our guns");
 }
 
 void frame() {
-    if (!cfg::RELOAD_ON || menu_body::is_menu_open()) return;
+    if (!cfg::RELOAD_ON) return;
     const bool ours = reload::managed_now(), session = reload::session_active();
+    if (ours) inhibit_reload(true);
+    else if (g_inhibited) inhibit_reload(false);   // a shotgun, revolver or no headset: the game's reload is back
+    if (menu_body::is_menu_open()) return;
     if (!ours && !session) return;
     auto* bb = call_ptr(API::get()->get_managed_singleton("app.ropeway.InputSystem"), "get_ButtonBits");
     if (!is_managed(bb)) return;
