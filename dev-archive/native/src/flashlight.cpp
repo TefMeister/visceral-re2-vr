@@ -58,6 +58,19 @@ void place_beam(MO* flashlight) {
     }
     const bool was_on = call_direct<bool>(ies, "get_Enabled", false);
     if (was_on != g_want) call_direct<void*>(ies, "set_Enabled", nullptr, g_want);
+    // b152: the light also needs its game objects drawn and updated; with the game's own flashlight off they may be
+    // switched off (b151 worn 00:56: enabled, intensity 300000, at the chest, facing forward, still no beam)
+    auto* lgo = call_ptr(ies, "get_GameObject");
+    auto* fgo = call_ptr(flashlight, "get_GameObject");
+    const bool l_draw = call_direct<bool>(lgo, "get_DrawSelf", true), l_upd = call_direct<bool>(lgo, "get_UpdateSelf", true);
+    const bool f_draw = call_direct<bool>(fgo, "get_DrawSelf", true), f_upd = call_direct<bool>(fgo, "get_UpdateSelf", true);
+    if (g_want) {
+        if (!l_draw) call_direct<void*>(lgo, "set_DrawSelf", nullptr, true);
+        if (!l_upd) call_direct<void*>(lgo, "set_UpdateSelf", nullptr, true);
+        if (!f_draw) call_direct<void*>(fgo, "set_DrawSelf", nullptr, true);
+        if (!f_upd) call_direct<void*>(fgo, "set_UpdateSelf", nullptr, true);
+    }
+    if (g_report) LOGI("%s flashlight: game objects before: light draw %d update %d, torch draw %d update %d", TAG, l_draw, l_upd, f_draw, f_upd);
     cq = qnorm(cq);
     Vec3 fwd = rotate(cq, Vec3{0, 0, -1});   // RE Engine cameras look down -Z
     fwd.y = 0;
