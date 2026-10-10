@@ -106,6 +106,8 @@ Two field traps, both hit in practice:
   colliding with geometry, weapon drawn/aiming). `nil` on a dump ≠ irrelevant —
   re-test under the exact game state the effect needs, not just "player exists."
 
+**Music mute (standing rule):** no config line exists; `reframework/autorun/visceral_mute_music.lua` mutes the music bus every launch (see the Menus section). `[verified-live 2026-10-10]`
+
 ## 5. Hooks & frame timing
 - **`sdk.hook_method`** hooks any TDB method: a **pre-hook** sees/edits the
   args and can `return sdk.PreHookResult.SKIP_ORIGINAL` to suppress the call; a
@@ -1571,6 +1573,34 @@ unless marked; nothing launched.
 - A live UI status readout reflects only the **last** thing that ran; with
   several buttons/status lines, "it says X" is ambiguous — a screenshot beats
   another round of text description.
+
+## Menus: where the tint, the blur and the dark come from (2026-10-10, type database + live probe) `[verified-live 2026-10-10, flat, n=1 each]`
+- The inventory (`app.ropeway.gui.NewInventoryBehavior`) opens in one of eight `CallOpenMode`s: Normal 0, Map 1, GetMap 2,
+  Map4th 3, GetItem 4, GetItemShortcut 5, UseItem 6, ItemBox 7 (`GUIMaster.openInventory*` wrap them). **The tint is the
+  inventory's post effect**: `activatePostEffect` -> `activatePostEffectNormal` @0x140f68570 / `...Capture` @0x140f684b0 /
+  `...UseItem` @0x14004fd20 = the shared EMPTY stub, so the use-item screen never tints. The effect is
+  `app.ropeway.posteffect.cascade.InventoryLayer` (`isActive` 0x74, `CurrentSlot` 0x68, slots `InventoryFilterLabel.Slot`).
+  Pre-hooks returning SKIP on the three activate methods leave `isActive=0` through every menu, with no side effect seen
+  (`menu_tint.cpp`, b128+). The game calls the per-mode entry directly in Normal/Map; the dispatcher only in GetItem.
+- **The backdrop `GuiBack`** (`NewInventoryBackBehavior`: `CapturePanel`, `RenderTex`, `BgBlur`) is a captured, blurred,
+  darkened screenshot drawn as a GUI panel. REFramework's VR layer never draws it in RE2/RE3 (`VR.cpp` 3112); flat, we skip
+  it too while a menu is open, so flat screenshots match the headset.
+- **The pause menu has no post effect.** Its blur and darkening are nodes inside the `GUI_Pause` element:
+  `main > mask_all` (full-screen `via.gui.Texture`), `c_blur` (`bg_tex_common` Rect, `tex_common` Texture, `blur`
+  = `via.gui.BlurFilter`, `Rect0`), `c_bg` (`Rect0`, `Rect1`). `PlayObject.set_Visible(false)` on those four, applied at
+  every draw of `GUI_Pause` (walk: `GUI.get_View` -> `TransformObject.get_Child` / `PlayObject.get_Next`), leaves the menu
+  text over the plain world (b131, Tefa: "looks great!").
+- **Pick-up (GetItem, mode 4) is NOT a tint**: with the post effect off, the 3D item sits over a plain grey-green colour;
+  the world is not rendered at all `[verified-live 2026-10-10, flat, n=1]`. Candidates: the detail view's item camera
+  (`setItemCamera` @0x141a0b180, `startPickupMode` @0x141a1e0b0), `CameraSystem.startInventoryCamera` @0x141f3f090,
+  `InventoryCameraController.switchInventoryCamera` @0x1402edea0 `[hypothesis]`.
+- **Music** lives in the system save (OptionManager option 19 `AudioBGMVolume`, 0..10; `WwiseOptionMenu` at
+  OptionManager+0x78, `set_VolumeMusicValue`), not in a file. `via.wwise.WwiseManager` has STATIC `set_MuteMusic(bool)`
+  @0x1400ec560 and `set_VolumeMusic(float)` @0x1400ef8b0 (+ SE/Dialog twins); `visceral_mute_music.lua` calls both once a
+  second and reads them back (10.0 -> 0.0) `[verified-live 2026-10-10, n=4 launches]`. Reader's full notes:
+  `modding-notes/2026-10-10-menus-over-the-live-world.md`.
+- ghidrust `decompile` on re2.exe (92 MB .text) hit the 30-minute idle limit on every call today (eleven calls); the type
+  database and REFramework's source answered instead. `[measured 2026-10-10]`
 
 ## 11. Dead ends & false leads (save future time)
 

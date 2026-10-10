@@ -13,6 +13,7 @@
 //   menu_body.cpp no third-person body in the inventory, map and pause menus (Arcade Controls' menu hide)
 //   options.cpp  Run Type Hold, auto reload off, aim assist off: set once through the game's OptionManager (b112)
 //   pickup.cpp   item pick-up: logs the GUI drawn and skips the black mask (b110, probe + first try)
+//   menu_tint.cpp every menu over the live world: the inventory's colour filter + blur never switched on (b128)
 #include <windows.h>
 
 #include <atomic>
@@ -24,6 +25,7 @@
 #include "ladder.h"
 #include "menu_body.h"
 #include "menu_probe.h"
+#include "menu_tint.h"
 #include "options.h"
 #include "pickup.h"
 #include "run.h"
@@ -37,7 +39,7 @@ using namespace vn;
 namespace {
 void on_frame() {
     static std::atomic<bool> installed{false};
-    if (!installed.exchange(true)) { bridge::install(); shortcut::install(); suppress::install(); run::install(); fire::install(); pickup::install(); spread::install(); }   // hooks need the type database: first game frame
+    if (!installed.exchange(true)) { bridge::install(); shortcut::install(); suppress::install(); run::install(); fire::install(); pickup::install(); spread::install(); menu_tint::install(); }   // hooks need the type database: first game frame
     menu_probe::point("UpdateBehavior.pre");
     bridge::frame_begin();
     holster::frame();
@@ -48,6 +50,7 @@ void on_frame() {
     fire::frame();
     menu_body::frame();
     pickup::frame();
+    menu_tint::frame();
     options::frame();
     menu_probe::point("UpdateBehavior.ours-done");
 }
@@ -71,7 +74,7 @@ extern "C" __declspec(dllexport) bool reframework_plugin_initialize(const REFram
     // the bridge Lua writes buttons at UpdateHID pre; reading after it, at UpdateBehavior pre, sees this frame's presses
     param->functions->on_pre_application_entry("UpdateBehavior", []() { on_frame(); });
     // b110: every GUI element passes here before it is drawn; false = not drawn (pick-ups only, see pickup.h)
-    param->functions->on_pre_gui_draw_element([](void* e, void* c) { return pickup::gui_draw(e, c); });
+    param->functions->on_pre_gui_draw_element([](void* e, void* c) { const bool a = pickup::gui_draw(e, c); const bool b = menu_tint::gui_draw(e, c); return a && b; });
     // ladder: the bridge Lua writes the view readings at LateUpdateBehavior PRE; the hold reads them at POST.
     // The climbing body guard puts the body back after FirstPerson turns it (Arcade Controls' two late points).
     param->functions->on_post_application_entry("LateUpdateBehavior", []() { ladder::late_update(); menu_body::early_hide(); menu_body::camera_point(false); menu_probe::point("LateUpdateBehavior.post"); });
