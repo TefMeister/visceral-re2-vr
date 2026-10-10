@@ -147,6 +147,10 @@ constexpr float RACK_PUSH_PER_SEC = 5.0f;     // his trigger_push_travel_speed
 constexpr float RACK_BUZZ_AMP = 0.7f, RACK_BUZZ_SEC = 0.06f;
 constexpr bool  PUMP_NATIVE_ON = true;        // cut the game's own pump animation, hold the shell eject for our pull
 constexpr float PUMP_WINDOW_SEC = 2.5f;       // his pump_window_sec
+constexpr float HUD_AFTER_RELOAD_SEC = 5.0f;  // the ammo counter stays up this long after a magazine / shell / rack (Tefa 2026-10-10)
+// where a shotgun shell sits in the left hand (wrist axes, metres; yaw/pitch/roll degrees). OURS, a first guess (b142).
+struct ShellHold { float ox, oy, oz, yaw, pitch, roll; };
+constexpr ShellHold SHELL_HOLD = {0.06f, -0.03f, 0.02f, 0.0f, 90.0f, 0.0f};
 
 // ---- the sub weapon from the back holster on RG; RG never aims (b134, 2026-10-10; subweapon.h) ------------------
 constexpr bool  SUB_ON_RG = true;            // false = the game's way (left grip readies the sub weapon, right grip aims)

@@ -126,6 +126,7 @@ void frame() {
     }
     resolve_frame();
     if (g_w == nullptr || g_gun == nullptr || !bridge::live()) { g_hand_on = false; return; }
+    if (!is_pump(g_wp) && !g_parked && !reload::mag_out() && call_direct<int>(g_gun, "getBulletNumber", -1) == 0) slide_lock_empty();   // b142: polled, the post-fire read was too early
     const float d = dt();
     const bool menu = menu_body::is_menu_open();
     const bool lg = bridge::held(bridge::S_LGRIP), lt = bridge::held(bridge::S_LTRIG);
