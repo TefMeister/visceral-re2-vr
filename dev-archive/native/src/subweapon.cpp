@@ -3,7 +3,6 @@
 #include "bridge.h"
 #include "common.h"
 #include "holster.h"
-#include "inputbits.h"
 #include "menu_body.h"
 #include "settings.h"
 #include "weapons.h"
@@ -15,26 +14,14 @@ namespace vn::subweapon {
 
 namespace {
 bool g_out = false;          // the right grip holds the sub weapon out
-bool g_force_on = false;     // InputSystem.setForce(SUPPORT_HOLD) is on
 bool g_throw_armed = false;  // RT is down with the sub weapon out and the swing has not happened yet
 bool g_thrown = false;       // this RT press has thrown
-int g_hold_cleared = 0, g_sh_cleared = 0, g_attack_held = 0;
 Vec3 g_last_rpos{};
 float g_last_t = -1.0f, g_speed = 0.0f, g_peak = 0.0f;
 
 float now_s() {
     static const auto t0 = std::chrono::steady_clock::now();
     return std::chrono::duration<float>(std::chrono::steady_clock::now() - t0).count();
-}
-
-// the game's own "hold this button" switch, as suppress.cpp uses it for the left grip
-void set_force(bool on) {
-    if (on == g_force_on) return;
-    auto* is = API::get()->get_managed_singleton("app.ropeway.InputSystem");
-    auto* m = is ? find_method_deep(is->get_type_definition(), "setForce") : nullptr;
-    if (m == nullptr) { LOGW("%s sub: InputSystem.setForce not found", TAG); return; }
-    m->call<void>(API::get()->get_vm_context(), (void*)is, inputbits::SUPPORT_HOLD, on);
-    g_force_on = on;
 }
 
 void swing_speed() {   // the right controller's speed in the room, smoothed a little
@@ -49,10 +36,18 @@ void swing_speed() {   // the right controller's speed in the room, smoothed a l
 }
 } // namespace
 
+// b136: the VR layer (our patched REFramework, VR.cpp openvr_input_to_re2_re3) asks for these every frame and writes
+// HOLD / SUPPORT_HOLD / ATTACK from them. b134's writes into the button record at UpdateBehavior pre never reached
+// the game (worn 2026-10-10: the sub weapon still came from the left grip, never from the right), and setForce at
+// the back spot froze the picture for a second and left the menus scrolling.
+struct VisceralVrButtons { int version; int sub_out; int rg_never_aims; int attack_ok; };
+VisceralVrButtons g_buttons{1, 0, cfg::RG_NEVER_AIMS ? 1 : 0, 1};
+extern "C" __declspec(dllexport) VisceralVrButtons* visceral_vr_buttons() { return &g_buttons; }
+
 bool active() { return g_out; }
 
 void frame() {
-    if (!cfg::SUB_ON_RG || !bridge::live()) { if (g_force_on) set_force(false); g_out = false; return; }
+    if (!cfg::SUB_ON_RG || !bridge::live()) { g_out = false; g_buttons.sub_out = 0; g_buttons.attack_ok = 1; return; }
     const bool rg = bridge::held(bridge::S_RGRIP), rt = bridge::held(bridge::S_RTRIG);
     const bool menu = menu_body::is_menu_open();
     swing_speed();
@@ -68,16 +63,7 @@ void frame() {
         g_out = false;
         LOGI("%s sub: right grip let go -- sub weapon away, back to the gun (peak swing %.2f m/s)", TAG, g_peak);
     }
-    set_force(g_out && !menu);
-
-    // the buttons the game reads this frame
-    if (cfg::RG_NEVER_AIMS && inputbits::clear(inputbits::HOLD) && ++g_hold_cleared <= 5)
-        LOGI("%s sub: HOLD (right grip aim) cleared (#%d)", TAG, g_hold_cleared);
-    if (g_out && !menu) {
-        inputbits::hold_on(inputbits::SUPPORT_HOLD);
-    } else if (inputbits::clear(inputbits::SUPPORT_HOLD) && ++g_sh_cleared <= 5) {
-        LOGI("%s sub: SUPPORT_HOLD (left grip sub weapon) cleared (#%d)", TAG, g_sh_cleared);
-    }
+    g_buttons.sub_out = (g_out && !menu) ? 1 : 0;
 
     // the throw: RT down with the sub weapon out waits for the swing
     if (g_out && !menu) {
@@ -90,9 +76,9 @@ void frame() {
                 LOGI("%s sub: SWING %.2f m/s -- throw let through", TAG, g_speed);
             }
         }
-        if (!g_thrown || g_speed < cfg::THROW_SWING_MPS * 0.5f) {   // not yet, or the swing is over: no attack
-            if (inputbits::clear(inputbits::ATTACK) && ++g_attack_held <= 5) LOGI("%s sub: ATTACK held back until the swing (#%d)", TAG, g_attack_held);
-        }
+        g_buttons.attack_ok = (g_thrown && g_speed >= cfg::THROW_SWING_MPS * 0.5f) ? 1 : 0;   // the swing is on: let the throw through
+    } else {
+        g_buttons.attack_ok = 1;
     }
 }
 

@@ -27,3 +27,11 @@ ef-76build-76b.bat` (target RE2) ->
   onto; b119's learned-from-animation version was wrong, our clips hang the hand at the hip); the left hand docks in any state, only while the left grip is held (15 cm at the press, sticky until
   release), the gun turning forestock-into-hand at the press; aiming uses the learned socket too, so the kick no longer
   swings the gun (replaces the 10-02 freeze). Reloads follow the animation. `[Visceral]` lines in the REFramework log.
+
+- `2026-10-10-re2-sub-weapon-buttons-from-plugin.patch` — against `76298bd`, CONTAINS the 10-10 left-grip-dock patch
+  (cumulative diff of `src/mods/`; apply this one alone). `VR.cpp openvr_input_to_re2_re3`: HOLD, SUPPORT_HOLD and ATTACK
+  are taken from `visceral_native.dll`'s exported `visceral_vr_buttons()` when the plugin is loaded (the knife/grenade
+  on the right grip at a back spot, the right grip never aims, the throw waits for a swing; `src/subweapon.cpp`).
+  Without the plugin the stock mapping stays. Build: `D:\ref-76b\build-76b.bat` -> `build2\bin\RE2\dinput8.dll`.
+  Why here and not in the plugin: writes into the button record at UpdateBehavior pre never reached these three
+  (b134, worn 2026-10-10).
