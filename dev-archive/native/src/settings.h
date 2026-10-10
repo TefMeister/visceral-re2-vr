@@ -140,6 +140,14 @@ constexpr int   SFX_VOICES = 16;
 constexpr float SFX_DEBOUNCE_SEC = 0.10f;         // his ext_5 debounce per kind
 constexpr float SFX_MASTER = 1.0f;
 
+// ---- bundle 2: slide rack, pump, shells (2026-10-10; rack.h, pump_native.h) ---------------------------------------
+constexpr float RACK_HAND_M = 0.20f;          // the left hand this close to the slide / fore-end joint when LG is pressed
+constexpr float RACK_PULL_PER_SEC = 7.0f;     // his trigger_pull_travel_speed (0..1 per second)
+constexpr float RACK_PUSH_PER_SEC = 5.0f;     // his trigger_push_travel_speed
+constexpr float RACK_BUZZ_AMP = 0.7f, RACK_BUZZ_SEC = 0.06f;
+constexpr bool  PUMP_NATIVE_ON = true;        // cut the game's own pump animation, hold the shell eject for our pull
+constexpr float PUMP_WINDOW_SEC = 2.5f;       // his pump_window_sec
+
 // ---- the sub weapon from the back holster on RG; RG never aims (b134, 2026-10-10; subweapon.h) ------------------
 constexpr bool  SUB_ON_RG = true;            // false = the game's way (left grip readies the sub weapon, right grip aims)
 constexpr bool  RG_NEVER_AIMS = true;        // the HOLD (aim) button is never sent from the right grip

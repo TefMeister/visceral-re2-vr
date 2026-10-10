@@ -15,7 +15,8 @@
 //   pickup.cpp   item pick-up: logs the GUI drawn and skips the black mask (b110, probe + first try)
 //   menu_tint.cpp every menu over the live world: the inventory's colour filter + blur never switched on (b128)
 //   subweapon.cpp the knife/grenade from a back spot on RG, held out while held; RG never aims; RT + a swing throws (b134)
-//   reload.cpp   manual magazine reload (RELOADED port, bundle 1, b132); reload_block.cpp keeps the game's own off; sfx.cpp sounds
+//   rack.cpp     slide rack (LG on the slide, LT pulls) and the shotgun pump; pump_native.cpp cuts the game's own pump (b140)
+//   reload.cpp   manual magazine reload (+ shotgun shells, b140) (RELOADED port, bundle 1, b132); reload_block.cpp keeps the game's own off; sfx.cpp sounds
 #include <windows.h>
 
 #include <atomic>
@@ -30,6 +31,8 @@
 #include "menu_tint.h"
 #include "options.h"
 #include "pickup.h"
+#include "pump_native.h"
+#include "rack.h"
 #include "reload.h"
 #include "reload_block.h"
 #include "run.h"
@@ -44,12 +47,14 @@ using namespace vn;
 namespace {
 void on_frame() {
     static std::atomic<bool> installed{false};
-    if (!installed.exchange(true)) { bridge::install(); shortcut::install(); suppress::install(); run::install(); fire::install(); pickup::install(); spread::install(); menu_tint::install(); reload_block::install(); }   // hooks need the type database: first game frame
+    if (!installed.exchange(true)) { bridge::install(); shortcut::install(); suppress::install(); run::install(); fire::install(); pickup::install(); spread::install(); menu_tint::install(); reload_block::install(); pump_native::install(); }   // hooks need the type database: first game frame
     menu_probe::point("UpdateBehavior.pre");
     bridge::frame_begin();
     reload_block::frame();                         // b132: before anything reads this frame's buttons
     subweapon::frame();                            // b134: RG never aims; the sub weapon on RG at the back
     reload::frame();
+    rack::frame();                                 // b140: slide rack + pump
+    pump_native::frame();
     holster::frame();
     suppress::frame();
     spread::frame();                               // b125: bullet spread tiers
@@ -85,14 +90,15 @@ extern "C" __declspec(dllexport) bool reframework_plugin_initialize(const REFram
     param->functions->on_pre_gui_draw_element([](void* e, void* c) { const bool a = pickup::gui_draw(e, c); const bool b = menu_tint::gui_draw(e, c); return a && b; });
     // ladder: the bridge Lua writes the view readings at LateUpdateBehavior PRE; the hold reads them at POST.
     // The climbing body guard puts the body back after FirstPerson turns it (Arcade Controls' two late points).
-    param->functions->on_post_application_entry("LateUpdateBehavior", []() { ladder::late_update(); reload::late_point(); menu_body::early_hide(); menu_body::camera_point(false); menu_probe::point("LateUpdateBehavior.post"); });
+    param->functions->on_post_application_entry("LateUpdateBehavior", []() { ladder::late_update(); reload::late_point(); rack::late_point(); menu_body::early_hide(); menu_body::camera_point(false); menu_probe::point("LateUpdateBehavior.post"); });
     // b103: the held menu camera written into the camera's root joint right where the VR layer writes it, after its pass
-    param->functions->on_pre_application_entry("BeginRendering", []() { menu_body::render_point(); menu_probe::point("BeginRendering.pre"); });
+    param->functions->on_pre_application_entry("BeginRendering", []() { rack::render_point(); menu_body::render_point(); menu_probe::point("BeginRendering.pre"); });
     param->functions->on_pre_application_entry("UpdateScene", []() { menu_probe::point("UpdateScene.pre"); });
+    param->functions->on_pre_application_entry("UpdateMotion", []() { pump_native::update_motion(); });   // b140: the game's pump clip cut here
     param->functions->on_post_application_entry("UpdateScene", []() { menu_probe::point("UpdateScene.post"); });
     param->functions->on_pre_application_entry("LockScene", []() { menu_probe::point("LockScene.pre"); ladder::restore(false); menu_body::camera_point(false); menu_probe::point("LockScene.ours-done"); });
     param->functions->on_post_application_entry("LockScene", []() { menu_body::late_write(); menu_probe::point("LockScene.post"); });
-    param->functions->on_post_application_entry("PrepareRendering", []() { menu_probe::point("PrepareRendering.post"); ladder::restore(true); reload::render_point(); menu_body::camera_point(true); menu_probe::point("PrepareRendering.ours-done"); });
+    param->functions->on_post_application_entry("PrepareRendering", []() { menu_probe::point("PrepareRendering.post"); ladder::restore(true); reload::render_point(); rack::render_point(); menu_body::camera_point(true); menu_probe::point("PrepareRendering.ours-done"); });
     param->functions->on_pre_application_entry("UnlockScene", []() { menu_probe::point("UnlockScene.pre"); });
     param->functions->on_post_application_entry("UnlockScene", []() { menu_probe::point("UnlockScene.post"); });
     return true;
