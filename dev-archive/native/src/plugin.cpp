@@ -14,6 +14,7 @@
 //   options.cpp  Run Type Hold, auto reload off, aim assist off: set once through the game's OptionManager (b112)
 //   pickup.cpp   item pick-up: logs the GUI drawn and skips the black mask (b110, probe + first try)
 //   menu_tint.cpp every menu over the live world: the inventory's colour filter + blur never switched on (b128)
+//   subweapon.cpp the knife/grenade from a back spot on RG, held out while held; RG never aims; RT + a swing throws (b134)
 //   reload.cpp   manual magazine reload (RELOADED port, bundle 1, b132); reload_block.cpp keeps the game's own off; sfx.cpp sounds
 #include <windows.h>
 
@@ -34,6 +35,7 @@
 #include "run.h"
 #include "shortcut.h"
 #include "spread.h"
+#include "subweapon.h"
 #include "spreadprobe.h"
 #include "suppress.h"
 
@@ -46,6 +48,7 @@ void on_frame() {
     menu_probe::point("UpdateBehavior.pre");
     bridge::frame_begin();
     reload_block::frame();                         // b132: before anything reads this frame's buttons
+    subweapon::frame();                            // b134: RG never aims; the sub weapon on RG at the back
     reload::frame();
     holster::frame();
     suppress::frame();

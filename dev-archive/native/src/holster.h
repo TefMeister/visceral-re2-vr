@@ -7,4 +7,5 @@
 namespace vn::holster {
 void frame();
 bool right_hand_in_zone();   // the right hand is inside a holster spot right now
+bool right_hand_in_back_zone();   // ... inside the back spot (the sub weapon, b134)
 } // namespace vn::holster
