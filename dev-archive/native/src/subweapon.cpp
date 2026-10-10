@@ -87,8 +87,10 @@ void frame() {
         }
         const bool swinging = g_thrown && g_speed >= cfg::THROW_SWING_MPS * 0.5f;
         if (grenade_out()) {
-            if (swinging && g_hold_frames == 0 && !g_hold_sent) { g_hold_frames = cfg::THROW_HOLD_FRAMES; g_hold_sent = true; LOGI("%s sub: grenade throw: HOLD pulsed for %d frames", TAG, g_hold_frames); }
-            g_buttons.attack_ok = 0;                      // ATTACK would drop it at the feet
+            // b139: the throw is praydog's re2_vr_grenade.lua, on the right grip's RELEASE, now gated there on the
+            // controller's speed (1.5 m/s). HOLD and ATTACK are never sent with a grenade out (b137's HOLD pulse did
+            // nothing: the grip release was the throw all along, worn 2026-10-10).
+            g_buttons.attack_ok = 0;
         } else {
             g_buttons.attack_ok = swinging ? 1 : 0;       // the knife: the swing is the attack
         }
