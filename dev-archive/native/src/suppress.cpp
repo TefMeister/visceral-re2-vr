@@ -164,7 +164,9 @@ void frame() {
     if ((g_first == First::RG || g_first == First::HOLSTER) && !rg) g_first = lg ? First::LG : First::NONE;
 
     auto* eq = equipment();
-    const bool suppress_sub = g_first == First::RG && rg;
+    // b133: during a magazine reload the gun stays in hand whatever the grips do (Tefa: LG without RG drew the flash
+    // grenade, which swapped the gun and put the magazine back)
+    const bool suppress_sub = (g_first == First::RG && rg) || reload::session_active();
     if (suppress_sub && eq != nullptr) { force_main_weapon(eq); g_clear_in = 0; }
     else if (g_forcing) { g_forcing = false; g_clear_in = CLEAR_DELAY_FRAMES; }
     if (g_clear_in > 0 && --g_clear_in == 0 && eq != nullptr) clear_force(eq);
