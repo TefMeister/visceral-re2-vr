@@ -27,7 +27,8 @@ enum Slot : int {
     S_HMD_Q = 40,         // raw headset turn as a quaternion x y z w (vrmod:get_transform(0):to_quat(), proven path)
     S_ROT_OFF = 44,       // the VR layer's rotation offset, quaternion x y z w (vrmod:get_rotation_offset())
     S_ORIGIN = 48,        // the VR layer's standing origin x y z (vrmod:get_standing_origin())
-    S_COUNT = 52,
+    S_RROT = 52,          // the right controller's turn in room space, quaternion x y z w (b143, motion racking)
+    S_COUNT = 56,
 };
 constexpr float SENTINEL = 54321.0f;
 constexpr float NO_VALUE = 999.0f;

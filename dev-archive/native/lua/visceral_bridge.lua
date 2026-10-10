@@ -16,7 +16,7 @@
 -- Slot map must match src/bridge.h.
 
 local TAG = "[visceral-bridge]"
-local N = 52
+local N = 56
 local S_FRAME, S_HMD = 0, 1
 local S_LGRIP, S_LTRIG, S_RGRIP, S_RTRIG = 2, 3, 4, 5
 local S_LA, S_LB, S_RA, S_RB = 6, 7, 8, 9
@@ -26,6 +26,7 @@ local S_ACK, S_SENTINEL = 30, 31
 local S_FP_USED, S_HMD_YAW, S_OFFEXT_YAW, S_CAM_YAW, S_RENDER_YAW = 32, 33, 34, 35, 36
 local S_LCLICK, S_LSTICK_MAG = 37, 38   -- running stop (src/run.cpp)
 local S_HMD_Q, S_ROT_OFF, S_ORIGIN = 40, 44, 48   -- menu camera (src/menu_body.cpp, 2026-10-08)
+local S_RROT = 52   -- the right controller's turn, room space (src/rack.cpp motion racking, b143)
 local SENTINEL = 54321.0
 local NO_VALUE = 999.0
 local RUMBLE_FREQ_HZ = 160.0
@@ -76,6 +77,9 @@ local function poses(vr)
     local c = safe(function() return vr:get_controllers() end)
     if c and c[1] then w3(S_LPOS, safe(function() return vr:get_position(c[1]) end)) end
     if c and c[2] then w3(S_RPOS, safe(function() return vr:get_position(c[2]) end)) end
+    local rq = c and c[2] and safe(function() return vr:get_rotation(c[2]):to_quat() end)
+    if rq and type(rq.w) == "number" then w(S_RROT, rq.x); w(S_RROT + 1, rq.y); w(S_RROT + 2, rq.z); w(S_RROT + 3, rq.w)
+    else w(S_RROT, NO_VALUE); w(S_RROT + 1, 0); w(S_RROT + 2, 0); w(S_RROT + 3, 1) end
 end
 
 local function buttons()
