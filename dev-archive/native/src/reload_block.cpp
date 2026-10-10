@@ -147,13 +147,28 @@ void install() {
     hook(EQ, "requestFire", pre_fire, post_nop, "no shot with the magazine out");
     hook(EQ, "requestFire", pre_fire_count, post_fire_count, "dry-fire click on an empty gun");
     hook("app.ropeway.gamemastering.InventoryManager", "getMainWeaponRemainingBullet", pre_nop, post_hud_rounds, "HUD reads 0 with the magazine out");
-    hook("app.ropeway.survivor.SurvivorCondition", "get_IsReload", pre_nop, post_is_reload, "no reload state for our guns");
+    // b141: the get_IsReload spoof is OUT. Worn 2026-10-10 (b140): guns shot with sound but no flash and no counter, and a
+    // shotgun sat in the game's shell-loading hand pose forever -- the game's own reload state had started and, told it
+    // was not reloading while its inner steps were skipped, never left it [hypothesis]. The orderer inhibit alone is what
+    // stopped the animation on B (b133). The state is now WATCHED instead (frame()).
     hook("app.ropeway.survivor.player.PlayerActionOrderer", "doSurvivorActionOrdererUpdate", pre_nop, post_orderer_update, "no reload action for our guns");
+}
+
+bool g_game_reload = false;
+float g_game_reload_t0 = 0.0f;
+void watch_game_reload() {   // the game's own reload state, which our guns should never enter
+    auto* go = call_ptr(API::get()->get_managed_singleton("app.ropeway.PlayerManager"), "get_CurrentPlayer");
+    auto* cond = component(go, "app.ropeway.survivor.SurvivorCondition");
+    const bool r = call_direct<bool>(cond, "get_IsReload", false);
+    if (r && !g_game_reload) { g_game_reload_t0 = now_s(); LOGW("%s block: THE GAME ENTERED ITS OWN RELOAD STATE on WP%04d (ours; this is the stuck-hand case if it stays)", TAG, reload::wp_now()); }
+    else if (!r && g_game_reload) LOGI("%s block: the game's reload state ended after %.2f s", TAG, now_s() - g_game_reload_t0);
+    g_game_reload = r;
 }
 
 void frame() {
     if (!cfg::RELOAD_ON) return;
     const bool ours = reload::managed_now(), session = reload::session_active();
+    if (ours) watch_game_reload();
     if (ours) inhibit_reload(true);
     else if (g_inhibited) inhibit_reload(false);   // a shotgun, revolver or no headset: the game's reload is back
     if (menu_body::is_menu_open()) return;
