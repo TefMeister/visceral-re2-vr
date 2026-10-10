@@ -21,6 +21,7 @@ add_library(visceral_native SHARED
     src/menu_probe.cpp
     src/options.cpp
     src/pickup.cpp
+    src/menu_tint.cpp
     src/spread.cpp
     src/spreadprobe.cpp)
 target_include_directories(visceral_native PRIVATE include src)

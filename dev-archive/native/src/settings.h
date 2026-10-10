@@ -62,6 +62,21 @@ constexpr const char* PICKUP_HIDE[] = {"GUIBlackMask"};    // GUI elements not d
 constexpr int   PICKUP_GIVE_UP_FRAMES = 300;               // the inventory never read open this long after the call: stop
 constexpr int   PICKUP_NAME_CACHE = 512;                   // element names remembered per pick-up
 
+// ---- every menu over the live game world: no tint, no blur (b128, 2026-10-10, Tefa's screenshot) -------------
+// The inventory's post effect (colour filter + blur) is never switched on: every mode takes the use-item path. See
+// menu_tint.h. The camera hold (menu_body) and the VR layer's GuiBack skip do the rest.
+constexpr bool  MENU_TINT_OFF = true;          // false = probe only: everything logged, nothing skipped
+constexpr bool  MENU_TINT_FLAT_TOO = true;     // also without the headset (a flat screenshot proves the effect)
+constexpr bool  MENU_TINT_LAYER_SKIP = false;  // additionally refuse InventoryLayer.activate itself (belt and braces)
+constexpr bool  MENU_TINT_HIDE_FLAT = true;    // flat only: do not draw the elements below (the VR layer already drops GuiBack)
+constexpr const char* MENU_TINT_HIDE[] = {"GuiBack"};   // the inventory's captured-screen backdrop (dark panel + grain, flat)
+constexpr int   MENU_TINT_NAME_CACHE = 1024;   // element names remembered
+constexpr bool  MENU_TINT_STRIP_BLUR_ON = true; // hide every via.gui.BlurFilter inside the elements below (headset and flat)
+constexpr const char* MENU_TINT_STRIP_BLUR[] = {"GUI_Pause"};   // the pause menu's blur + darkening lives inside it (b129 probe)
+// nodes inside those elements hidden whole ("element/node"): the pause menu's full-screen dark mask and its two dark
+// background panels (b130 tree: main > mask_all (Texture), c_blur (Rect + Texture + blur), c_bg (two Rects))
+constexpr const char* MENU_TINT_HIDE_NODES[] = {"GUI_Pause/mask_all", "GUI_Pause/c_blur", "GUI_Pause/c_bg"};
+
 // ---- game options set once (b112, 2026-10-09, board row 5) -------------------------------------------------------
 constexpr unsigned OPTIONS_AIM_ASSIST_LEVEL = 0;   // OptionManager.CameraAimAssistLevel wanted [hypothesis: 0 = off]
 constexpr int   OPTIONS_SETTLE_FRAMES = 120;       // frames in play (headset live) before the options are touched
