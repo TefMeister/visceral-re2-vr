@@ -11,12 +11,20 @@ namespace vn::cfg {
 // (Tefa 2026-10-05: "no tilt please, just left and right turn"). First guesses; tuned by wearing it.
 // b077: shoulders moved 10 cm further out each side (Tefa: "quite close to the headset").
 struct ZoneOffset { float side, up, fwd; };
-constexpr ZoneOffset FLASHLIGHT   {-0.14f,  0.10f,  0.00f};   // upper left of the head, left hand + LG
 constexpr ZoneOffset RIGHT_HIP    { 0.20f, -0.62f,  0.02f};   // shortcut RIGHT, right hand + RG
 constexpr ZoneOffset LEFT_HIP     {-0.20f, -0.62f,  0.02f};   // shortcut DOWN (right hand + RG) / ammo pouch (left hand + LG)
 constexpr ZoneOffset RIGHT_SHOULDER{ 0.28f, -0.22f, -0.08f};  // shortcut UP, right hand + RG
 constexpr ZoneOffset LEFT_SHOULDER{-0.28f, -0.22f, -0.08f};   // shortcut LEFT, right hand + RG
 constexpr ZoneOffset BACK         { 0.12f, -0.62f, -0.30f};   // the sub weapon (knife/grenade), right hand + RG: lower back, as low as the pistol, a little right and out (Tefa 2026-10-10, b135; was behind the head in b134)
+
+// ---- the flashlight, like RE3's (2026-10-11, Tefa; flashlight.cpp) -------------------------------------------------
+// Switched by LT with the LEFT hand at the left shoulder (the LEFT_SHOULDER spot). The beam shines from the left upper
+// chest and points where the head looks; the torch model is hidden in play and seen only in cutscenes.
+constexpr bool  FLASHLIGHT_ON = true;
+constexpr ZoneOffset FLASHLIGHT_BEAM {-0.12f, -0.25f, 0.05f};   // the beam's start from the camera: left, down, forward (m)
+constexpr float FLASHLIGHT_TIMER_S = 999.0f;    // the game's light-switch timer is held this high while switched on
+constexpr int   FLASHLIGHT_PULSES = 12;         // manual-switch inputs tried before giving up (Arcade Controls' number)
+constexpr int   FLASHLIGHT_PULSE_GAP = 2;       // frames between them
 
 constexpr float ZONE_ENTER_M    = 0.15f;   // hand closer than this = in the zone
 constexpr float ZONE_LEAVE_M    = 0.22f;   // and must go further than this to leave (no flicker at the edge)

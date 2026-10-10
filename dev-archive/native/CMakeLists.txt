@@ -14,6 +14,7 @@ add_library(visceral_native SHARED
     src/shortcut.cpp
     src/suppress.cpp
     src/holster.cpp
+    src/flashlight.cpp
     src/ladder.cpp
     src/run.cpp
     src/fire.cpp

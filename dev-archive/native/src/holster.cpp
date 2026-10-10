@@ -4,6 +4,7 @@
 #include "reload.h"
 #include "settings.h"
 #include "shortcut.h"
+#include "flashlight.h"
 #include "weapons.h"
 
 namespace vn::holster {
@@ -23,7 +24,7 @@ struct Zone {
 
 // Tefa 2026-10-05: right = right hip, bottom = left hip, left = left shoulder, top = right shoulder
 Zone g_zones[] = {
-    {"flashlight (upper left of the head)", cfg::FLASHLIGHT,     bridge::LEFT,  bridge::S_LGRIP, NO_SHORTCUT},
+    {"flashlight (left shoulder, LT)",      cfg::LEFT_SHOULDER,  bridge::LEFT,  bridge::S_LTRIG, NO_SHORTCUT},   // 2026-10-11
     {"ammo pouch (left hip)",                cfg::LEFT_HIP,       bridge::LEFT,  bridge::S_LGRIP, NO_SHORTCUT},
     {"back (sub weapon)",                    cfg::BACK,           bridge::RIGHT, bridge::S_RGRIP, NO_SHORTCUT},
     {"right hip",                            cfg::RIGHT_HIP,      bridge::RIGHT, bridge::S_RGRIP, shortcut::RIGHT},
@@ -112,6 +113,10 @@ void frame() {
         if (z.dir == NO_SHORTCUT) {
             if (z.off.side == cfg::LEFT_HIP.side && z.hand == bridge::LEFT && reload::pouch_grab()) continue;   // b132
             if (z.hand == bridge::RIGHT) continue;   // b134: the back spot is subweapon.cpp's (it reads the press itself)
+            if (z.grip == bridge::S_LTRIG) {   // 2026-10-11: the flashlight (not while LG is held: LG+LT is the rack)
+                if (!bridge::held(bridge::S_LGRIP) && !bridge::held(bridge::S_RGRIP)) flashlight::toggle();
+                continue;
+            }
             bridge::rumble(z.hand, cfg::BUZZ_GRAB_AMP, cfg::BUZZ_GRAB_SEC);
             LOGI("%s GRAB at %s (does nothing yet: a later step)", TAG, z.name);
         } else {
