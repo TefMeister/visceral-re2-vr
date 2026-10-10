@@ -16,6 +16,7 @@ constexpr ZoneOffset RIGHT_HIP    { 0.20f, -0.62f,  0.02f};   // shortcut RIGHT,
 constexpr ZoneOffset LEFT_HIP     {-0.20f, -0.62f,  0.02f};   // shortcut DOWN (right hand + RG) / ammo pouch (left hand + LG)
 constexpr ZoneOffset RIGHT_SHOULDER{ 0.28f, -0.22f, -0.08f};  // shortcut UP, right hand + RG
 constexpr ZoneOffset LEFT_SHOULDER{-0.28f, -0.22f, -0.08f};   // shortcut LEFT, right hand + RG
+constexpr ZoneOffset BACK         { 0.00f, -0.12f, -0.28f};   // behind the head: the sub weapon (knife/grenade), right hand + RG (b134)
 
 constexpr float ZONE_ENTER_M    = 0.15f;   // hand closer than this = in the zone
 constexpr float ZONE_LEAVE_M    = 0.22f;   // and must go further than this to leave (no flicker at the edge)
@@ -138,5 +139,11 @@ constexpr bool  RELOAD_HUD_ZERO_WHEN_OUT = true;  // the HUD's loaded count read
 constexpr int   SFX_VOICES = 16;
 constexpr float SFX_DEBOUNCE_SEC = 0.10f;         // his ext_5 debounce per kind
 constexpr float SFX_MASTER = 1.0f;
+
+// ---- the sub weapon from the back holster on RG; RG never aims (b134, 2026-10-10; subweapon.h) ------------------
+constexpr bool  SUB_ON_RG = true;            // false = the game's way (left grip readies the sub weapon, right grip aims)
+constexpr bool  RG_NEVER_AIMS = true;        // the HOLD (aim) button is never sent from the right grip
+constexpr float THROW_SWING_MPS = 1.6f;      // OURS: the right controller must move this fast (room metres/s) for the throw
+constexpr float THROW_SWING_SMOOTH = 0.35f;  // speed smoothing per frame (1 = raw)
 
 } // namespace vn::cfg

@@ -25,6 +25,7 @@ add_library(visceral_native SHARED
     src/reload.cpp
     src/reload_block.cpp
     src/sfx.cpp
+    src/subweapon.cpp
     third_party/miniaudio_impl.c
     src/spread.cpp
     src/spreadprobe.cpp)

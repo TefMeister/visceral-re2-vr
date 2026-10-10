@@ -24,6 +24,7 @@
 #include "menu_body.h"
 #include "reload.h"
 #include "settings.h"
+#include "subweapon.h"
 #include "weapons.h"
 
 #include <atomic>
@@ -173,6 +174,8 @@ void frame() {
 
     // b109: LG held first, in play (no menu, a player): the game keeps SUPPORT_HOLD on, whatever the dock does
     const bool menu = menu_body::is_menu_open();
+    if (subweapon::active()) { g_sh_forced = true; return; }   // b134: the right grip holds the sub weapon out; subweapon.cpp owns setForce
+    if (g_sh_forced && !subweapon::active() && !cfg::KEEP_SUPPORT_HOLD_ON_LG) g_sh_forced = false;
     const bool keep = cfg::KEEP_SUPPORT_HOLD_ON_LG && lg && g_first == First::LG && eq != nullptr && !menu && !reload::session_active();
     // b113: say why it was let go (the first hold of 16:27:33 let go after 0.7 s with LG still held, per Tefa)
     const char* why = !lg ? " -- LG released" : g_first != First::LG ? (g_first == First::RG ? " -- RG went first" : " -- not LG first")

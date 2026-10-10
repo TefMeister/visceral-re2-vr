@@ -25,6 +25,7 @@ struct Zone {
 Zone g_zones[] = {
     {"flashlight (upper left of the head)", cfg::FLASHLIGHT,     bridge::LEFT,  bridge::S_LGRIP, NO_SHORTCUT},
     {"ammo pouch (left hip)",                cfg::LEFT_HIP,       bridge::LEFT,  bridge::S_LGRIP, NO_SHORTCUT},
+    {"back (sub weapon)",                    cfg::BACK,           bridge::RIGHT, bridge::S_RGRIP, NO_SHORTCUT},
     {"right hip",                            cfg::RIGHT_HIP,      bridge::RIGHT, bridge::S_RGRIP, shortcut::RIGHT},
     {"left hip",                             cfg::LEFT_HIP,       bridge::RIGHT, bridge::S_RGRIP, shortcut::DOWN},
     {"left shoulder",                        cfg::LEFT_SHOULDER,  bridge::RIGHT, bridge::S_RGRIP, shortcut::LEFT},
@@ -84,6 +85,11 @@ void grab(const Zone& z) {
 }
 } // namespace
 
+bool right_hand_in_back_zone() {
+    for (auto& z : g_zones) if (z.hand == bridge::RIGHT && z.dir == NO_SHORTCUT && z.inside) return true;
+    return false;
+}
+
 bool right_hand_in_zone() {
     for (auto& z : g_zones) if (z.hand == bridge::RIGHT && z.inside) return true;
     return false;
@@ -105,6 +111,7 @@ void frame() {
         if (!z.inside || !bridge::pressed(z.grip)) continue;
         if (z.dir == NO_SHORTCUT) {
             if (z.off.side == cfg::LEFT_HIP.side && z.hand == bridge::LEFT && reload::pouch_grab()) continue;   // b132
+            if (z.hand == bridge::RIGHT) continue;   // b134: the back spot is subweapon.cpp's (it reads the press itself)
             bridge::rumble(z.hand, cfg::BUZZ_GRAB_AMP, cfg::BUZZ_GRAB_SEC);
             LOGI("%s GRAB at %s (does nothing yet: a later step)", TAG, z.name);
         } else {
