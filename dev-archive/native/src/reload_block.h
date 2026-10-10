@@ -12,6 +12,8 @@ namespace vn::reload_block {
 void install();   // the hooks (once, from the game thread)
 void frame();     // UpdateBehavior pre: clears the input bits (RELOAD; SUPPORT_HOLD while a reload is under way)
 
+void show_ammo_counter(float seconds);   // the HUD's ammo counter kept up this long (a reload or rack just happened)
+
 struct Commit {   // our own reload calls go through the blocks while one of these is alive (game thread only)
     Commit();
     ~Commit();

@@ -80,6 +80,13 @@ void set_state(St s, const char* why) {
 }
 
 
+Quat quat_from_ypr(const cfg::ShellHold& h) {
+    const float d = 3.14159265f / 360.0f;
+    const Quat qz{0, 0, std::sin(h.yaw * d), std::cos(h.yaw * d)};
+    const Quat qy{0, std::sin(h.pitch * d), 0, std::cos(h.pitch * d)};
+    const Quat qx{std::sin(h.roll * d), 0, 0, std::cos(h.roll * d)};
+    return qnorm(qmul(qmul(qz, qy), qx));
+}
 Quat quat_from_ypr(const Hold& h) {   // his convention: yaw about Z, then pitch about Y, then roll about X (degrees)
     const float d = 3.14159265f / 360.0f;   // half-angle, radians
     const Quat qz{0, 0, std::sin(h.yaw * d), std::cos(h.yaw * d)};
@@ -116,10 +123,15 @@ void shell_part(bool show) {   // the shell mesh part of the gun (hidden by the 
     if (m != nullptr && g_sw != nullptr) m->call<void>(API::get()->get_vm_context(), (void*)mesh, (uint64_t)g_sw->mesh_part, show);
 }
 
-// the shell's world pose in the left hand: at the wrist, turned with it (his shell_hand is all zero)
+// the shell's world pose in the left hand: the wrist plus cfg::SHELL_HOLD (b142: at the wrist alone it poked through
+// Leon's hand, Tefa 2026-10-10; his shell_hand is all zero, so this is ours to tune)
 bool shell_hand_pose(Vec3& pos, Quat& rot) {
-    if (!get_v3(JOINT, g_wrist, "get_Position", pos) || !get_q(JOINT, g_wrist, "get_Rotation", rot)) return false;
-    rot = qnorm(rot);
+    Vec3 hp;
+    Quat hr;
+    if (!get_v3(JOINT, g_wrist, "get_Position", hp) || !get_q(JOINT, g_wrist, "get_Rotation", hr)) return false;
+    hr = qnorm(hr);
+    pos = hp + rotate(hr, Vec3{cfg::SHELL_HOLD.ox, cfg::SHELL_HOLD.oy, cfg::SHELL_HOLD.oz});
+    rot = qnorm(qmul(hr, quat_from_ypr(cfg::SHELL_HOLD)));
     return true;
 }
 
@@ -162,6 +174,7 @@ void shell_insert() {
     }
     LOGI("%s reload: WP%04d shell in: loaded %d -> %d, carried %d -> %d%s", TAG, g_wp, before, loaded(), res_before, reserve(), ok ? "" : " -- NOTHING WENT IN");
     if (ok) pump_native::on_shells_inserted(before == 0);
+    reload_block::show_ammo_counter(cfg::HUD_AFTER_RELOAD_SEC);
 }
 
 void shell_checks() {
@@ -248,6 +261,7 @@ void top_up() {
     }
     if (g_gun != nullptr) call_direct<void*>(g_gun, "executeEndReload", nullptr);   // fire-ready again
     if (before == 0 && loaded() > 0) rack::need("a magazine into an empty gun");
+    reload_block::show_ammo_counter(cfg::HUD_AFTER_RELOAD_SEC);
     LOGI("%s reload: WP%04d topped up by %s: loaded %d -> %d (capacity %d), carried %d -> %d", TAG, g_wp, how, before, loaded(), cap,
          res_before, reserve());
 }
