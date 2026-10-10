@@ -7,6 +7,8 @@
 #include "bridge.h"
 #include "common.h"
 #include "menu_body.h"
+#include "rack.h"
+#include "reload.h"
 #include "settings.h"
 #include "weapons.h"
 
@@ -129,7 +131,7 @@ void frame() {
         g_bullets_before = bullets(p.eq);
         g_window = cfg::FIRE_WINDOW_FRAMES;
         g_in_flight = true;
-        set_precede(p.orderer, true);
+        if (reload::mag_out() || rack::blocks_fire()) { set_precede(p.orderer, false); } else set_precede(p.orderer, true);   // b142: no shot with the magazine out / a rack needed (the game played the shot sound, b141 worn)
         auto* set_fire = p.updater ? find_method_deep(p.updater->get_type_definition(), "set_Fire") : nullptr;
         if (set_fire != nullptr) set_fire->call<void>(API::get()->get_vm_context(), (void*)p.updater, true);   // switch 2
         if (g_shots <= cfg::FIRE_LOG_FIRST)
