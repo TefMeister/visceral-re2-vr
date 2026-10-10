@@ -131,7 +131,7 @@ re.on_frame(function()
         if now < st.next_find then return end
         st.next_find = now + FIND_S
         st.menu = find_menu()
-        if st.menu then st.armed_at = now; st.last_reading = nil; log_line("title found; rain on the main menu armed") end
+        if st.menu then st.armed_at = now; st.last_reading = nil; st.kicked = false; log_line("title found; rain on the main menu armed") end
         return
     end
     -- still on the title? (the object is destroyed with the scene)
@@ -155,6 +155,15 @@ re.on_frame(function()
     if ready and not built then
         safe(function() oem:call("updateDataContainer") end)
         built = safe(function() return oem:get_field("EPVDataContainerObj") end) ~= nil
+    end
+    -- b145: built at 0.66 s, still refused until 3.17 s (worn 21:05). The manager's other start-up steps also only run
+    -- in its own update: the current GameObject and the effect providers. Run them once ourselves when the data is built.
+    if built and not st.kicked then
+        st.kicked = true
+        for _, m in ipairs({ "setDefaultCurrentGameObject", "updatetCurrentGameObjectRef", "createStandardProvider", "createProviders" }) do
+            local okm = pcall(function() oem:call(m) end)
+            log_line(string.format("start-up step %s: %s", m, okm and "ran" or "threw"))
+        end
     end
     local reading = string.format("prefab %s, ready %s, effect data %s", dc and "set" or "none", tostring(ready), built and "BUILT" or "missing")
     if reading ~= st.last_reading then
