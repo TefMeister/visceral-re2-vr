@@ -145,5 +145,6 @@ constexpr bool  SUB_ON_RG = true;            // false = the game's way (left gri
 constexpr bool  RG_NEVER_AIMS = true;        // the HOLD (aim) button is never sent from the right grip
 constexpr float THROW_SWING_MPS = 1.6f;      // OURS: the right controller must move this fast (room metres/s) for the throw
 constexpr float THROW_SWING_SMOOTH = 0.35f;  // speed smoothing per frame (1 = raw)
+constexpr int   THROW_HOLD_FRAMES = 12;      // the grenade throw = HOLD sent this many frames on the swing (b137)
 
 } // namespace vn::cfg
