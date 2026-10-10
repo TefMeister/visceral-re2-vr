@@ -22,8 +22,8 @@ const SlideWeapon* g_w = nullptr;
 int g_wp = -1;
 MO* g_joint = nullptr;    // this frame's slide / fore-end joint
 MO* g_gun = nullptr;
-Vec3 g_rest_xy{};         // the joint's own X/Y at rest (only Z travels)
-bool g_have_rest = false;
+Vec3 g_rest{};            // the joint's own LOCAL pose at rest, read once per weapon (his numbers are offsets from it:
+bool g_have_rest = false; // b140 wrote them as positions and the W-870's fore-end went to the gun's origin, worn 2026-10-10)
 
 bool g_needed = false;    // a rack is required
 bool g_parked = false;    // the slide is locked open (empty gun, or needed)
@@ -53,7 +53,7 @@ void resolve_frame() {
     g_joint = joint_by_name(wtf, widen(g_w->joint).c_str());
     if (g_joint != nullptr && !g_have_rest) {
         Vec3 p;
-        if (get_v3(JOINT, g_joint, "get_LocalPosition", p)) { g_rest_xy = p; g_have_rest = true; }
+        if (get_v3(JOINT, g_joint, "get_LocalPosition", p)) { g_rest = p; g_have_rest = true; LOGI("%s rack: WP%04d joint %s rests at local %.3f %.3f %.3f (his rest %.3f)", TAG, g_wp, g_w->joint, p.x, p.y, p.z, g_w->rest_z); }
     }
 }
 
@@ -67,13 +67,15 @@ bool hand_near_joint() {
     return d <= cfg::RACK_HAND_M;
 }
 
-float z_from() { return g_parked ? g_w->parked_z : g_w->rest_z; }
+// the joint's local Z: its real rest + his offset (parked - rest, back - rest)
+float z_from() { return g_rest.z + ((g_parked ? g_w->parked_z : g_w->rest_z) - g_w->rest_z); }
+float z_back() { return g_rest.z + (g_w->back_z - g_w->rest_z); }
 
 void write_joint() {
-    if (g_joint == nullptr || g_w == nullptr) return;
-    const float z = z_from() + (g_w->back_z - z_from()) * ease(g_travel);
-    Vec3 p{g_rest_xy.x, g_rest_xy.y, (g_hand_on || g_parked || g_travel > 0.0f) ? z : g_w->rest_z};
+    if (g_joint == nullptr || g_w == nullptr || !g_have_rest) return;
     if (!g_hand_on && !g_parked && g_travel <= 0.0f) return;   // nothing of ours: leave the game's own animation alone
+    const float z = z_from() + (z_back() - z_from()) * ease(g_travel);
+    Vec3 p{g_rest.x, g_rest.y, z};
     set_any(JOINT, g_joint, "set_LocalPosition", &p);
 }
 
