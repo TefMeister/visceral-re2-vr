@@ -131,7 +131,7 @@ re.on_frame(function()
         if now < st.next_find then return end
         st.next_find = now + FIND_S
         st.menu = find_menu()
-        if st.menu then log_line("title found; rain on the main menu armed") end
+        if st.menu then st.armed_at = now; st.last_reading = nil; log_line("title found; rain on the main menu armed") end
         return
     end
     -- still on the title? (the object is destroyed with the scene)
@@ -142,10 +142,29 @@ re.on_frame(function()
     local oem = safe(function() return st.menu:get_field("ObjectEffectManagerComponent") end)
     local id = oem and make_id(st.menu)
     if not (oem and id) then return end
+    -- 2026-10-10 (b144): WHY the start time was random. The rain is an effect of the Story menu object's
+    -- ObjectEffectManager, and requestEffectInternal throws until that manager has built its effect data
+    -- (EPVDataContainerObj, made from the DataContainer prefab in its own update -> updateDataContainer). On the title
+    -- the Story object is not updating (UpdateSelf=false) until the game wakes it, at a moment that depends on the title
+    -- flow, so the first accepted request came anywhere from 0 to 10+ s [inferred-static 2026-10-10: type database].
+    -- Now: as soon as the prefab is Ready, we build the data ourselves (updateDataContainer, the manager's own step), so
+    -- the request is accepted on the next try. Each change of the three readings is logged once.
+    local dc = safe(function() return oem:get_field("DataContainer") end)
+    local ready = dc and safe(function() return dc:call("get_Ready") end)
+    local built = safe(function() return oem:get_field("EPVDataContainerObj") end) ~= nil
+    if ready and not built then
+        safe(function() oem:call("updateDataContainer") end)
+        built = safe(function() return oem:get_field("EPVDataContainerObj") end) ~= nil
+    end
+    local reading = string.format("prefab %s, ready %s, effect data %s", dc and "set" or "none", tostring(ready), built and "BUILT" or "missing")
+    if reading ~= st.last_reading then
+        st.last_reading = reading
+        log_line(string.format("attempt %d at %.2f s: %s", st.attempts, now - (st.armed_at or now), reading))
+    end
     local ok, r = pcall(function() return oem:call(SIG, id, nil, -1) end)
     if ok and r then
         st.ours = r
-        log_line(string.format("rain requested for the main menu (attempt %d)", st.attempts))
+        log_line(string.format("rain requested for the main menu (attempt %d, %.2f s after the title was found)", st.attempts, now - (st.armed_at or now)))
     elseif st.attempts >= MAX_ATTEMPTS then
         st.gave_up = true
         log_line(string.format("gave up after %d attempts (last: %s)", st.attempts, tostring(r)))

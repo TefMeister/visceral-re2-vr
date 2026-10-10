@@ -62,6 +62,7 @@ constexpr bool  PICKUP_HIDE_ON = true;                     // false = probe only
 constexpr const char* PICKUP_HIDE[] = {"GUIBlackMask"};    // GUI elements not drawn during a pick-up (first guess)
 constexpr int   PICKUP_GIVE_UP_FRAMES = 300;               // the inventory never read open this long after the call: stop
 constexpr int   PICKUP_NAME_CACHE = 512;                   // element names remembered per pick-up
+constexpr bool  PICKUP_KEEP_WORLD_CAMERA = true;           // b144: skip the game's item camera in a pick-up (the world stays behind it)
 
 // ---- every menu over the live game world: no tint, no blur (b128, 2026-10-10, Tefa's screenshot) -------------
 // The inventory's post effect (colour filter + blur) is never switched on: every mode takes the use-item path. See
