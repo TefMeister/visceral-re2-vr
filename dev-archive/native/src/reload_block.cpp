@@ -3,6 +3,8 @@
 #include "bridge.h"
 #include "common.h"
 #include "menu_body.h"
+#include "pump_native.h"
+#include "rack.h"
 #include "reload.h"
 #include "settings.h"
 #include "sfx.h"
@@ -73,9 +75,9 @@ void dry_click() {
 
 int pre_fire(int, void**, REFrameworkTypeDefinitionHandle*, unsigned long long) {
     if (!cfg::RELOAD_ON || !reload::managed_now() || menu_body::is_menu_open()) return REFRAMEWORK_HOOK_CALL_ORIGINAL;
-    if (reload::mag_out()) {
+    if (reload::mag_out() || rack::blocks_fire()) {
         const int n = g_fire_blocked.fetch_add(1) + 1;
-        if (n <= 10 || n % 100 == 0) LOGI("%s block: shot stopped, the magazine is out (#%d)", TAG, n);
+        if (n <= 10 || n % 100 == 0) LOGI("%s block: shot stopped, %s (#%d)", TAG, reload::mag_out() ? "the magazine is out" : "a rack / pump is needed", n);
         dry_click();
         return REFRAMEWORK_HOOK_SKIP_ORIGINAL;
     }
@@ -86,15 +88,22 @@ void post_nop(void**, REFrameworkTypeDefinitionHandle, unsigned long long) {}
 // an empty but seated gun: the game still asks to fire (port step 2, 2026-10-03), so the click is played after the
 // game has had its go (getBulletNumber read in the post, when the shot, if any, has already taken its round)
 int g_rounds_at_pre = -1;
+MO* t_gun = nullptr;
 int pre_fire_count(int argc, void** argv, REFrameworkTypeDefinitionHandle*, unsigned long long) {
     g_rounds_at_pre = -1;
     if (!cfg::RELOAD_ON || !reload::managed_now() || reload::mag_out() || argc < 2) return REFRAMEWORK_HOOK_CALL_ORIGINAL;
     auto* eq = is_managed(argv[1]) ? (MO*)argv[1] : nullptr;
-    g_rounds_at_pre = call_direct<int>(field_obj(eq, "<EquipWeapon>k__BackingField"), "getBulletNumber", -1);
+    t_gun = field_obj(eq, "<EquipWeapon>k__BackingField");
+    g_rounds_at_pre = call_direct<int>(t_gun, "getBulletNumber", -1);
+    pump_native::on_pre_fire(t_gun);
     return REFRAMEWORK_HOOK_CALL_ORIGINAL;
 }
 void post_fire_count(void**, REFrameworkTypeDefinitionHandle, unsigned long long) {
     if (g_rounds_at_pre == 0) dry_click();
+    if (g_rounds_at_pre > 0 && t_gun != nullptr) {
+        pump_native::on_post_fire(t_gun);
+        if (call_direct<int>(t_gun, "getBulletNumber", -1) == 0) rack::slide_lock_empty();   // the last round: the slide locks open
+    }
 }
 
 // the HUD's loaded count while the magazine is out
