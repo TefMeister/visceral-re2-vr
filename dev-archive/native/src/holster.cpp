@@ -1,6 +1,7 @@
 // holster.cpp -- see holster.h
 #include "holster.h"
 #include "bridge.h"
+#include "reload.h"
 #include "settings.h"
 #include "shortcut.h"
 #include "weapons.h"
@@ -103,6 +104,7 @@ void frame() {
         }
         if (!z.inside || !bridge::pressed(z.grip)) continue;
         if (z.dir == NO_SHORTCUT) {
+            if (z.off.side == cfg::LEFT_HIP.side && z.hand == bridge::LEFT && reload::pouch_grab()) continue;   // b132
             bridge::rumble(z.hand, cfg::BUZZ_GRAB_AMP, cfg::BUZZ_GRAB_SEC);
             LOGI("%s GRAB at %s (does nothing yet: a later step)", TAG, z.name);
         } else {
