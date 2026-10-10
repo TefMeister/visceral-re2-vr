@@ -12,6 +12,9 @@
 #include "settings.h"
 #include "sfx.h"
 #include "weapons.h"
+#include "joints.h"
+#include "rack.h"
+#include "pump_native.h"
 
 #include <algorithm>
 #include <chrono>
@@ -23,7 +26,16 @@
 
 namespace vn::reload {
 
+using namespace joints;
+
 namespace {
+void write_shell_local(Vec3 p, Quat q);
+bool to_weapon_local(Vec3 world, Quat wrot_in, Vec3& lpos, Quat* lrot);
+int loaded();
+int capacity();
+int reserve();
+MO* inventory();
+MO* equipment();
 enum class St { SEATED, SLIDE_OUT, FALL, OUT, IN_HAND, HAND_FALL, INSERT };
 const char* st_name(St s) {
     switch (s) {
@@ -51,12 +63,15 @@ Quat g_fall_rot{0, 0, 0, 1};      // world
 bool g_scale_restore = false;     // the magazine is back: write its rest scale once
 float g_last_grab = -10.0f, g_last_dock = -10.0f;
 
-float now_s() {
-    static const auto t0 = std::chrono::steady_clock::now();
-    return std::chrono::duration<float>(std::chrono::steady_clock::now() - t0).count();
-}
-float ease(float t) { return t <= 0 ? 0 : t >= 1 ? 1 : t * t * (3.0f - 2.0f * t); }
-Vec3 lerp(Vec3 a, Vec3 b, float u) { return a + (b - a) * u; }
+// ---- shotgun shells (bundle 2): the gun's own hidden shell part rides the shell joint to the left wrist ------------
+const ShellWeapon* g_sw = nullptr;
+MO* g_shell_joint = nullptr;
+bool g_shell_in_hand = false;
+bool g_shell_have_rest = false;
+Vec3 g_shell_rest{};
+Quat g_shell_rest_rot{0, 0, 0, 1};
+float g_shell_last_dock = -10.0f;
+
 
 void set_state(St s, const char* why) {
     LOGI("%s reload: WP%04d magazine %s -> %s (%s)", TAG, g_wp, st_name(g_st), st_name(s), why);
@@ -64,52 +79,6 @@ void set_state(St s, const char* why) {
     g_t0 = now_s();
 }
 
-// ---- managed helpers: joints and transforms by tdb method (works for native objects too) ---------------------------
-API::Method* method(const char* type, const char* name) {
-    static std::map<std::string, API::Method*> cache;
-    const std::string key = std::string(type) + "." + name;
-    auto it = cache.find(key);
-    if (it != cache.end()) return it->second;
-    auto* m = API::get()->tdb()->find_method(type, name);
-    if (m == nullptr) LOGW("%s reload: %s not found", TAG, key.c_str());
-    return cache[key] = m;
-}
-bool get_v3(const char* type, MO* o, const char* name, Vec3& out) {
-    auto* m = o ? method(type, name) : nullptr;
-    if (m == nullptr) return false;
-    auto r = m->invoke(o, std::vector<void*>{});
-    if (r.exception_thrown) return false;
-    std::memcpy(&out, r.bytes.data(), sizeof out);
-    return std::isfinite(out.x) && std::isfinite(out.y) && std::isfinite(out.z);
-}
-bool get_q(const char* type, MO* o, const char* name, Quat& out) {
-    auto* m = o ? method(type, name) : nullptr;
-    if (m == nullptr) return false;
-    auto r = m->invoke(o, std::vector<void*>{});
-    if (r.exception_thrown) return false;
-    std::memcpy(&out, r.bytes.data(), sizeof out);
-    return std::isfinite(out.w);
-}
-void set_any(const char* type, MO* o, const char* name, const void* value) {   // value types go by pointer (x64 ABI)
-    auto* m = o ? method(type, name) : nullptr;
-    if (m != nullptr) m->call<void>(API::get()->get_vm_context(), (void*)o, (void*)value);
-}
-constexpr const char* JOINT = "via.Joint";
-constexpr const char* XFORM = "via.Transform";
-
-MO* joint_by_name(MO* tf, const wchar_t* name) {
-    static std::map<std::wstring, MO*> strings;   // one managed string per name, kept alive
-    auto it = strings.find(name);
-    if (it == strings.end()) {
-        auto* s = API::get()->create_managed_string(name);
-        if (s != nullptr) s->add_ref();
-        it = strings.emplace(name, s).first;
-    }
-    if (tf == nullptr || it->second == nullptr) return nullptr;
-    return call_ptr(tf, "getJointByName", {(void*)it->second});
-}
-
-std::wstring widen(const char* s) { return std::wstring(s, s + std::strlen(s)); }
 
 Quat quat_from_ypr(const Hold& h) {   // his convention: yaw about Z, then pitch about Y, then roll about X (degrees)
     const float d = 3.14159265f / 360.0f;   // half-angle, radians
@@ -135,6 +104,84 @@ void resolve_frame() {
     g_gun = gun;
     g_wtf = call_ptr(call_ptr(gun, "get_GameObject"), "get_Transform");
     if (g_w != nullptr) g_joint = joint_by_name(g_wtf, widen(g_w->joint).c_str());
+    g_shell_joint = g_sw != nullptr ? joint_by_name(g_wtf, widen(g_sw->joint).c_str()) : nullptr;
+    if (g_shell_joint != nullptr && !g_shell_have_rest) {
+        if (get_v3(JOINT, g_shell_joint, "get_LocalPosition", g_shell_rest) && get_q(JOINT, g_shell_joint, "get_LocalRotation", g_shell_rest_rot)) g_shell_have_rest = true;
+    }
+}
+
+void shell_part(bool show) {   // the shell mesh part of the gun (hidden by the game unless it is being loaded)
+    auto* mesh = call_ptr(g_gun, "get_Mesh");
+    auto* m = mesh ? find_method_deep(mesh->get_type_definition(), "setPartsEnable(System.UInt64, System.Boolean)") : nullptr;
+    if (m != nullptr && g_sw != nullptr) m->call<void>(API::get()->get_vm_context(), (void*)mesh, (uint64_t)g_sw->mesh_part, show);
+}
+
+// the shell's world pose in the left hand: at the wrist, turned with it (his shell_hand is all zero)
+bool shell_hand_pose(Vec3& pos, Quat& rot) {
+    if (!get_v3(JOINT, g_wrist, "get_Position", pos) || !get_q(JOINT, g_wrist, "get_Rotation", rot)) return false;
+    rot = qnorm(rot);
+    return true;
+}
+
+void shell_pose_joint() {
+    if (g_shell_joint == nullptr || g_sw == nullptr || !g_shell_in_hand) return;
+    Vec3 wp, lp;
+    Quat wr, lr;
+    if (!shell_hand_pose(wp, wr) || !to_weapon_local(wp, wr, lp, &lr)) return;
+    write_shell_local(lp, lr);
+}
+
+void shell_put_back(const char* why) {
+    if (!g_shell_in_hand) return;
+    g_shell_in_hand = false;
+    shell_part(false);
+    if (g_shell_joint != nullptr && g_shell_have_rest) write_shell_local(g_shell_rest, g_shell_rest_rot);
+    LOGI("%s reload: shell put back (%s)", TAG, why);
+}
+
+int tube_space() {   // shells the gun can still take
+    const int cap = capacity(), have = loaded();
+    return (cap > 0 && have >= 0) ? cap - have : 0;
+}
+
+// one shell in: the game's own +1 (RELOADED's first rung), then fire-ready
+void shell_insert() {
+    const int before = loaded(), res_before = reserve();
+    bool ok = false;
+    {
+        reload_block::Commit c;
+        if (res_before > 0) call_direct<bool>(inventory(), "reloadMainSlot", false, (int32_t)1);
+        ok = loaded() > before;
+        if (!ok && res_before > 0) {
+            auto* m = API::get()->tdb()->find_method("app.ropeway.survivor.Equipment", "executeReload(app.ropeway.EquipmentDefine.WeaponType, System.Int32)");
+            const int wt = call_direct<int>(g_gun, "get_WeaponType", -1);
+            if (m != nullptr && wt >= 0) m->call<bool>(API::get()->get_vm_context(), (void*)equipment(), wt, (int32_t)1);
+            ok = loaded() > before;
+        }
+        if (g_gun != nullptr) call_direct<void*>(g_gun, "executeEndReload", nullptr);
+    }
+    LOGI("%s reload: WP%04d shell in: loaded %d -> %d, carried %d -> %d%s", TAG, g_wp, before, loaded(), res_before, reserve(), ok ? "" : " -- NOTHING WENT IN");
+    if (ok) pump_native::on_shells_inserted(before == 0);
+}
+
+void shell_checks() {
+    if (!g_shell_in_hand || g_sw == nullptr) return;
+    Vec3 wp, lp;
+    Quat wr;
+    if (!shell_hand_pose(wp, wr)) return;
+    if (!bridge::held(bridge::S_LGRIP)) { shell_put_back("left grip let go"); return; }
+    if (!to_weapon_local(wp, wr, lp, nullptr)) return;
+    const float d = dist(lp, g_sw->port);
+    const float now = now_s();
+    if (d > g_sw->dock || now - g_shell_last_dock < cfg::RELOAD_DOCK_COOLDOWN_SEC) return;
+    g_shell_last_dock = now;
+    LOGI("%s reload: shell at the port (%.3f m, need %.3f)", TAG, d, g_sw->dock);
+    sfx::play("mag_insert", g_sw->sfx, g_sw->vol);
+    bridge::rumble(bridge::LEFT, cfg::RELOAD_INSERT_BUZZ_AMP, cfg::RELOAD_INSERT_BUZZ_SEC);
+    g_shell_in_hand = false;
+    shell_part(false);
+    if (g_shell_joint != nullptr && g_shell_have_rest) write_shell_local(g_shell_rest, g_shell_rest_rot);
+    shell_insert();
 }
 
 // world point / rotation -> the weapon transform's frame
@@ -200,6 +247,7 @@ void top_up() {
         }
     }
     if (g_gun != nullptr) call_direct<void*>(g_gun, "executeEndReload", nullptr);   // fire-ready again
+    if (before == 0 && loaded() > 0) rack::need("a magazine into an empty gun");
     LOGI("%s reload: WP%04d topped up by %s: loaded %d -> %d (capacity %d), carried %d -> %d", TAG, g_wp, how, before, loaded(), cap,
          res_before, reserve());
 }
@@ -216,6 +264,10 @@ void write_world(Vec3 p, Quat q) {
     set_any(JOINT, g_joint, "set_Rotation", &q);
 }
 void write_scale(Vec3 s) { set_any(JOINT, g_joint, "set_LocalScale", &s); }
+void write_shell_local(Vec3 p, Quat q) {
+    set_any(JOINT, g_shell_joint, "set_LocalPosition", &p);
+    set_any(JOINT, g_shell_joint, "set_LocalRotation", &q);
+}
 
 void pose_joint() {
     if (g_joint == nullptr || g_w == nullptr) return;
@@ -302,20 +354,24 @@ void begin_drop() {
 
 // ---- the public side --------------------------------------------------------------------------------------------------
 // headset only: without it there is no B, no left hand and no pouch, so the game keeps its own reload
-bool managed_now() { return cfg::RELOAD_ON && g_w != nullptr && g_gun != nullptr && bridge::live(); }
-bool mag_out() { return managed_now() && g_st != St::SEATED; }
-bool session_active() { return mag_out(); }
+bool managed_now() { return cfg::RELOAD_ON && (g_w != nullptr || g_sw != nullptr) && g_gun != nullptr && bridge::live(); }
+bool mag_out() { return managed_now() && g_w != nullptr && g_st != St::SEATED; }
+bool session_active() { return mag_out() || g_shell_in_hand; }
 int wp_now() { return g_wp; }
-const char* sfx_folder_now() { return g_w ? g_w->sfx : "handgun"; }
-float sfx_volume_now() { return g_w ? g_w->vol : 1.0f; }
+const char* sfx_folder_now() { return g_w ? g_w->sfx : g_sw ? g_sw->sfx : "handgun"; }
+float sfx_volume_now() { return g_w ? g_w->vol : g_sw ? g_sw->vol : 1.0f; }
 
 void frame() {
     if (!cfg::RELOAD_ON) return;
     const int wp = weapons::current_id();
     if (wp != g_wp) {
         put_back_on_swap(wp < 0 ? "weapon put away" : "weapon changed");
+        shell_put_back("weapon changed");
         g_wp = wp;
         g_w = mag_weapon(wp);
+        g_sw = shell_weapon(wp);
+        g_shell_have_rest = false;
+        if (g_sw != nullptr) LOGI("%s reload: WP%04d %s loads single shells (joint %s, part %d)", TAG, wp, weapons::name(wp), g_sw->joint, g_sw->mesh_part);
         if (g_w != nullptr) LOGI("%s reload: WP%04d %s uses the manual magazine reload (joint %s)", TAG, wp, weapons::name(wp), g_w->joint);
     }
     resolve_frame();
@@ -355,17 +411,36 @@ void frame() {
 
 void late_point() {
     if (!managed_now()) return;
-    hand_checks();
-    pose_joint();
+    if (g_w != nullptr) { hand_checks(); pose_joint(); }
+    if (g_sw != nullptr) { shell_checks(); shell_pose_joint(); }
 }
 
 void render_point() {
     if (!managed_now()) return;
-    pose_joint();
+    if (g_w != nullptr) pose_joint();
+    if (g_sw != nullptr) shell_pose_joint();
 }
 
 bool pouch_grab() {
-    if (!managed_now() || g_st != St::OUT) return false;
+    if (!managed_now()) return false;
+    if (g_sw != nullptr) {   // a shell for the shotgun
+        const float now = now_s();
+        if (now - g_last_grab < cfg::RELOAD_GRAB_COOLDOWN_SEC || g_shell_in_hand) return true;
+        g_last_grab = now;
+        if (reserve() <= 0 || tube_space() <= 0) {
+            LOGI("%s reload: no shell to take (carried %d, space %d)", TAG, reserve(), tube_space());
+            bridge::rumble(bridge::LEFT, cfg::RELOAD_DENY_BUZZ_AMP, cfg::RELOAD_DENY_BUZZ_SEC);
+            return true;
+        }
+        if (g_shell_joint == nullptr) { LOGW("%s reload: shell joint %s not found on WP%04d", TAG, g_sw->joint, g_wp); return true; }
+        g_shell_in_hand = true;
+        shell_part(true);
+        sfx::play("mag_grab", g_sw->sfx, g_sw->vol);
+        bridge::rumble(bridge::LEFT, cfg::RELOAD_GRAB_BUZZ_AMP, cfg::RELOAD_GRAB_BUZZ_SEC);
+        LOGI("%s reload: shell in the left hand (carried %d, space %d)", TAG, reserve(), tube_space());
+        return true;
+    }
+    if (g_st != St::OUT) return false;
     const float now = now_s();
     if (now - g_last_grab < cfg::RELOAD_GRAB_COOLDOWN_SEC) return true;
     g_last_grab = now;
