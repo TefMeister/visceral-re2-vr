@@ -22,9 +22,6 @@ constexpr ZoneOffset BACK         { 0.12f, -0.62f, -0.30f};   // the sub weapon 
 // chest and points where the head looks; the torch model is hidden in play and seen only in cutscenes.
 constexpr bool  FLASHLIGHT_ON = true;
 constexpr ZoneOffset FLASHLIGHT_BEAM {-0.12f, -0.25f, 0.05f};   // the beam's start from the camera: left, down, forward (m)
-constexpr float FLASHLIGHT_TIMER_S = 999.0f;    // the game's light-switch timer is held this high while switched on
-constexpr int   FLASHLIGHT_PULSES = 12;         // manual-switch inputs tried before giving up (Arcade Controls' number)
-constexpr int   FLASHLIGHT_PULSE_GAP = 2;       // frames between them
 
 constexpr float ZONE_ENTER_M    = 0.15f;   // hand closer than this = in the zone
 constexpr float ZONE_LEAVE_M    = 0.22f;   // and must go further than this to leave (no flicker at the edge)
