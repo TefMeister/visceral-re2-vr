@@ -22,6 +22,7 @@
 #include "common.h"
 #include "holster.h"
 #include "menu_body.h"
+#include "reload.h"
 #include "settings.h"
 #include "weapons.h"
 
@@ -170,10 +171,10 @@ void frame() {
 
     // b109: LG held first, in play (no menu, a player): the game keeps SUPPORT_HOLD on, whatever the dock does
     const bool menu = menu_body::is_menu_open();
-    const bool keep = cfg::KEEP_SUPPORT_HOLD_ON_LG && lg && g_first == First::LG && eq != nullptr && !menu;
+    const bool keep = cfg::KEEP_SUPPORT_HOLD_ON_LG && lg && g_first == First::LG && eq != nullptr && !menu && !reload::session_active();
     // b113: say why it was let go (the first hold of 16:27:33 let go after 0.7 s with LG still held, per Tefa)
     const char* why = !lg ? " -- LG released" : g_first != First::LG ? (g_first == First::RG ? " -- RG went first" : " -- not LG first")
-                    : eq == nullptr ? " -- no player" : menu ? " -- menu open" : "";
+                    : eq == nullptr ? " -- no player" : menu ? " -- menu open" : reload::session_active() ? " -- a magazine reload is under way" : "";
     set_support_force(keep, why);
     if (g_sh_forced) fill_support_hold_bit();
 }

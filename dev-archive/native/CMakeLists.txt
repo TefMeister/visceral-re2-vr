@@ -22,11 +22,16 @@ add_library(visceral_native SHARED
     src/options.cpp
     src/pickup.cpp
     src/menu_tint.cpp
+    src/reload.cpp
+    src/reload_block.cpp
+    src/sfx.cpp
+    third_party/miniaudio_impl.c
     src/spread.cpp
     src/spreadprobe.cpp)
 target_include_directories(visceral_native PRIVATE include src)
 set_target_properties(visceral_native PROPERTIES OUTPUT_NAME "visceral_native" PREFIX "")
 target_compile_definitions(visceral_native PRIVATE NOMINMAX WIN32_LEAN_AND_MEAN)
+set_source_files_properties(third_party/miniaudio_impl.c PROPERTIES COMPILE_OPTIONS "/W0")   # public-domain library, its warnings are not ours
 if(MSVC)
     target_compile_options(visceral_native PRIVATE /W4 /utf-8 /wd4267 /wd4189)   # two warnings inside praydog API.hpp
     target_link_options(visceral_native PRIVATE "/Brepro")                # reproducible: same source, same hash

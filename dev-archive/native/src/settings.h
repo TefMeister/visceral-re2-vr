@@ -120,4 +120,23 @@ constexpr int   FIRE_LOG_FIRST     = 30;
 // automatics fire while RT is held (WP numbers): MQ 11, LE 5, flamethrower, the miniguns. Everything else: one per pull
 constexpr int   FIRE_AUTOMATIC_WP[] = {2000, 2200, 4200, 4700, 8700, 4520, 4900};      // log the first shots in full (press + bullets before/after + doorbells)
 
+// ---- manual magazine reload, bundle 1 of the RELOADED port (2026-10-10; reload.h, reload_block.h, sfx.h) ----------
+// Times and distances are Andyalpa's (re2_vr_reload.json `anim`, `mag_holster`); per-weapon numbers in reload_data.h.
+constexpr bool  RELOAD_ON = true;                 // false = the game's own reload everywhere, nothing of ours runs
+constexpr float RELOAD_SLIDE_SEC = 0.19f;         // the magazine slides out of the magwell
+constexpr float RELOAD_FALL_SEC = 0.5f;           // then falls
+constexpr float RELOAD_FALL_M = 1.2f;             // this far, then it is hidden
+constexpr float RELOAD_INSERT_SEC = 0.19f;        // a new one slides in
+constexpr float RELOAD_DOCK_MIN_M = 0.06f;        // OURS: the insert distance is at least this (his are 2-10 cm); first test
+constexpr float RELOAD_DOCK_COOLDOWN_SEC = 0.5f;
+constexpr float RELOAD_GRAB_COOLDOWN_SEC = 0.6f;  // between two pouch grabs
+constexpr float RELOAD_GRAB_BUZZ_AMP = 0.99f, RELOAD_GRAB_BUZZ_SEC = 0.057f;     // his grab haptic
+constexpr float RELOAD_INSERT_BUZZ_AMP = 0.7f, RELOAD_INSERT_BUZZ_SEC = 0.06f;
+constexpr float RELOAD_DENY_BUZZ_AMP = 1.0f, RELOAD_DENY_BUZZ_SEC = 0.25f;       // empty pouch
+constexpr float RELOAD_DRY_FIRE_GAP_SEC = 0.3f;   // one click per pull on automatics
+constexpr bool  RELOAD_HUD_ZERO_WHEN_OUT = true;  // the HUD's loaded count reads 0 while the magazine is out
+constexpr int   SFX_VOICES = 16;
+constexpr float SFX_DEBOUNCE_SEC = 0.10f;         // his ext_5 debounce per kind
+constexpr float SFX_MASTER = 1.0f;
+
 } // namespace vn::cfg
