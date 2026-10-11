@@ -28,7 +28,9 @@ enum Slot : int {
     S_ROT_OFF = 44,       // the VR layer's rotation offset, quaternion x y z w (vrmod:get_rotation_offset())
     S_ORIGIN = 48,        // the VR layer's standing origin x y z (vrmod:get_standing_origin())
     S_RROT = 52,          // the right controller's turn in room space, quaternion x y z w (b143, motion racking)
-    S_COUNT = 56,
+    S_TUNE_ON = 56,       // b156: 1 = the shell-in-hand sliders (Lua menu) are live
+    S_TUNE = 57,          // b156: shell hold ox oy oz (m) yaw pitch roll (deg), from the Lua menu sliders
+    S_COUNT = 64,
 };
 constexpr float SENTINEL = 54321.0f;
 constexpr float NO_VALUE = 999.0f;

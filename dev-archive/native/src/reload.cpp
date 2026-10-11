@@ -130,8 +130,14 @@ bool shell_hand_pose(Vec3& pos, Quat& rot) {
     Quat hr;
     if (!get_v3(JOINT, g_wrist, "get_Position", hp) || !get_q(JOINT, g_wrist, "get_Rotation", hr)) return false;
     hr = qnorm(hr);
-    pos = hp + rotate(hr, Vec3{cfg::SHELL_HOLD.ox, cfg::SHELL_HOLD.oy, cfg::SHELL_HOLD.oz});
-    rot = qnorm(qmul(hr, quat_from_ypr(cfg::SHELL_HOLD)));
+    cfg::ShellHold h = cfg::SHELL_HOLD;
+    if (bridge::view(bridge::S_TUNE_ON) > 0.5f && bridge::view(bridge::S_TUNE_ON) < 2.0f) {   // b156: the Lua menu sliders
+        float v[6];
+        for (int i = 0; i < 6; ++i) v[i] = bridge::view(static_cast<bridge::Slot>(bridge::S_TUNE + i));
+        h = cfg::ShellHold{v[0], v[1], v[2], v[3], v[4], v[5]};
+    }
+    pos = hp + rotate(hr, Vec3{h.ox, h.oy, h.oz});
+    rot = qnorm(qmul(hr, quat_from_ypr(h)));
     return true;
 }
 

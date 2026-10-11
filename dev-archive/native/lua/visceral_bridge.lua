@@ -16,7 +16,7 @@
 -- Slot map must match src/bridge.h.
 
 local TAG = "[visceral-bridge]"
-local N = 56
+local N = 64
 local S_FRAME, S_HMD = 0, 1
 local S_LGRIP, S_LTRIG, S_RGRIP, S_RTRIG = 2, 3, 4, 5
 local S_LA, S_LB, S_RA, S_RB = 6, 7, 8, 9
@@ -27,6 +27,7 @@ local S_FP_USED, S_HMD_YAW, S_OFFEXT_YAW, S_CAM_YAW, S_RENDER_YAW = 32, 33, 34, 
 local S_LCLICK, S_LSTICK_MAG = 37, 38   -- running stop (src/run.cpp)
 local S_HMD_Q, S_ROT_OFF, S_ORIGIN = 40, 44, 48   -- menu camera (src/menu_body.cpp, 2026-10-08)
 local S_RROT = 52   -- the right controller's turn, room space (src/rack.cpp motion racking, b143)
+local S_TUNE_ON, S_TUNE = 56, 57   -- b156: shell-in-hand sliders (src/reload.cpp), ox oy oz yaw pitch roll
 local SENTINEL = 54321.0
 local NO_VALUE = 999.0
 local RUMBLE_FREQ_HZ = 160.0
@@ -171,7 +172,33 @@ re.on_pre_application_entry("LateUpdateBehavior", function()
     if origin and type(origin.x) == "number" then w3(S_ORIGIN, origin) else w(S_ORIGIN, NO_VALUE); w(S_ORIGIN + 1, 0); w(S_ORIGIN + 2, 0) end
 end)
 
+-- b156 (Tefa 2026-10-11): move and turn the shotgun shell in the left hand live, while looking at it.
+-- Values are kept in reframework/data/visceral_shell_tune.json and sent to the plugin every frame.
+local TUNE_FILE = "visceral_shell_tune.json"
+local tune = json.load_file(TUNE_FILE) or {}
+local TUNE_DEFAULT = {on = true, ox = 0.09, oy = -0.03, oz = 0.02, yaw = 0.0, pitch = 90.0, roll = 0.0}
+for k, v in pairs(TUNE_DEFAULT) do if tune[k] == nil then tune[k] = v end end
+re.on_pre_application_entry("LateUpdateBehavior", function()
+    if not arr then return end
+    w(S_TUNE_ON, tune.on and 1 or 0)
+    w(S_TUNE, tune.ox); w(S_TUNE + 1, tune.oy); w(S_TUNE + 2, tune.oz)
+    w(S_TUNE + 3, tune.yaw); w(S_TUNE + 4, tune.pitch); w(S_TUNE + 5, tune.roll)
+end)
+local function tune_ui()
+    if not imgui.tree_node("Visceral: shell in the hand") then return end
+    local changed, any = false, false
+    changed, tune.on = imgui.checkbox("Use these numbers", tune.on); any = any or changed
+    local function m(label, key) changed, tune[key] = imgui.drag_float(label, tune[key], 0.002, -0.3, 0.3, "%.3f m"); any = any or changed end
+    local function d(label, key) changed, tune[key] = imgui.drag_float(label, tune[key], 1.0, -180.0, 180.0, "%.0f deg"); any = any or changed end
+    m("Move 1", "ox"); m("Move 2", "oy"); m("Move 3", "oz")
+    d("Turn 1", "yaw"); d("Turn 2", "pitch"); d("Turn 3", "roll")
+    if imgui.button("Reset") then for k, v in pairs(TUNE_DEFAULT) do tune[k] = v end; any = true end
+    if any then json.dump_file(TUNE_FILE, tune) end
+    imgui.tree_pop()
+end
+
 re.on_draw_ui(function()
+    tune_ui()
     if imgui.tree_node("Visceral bridge (new)") then
         imgui.text(string.format("frame %d  attached=%s  rumbles fired %d", frame, tostring(attached), rumbles))
         if arr then
