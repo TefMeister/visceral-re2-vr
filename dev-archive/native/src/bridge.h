@@ -32,7 +32,9 @@ enum Slot : int {
     S_TUNE = 57,          // b156: shell hold ox oy oz (m) yaw pitch roll (deg), from the Lua menu sliders
     S_DOCK_ON = 64,       // b158: 1 = the slide-grip sliders (Lua menu) are live
     S_DOCK = 65,          // b158: hand-on-slide ox oy oz (m, slide joint axes) yaw pitch roll (deg)
-    S_COUNT = 72,
+    S_FING_ON = 72,       // b159: 1 = the finger sliders (Lua menu) are live (slide grip)
+    S_FING = 73,          // b159: curl index middle ring little thumb, then spread the same five (radians)
+    S_COUNT = 84,
 };
 constexpr float SENTINEL = 54321.0f;
 constexpr float NO_VALUE = 999.0f;
