@@ -21,10 +21,9 @@ Manager. The author writes that they want to move on to other projects, so updat
 
 ## ⚠️ What is NOT known yet
 
-- **The author.** The page refused the automated fetch (HTTP 403), and no search result named the
-  uploader. **It may be Andyalpa's RE2VRModReloaded**, which this repo already tracks as prior art
-  (CREDITS.md), or a different mod. A negative from an automated fetch is not a negative: open the page
-  in a browser to settle it.
+- ~~**The author.**~~ **Settled 2026-10-11 by Tefa:** mod 2483 is **Andyalpa's** mod `[reported 2026-10-11,
+  Tefa, who opened the page]`, i.e. the RE2VRModReloaded line this repo already tracks as prior art
+  (CREDITS.md). The page refused the automated fetch (HTTP 403), which is why this needed a person.
 - **Whether it is a Lua script add-on or native code.** The `reframework` folder suggests scripts
   `[hypothesis]`.
 - **Whether an RE3 version exists.** None was found `[checked 2026-10-11, two searches]`.
@@ -38,8 +37,8 @@ Manager. The author writes that they want to move on to other projects, so updat
 
 ## Next step
 
-Open the Nexus page by hand, note the author and the date of the last file, and record whether it is
-the known RE2VRModReloaded. No code is copied from it.
+None for the author question (settled above). This feature list is Andyalpa's current one, worth
+comparing against Visceral's holster, rack and reload work. No code is copied from it.
 
 ## Sources
 
