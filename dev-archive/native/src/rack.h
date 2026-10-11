@@ -24,6 +24,7 @@ void need(const char* why);        // a rack/pump is now required (the joint par
 void slide_lock_empty();           // the last round went: the slide locks open (pistols; cosmetic only)
 bool blocks_fire();                // a rack/pump is required and has not happened
 bool active();                     // the hand is on the slide / fore-end right now (the dock must leave the left hand alone)
+void on_shot();                    // b159: a round was fired (the slide is left to the game again)
 bool grip_pose();                  // b155: the fingers should grip the slide / fore-end (LG held near it, or racking)
 int  wp_now();
 } // namespace vn::rack
