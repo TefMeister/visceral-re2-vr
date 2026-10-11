@@ -90,8 +90,18 @@ void dry_click() {
     sfx::play("dry_fire", reload::sfx_folder_now(), reload::sfx_volume_now());
 }
 
-int pre_fire(int, void**, REFrameworkTypeDefinitionHandle*, unsigned long long) {
+int pre_fire(int argc, void** argv, REFrameworkTypeDefinitionHandle*, unsigned long long) {
     if (!cfg::RELOAD_ON || !reload::managed_now() || menu_body::is_menu_open()) return REFRAMEWORK_HOOK_CALL_ORIGINAL;
+    // b155: an empty, seated gun: requestFire still runs the shot's sound/animation side, so it never reaches the game
+    if (cfg::BLOCK_EMPTY_FIRE && !reload::mag_out() && argc >= 2) {
+        auto* eq = is_managed(argv[1]) ? (MO*)argv[1] : nullptr;
+        if (call_direct<int>(field_obj(eq, "<EquipWeapon>k__BackingField"), "getBulletNumber", -1) == 0) {
+            const int n = g_fire_blocked.fetch_add(1) + 1;
+            if (n <= 10 || n % 100 == 0) LOGI("%s block: shot stopped, the gun is empty (#%d)", TAG, n);
+            dry_click();
+            return REFRAMEWORK_HOOK_SKIP_ORIGINAL;
+        }
+    }
     if (reload::mag_out() || rack::blocks_fire()) {
         const int n = g_fire_blocked.fetch_add(1) + 1;
         if (n <= 10 || n % 100 == 0) LOGI("%s block: shot stopped, %s (#%d)", TAG, reload::mag_out() ? "the magazine is out" : "a rack / pump is needed", n);
@@ -116,7 +126,7 @@ int pre_fire_count(int argc, void** argv, REFrameworkTypeDefinitionHandle*, unsi
     return REFRAMEWORK_HOOK_CALL_ORIGINAL;
 }
 void post_fire_count(void**, REFrameworkTypeDefinitionHandle, unsigned long long) {
-    if (g_rounds_at_pre == 0) dry_click();
+    if (g_rounds_at_pre == 0 && !cfg::BLOCK_EMPTY_FIRE) dry_click();   // b155: pre_fire already clicked
     if (g_rounds_at_pre > 0 && t_gun != nullptr) {
         pump_native::on_post_fire(t_gun);
         if (call_direct<int>(t_gun, "getBulletNumber", -1) == 0) rack::slide_lock_empty();   // the last round: the slide locks open
