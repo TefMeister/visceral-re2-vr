@@ -18,3 +18,5 @@ makes repeated faces easier to spot.
   part that makes it *work* is how the game picks a head, which is arguably this category's business.
 
 ---
+
+Chosen by Tefa: 2026-10-11

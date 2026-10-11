@@ -15,3 +15,5 @@ is zero spread. Narrows the older entry just above ("Two-handing is what makes a
 two hands alone is no longer enough, you also have to stop.
 
 ---
+
+Chosen by Tefa: 2026-10-11

@@ -19,3 +19,8 @@ One line per idea, so nothing is offered twice.
 - 2026-09-24 chosen `all-games--bullet-casings-stay-on-the-floor-until-the-level-ends` — Bullet casings stay on the floor until the level ends
 - 2026-10-05 chosen `re2-visceral--one-background-everywhere-the-last-save-scene` - One background everywhere: the last-save scene
 - 2026-10-05 chosen `all-games--a-launcher-to-switch-gameplay-features-on-or-off-before-playing` - A launcher to switch gameplay features on or off before playing
+- 2026-10-11 chosen `re2-visceral--open-doors-with-the-controller-not-the-game-s-body` - Open doors with the controller, not the game's body
+- 2026-10-11 chosen `re2-visceral--bullet-spread-tiers-only-two-hands-and-standing-still-is-dead-accurate` - Bullet spread tiers: only two hands and standing still is dead accurate
+- 2026-10-11 chosen `re2-visceral--sub-weapon-from-a-back-holster-on-rg-rg-no-longer-aims` - Sub weapon from a back holster on RG; RG no longer aims
+- 2026-10-11 chosen `re2-visceral--more-zombies-so-running-and-shooting-isn-t-overpowered` - More zombies, so running and shooting isn't overpowered
+- 2026-10-11 chosen `re2-visceral--every-menu-over-the-live-game-world-no-tint-no-camera-jump` - Every menu over the live game world: no tint, no camera jump
