@@ -44,6 +44,7 @@ float g_pull_m = 0.0f;    // how far back the hand has moved since the dock (met
 int g_log_near = 0;
 int g_auto = 0;           // button mode: 0 idle, 1 travelling back / held back while LT is held, 2 travelling forward
 bool g_grip = false;      // b155: the left hand is gripping the slide / fore-end (LG held near it, or racking)
+bool g_socket_frozen = false;   // b157: the slide went forward without the hand: the socket stays where the hand let go
 float g_auto_t0 = 0.0f;
 
 // the socket handed to the VR layer: the slide joint (plus an offset) in right-wrist space
@@ -94,8 +95,9 @@ void write_joint() {
 
 // the socket for the VR layer: where the slide is now, relative to the right wrist
 void publish_socket() {
+    if (g_socket_frozen && g_grip) return;   // b157: keep the last socket (active) while LG is still held
     g_socket.active = 0;
-    if (!g_hand_on || g_joint == nullptr || g_rwrist == nullptr) return;
+    if (!(g_hand_on || g_grip) || g_joint == nullptr || g_rwrist == nullptr) return;
     Vec3 jp, rp;
     Quat jq, rq;
     if (!get_v3(JOINT, g_joint, "get_Position", jp) || !get_q(JOINT, g_joint, "get_Rotation", jq)) return;
@@ -203,6 +205,7 @@ void frame() {
             }
             if (!lt || !lg || menu) {
                 LOGI("%s rack: %s %s", TAG, !lt ? "LT let go" : !lg ? "LG let go" : "menu", g_pulled ? "-> the slide goes forward" : "before the back -> it returns, no round");
+                if (g_socket.active) g_socket_frozen = true;   // b157: the hand stays behind, the slide flies forward
                 g_auto = 2;
                 g_auto_t0 = now;
             }
@@ -216,8 +219,14 @@ void frame() {
         const bool near = lg && !menu && !reload::session_active() && hand_near_joint(d);
         const bool grip = g_auto != 0 || near;
         if (grip != g_grip) LOGI("%s rack: left hand %s the %s (wrist %.3f m, need %.2f)", TAG, grip ? "grips" : "lets go of", is_pump(g_wp) ? "fore-end" : "slide", d, cfg::RACK_HAND_M);
-        g_grip = grip;
-        g_socket.active = 0;   // the hand never docks on the slide in this mode
+        // b157 (Tefa: "hand still doesn't move onto the slide"): the hand docks on the slide while it grips; once on,
+        // it stays on until LG is let go (the wrist is then AT the slide, so the near test would flicker)
+        if (g_grip && lg && !menu && !grip) { /* keep gripping while LG is held */ } else g_grip = grip;
+        if (!lg) g_socket_frozen = false;
+        static bool was_docked = false;
+        if (g_grip != was_docked) LOGI("%s rack: hand %s the %s (socket)", TAG, g_grip ? "docked on" : "off", is_pump(g_wp) ? "fore-end" : "slide");
+        was_docked = g_grip;
+        publish_socket();
         return;
     }
 
