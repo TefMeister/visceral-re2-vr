@@ -176,7 +176,7 @@ end)
 -- Values are kept in reframework/data/visceral_shell_tune.json and sent to the plugin every frame.
 local TUNE_FILE = "visceral_shell_tune.json"
 local tune = json.load_file(TUNE_FILE) or {}
-local TUNE_DEFAULT = {on = true, ox = 0.09, oy = -0.03, oz = 0.02, yaw = 0.0, pitch = 90.0, roll = 0.0}
+local TUNE_DEFAULT = {on = false, ox = 0.108, oy = -0.042, oz = 0.032, yaw = 13.0, pitch = 86.0, roll = 0.0}   -- b157: Tefa's numbers, now built in
 for k, v in pairs(TUNE_DEFAULT) do if tune[k] == nil then tune[k] = v end end
 re.on_pre_application_entry("LateUpdateBehavior", function()
     if not arr then return end

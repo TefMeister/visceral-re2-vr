@@ -166,9 +166,11 @@ constexpr float PUMP_WINDOW_SEC = 2.5f;       // his pump_window_sec
 constexpr float HUD_AFTER_RELOAD_SEC = 5.0f;  // the ammo counter stays up this long after a magazine / shell / rack (Tefa 2026-10-10)
 // where a shotgun shell sits in the left hand (wrist axes, metres; yaw/pitch/roll degrees). OURS, a first guess (b142).
 struct ShellHold { float ox, oy, oz, yaw, pitch, roll; };
-constexpr ShellHold SHELL_HOLD = {0.09f, -0.03f, 0.02f, 0.0f, 90.0f, 0.0f};   // b155: ox 0.06 -> 0.09, Tefa: "too deep in the palm" (a guess at the axis)
-constexpr float SHELL_DOCK_MAX_M = 0.10f;   // b155: the shell goes in this close to the port at most (his 0.22, Tefa: "the activation area was too far away")
-constexpr bool  DRY_CLICK_SOUND = false;  // b156 TEST: the click muted for one run, to hear whether the "gunshot" on empty is our
+constexpr ShellHold SHELL_HOLD = {0.108f, -0.042f, 0.032f, 13.0f, 86.0f, 0.0f};   // b157: Tefa set these with the b156 sliders ("the shell is done")
+constexpr float SHELL_DOCK_MAX_M = 0.07f;   // b157: 0.10 -> 0.07, Tefa: "a little closer to the shotgun"
+// was:  SHELL_DOCK_MAX_M = 0.10f;   // b155: the shell goes in this close to the port at most (his 0.22, Tefa: "the activation area was too far away")
+constexpr bool  DRY_CLICK_SOUND = true;   // b157: back on; the b156 test (muted) still had the gunshot, so it is the game's
+// b156 was: DRY_CLICK_SOUND = false;  // b156 TEST: the click muted for one run, to hear whether the "gunshot" on empty is our
                                           // click file or the game (b155: requestFire skipped, click played, Tefa still heard a shot)
 constexpr bool  BLOCK_EMPTY_FIRE = true;   // b155: an empty seated gun never asks the game to fire (Tefa still heard a gunshot on empty)
 
