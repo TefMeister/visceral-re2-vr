@@ -5,6 +5,7 @@
 
 #include "handpose_data.h"
 #include "joints.h"
+#include "rack.h"
 #include "reload.h"
 #include "settings.h"
 
@@ -37,7 +38,10 @@ float wrap(float a) {                   // radians, to -pi..pi
 
 void point() {
     if (!cfg::HANDPOSE_ON) return;
-    const bool want = reload::mag_in_hand() || reload::shell_in_hand();
+    const bool holding = reload::mag_in_hand() || reload::shell_in_hand();
+    const bool on_slide = !holding && rack::active();   // b154: the hand on the slide / pump (his slide_rack pose)
+    const bool want = holding || on_slide;
+    const Ctx ctx = holding ? Ctx::MAG : Ctx::SLIDE;
     const float now = now_s();
     const float dt = (g_last_t < 0 || now - g_last_t > 0.25f) ? 1.0f / 60 : now - g_last_t;
     g_last_t = now;
@@ -46,14 +50,16 @@ void point() {
     if (go == nullptr) { g_factor = 0; g_pose = nullptr; return; }
     if (want) {
         const bool claire = read_string(call_ptr(go, "get_Name")).rfind("pl1", 0) == 0;
-        const FingerPose* p = find_pose(Ctx::MAG, reload::wp_now(), claire);
+        const int wp = holding ? reload::wp_now() : rack::wp_now();
+        const FingerPose* p = find_pose(ctx, wp, claire);
         if (p != g_pose && p != nullptr) {
-            LOGI("%s handpose: magazine-hold fingers on for WP%04d (%s pose)", TAG, p->wp, p->claire ? "Claire's" : "Leon's");
+            LOGI("%s handpose: %s fingers on for WP%04d (%s pose)", TAG, ctx == Ctx::MAG ? "magazine-hold" : "slide-grip",
+                 p->wp, p->claire ? "Claire's" : "Leon's");
             g_logged_proof = false;
         } else if (p == nullptr && g_pose == nullptr && g_factor == 0) {
             static int last_missing = -2;
-            if (last_missing != reload::wp_now()) LOGI("%s handpose: no saved pose for WP%04d", TAG, reload::wp_now());
-            last_missing = reload::wp_now();
+            if (last_missing != wp) LOGI("%s handpose: no saved %s pose for WP%04d", TAG, ctx == Ctx::MAG ? "magazine" : "slide", wp);
+            last_missing = wp;
         }
         if (p != nullptr) g_pose = p;
     }

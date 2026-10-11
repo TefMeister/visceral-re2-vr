@@ -3,6 +3,7 @@
 // the Arcade Controls era config (credit: Andyalpa), per weapon and per character, in handpose_data.h. Like his
 // ext_5: each finger joint's LocalEulerAngle is written at LateUpdate and again at PrepareRendering, blended in and
 // out over cfg::HANDPOSE_BLEND_SEC. Shells use the gun's magazine pose (his fallback when no shell pose is saved).
+// b154: with the hand docked on the slide / pump (rack::active), his slide_rack pose for that gun.
 #pragma once
 
 namespace vn::handpose {
