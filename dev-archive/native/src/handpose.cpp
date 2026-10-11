@@ -39,7 +39,7 @@ float wrap(float a) {                   // radians, to -pi..pi
 void point() {
     if (!cfg::HANDPOSE_ON) return;
     const bool holding = reload::mag_in_hand() || reload::shell_in_hand();
-    const bool on_slide = !holding && rack::active();   // b154: the hand on the slide / pump (his slide_rack pose)
+    const bool on_slide = !holding && (rack::active() || rack::grip_pose());   // b154/b155: the hand on the slide / pump
     const bool want = holding || on_slide;
     const Ctx ctx = holding ? Ctx::MAG : Ctx::SLIDE;
     const float now = now_s();

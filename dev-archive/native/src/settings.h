@@ -166,7 +166,9 @@ constexpr float PUMP_WINDOW_SEC = 2.5f;       // his pump_window_sec
 constexpr float HUD_AFTER_RELOAD_SEC = 5.0f;  // the ammo counter stays up this long after a magazine / shell / rack (Tefa 2026-10-10)
 // where a shotgun shell sits in the left hand (wrist axes, metres; yaw/pitch/roll degrees). OURS, a first guess (b142).
 struct ShellHold { float ox, oy, oz, yaw, pitch, roll; };
-constexpr ShellHold SHELL_HOLD = {0.06f, -0.03f, 0.02f, 0.0f, 90.0f, 0.0f};
+constexpr ShellHold SHELL_HOLD = {0.09f, -0.03f, 0.02f, 0.0f, 90.0f, 0.0f};   // b155: ox 0.06 -> 0.09, Tefa: "too deep in the palm" (a guess at the axis)
+constexpr float SHELL_DOCK_MAX_M = 0.10f;   // b155: the shell goes in this close to the port at most (his 0.22, Tefa: "the activation area was too far away")
+constexpr bool  BLOCK_EMPTY_FIRE = true;   // b155: an empty seated gun never asks the game to fire (Tefa still heard a gunshot on empty)
 
 // ---- the sub weapon from the back holster on RG; RG never aims (b134, 2026-10-10; subweapon.h) ------------------
 constexpr bool  SUB_ON_RG = true;            // false = the game's way (left grip readies the sub weapon, right grip aims)

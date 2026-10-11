@@ -42,7 +42,8 @@ float g_travel = 0.0f;    // 0 = rest/parked, 1 = back
 float g_base = 0.0f;      // dot(left - right, forward) at the dock
 float g_pull_m = 0.0f;    // how far back the hand has moved since the dock (metres along the gun)
 int g_log_near = 0;
-int g_auto = 0;           // button mode: 0 idle, 1 travelling back, 2 travelling forward
+int g_auto = 0;           // button mode: 0 idle, 1 travelling back / held back while LT is held, 2 travelling forward
+bool g_grip = false;      // b155: the left hand is gripping the slide / fore-end (LG held near it, or racking)
 float g_auto_t0 = 0.0f;
 
 // the socket handed to the VR layer: the slide joint (plus an offset) in right-wrist space
@@ -143,6 +144,7 @@ void hand_off(const char* why) {
 
 bool blocks_fire() { return cfg::RELOAD_ON && g_w != nullptr && g_needed; }
 bool active() { return g_hand_on; }
+bool grip_pose() { return g_grip; }
 int wp_now() { return g_wp; }
 
 void need(const char* why) {
@@ -165,7 +167,7 @@ void frame() {
         if (g_needed) LOGI("%s rack: WP%04d put away with a rack pending -- forgotten (the game's own state rules)", TAG, g_wp);
         g_wp = wp;
         g_w = slide_weapon(wp);
-        g_needed = g_parked = g_hand_on = g_pulled = false;
+        g_needed = g_parked = g_hand_on = g_pulled = g_grip = false;
         g_auto = 0;
         g_travel = 0.0f;
         g_have_rest = false;
@@ -173,7 +175,7 @@ void frame() {
         if (g_w != nullptr) LOGI("%s rack: WP%04d %s: %s on joint %s (rest %.3f, parked %.3f, back %.3f)", TAG, wp, weapons::name(wp), is_pump(wp) ? "pump" : "slide rack", g_w->joint, g_w->rest_z, g_w->parked_z, g_w->back_z);
     }
     resolve_frame();
-    if (g_w == nullptr || g_gun == nullptr || !bridge::live()) { if (g_hand_on) hand_off("no gun / no headset"); return; }
+    if (g_w == nullptr || g_gun == nullptr || !bridge::live()) { g_grip = false; if (g_hand_on) hand_off("no gun / no headset"); return; }
     if (!is_pump(g_wp) && !g_parked && !reload::mag_out() && call_direct<int>(g_gun, "getBulletNumber", -1) == 0) slide_lock_empty();   // b142: polled
     const bool menu = menu_body::is_menu_open();
     const bool lg = bridge::held(bridge::S_LGRIP), lt = bridge::held(bridge::S_LTRIG);
@@ -187,22 +189,34 @@ void frame() {
             bridge::rumble(bridge::LEFT, cfg::RACK_BUZZ_AMP * 0.5f, cfg::RACK_BUZZ_SEC);
             LOGI("%s rack: LG+LT: WP%04d %s on the button", TAG, g_wp, is_pump(g_wp) ? "pump" : "slide rack");
         }
+        // b155 (Tefa 2026-10-11): LG + LT held pulls the slide back and HOLDS it there; LT let go (LG still held) =
+        // the slide flies forward on its own, the hand stays. Let go before it reached the back = it returns, no round.
         if (g_auto == 1) {
             const float t = (now - g_auto_t0) / cfg::RACK_BUTTON_PULL_SEC;
             g_travel = std::fmin(1.0f, t);
-            if (t >= 1.0f) {
+            if (t >= 1.0f && !g_pulled) {
                 g_pulled = true;
                 sfx::play("slide_rack_pull", is_pump(g_wp) ? pump_sfx(g_wp) : reload::sfx_folder_now(), is_pump(g_wp) ? 2.0f : reload::sfx_volume_now());
                 bridge::rumble(bridge::LEFT, cfg::RACK_BUZZ_AMP, cfg::RACK_BUZZ_SEC);
                 if (is_pump(g_wp)) pump_native::on_pulled_down();   // the spent shell leaves on the pull, not the return
+                LOGI("%s rack: held back (LT held)", TAG);
+            }
+            if (!lt || !lg || menu) {
+                LOGI("%s rack: %s %s", TAG, !lt ? "LT let go" : !lg ? "LG let go" : "menu", g_pulled ? "-> the slide goes forward" : "before the back -> it returns, no round");
                 g_auto = 2;
                 g_auto_t0 = now;
             }
         } else if (g_auto == 2) {
             const float t = (now - g_auto_t0) / cfg::RACK_BUTTON_RETURN_SEC;
             g_travel = std::fmax(0.0f, 1.0f - t);
-            if (t >= 1.0f) { g_travel = 0.0f; g_pulled = false; g_auto = 0; complete(); }
+            if (t >= 1.0f) { g_travel = 0.0f; g_auto = 0; if (g_pulled) { g_pulled = false; complete(); } }
         }
+        // the grip pose: LG held with the left hand near the slide / fore-end, or a rack under way
+        float d = 0.0f;
+        const bool near = lg && !menu && !reload::session_active() && hand_near_joint(d);
+        const bool grip = g_auto != 0 || near;
+        if (grip != g_grip) LOGI("%s rack: left hand %s the %s (wrist %.3f m, need %.2f)", TAG, grip ? "grips" : "lets go of", is_pump(g_wp) ? "fore-end" : "slide", d, cfg::RACK_HAND_M);
+        g_grip = grip;
         g_socket.active = 0;   // the hand never docks on the slide in this mode
         return;
     }
