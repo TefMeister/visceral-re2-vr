@@ -103,9 +103,20 @@ void publish_socket() {
     if (!get_v3(JOINT, g_joint, "get_Position", jp) || !get_q(JOINT, g_joint, "get_Rotation", jq)) return;
     if (!get_v3(JOINT, g_rwrist, "get_Position", rp) || !get_q(JOINT, g_rwrist, "get_Rotation", rq)) return;
     const Quat inv = qinv(qnorm(rq));
-    const Vec3 world = jp + rotate(qnorm(jq), cfg::SLIDE_DOCK_OFF);
+    // b158: where the hand sits on the slide and how it is turned, from the Lua menu sliders while they are live
+    Vec3 off = cfg::SLIDE_DOCK_OFF;
+    float ypr[3] = {cfg::SLIDE_DOCK_YPR[0], cfg::SLIDE_DOCK_YPR[1], cfg::SLIDE_DOCK_YPR[2]};
+    const float on = bridge::view(bridge::S_DOCK_ON);
+    if (on > 0.5f && on < 2.0f) {
+        off = Vec3{bridge::view(bridge::S_DOCK), bridge::view(static_cast<bridge::Slot>(bridge::S_DOCK + 1)), bridge::view(static_cast<bridge::Slot>(bridge::S_DOCK + 2))};
+        for (int i = 0; i < 3; ++i) ypr[i] = bridge::view(static_cast<bridge::Slot>(bridge::S_DOCK + 3 + i));
+    }
+    const float h = 3.14159265f / 360.0f;   // half-angle, radians; yaw about Z, then pitch about Y, then roll about X
+    const Quat turn = qnorm(qmul(qmul(Quat{0, 0, std::sin(ypr[0] * h), std::cos(ypr[0] * h)}, Quat{0, std::sin(ypr[1] * h), 0, std::cos(ypr[1] * h)}),
+                                 Quat{std::sin(ypr[2] * h), 0, 0, std::cos(ypr[2] * h)}));
+    const Vec3 world = jp + rotate(qnorm(jq), off);
     const Vec3 local = rotate(inv, world - rp);
-    const Quat lrot = qnorm(qmul(inv, qnorm(jq)));
+    const Quat lrot = qnorm(qmul(inv, qmul(qnorm(jq), turn)));
     g_socket.px = local.x; g_socket.py = local.y; g_socket.pz = local.z;
     g_socket.qx = lrot.x; g_socket.qy = lrot.y; g_socket.qz = lrot.z; g_socket.qw = lrot.w;
     g_socket.active = 1;
