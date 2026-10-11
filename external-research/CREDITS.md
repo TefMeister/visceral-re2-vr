@@ -21,7 +21,7 @@ ourselves, plus third-party components whose licenses permit redistribution
 | Source / Work | Creator(s) | Link |
 |---|---|---|
 | REFramework (mod framework, VR support for RE2, FirstPerson mode, Lua API) | praydog | https://github.com/praydog/REFramework |
-| RE2 (2019) VR gameplay pack, Nexus mod 2483 (holsters, manual reload, recoil; author not yet confirmed) | its Nexus author | https://www.nexusmods.com/residentevil22019/mods/2483 |
+| RE2 (2019) VR gameplay pack, Nexus mod 2483 (holsters, manual reload, recoil) | Andyalpa | https://www.nexusmods.com/residentevil22019/mods/2483 |
 | `re-engine-trainer` (public RE Engine trainer; its Requiem module independently corroborated the layer-speed + `getMoveSpeed` pairing) | Namsku | https://github.com/Namsku/re-engine-trainer |
 | REFramework PR #1809 — restored `on_pre_gui_draw_element`'s `false` return after the 2026-08-19→28 silent regression (PR #1503) | ErwinGunsmith, and praydog as maintainer | https://github.com/praydog/REFramework/pull/1809 |
 | REFramework Book (Lua API documentation) | cursey | https://cursey.github.io/reframework-book/ |
