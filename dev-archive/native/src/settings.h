@@ -175,4 +175,9 @@ constexpr float THROW_SWING_MPS = 1.6f;      // OURS: the right controller must 
 constexpr float THROW_SWING_SMOOTH = 0.35f;  // speed smoothing per frame (1 = raw)
 constexpr int   THROW_HOLD_FRAMES = 12;      // the grenade throw = HOLD sent this many frames on the swing (b137)
 
+// ---- left-hand finger poses while reloading (2026-10-11, Tefa: "a first hand pose on the gun when reloading") ---
+// The fingers take the saved RELOADED pose (handpose_data.h) while a magazine or shell is in the left hand.
+constexpr bool  HANDPOSE_ON = true;          // false = the fingers keep the game's animation
+constexpr float HANDPOSE_BLEND_SEC = 0.12f;  // his blend time in and out
+
 } // namespace vn::cfg

@@ -372,6 +372,8 @@ bool managed_now() { return cfg::RELOAD_ON && (g_w != nullptr || g_sw != nullptr
 bool mag_out() { return managed_now() && g_w != nullptr && g_st != St::SEATED; }
 bool session_active() { return mag_out() || g_shell_in_hand; }
 int wp_now() { return g_wp; }
+bool mag_in_hand() { return managed_now() && g_w != nullptr && (g_st == St::IN_HAND || g_st == St::INSERT); }
+bool shell_in_hand() { return managed_now() && g_shell_in_hand; }
 const char* sfx_folder_now() { return g_w ? g_w->sfx : g_sw ? g_sw->sfx : "handgun"; }
 float sfx_volume_now() { return g_w ? g_w->vol : g_sw ? g_sw->vol : 1.0f; }
 
