@@ -1715,3 +1715,21 @@ fixed in b100 by stripping). The ladder start flick is probably the same thing. 
 - **Options**: `OptionManager.OnOff` ON = 0, OFF = 1; `set_ControllerRunType` / `set_ControllerAutoReloadValue` take
   OnOff, `set_CameraAimAssistLevel` a UInt32; `InputSystem.setOptionToggleRunType(OnOff)` ON = toggle (so Hold = OFF);
   `saveSystemSaveData_PC` writes the system save `[inferred-static 2026-10-09; aim-assist 0 = off is a hypothesis]`.
+
+## Left-hand finger poses and the slide grip (2026-10-11, /ms, b153-b159)
+
+- **Finger joints:** `l_hand_index_0..2`, `l_hand_middle_0..2`, `l_hand_ring_0..3`, `l_hand_little_0..3`,
+  `l_hand_thumb_0..2` on the player transform. Writing `set_LocalEulerAngle` (radians) at LateUpdateBehavior post and
+  PrepareRendering post holds the pose `[verified-live 2026-10-11, n=3]` (read back equals written). The third value
+  is the curl (idle index_1 = -0.693).
+- **Saved poses exist:** RELOADED's `left_hand_pose` (mag_hold, slide_rack per weapon, per leon/claire/hunk) in the
+  Arcade Controls era `re2_vr_reload.json` (staging). The mag_hold poses look right in game; the slide_rack ones are
+  nearly the idle hand `[verified-live 2026-10-11, n=1]`. Generated into `native/src/handpose_data.h`.
+- **The plugin's dock socket works:** `visceral_dock_socket()` (b143 VR-layer patch) puts the left hand on the slide.
+  But the dock's two-hand aim turns the right hand to fit the socket, so an offset socket throws the gun
+  `[verified-live 2026-10-11, Tefa]`; and the dock teleports (no blend).
+- **Empty-gun gunshot** survives skipping `Equipment.requestFire` and muting our click `[verified-live 2026-10-11, n=1]`.
+- **EMV Engine's Poser** works flat only; in VR its extra window smears (the VR overlay does not clear outside the
+  REFramework window) `[verified-live 2026-10-11, n=1]`.
+- **VR UI squish:** the UI is drawn at the eye size (Quest 3 via VD: 2688x2880 per eye) and stretched onto the window;
+  setting `NormalWindowResolution` to that shape made it a thin strip `[disproved 2026-10-11, n=1]`.
