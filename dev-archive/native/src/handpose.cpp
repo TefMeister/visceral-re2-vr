@@ -1,0 +1,93 @@
+// handpose.cpp -- see handpose.h.
+#include "handpose.h"
+
+#include <algorithm>
+
+#include "handpose_data.h"
+#include "joints.h"
+#include "reload.h"
+#include "settings.h"
+
+namespace vn::handpose {
+using namespace vn::joints;
+
+namespace {
+const FingerPose* find_pose(Ctx ctx, int wp, bool claire) {
+    const FingerPose* other = nullptr;
+    for (const auto& p : kPoses) {
+        if (p.ctx != ctx || p.wp != wp) continue;
+        if (p.claire == claire) return &p;
+        other = &p;   // the other character's pose for the same gun, if this one has none
+    }
+    return other;
+}
+
+float g_factor = 0.0f;                  // 0 = the game's fingers, 1 = the saved pose
+float g_last_t = -1.0f;
+const FingerPose* g_pose = nullptr;     // the pose blending in or out
+bool g_logged_proof = false;
+
+float wrap(float a) {                   // radians, to -pi..pi
+    const float pi = 3.14159265f;
+    while (a > pi) a -= 2 * pi;
+    while (a < -pi) a += 2 * pi;
+    return a;
+}
+} // namespace
+
+void point() {
+    if (!cfg::HANDPOSE_ON) return;
+    const bool want = reload::mag_in_hand() || reload::shell_in_hand();
+    const float now = now_s();
+    const float dt = (g_last_t < 0 || now - g_last_t > 0.25f) ? 1.0f / 60 : now - g_last_t;
+    g_last_t = now;
+
+    auto* go = call_ptr(API::get()->get_managed_singleton("app.ropeway.PlayerManager"), "get_CurrentPlayer");
+    if (go == nullptr) { g_factor = 0; g_pose = nullptr; return; }
+    if (want) {
+        const bool claire = read_string(call_ptr(go, "get_Name")).rfind("pl1", 0) == 0;
+        const FingerPose* p = find_pose(Ctx::MAG, reload::wp_now(), claire);
+        if (p != g_pose && p != nullptr) {
+            LOGI("%s handpose: magazine-hold fingers on for WP%04d (%s pose)", TAG, p->wp, p->claire ? "Claire's" : "Leon's");
+            g_logged_proof = false;
+        } else if (p == nullptr && g_pose == nullptr && g_factor == 0) {
+            static int last_missing = -2;
+            if (last_missing != reload::wp_now()) LOGI("%s handpose: no saved pose for WP%04d", TAG, reload::wp_now());
+            last_missing = reload::wp_now();
+        }
+        if (p != nullptr) g_pose = p;
+    }
+    if (g_pose == nullptr) return;
+
+    const float step = cfg::HANDPOSE_BLEND_SEC <= 0.0001f ? 1.0f : std::min(1.0f, dt / cfg::HANDPOSE_BLEND_SEC);
+    g_factor += ((want ? 1.0f : 0.0f) - g_factor) * step;
+    if (!want && g_factor < 0.001f) {
+        LOGI("%s handpose: fingers back to the game's animation", TAG);
+        g_factor = 0; g_pose = nullptr; return;
+    }
+
+    auto* tf = call_ptr(go, "get_Transform");
+    for (int i = 0; i < kBoneCount; ++i) {
+        auto* j = joint_by_name(tf, kBones[i]);
+        if (j == nullptr) continue;
+        Vec3 t{g_pose->a[i][0], g_pose->a[i][1], g_pose->a[i][2]};
+        if (g_factor < 0.9999f) {
+            Vec3 cur{};
+            if (!get_v3(JOINT, j, "get_LocalEulerAngle", cur)) continue;
+            t = Vec3{wrap(cur.x + wrap(t.x - cur.x) * g_factor), wrap(cur.y + wrap(t.y - cur.y) * g_factor),
+                     wrap(cur.z + wrap(t.z - cur.z) * g_factor)};
+        }
+        Vec3 before{};
+        const bool proof = !g_logged_proof && g_factor >= 0.9999f && i == 1;   // index finger, once per pose
+        if (proof) get_v3(JOINT, j, "get_LocalEulerAngle", before);
+        set_any(JOINT, j, "set_LocalEulerAngle", &t);
+        if (proof) {
+            Vec3 after{};
+            get_v3(JOINT, j, "get_LocalEulerAngle", after);
+            LOGI("%s handpose: proof l_hand_index_1 curl %.3f -> wrote %.3f -> reads %.3f", TAG, before.z, t.z, after.z);
+            g_logged_proof = true;
+        }
+    }
+}
+
+} // namespace vn::handpose

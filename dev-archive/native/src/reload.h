@@ -25,6 +25,8 @@ bool pouch_grab();       // holster.cpp: the left grip went down in the pouch sp
 bool managed_now();      // the gun in hand is one of ours (its game reload is off)
 bool mag_out();          // the magazine is not seated: the gun must not fire
 bool session_active();   // a reload is under way (the left grip must not ready the sub weapon)
+bool mag_in_hand();      // a magazine is in the left hand (taken from the pouch, or going in)
+bool shell_in_hand();    // a shotgun shell is in the left hand
 int  wp_now();           // the gun in hand (WP number), -1 if none
 const char* sfx_folder_now();
 float sfx_volume_now();
