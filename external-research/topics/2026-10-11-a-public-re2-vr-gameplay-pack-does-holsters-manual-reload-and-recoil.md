@@ -37,8 +37,10 @@ Manager. The author writes that they want to move on to other projects, so updat
 
 ## Next step
 
-None for the author question (settled above). This feature list is Andyalpa's current one, worth
-comparing against Visceral's holster, rack and reload work. No code is copied from it.
+None for the author question (settled above). ⚠️ **Not a new release:** Tefa reports the page has not
+been updated since July 2026 `[reported 2026-10-11, Tefa]`. This pass never checked a date; "new" in the
+status tag only meant new to this index. The feature list is still worth comparing against Visceral's
+holster, rack and reload work. No code is copied from it.
 
 ## Sources
 
