@@ -168,6 +168,8 @@ constexpr float HUD_AFTER_RELOAD_SEC = 5.0f;  // the ammo counter stays up this 
 struct ShellHold { float ox, oy, oz, yaw, pitch, roll; };
 constexpr ShellHold SHELL_HOLD = {0.09f, -0.03f, 0.02f, 0.0f, 90.0f, 0.0f};   // b155: ox 0.06 -> 0.09, Tefa: "too deep in the palm" (a guess at the axis)
 constexpr float SHELL_DOCK_MAX_M = 0.10f;   // b155: the shell goes in this close to the port at most (his 0.22, Tefa: "the activation area was too far away")
+constexpr bool  DRY_CLICK_SOUND = false;  // b156 TEST: the click muted for one run, to hear whether the "gunshot" on empty is our
+                                          // click file or the game (b155: requestFire skipped, click played, Tefa still heard a shot)
 constexpr bool  BLOCK_EMPTY_FIRE = true;   // b155: an empty seated gun never asks the game to fire (Tefa still heard a gunshot on empty)
 
 // ---- the sub weapon from the back holster on RG; RG never aims (b134, 2026-10-10; subweapon.h) ------------------
@@ -181,5 +183,7 @@ constexpr int   THROW_HOLD_FRAMES = 12;      // the grenade throw = HOLD sent th
 // The fingers take the saved RELOADED pose (handpose_data.h) while a magazine or shell is in the left hand.
 constexpr bool  HANDPOSE_ON = true;          // false = the fingers keep the game's animation
 constexpr float HANDPOSE_BLEND_SEC = 0.12f;  // his blend time in and out
+constexpr bool  HANDPOSE_SLIDE_USES_MAG = true;   // b156: the saved slide poses are nearly the relaxed hand (worn b155: "fingers still
+                                                 // don't wrap around the slide"), so the slide grip uses the magazine grip
 
 } // namespace vn::cfg

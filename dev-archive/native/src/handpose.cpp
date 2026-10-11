@@ -51,7 +51,7 @@ void point() {
     if (want) {
         const bool claire = read_string(call_ptr(go, "get_Name")).rfind("pl1", 0) == 0;
         const int wp = holding ? reload::wp_now() : rack::wp_now();
-        const FingerPose* p = find_pose(ctx, wp, claire);
+        const FingerPose* p = find_pose(cfg::HANDPOSE_SLIDE_USES_MAG ? Ctx::MAG : ctx, wp, claire);
         if (p != g_pose && p != nullptr) {
             LOGI("%s handpose: %s fingers on for WP%04d (%s pose)", TAG, ctx == Ctx::MAG ? "magazine-hold" : "slide-grip",
                  p->wp, p->claire ? "Claire's" : "Leon's");
