@@ -153,6 +153,7 @@ constexpr float RACK_PULL_M = 0.05f;          // his pull_dist_default: the left
 constexpr float RACK_FOLLOW = 0.5f;           // the slide follows the hand with this much smoothing per frame (1 = raw)
 constexpr float RACK_RETURN_PER_SEC = 5.0f;   // let go mid-way: the slide springs back at this rate (0..1 per second)
 constexpr float SLIDE_PARK_SCALE = 1.5f;      // the locked-open slide sits this much further back than his parked (Tefa: "a little further")
+constexpr float SLIDE_DOCK_YPR[3] = {0.0f, 0.0f, 0.0f};   // b158: the hand's turn on the slide (deg), Tefa sets it with the sliders
 constexpr Vec3  SLIDE_DOCK_OFF = {0.0f, 0.0f, 0.0f};   // where the hand sits on the slide, in the slide joint's axes (b143: the joint itself; his dock_off is for his hand model)
 constexpr float RACK_BUZZ_AMP = 0.7f, RACK_BUZZ_SEC = 0.06f;
 // 2026-10-11 (Tefa): the release racks and pumps on the BUTTON, Arcade Controls style: LG held + LT pressed runs the
@@ -167,7 +168,8 @@ constexpr float HUD_AFTER_RELOAD_SEC = 5.0f;  // the ammo counter stays up this 
 // where a shotgun shell sits in the left hand (wrist axes, metres; yaw/pitch/roll degrees). OURS, a first guess (b142).
 struct ShellHold { float ox, oy, oz, yaw, pitch, roll; };
 constexpr ShellHold SHELL_HOLD = {0.108f, -0.042f, 0.032f, 13.0f, 86.0f, 0.0f};   // b157: Tefa set these with the b156 sliders ("the shell is done")
-constexpr float SHELL_DOCK_MAX_M = 0.07f;   // b157: 0.10 -> 0.07, Tefa: "a little closer to the shotgun"
+constexpr float SHELL_DOCK_MAX_M = 0.045f;  // b158: 0.07 -> 0.045, Tefa: "just like 2-3cm more closer" (screenshot)
+// b157 was: 0.07f, Tefa: "a little closer to the shotgun"
 // was:  SHELL_DOCK_MAX_M = 0.10f;   // b155: the shell goes in this close to the port at most (his 0.22, Tefa: "the activation area was too far away")
 constexpr bool  DRY_CLICK_SOUND = true;   // b157: back on; the b156 test (muted) still had the gunshot, so it is the game's
 // b156 was: DRY_CLICK_SOUND = false;  // b156 TEST: the click muted for one run, to hear whether the "gunshot" on empty is our

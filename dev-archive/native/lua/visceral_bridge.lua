@@ -16,7 +16,7 @@
 -- Slot map must match src/bridge.h.
 
 local TAG = "[visceral-bridge]"
-local N = 64
+local N = 72
 local S_FRAME, S_HMD = 0, 1
 local S_LGRIP, S_LTRIG, S_RGRIP, S_RTRIG = 2, 3, 4, 5
 local S_LA, S_LB, S_RA, S_RB = 6, 7, 8, 9
@@ -28,6 +28,7 @@ local S_LCLICK, S_LSTICK_MAG = 37, 38   -- running stop (src/run.cpp)
 local S_HMD_Q, S_ROT_OFF, S_ORIGIN = 40, 44, 48   -- menu camera (src/menu_body.cpp, 2026-10-08)
 local S_RROT = 52   -- the right controller's turn, room space (src/rack.cpp motion racking, b143)
 local S_TUNE_ON, S_TUNE = 56, 57   -- b156: shell-in-hand sliders (src/reload.cpp), ox oy oz yaw pitch roll
+local S_DOCK_ON, S_DOCK = 64, 65   -- b158: hand-on-slide sliders (src/rack.cpp), ox oy oz yaw pitch roll
 local SENTINEL = 54321.0
 local NO_VALUE = 999.0
 local RUMBLE_FREQ_HZ = 160.0
@@ -184,6 +185,30 @@ re.on_pre_application_entry("LateUpdateBehavior", function()
     w(S_TUNE, tune.ox); w(S_TUNE + 1, tune.oy); w(S_TUNE + 2, tune.oz)
     w(S_TUNE + 3, tune.yaw); w(S_TUNE + 4, tune.pitch); w(S_TUNE + 5, tune.roll)
 end)
+-- b158: the same for the hand on the slide (where it sits on the slide and how it is turned)
+local DOCK_FILE = "visceral_slide_grip.json"
+local dock = json.load_file(DOCK_FILE) or {}
+local DOCK_DEFAULT = {on = true, ox = 0.0, oy = 0.0, oz = 0.0, yaw = 0.0, pitch = 0.0, roll = 0.0}
+for k, v in pairs(DOCK_DEFAULT) do if dock[k] == nil then dock[k] = v end end
+re.on_pre_application_entry("LateUpdateBehavior", function()
+    if not arr then return end
+    w(S_DOCK_ON, dock.on and 1 or 0)
+    w(S_DOCK, dock.ox); w(S_DOCK + 1, dock.oy); w(S_DOCK + 2, dock.oz)
+    w(S_DOCK + 3, dock.yaw); w(S_DOCK + 4, dock.pitch); w(S_DOCK + 5, dock.roll)
+end)
+local function sliders(title, t, file, default)
+    if not imgui.tree_node(title) then return end
+    local changed, any = false, false
+    changed, t.on = imgui.checkbox("Use these numbers", t.on); any = any or changed
+    local function m(label, key) changed, t[key] = imgui.drag_float(label, t[key], 0.002, -0.3, 0.3, "%.3f m"); any = any or changed end
+    local function d(label, key) changed, t[key] = imgui.drag_float(label, t[key], 1.0, -180.0, 180.0, "%.0f deg"); any = any or changed end
+    m("Move 1", "ox"); m("Move 2", "oy"); m("Move 3", "oz")
+    d("Turn 1", "yaw"); d("Turn 2", "pitch"); d("Turn 3", "roll")
+    if imgui.button("Reset") then for k, v in pairs(default) do t[k] = v end; any = true end
+    if any then json.dump_file(file, t) end
+    imgui.tree_pop()
+end
+
 local function tune_ui()
     if not imgui.tree_node("Visceral: shell in the hand") then return end
     local changed, any = false, false
@@ -199,6 +224,7 @@ end
 
 re.on_draw_ui(function()
     tune_ui()
+    sliders("Visceral: hand on the slide", dock, DOCK_FILE, DOCK_DEFAULT)
     if imgui.tree_node("Visceral bridge (new)") then
         imgui.text(string.format("frame %d  attached=%s  rumbles fired %d", frame, tostring(attached), rumbles))
         if arr then

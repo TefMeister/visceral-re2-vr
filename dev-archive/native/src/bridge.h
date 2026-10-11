@@ -30,7 +30,9 @@ enum Slot : int {
     S_RROT = 52,          // the right controller's turn in room space, quaternion x y z w (b143, motion racking)
     S_TUNE_ON = 56,       // b156: 1 = the shell-in-hand sliders (Lua menu) are live
     S_TUNE = 57,          // b156: shell hold ox oy oz (m) yaw pitch roll (deg), from the Lua menu sliders
-    S_COUNT = 64,
+    S_DOCK_ON = 64,       // b158: 1 = the slide-grip sliders (Lua menu) are live
+    S_DOCK = 65,          // b158: hand-on-slide ox oy oz (m, slide joint axes) yaw pitch roll (deg)
+    S_COUNT = 72,
 };
 constexpr float SENTINEL = 54321.0f;
 constexpr float NO_VALUE = 999.0f;
