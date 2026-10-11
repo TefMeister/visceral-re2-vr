@@ -186,9 +186,10 @@ void shell_checks() {
     if (!to_weapon_local(wp, wr, lp, nullptr)) return;
     const float d = dist(lp, g_sw->port);
     const float now = now_s();
-    if (d > g_sw->dock || now - g_shell_last_dock < cfg::RELOAD_DOCK_COOLDOWN_SEC) return;
+    const float need = std::fmin(g_sw->dock, cfg::SHELL_DOCK_MAX_M);
+    if (d > need || now - g_shell_last_dock < cfg::RELOAD_DOCK_COOLDOWN_SEC) return;
     g_shell_last_dock = now;
-    LOGI("%s reload: shell at the port (%.3f m, need %.3f)", TAG, d, g_sw->dock);
+    LOGI("%s reload: shell at the port (%.3f m, need %.3f)", TAG, d, need);
     sfx::play("mag_insert", g_sw->sfx, g_sw->vol);
     bridge::rumble(bridge::LEFT, cfg::RELOAD_INSERT_BUZZ_AMP, cfg::RELOAD_INSERT_BUZZ_SEC);
     g_shell_in_hand = false;
