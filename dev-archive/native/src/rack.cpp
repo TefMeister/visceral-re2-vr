@@ -44,7 +44,9 @@ float g_pull_m = 0.0f;    // how far back the hand has moved since the dock (met
 int g_log_near = 0;
 int g_auto = 0;           // button mode: 0 idle, 1 travelling back / held back while LT is held, 2 travelling forward
 bool g_grip = false;      // b155: the left hand is gripping the slide / fore-end (LG held near it, or racking)
-bool g_socket_frozen = false;   // b157: the slide went forward without the hand: the socket stays where the hand let go
+bool g_socket_frozen = false;   // b157 (unused since b159)
+bool g_let_go = false;    // b159: LT let go after a rack: the hand leaves the slide until LG is let go
+bool g_hold_closed = false;   // b159: after a rack, keep the slide closed until the next shot (the magnum stayed open)
 float g_auto_t0 = 0.0f;
 
 // the socket handed to the VR layer: the slide joint (plus an offset) in right-wrist space
@@ -87,7 +89,7 @@ float z_back() { return g_rest.z + (g_w->back_z - g_w->rest_z); }
 
 void write_joint() {
     if (g_joint == nullptr || g_w == nullptr || !g_have_rest) return;
-    if (!g_hand_on && !g_parked && g_travel <= 0.0f) return;   // nothing of ours: leave the game's own animation alone
+    if (!g_hand_on && !g_parked && g_travel <= 0.0f && !g_hold_closed) return;   // nothing of ours: leave the game's own animation alone
     const float z = z_from() + (z_back() - z_from()) * g_travel;
     Vec3 p{g_rest.x, g_rest.y, z};
     set_any(JOINT, g_joint, "set_LocalPosition", &p);
@@ -141,6 +143,7 @@ void complete() {
     const bool was_needed = g_needed;
     g_needed = false;
     g_parked = false;
+    g_hold_closed = true;   // b159: the game's own animation may still hold the slide open (magnum, worn b158)
     sfx::play("slide_rack_release", pump ? pump_sfx(g_wp) : reload::sfx_folder_now(), pump ? 2.0f : reload::sfx_volume_now());
     bridge::rumble(bridge::LEFT, cfg::RACK_BUZZ_AMP, cfg::RACK_BUZZ_SEC);
     reload_block::show_ammo_counter(cfg::HUD_AFTER_RELOAD_SEC);
@@ -158,6 +161,7 @@ void hand_off(const char* why) {
 bool blocks_fire() { return cfg::RELOAD_ON && g_w != nullptr && g_needed; }
 bool active() { return g_hand_on; }
 bool grip_pose() { return g_grip; }
+void on_shot() { if (g_hold_closed) LOGI("%s rack: first shot after the rack: the slide is the game's again", TAG); g_hold_closed = false; }
 int wp_now() { return g_wp; }
 
 void need(const char* why) {
@@ -180,7 +184,7 @@ void frame() {
         if (g_needed) LOGI("%s rack: WP%04d put away with a rack pending -- forgotten (the game's own state rules)", TAG, g_wp);
         g_wp = wp;
         g_w = slide_weapon(wp);
-        g_needed = g_parked = g_hand_on = g_pulled = g_grip = false;
+        g_needed = g_parked = g_hand_on = g_pulled = g_grip = g_let_go = g_hold_closed = false;
         g_auto = 0;
         g_travel = 0.0f;
         g_have_rest = false;
@@ -216,7 +220,7 @@ void frame() {
             }
             if (!lt || !lg || menu) {
                 LOGI("%s rack: %s %s", TAG, !lt ? "LT let go" : !lg ? "LG let go" : "menu", g_pulled ? "-> the slide goes forward" : "before the back -> it returns, no round");
-                if (g_socket.active) g_socket_frozen = true;   // b157: the hand stays behind, the slide flies forward
+                g_let_go = true;   // b159 (Tefa: "my hand still remains held on the gun"): the hand comes off the slide
                 g_auto = 2;
                 g_auto_t0 = now;
             }
@@ -228,11 +232,12 @@ void frame() {
         // the grip pose: LG held with the left hand near the slide / fore-end, or a rack under way
         float d = 0.0f;
         const bool near = lg && !menu && !reload::session_active() && hand_near_joint(d);
-        const bool grip = g_auto != 0 || near;
+        if (!lg) g_let_go = false;
+        const bool grip = (g_auto == 1 || near) && !g_let_go;
         if (grip != g_grip) LOGI("%s rack: left hand %s the %s (wrist %.3f m, need %.2f)", TAG, grip ? "grips" : "lets go of", is_pump(g_wp) ? "fore-end" : "slide", d, cfg::RACK_HAND_M);
         // b157 (Tefa: "hand still doesn't move onto the slide"): the hand docks on the slide while it grips; once on,
         // it stays on until LG is let go (the wrist is then AT the slide, so the near test would flicker)
-        if (g_grip && lg && !menu && !grip) { /* keep gripping while LG is held */ } else g_grip = grip;
+        if (g_grip && lg && !menu && !grip && !g_let_go) { /* keep gripping while LG is held */ } else g_grip = grip;
         if (!lg) g_socket_frozen = false;
         static bool was_docked = false;
         if (g_grip != was_docked) LOGI("%s rack: hand %s the %s (socket)", TAG, g_grip ? "docked on" : "off", is_pump(g_wp) ? "fore-end" : "slide");

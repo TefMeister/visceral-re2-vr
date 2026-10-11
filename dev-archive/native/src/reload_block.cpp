@@ -130,6 +130,7 @@ void post_fire_count(void**, REFrameworkTypeDefinitionHandle, unsigned long long
     if (g_rounds_at_pre == 0 && !cfg::BLOCK_EMPTY_FIRE) dry_click();   // b155: pre_fire already clicked
     if (g_rounds_at_pre > 0 && t_gun != nullptr) {
         pump_native::on_post_fire(t_gun);
+        rack::on_shot();
         if (call_direct<int>(t_gun, "getBulletNumber", -1) == 0) rack::slide_lock_empty();   // the last round: the slide locks open
     }
 }
