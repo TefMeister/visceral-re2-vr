@@ -10,3 +10,5 @@ From: the ideas repo, `games/re2-visceral.md` (<https://github.com/TefMeister/mo
 Verbatim record: [`inbox/2026-10-10-re2-zombies-spread-doors-lanes-uninstall.md`](../inbox/2026-10-10-re2-zombies-spread-doors-lanes-uninstall.md)
 
 The door should react to where your hand actually is, not to where the game's own body model is.
+
+Chosen by Tefa: 2026-10-11

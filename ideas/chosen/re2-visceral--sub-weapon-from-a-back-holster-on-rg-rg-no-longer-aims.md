@@ -14,3 +14,5 @@ holding the right grip at a spot on the back brings out the sub weapon (knife or
 and letting go returns to the gun held before (or empty hands); right grip + trigger with a throwing motion throws it.
 
 ---
+
+Chosen by Tefa: 2026-10-11
