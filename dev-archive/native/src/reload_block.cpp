@@ -87,6 +87,7 @@ void dry_click() {
     const float now = now_s();
     if (now - g_last_dry < cfg::RELOAD_DRY_FIRE_GAP_SEC && !bridge::pressed(bridge::S_RTRIG)) return;
     g_last_dry = now;
+    if (!cfg::DRY_CLICK_SOUND) { LOGI("%s block: dry click (muted for the b156 test)", TAG); return; }
     sfx::play("dry_fire", reload::sfx_folder_now(), reload::sfx_volume_now());
 }
 
