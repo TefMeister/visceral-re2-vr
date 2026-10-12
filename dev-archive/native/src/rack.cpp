@@ -127,12 +127,32 @@ void publish_socket() {
 }
 
 // his motion drive: the left controller's place along the gun, relative to the right controller (room space)
-float along_gun() {
+// b162 (Ghost Hand, 2026-10-13): the gun's axis is frozen at the dock, so the gun hand turning mid-rack no longer
+// moves the starting point (Tefa: the pump's push back "sometimes needing me to extend the left hand far out")
+Vec3 g_axis{0, 0, -1};
+bool gun_axis(Vec3& fwd) {
     const Quat rq = bridge::view_quat(bridge::S_RROT);
-    if (!bridge::has(rq.x)) return 0.0f;
-    const Vec3 fwd = rotate(qnorm(rq), Vec3{0, 0, -1});   // OpenXR: a controller points along -Z
+    if (!bridge::has(rq.x)) return false;
+    fwd = rotate(qnorm(rq), Vec3{0, 0, -1});   // OpenXR: a controller points along -Z
+    return true;
+}
+float along_gun() {
+    const Vec3 fwd = g_axis;
     const Vec3 d = bridge::hand_pos(bridge::LEFT) - bridge::hand_pos(bridge::RIGHT);
     return d.x * fwd.x + d.y * fwd.y + d.z * fwd.z;        // bigger = further forward along the gun
+}
+
+// b162 (Tefa 2026-10-13: "the pump handle area is off, so i had to draw the left motion controller very close to my
+// right one"): for a pump gun the left CONTROLLER anywhere along the barrel ahead of the gun hand docks, not the game's
+// wrist near the fore-end joint
+bool hand_on_barrel(float& d) {
+    Vec3 fwd;
+    if (!gun_axis(fwd)) return false;
+    const Vec3 v = bridge::hand_pos(bridge::LEFT) - bridge::hand_pos(bridge::RIGHT);
+    const float ahead = v.x * fwd.x + v.y * fwd.y + v.z * fwd.z;
+    const Vec3 off = v - fwd * ahead;
+    d = std::sqrt(off.x * off.x + off.y * off.y + off.z * off.z);
+    return ahead >= cfg::PUMP_ZONE_AHEAD_MIN_M && ahead <= cfg::PUMP_ZONE_AHEAD_MAX_M && d <= cfg::PUMP_ZONE_OFF_AXIS_M;
 }
 
 void complete() {
@@ -258,11 +278,12 @@ void frame() {
     // the hand goes on the slide / fore-end: LT pressed with LG held and the hand near it; LT or LG let go = off
     if (!g_hand_on && !menu && lg && bridge::pressed(bridge::S_LTRIG) && !reload::session_active()) {
         float d = 0.0f;
-        const bool near = hand_near_joint(d);
+        const bool near = is_pump(g_wp) ? hand_on_barrel(d) : hand_near_joint(d);
         if (g_log_near < 30) { ++g_log_near; LOGI("%s rack: LG+LT, left wrist %.3f m from the %s joint (need %.2f): %s", TAG, d, is_pump(g_wp) ? "fore-end" : "slide", cfg::RACK_HAND_M, near ? "HAND ON" : "too far"); }
         if (near) {
             g_hand_on = true;
             g_pulled = false;
+            if (!gun_axis(g_axis)) g_axis = Vec3{0, 0, -1};
             g_base = along_gun();
             g_pull_m = 0.0f;
             g_max_pull = 0.0f;
@@ -279,7 +300,9 @@ void frame() {
     if (g_hand_on) {
         g_pull_m = g_base - along_gun();   // positive = pulled back
         g_max_pull = std::fmax(g_max_pull, g_pull_m);
-        const float want = std::fmax(0.0f, std::fmin(1.0f, g_pull_m / cfg::RACK_PULL_M));
+        // b162: on the way forward the travel is measured from the furthest-back point, not from the dock spot
+        const float want = !g_pulled ? std::fmax(0.0f, std::fmin(1.0f, g_pull_m / cfg::RACK_PULL_M))
+                                     : std::fmax(0.0f, std::fmin(1.0f, 1.0f - (g_max_pull - g_pull_m) / cfg::RACK_RETURN_M));
         g_travel = g_travel + (want - g_travel) * cfg::RACK_FOLLOW;
         if (!g_pulled && g_travel >= 0.97f) {
             g_pulled = true;
@@ -288,7 +311,7 @@ void frame() {
             if (is_pump(g_wp)) pump_native::on_pulled_down();   // the spent shell leaves on the pull, not the return
             LOGI("%s rack: pulled back (%.3f m)", TAG, g_pull_m);
         }
-        if (g_pulled && g_travel <= 0.10f) { g_pulled = false; g_travel = 0.0f; complete(); ghosthand::event("rack", "done"); ghosthand::event("rack", "start"); g_max_pull = 0.0f; g_base = along_gun(); }
+        if (g_pulled && g_travel <= 0.10f) { g_pulled = false; g_travel = 0.0f; complete(); ghosthand::event("rack", "done"); ghosthand::event("rack", "start"); g_max_pull = 0.0f; if (!gun_axis(g_axis)) g_axis = Vec3{0, 0, -1}; g_base = along_gun(); }
     } else if (g_travel > 0.0f) {
         g_travel = std::fmax(0.0f, g_travel - cfg::RACK_RETURN_PER_SEC / 72.0f);   // let go mid-way: it springs back
     }
