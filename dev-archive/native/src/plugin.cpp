@@ -35,6 +35,7 @@
 #include "pickup.h"
 #include "pump_native.h"
 #include "rack.h"
+#include "ghosthand.h"
 #include "reload.h"
 #include "reload_block.h"
 #include "run.h"
@@ -95,7 +96,7 @@ extern "C" __declspec(dllexport) bool reframework_plugin_initialize(const REFram
     // The climbing body guard puts the body back after FirstPerson turns it (Arcade Controls' two late points).
     param->functions->on_post_application_entry("LateUpdateBehavior", []() { ladder::late_update(); reload::late_point(); rack::late_point(); handpose::point(); menu_body::early_hide(); menu_body::camera_point(false); menu_probe::point("LateUpdateBehavior.post"); });
     // b103: the held menu camera written into the camera's root joint right where the VR layer writes it, after its pass
-    param->functions->on_pre_application_entry("BeginRendering", []() { rack::render_point(); menu_body::render_point(); menu_probe::point("BeginRendering.pre"); });
+    param->functions->on_pre_application_entry("BeginRendering", []() { rack::render_point(); ghosthand::render_point(); menu_body::render_point(); menu_probe::point("BeginRendering.pre"); });
     param->functions->on_pre_application_entry("UpdateScene", []() { menu_probe::point("UpdateScene.pre"); });
     param->functions->on_pre_application_entry("UpdateMotion", []() { pump_native::update_motion(); });   // b140: the game's pump clip cut here
     param->functions->on_post_application_entry("UpdateScene", []() { menu_probe::point("UpdateScene.post"); });
