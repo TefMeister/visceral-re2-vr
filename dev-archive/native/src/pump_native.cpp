@@ -76,9 +76,11 @@ void scrub(MO* motion, bool player) {
 }
 
 // ---- the shell eject, held back and replayed on our pull ---------------------------------------------------------
+float g_allow_eject_until = -1.0f;   // b166: our request()'s coroutine calls generate() a frame or more later
+bool g_shell_owed = false;           // b166: a round was fired since the last pump (the natural generate never came, 2026-10-13 log)
 int pre_generate(int, void**, REFrameworkTypeDefinitionHandle*, unsigned long long) {
     if (!cfg::PUMP_NATIVE_ON || !pump_gun() || !bridge::live()) return REFRAMEWORK_HOOK_CALL_ORIGINAL;
-    if (g_eject_pending && g_eject_wp == weapons::current_id() && rack::active()) return REFRAMEWORK_HOOK_CALL_ORIGINAL;   // our replay
+    if (now_s() < g_allow_eject_until) { LOGI("%s pump: spent shell generate() passed (ours)", TAG); return REFRAMEWORK_HOOK_CALL_ORIGINAL; }
     g_eject_pending = true;
     g_eject_wp = weapons::current_id();
     const int n = g_ejects_held.fetch_add(1) + 1;
@@ -88,12 +90,15 @@ int pre_generate(int, void**, REFrameworkTypeDefinitionHandle*, unsigned long lo
 void post_nop(void**, REFrameworkTypeDefinitionHandle, unsigned long long) {}
 
 // the game's own pump sounds: log the trigger IDs heard in the window (no name lookup on this build)
+float g_shot_t = -1.0f;
 int pre_wwise(int argc, void** argv, REFrameworkTypeDefinitionHandle*, unsigned long long) {
     if (!cfg::PUMP_NATIVE_ON || !pump_gun() || !window() || argc < 3) return REFRAMEWORK_HOOK_CALL_ORIGINAL;
     const auto id = (uint32_t)(uintptr_t)argv[2];
+    bool block = false;
+    for (uint32_t b : cfg::PUMP_SOUND_BLOCK) block = block || b == id;
     const int n = g_wwise.fetch_add(1) + 1;
-    if (n <= 60) LOGI("%s pump: Wwise trigger %u heard in the pump window (#%d)", TAG, id, n);
-    return REFRAMEWORK_HOOK_CALL_ORIGINAL;
+    if (n <= 200) LOGI("%s pump: Wwise trigger %u at +%.3f s after the shot%s (#%d)", TAG, id, now_s() - g_shot_t, block ? ": BLOCKED (the game's pump sound?)" : "", n);
+    return block ? REFRAMEWORK_HOOK_SKIP_ORIGINAL : REFRAMEWORK_HOOK_CALL_ORIGINAL;
 }
 
 void hook(const char* type, const char* method, REFPreHookFn pre, const char* what) {
@@ -120,21 +125,21 @@ void on_pre_fire(MO* gun) {
 void on_post_fire(MO*) {
     if (!cfg::PUMP_NATIVE_ON || !pump_gun() || g_pre_chamber < 0) return;
     g_window_until = now_s() + cfg::PUMP_WINDOW_SEC;
+    g_shot_t = now_s();
+    if (g_pre_chamber > 0) g_shell_owed = true;
     if (g_pre_chamber > 0 && g_pre_in_gun > 1) rack::need("a shot with another shell in the gun");
     else LOGI("%s pump: shot with chamber %d, in gun %d: no pump needed (empty until shells go in)", TAG, g_pre_chamber, g_pre_in_gun);
     g_pre_chamber = -1;
 }
 
 void on_pulled_down() {
-    if (!g_eject_pending) return;
-    auto* gun = gun_now();
-    auto* scc = call_ptr(gun, "get_ShellCartridgeController");
-    g_eject_pending = false;
-    if (scc == nullptr) { LOGW("%s pump: no ShellCartridgeController to replay the eject", TAG); return; }
-    g_eject_pending = true;   // the replay's generate must pass: pre_generate lets it through while rack::active()
+    if (!g_eject_pending && !g_shell_owed) return;
+    auto* scc = call_ptr(gun_now(), "get_ShellCartridgeController");
+    g_eject_pending = g_shell_owed = false;
+    if (scc == nullptr) { LOGW("%s pump: no ShellCartridgeController to eject the spent shell", TAG); return; }
+    g_allow_eject_until = now_s() + cfg::PUMP_EJECT_ALLOW_SEC;   // request() only; its own coroutine calls generate()
     call_direct<void*>(scc, "request", nullptr);
-    g_eject_pending = false;
-    LOGI("%s pump: spent shell ejected on the pull-down", TAG);
+    LOGI("%s pump: spent shell requested on the pull-down", TAG);
 }
 
 void on_shells_inserted(bool was_empty) {
