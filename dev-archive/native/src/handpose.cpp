@@ -9,6 +9,7 @@
 #include "rack.h"
 #include "reload.h"
 #include "settings.h"
+#include "tune.h"
 
 namespace vn::handpose {
 using namespace vn::joints;
@@ -78,14 +79,15 @@ void point() {
         auto* j = joint_by_name(tf, kBones[i]);
         if (j == nullptr) continue;
         Vec3 t{g_pose->a[i][0], g_pose->a[i][1], g_pose->a[i][2]};
-        // b159: the finger sliders (Lua menu "Visceral: fingers on the slide") bend each finger on top of the pose
-        const float fon = bridge::view(bridge::S_FING_ON);
-        if (on_slide && fon > 0.5f && fon < 2.0f) {
+        // b159/b164: Tefa's finger numbers on the slide grip, built in (each whole finger curled, its base joint spread)
+        if (on_slide) {
             const int f = i < 3 ? 0 : i < 6 ? 1 : i < 10 ? 2 : i < 14 ? 3 : 4;   // index middle ring little thumb (kBones order)
             const bool first = i == 0 || i == 3 || i == 6 || i == 10 || i == 14;
-            t.z += bridge::view(static_cast<bridge::Slot>(bridge::S_FING + f));
-            if (first) t.y += bridge::view(static_cast<bridge::Slot>(bridge::S_FING + 5 + f));
+            t.z += cfg::SLIDE_FINGER_CURL[f];
+            if (first) t.y += cfg::SLIDE_FINGER_SPREAD[f];
         }
+        // b164: every joint's own sliders for this hold, this gun, this character (tune.h)
+        t = t + tune::finger(holding ? (reload::shell_in_hand() ? tune::SHELL : tune::MAG) : tune::SLIDE, i);
         if (g_factor < 0.9999f) {
             Vec3 cur{};
             if (!get_v3(JOINT, j, "get_LocalEulerAngle", cur)) continue;

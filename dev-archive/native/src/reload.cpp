@@ -5,6 +5,7 @@
 // to the weapon transform for a joint). World positions are never read back from a joint we wrote the same frame
 // (the stale-world-matrix trap, port map §D): the slide's end point is computed from the weapon transform instead.
 #include "reload.h"
+#include "tune.h"
 #include "bridge.h"
 #include "menu_body.h"
 #include "reload_block.h"
@@ -130,14 +131,9 @@ bool shell_hand_pose(Vec3& pos, Quat& rot) {
     Quat hr;
     if (!get_v3(JOINT, g_wrist, "get_Position", hp) || !get_q(JOINT, g_wrist, "get_Rotation", hr)) return false;
     hr = qnorm(hr);
-    cfg::ShellHold h = cfg::SHELL_HOLD;
-    if (bridge::view(bridge::S_TUNE_ON) > 0.5f && bridge::view(bridge::S_TUNE_ON) < 2.0f) {   // b156: the Lua menu sliders
-        float v[6];
-        for (int i = 0; i < 6; ++i) v[i] = bridge::view(static_cast<bridge::Slot>(bridge::S_TUNE + i));
-        h = cfg::ShellHold{v[0], v[1], v[2], v[3], v[4], v[5]};
-    }
-    pos = hp + rotate(hr, Vec3{h.ox, h.oy, h.oz});
-    rot = qnorm(qmul(hr, quat_from_ypr(h)));
+    const cfg::ShellHold h = cfg::SHELL_HOLD;   // b157: Tefa's numbers; b164: the per-character, per-gun sliders add on top
+    pos = hp + rotate(hr, Vec3{h.ox, h.oy, h.oz} + tune::item_move(tune::SHELL));
+    rot = qnorm(qmul(qmul(hr, quat_from_ypr(h)), tune::item_turn(tune::SHELL)));
     return true;
 }
 
@@ -230,8 +226,8 @@ bool hand_pose(Vec3& pos, Quat& rot) {
     if (!get_v3(JOINT, g_wrist, "get_Position", hp) || !get_q(JOINT, g_wrist, "get_Rotation", hr)) return false;
     const Hold& h = g_claire ? g_w->claire : g_w->leon;
     hr = qnorm(hr);
-    pos = hp + rotate(hr, Vec3{h.ox, h.oy, h.oz});
-    rot = qnorm(qmul(hr, quat_from_ypr(h)));
+    pos = hp + rotate(hr, Vec3{h.ox, h.oy, h.oz} + tune::item_move(tune::MAG));   // b164: the sliders add on top
+    rot = qnorm(qmul(qmul(hr, quat_from_ypr(h)), tune::item_turn(tune::MAG)));
     return true;
 }
 
