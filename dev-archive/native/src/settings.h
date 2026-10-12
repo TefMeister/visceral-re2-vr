@@ -159,7 +159,8 @@ constexpr float RACK_BUZZ_AMP = 0.7f, RACK_BUZZ_SEC = 0.06f;
 // 2026-10-11 (Tefa): the release racks and pumps on the BUTTON, Arcade Controls style: LG held + LT pressed runs the
 // whole cycle by itself, no hand near the gun, no pull. "the gameplay has to have fluid controls in combat". false =
 // the b143 motion racking (hand docks on the slide, the left controller pulls it), kept for tinkering after release.
-constexpr bool  RACK_ON_BUTTON = true;
+constexpr bool  RACK_ON_BUTTON = false;   // b161 GHOST HAND TEST ONLY (2026-10-13): motion racking on for the measurement; back to true after
+constexpr bool  GHOST_HAND_ON = true;     // b161: record the hands for Ghost Hand BeG0nE (ghosthand.h) while the headset is live
 constexpr float RACK_BUTTON_PULL_SEC = 0.12f;    // the slide / fore-end travels back in this long
 constexpr float RACK_BUTTON_RETURN_SEC = 0.10f;  // and forward again in this long
 constexpr bool  PUMP_NATIVE_ON = true;        // cut the game's own pump animation, hold the shell eject for our pull
