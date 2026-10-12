@@ -172,6 +172,10 @@ constexpr float RACK_BUTTON_PULL_SEC = 0.12f;    // the slide / fore-end travels
 constexpr float RACK_BUTTON_RETURN_SEC = 0.10f;  // and forward again in this long
 constexpr bool  PUMP_NATIVE_ON = true;        // cut the game's own pump animation, hold the shell eject for our pull
 constexpr float PUMP_WINDOW_SEC = 2.5f;       // his pump_window_sec
+// b166 (Tefa 2026-10-13: "the shotgun still makes the reload sound the game normally would make after a shot"): these two
+// fired at the moment the game's BlowBack clip is cut, on every pump shot in the 2026-10-13 log. A first guess, [hypothesis].
+constexpr uint32_t PUMP_SOUND_BLOCK[] = {1474380250u, 3160867172u};
+constexpr float PUMP_EJECT_ALLOW_SEC = 0.3f;  // b166: generate() passes this long after our request() (his REPLAY_GUARD_FRAMES = 10)
 constexpr float HUD_AFTER_RELOAD_SEC = 5.0f;  // the ammo counter stays up this long after a magazine / shell / rack (Tefa 2026-10-10)
 // where a shotgun shell sits in the left hand (wrist axes, metres; yaw/pitch/roll degrees). OURS, a first guess (b142).
 struct ShellHold { float ox, oy, oz, yaw, pitch, roll; };

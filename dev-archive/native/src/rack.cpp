@@ -190,6 +190,7 @@ void hand_off(const char* why) {
     g_socket.active = 0;
     const bool armed = g_armed;
     g_armed = false;
+    if (!cfg::RACK_ON_BUTTON) g_auto = 0;
     if (g_pulled) { g_pulled = false; g_travel = 0.0f; complete(); ghosthand::event("rack", "done"); LOGI("%s rack: hand off while pulled: released (%s)", TAG, why); }
     else if (!armed) LOGI("%s rack: hand off the %s (%s)", TAG, is_pump(g_wp) ? "fore-end" : "slide", why);
     else {
@@ -298,11 +299,14 @@ void frame() {
 
     // b165 (Tefa 2026-10-13, after b163/b164 worn: "letting go of LT after each rack, then holding it again - the racking
     // works really well! so this has to be built into the reloading system"):
-    //   pump:   LG + LT near the fore-end docks the hand and arms ONE cycle (down, up); when the handle is back up the
-    //           cycle is done, the hand goes back to the gun, and nothing more happens until LT is pressed again.
+    //   pump:   LG + LT near the fore-end docks the hand and arms ONE cycle; LT held for the pull down; once down,
+    //           letting LT go sends the handle (and the hand on it) back up by itself and chambers (b166, Tefa: "because
+    //           it's a two handed weapon and LG has to be held at all times - releasing LT makes the hand with the pump
+    //           handle jump back up"). Pushing it up by hand with LT still held works too. Then nothing until LT again.
     //   pistol: only when the gun is completely empty (slide locked open) or a rack is needed. LG near the slide = the
-    //           hand on the slide; LT (with the hand on) = the pull is live; pulled all the way, the slide STAYS back
-    //           until BOTH LG and LT are let go, then it jumps forward and chambers. While either is held the hand stays.
+    //           hand on the slide; LT (with the hand on) = the pull is live and must be held until the slide is all the way
+    //           back; once back, LT does nothing and letting LG go makes it jump forward (b166, Tefa: "LT is just a latch
+    //           to make the slide and pump handle movable").
     const bool pump = is_pump(g_wp);
     const bool may_rack = pump || g_parked || g_needed;   // pistols: only an empty / locked-open gun (Tefa)
     if (!lt) g_spent = false;
@@ -332,8 +336,14 @@ void frame() {
             ghosthand::event("rack", "start");
         }
         if (menu) hand_off("menu");
-        else if (pump && !lt) hand_off("LT let go");
-        else if (!pump && !lg && !lt) hand_off(g_pulled ? "LG and LT let go: the slide jumps forward" : "LG and LT let go");
+        else if (pump && g_pulled && !lt && g_auto != 2) {   // b166: down and LT let go: the handle goes back up by itself
+            g_auto = 2;
+            g_auto_t0 = now_s();
+            LOGI("%s rack: LT let go with the handle down: it goes back up", TAG);
+        }
+        else if (pump && !g_pulled && !lt) hand_off("LT let go before the handle was down");
+        else if (pump && !lg) hand_off("LG let go");
+        else if (!pump && !lg) hand_off(g_pulled ? "LG let go: the slide jumps forward" : "LG let go");
         else if (!pump && !g_pulled && g_armed && !lt) {   // the pull let go before the back: it springs back, the hand stays
             g_armed = false;
             ghosthand::value("rack_max_pull_m", g_max_pull);
@@ -342,7 +352,11 @@ void frame() {
     }
 
     // the pull: the left controller moving back along the gun, relative to the right one
-    if (g_hand_on && g_armed) {
+    if (g_hand_on && g_armed && g_auto == 2) {   // b166: the pump handle on its way back up by itself
+        const float t = (now_s() - g_auto_t0) / cfg::RACK_BUTTON_RETURN_SEC;
+        g_travel = std::fmax(0.0f, 1.0f - t);
+        if (t >= 1.0f) { g_auto = 0; g_spent = lt; hand_off("pump cycle done"); }
+    } else if (g_hand_on && g_armed) {
         g_pull_m = g_base - along_gun();   // positive = pulled back
         g_max_pull = std::fmax(g_max_pull, g_pull_m);
         // b162: on the way forward the travel is measured from the furthest-back point, not from the dock spot
@@ -357,7 +371,7 @@ void frame() {
             if (pump) pump_native::on_pulled_down();   // the spent shell leaves on the pull, not the return
             LOGI("%s rack: pulled back (%.3f m)%s", TAG, g_pull_m, pump ? "" : ": held back until LG and LT are let go");
         }
-        if (pump && g_pulled && g_travel <= 0.10f) {   // one cycle per LT press: done, the hand back on the gun
+        if (pump && g_pulled && lt && g_travel <= 0.10f) {   // pushed back up by hand: one cycle per LT press
             g_spent = true;
             hand_off("pump cycle done: LT again for the next one");
         }
