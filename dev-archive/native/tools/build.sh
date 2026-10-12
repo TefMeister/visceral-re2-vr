@@ -15,5 +15,6 @@ if [ "${1:-}" = "--deploy" ]; then
     mkdir -p "$GAME/reframework/plugins" "$GAME/reframework/autorun"
     cp "$DLL" "$GAME/reframework/plugins/visceral_native.dll"
     cp "$HERE/lua/visceral_bridge.lua" "$GAME/reframework/autorun/visceral_bridge.lua"
+    cp "$HERE/lua/visceral_tuning.lua" "$GAME/reframework/autorun/visceral_tuning.lua"
     cmp "$DLL" "$GAME/reframework/plugins/visceral_native.dll" && cmp "$HERE/lua/visceral_bridge.lua" "$GAME/reframework/autorun/visceral_bridge.lua" && echo "deployed OK"
 fi

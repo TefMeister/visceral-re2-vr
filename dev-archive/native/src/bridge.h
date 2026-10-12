@@ -34,10 +34,15 @@ enum Slot : int {
     S_DOCK = 65,          // b158: hand-on-slide ox oy oz (m, slide joint axes) yaw pitch roll (deg)
     S_FING_ON = 72,       // b159: 1 = the finger sliders (Lua menu) are live (slide grip)
     S_FING = 73,          // b159: curl index middle ring little thumb, then spread the same five (radians)
-    S_COUNT = 84,
+    S_COUNT = 84,         // the frame snapshot (buttons) covers these; the slots below are read live with view()
+    // 2026-10-13 hand tuning (src/tune.h, lua/visceral_tuning.lua): per character, per gun, per hold
+    S_WHO = 84,           // WRITTEN BY THE PLUGIN: the gun in hand (WP number), then the character (pl digit) at +1
+    S_HT_ON = 86,         // 1 = the Lua is sending tuning numbers
+    S_HT = 88,            // three holds (magazine, shell, slide) of HT_STRIDE numbers each, see tune.h
 };
 constexpr float SENTINEL = 54321.0f;
 constexpr float NO_VALUE = 999.0f;
+constexpr int HT_STRIDE = 64;   // per hold: item move 3, item turn 3, hand move 3, hand turn 3, 17 finger joints x 3
 
 enum Hand : int { LEFT = 0, RIGHT = 1 };
 
@@ -52,7 +57,8 @@ Quat hmd_rot();
 Vec3 hand_pos(Hand h);
 float view(Slot s);                // read a view slot NOW (not the frame-start snapshot); NO_VALUE if not live
 Quat view_quat(Slot s);            // four slots read NOW; check has(.x) before use
-Vec3 view_vec3(Slot s);            // three slots read NOW; check has(.x) before use
+Vec3 view_vec3(Slot s);
+void put(Slot s, float v);         // write a slot the Lua reads (S_WHO)            // three slots read NOW; check has(.x) before use
 inline bool has(float v) { return v < NO_VALUE * 0.5f; }
 
 } // namespace vn::bridge

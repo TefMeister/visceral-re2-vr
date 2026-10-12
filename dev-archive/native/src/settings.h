@@ -157,8 +157,10 @@ constexpr float PUMP_ZONE_OFF_AXIS_M = 0.15f;  // ... and within this of the gun
 constexpr float RACK_FOLLOW = 0.5f;           // the slide follows the hand with this much smoothing per frame (1 = raw)
 constexpr float RACK_RETURN_PER_SEC = 5.0f;   // let go mid-way: the slide springs back at this rate (0..1 per second)
 constexpr float SLIDE_PARK_SCALE = 1.5f;      // the locked-open slide sits this much further back than his parked (Tefa: "a little further")
-constexpr float SLIDE_DOCK_YPR[3] = {180.0f, 18.0f, 180.0f};   // b159: Tefa set these with the b158 sliders ("approximately how it has to be")
-constexpr Vec3  SLIDE_DOCK_OFF = {0.072f, 0.052f, -0.078f};   // where the hand sits on the slide, in the slide joint's axes (b143: the joint itself; his dock_off is for his hand model)
+constexpr float SLIDE_DOCK_YPR[3] = {173.0f, 18.0f, 180.0f};   // b164: Tefa's b160 slider numbers (visceral_slide_grip.json 2026-10-11 23:49)
+// b159 was: SLIDE_DOCK_YPR[3] = {180.0f, 18.0f, 180.0f};   // b159: Tefa set these with the b158 sliders ("approximately how it has to be")
+constexpr Vec3  SLIDE_DOCK_OFF = {0.078f, 0.026f, 0.012f};   // b164: Tefa's b160 numbers
+// b159 was: SLIDE_DOCK_OFF = {0.072f, 0.052f, -0.078f};   // where the hand sits on the slide, in the slide joint's axes (b143: the joint itself; his dock_off is for his hand model)
 constexpr float RACK_BUZZ_AMP = 0.7f, RACK_BUZZ_SEC = 0.06f;
 // 2026-10-11 (Tefa): the release racks and pumps on the BUTTON, Arcade Controls style: LG held + LT pressed runs the
 // whole cycle by itself, no hand near the gun, no pull. "the gameplay has to have fluid controls in combat". false =
@@ -192,6 +194,9 @@ constexpr int   THROW_HOLD_FRAMES = 12;      // the grenade throw = HOLD sent th
 // The fingers take the saved RELOADED pose (handpose_data.h) while a magazine or shell is in the left hand.
 constexpr bool  HANDPOSE_ON = true;          // false = the fingers keep the game's animation
 constexpr float HANDPOSE_BLEND_SEC = 0.12f;  // his blend time in and out
+// b164: Tefa's b160 finger sliders (visceral_slide_fingers.json 2026-10-11 23:45), radians: index middle ring little thumb
+constexpr float SLIDE_FINGER_CURL[5] = {-0.17f, -0.04f, 0.03f, 0.17f, 0.62f};
+constexpr float SLIDE_FINGER_SPREAD[5] = {0.0f, 0.0f, 0.05f, 0.10f, 0.36f};
 constexpr bool  HANDPOSE_SLIDE_USES_MAG = true;   // b156: the saved slide poses are nearly the relaxed hand (worn b155: "fingers still
                                                  // don't wrap around the slide"), so the slide grip uses the magazine grip
 
