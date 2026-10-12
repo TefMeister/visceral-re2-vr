@@ -150,6 +150,9 @@ constexpr float SFX_MASTER = 1.0f;
 // ---- bundle 2: slide rack, pump, shells (2026-10-10; rack.h, pump_native.h) ---------------------------------------
 constexpr float RACK_HAND_M = 0.20f;          // the left hand this close to the slide / fore-end joint when LG is pressed
 constexpr float RACK_PULL_M = 0.05f;          // his pull_dist_default: the left controller this far back along the gun = pulled
+constexpr float RACK_RETURN_M = 0.03f;        // b162: forward this far from the furthest-back point = home and chambered (was: back to the dock spot)
+constexpr float PUMP_ZONE_AHEAD_MIN_M = 0.10f, PUMP_ZONE_AHEAD_MAX_M = 0.70f;   // b162: the pump docks with the left controller this far ahead of the gun hand
+constexpr float PUMP_ZONE_OFF_AXIS_M = 0.15f;  // ... and within this of the gun's line (the right controller's forward)
 constexpr float RACK_FOLLOW = 0.5f;           // the slide follows the hand with this much smoothing per frame (1 = raw)
 constexpr float RACK_RETURN_PER_SEC = 5.0f;   // let go mid-way: the slide springs back at this rate (0..1 per second)
 constexpr float SLIDE_PARK_SCALE = 1.5f;      // the locked-open slide sits this much further back than his parked (Tefa: "a little further")
