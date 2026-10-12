@@ -7,10 +7,14 @@
 // are; the game's hand joints and the slide are carried from game world into the room through the camera:
 // room = hmd_pos + hmd_rot * inv(cam_rot) * (world - cam_pos)   (the VR layer sets the camera from the headset).
 #pragma once
+#include "common.h"
 
 namespace vn::ghosthand {
 void render_point();                          // BeginRendering pre, after rack::render_point: one frame of samples
 void event(const char* gesture, const char* what);   // "start" | "done" | "fail" | "cancel"
 void value(const char* name, float v);
 void shutdown();
+// game world -> real room, through the camera (b163: the rack uses it for the gun's real axis and the fore-end spot)
+bool to_room_point(Vec3 world, Vec3& room);
+bool to_room_dir(Vec3 world, Vec3& room);
 } // namespace vn::ghosthand

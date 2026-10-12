@@ -31,6 +31,7 @@ const SlideWeapon* g_w = nullptr;
 int g_wp = -1;
 MO* g_joint = nullptr;    // this frame's slide / fore-end joint
 MO* g_gun = nullptr;
+MO* g_gun_tf = nullptr;   // b163: the gun's transform (its +Z is the barrel)
 MO* g_rwrist = nullptr;
 Vec3 g_rest{};            // the joint's own LOCAL pose at rest, read once per weapon (his numbers are offsets from it:
 bool g_have_rest = false; // b140 wrote them as positions and the W-870's fore-end went to the gun's origin, worn 2026-10-10)
@@ -61,12 +62,13 @@ namespace {
 MO* player_go() { return call_ptr(API::get()->get_managed_singleton("app.ropeway.PlayerManager"), "get_CurrentPlayer"); }
 
 void resolve_frame() {
-    g_joint = g_gun = g_rwrist = nullptr;
+    g_joint = g_gun = g_rwrist = g_gun_tf = nullptr;
     auto* go = player_go();
     auto* gun = field_obj(component(go, "app.ropeway.survivor.Equipment"), "<EquipWeapon>k__BackingField");
     if (gun == nullptr || g_w == nullptr) return;
     g_gun = gun;
     auto* wtf = call_ptr(call_ptr(gun, "get_GameObject"), "get_Transform");
+    g_gun_tf = wtf;
     g_joint = joint_by_name(wtf, widen(g_w->joint).c_str());
     g_rwrist = joint_by_name(call_ptr(go, "get_Transform"), L"r_arm_wrist");
     if (g_joint != nullptr && !g_have_rest) {
@@ -130,7 +132,12 @@ void publish_socket() {
 // b162 (Ghost Hand, 2026-10-13): the gun's axis is frozen at the dock, so the gun hand turning mid-rack no longer
 // moves the starting point (Tefa: the pump's push back "sometimes needing me to extend the left hand far out")
 Vec3 g_axis{0, 0, -1};
+// b163 (worn b162 00:15: "the pump handle didn't move at all"; log: 0.349 m off the line): the controller's -Z is
+// tilted well off the barrel on Touch controllers, so the axis is now the GUN's own forward (+Z, the slide and the
+// fore-end travel along it) carried into the room; the controller's -Z only if that fails
 bool gun_axis(Vec3& fwd) {
+    Quat gq;
+    if (g_gun_tf != nullptr && get_q(XFORM, g_gun_tf, "get_Rotation", gq) && ghosthand::to_room_dir(rotate(qnorm(gq), Vec3{0, 0, 1}), fwd)) return true;
     const Quat rq = bridge::view_quat(bridge::S_RROT);
     if (!bridge::has(rq.x)) return false;
     fwd = rotate(qnorm(rq), Vec3{0, 0, -1});   // OpenXR: a controller points along -Z
@@ -146,6 +153,12 @@ float along_gun() {
 // right one"): for a pump gun the left CONTROLLER anywhere along the barrel ahead of the gun hand docks, not the game's
 // wrist near the fore-end joint
 bool hand_on_barrel(float& d) {
+    // b163: the left controller near the fore-end joint itself, both in the room
+    Vec3 jp, jr;
+    if (g_joint != nullptr && get_v3(JOINT, g_joint, "get_Position", jp) && ghosthand::to_room_point(jp, jr)) {
+        d = dist(bridge::hand_pos(bridge::LEFT), jr);
+        return d <= cfg::PUMP_GRAB_M;
+    }
     Vec3 fwd;
     if (!gun_axis(fwd)) return false;
     const Vec3 v = bridge::hand_pos(bridge::LEFT) - bridge::hand_pos(bridge::RIGHT);
@@ -217,6 +230,7 @@ void frame() {
         g_auto = 0;
         g_travel = 0.0f;
         g_have_rest = false;
+        g_log_near = 0;
         g_socket.active = 0;
         if (g_w != nullptr) LOGI("%s rack: WP%04d %s: %s on joint %s (rest %.3f, parked %.3f, back %.3f)", TAG, wp, weapons::name(wp), is_pump(wp) ? "pump" : "slide rack", g_w->joint, g_w->rest_z, g_w->parked_z, g_w->back_z);
     }

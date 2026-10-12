@@ -134,4 +134,7 @@ void render_point() {
 
 void shutdown() { vr_off(); }
 
+bool to_room_point(Vec3 world, Vec3& room) { const ToRoom r = to_room(); if (!r.ok) return false; room = r(world); return true; }
+bool to_room_dir(Vec3 world, Vec3& room) { const ToRoom r = to_room(); if (!r.ok) return false; room = rotate(r.turn, world); return true; }
+
 } // namespace vn::ghosthand
