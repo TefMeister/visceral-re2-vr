@@ -10,6 +10,7 @@
 #include "rack.h"
 #include "bridge.h"
 #include "common.h"
+#include "ghosthand.h"
 #include "joints.h"
 #include "menu_body.h"
 #include "pump_native.h"
@@ -40,6 +41,7 @@ bool g_hand_on = false;   // the hand is docked on the slide / fore-end
 bool g_pulled = false;    // reached the back this cycle
 float g_travel = 0.0f;    // 0 = rest/parked, 1 = back
 float g_base = 0.0f;      // dot(left - right, forward) at the dock
+float g_max_pull = 0.0f;  // 2026-10-13 Ghost Hand: the furthest pull this attempt
 float g_pull_m = 0.0f;    // how far back the hand has moved since the dock (metres along the gun)
 int g_log_near = 0;
 int g_auto = 0;           // button mode: 0 idle, 1 travelling back / held back while LT is held, 2 travelling forward
@@ -153,8 +155,12 @@ void complete() {
 void hand_off(const char* why) {
     g_hand_on = false;
     g_socket.active = 0;
-    if (g_pulled) { g_pulled = false; g_travel = 0.0f; complete(); LOGI("%s rack: hand off while pulled: released (%s)", TAG, why); }
-    else LOGI("%s rack: hand off the %s (%s)", TAG, is_pump(g_wp) ? "fore-end" : "slide", why);
+    if (g_pulled) { g_pulled = false; g_travel = 0.0f; complete(); ghosthand::event("rack", "done"); LOGI("%s rack: hand off while pulled: released (%s)", TAG, why); }
+    else {
+        ghosthand::value("rack_max_pull_m", g_max_pull);
+        ghosthand::event("rack", g_max_pull > 0.01f ? "fail" : "cancel");
+        LOGI("%s rack: hand off the %s (%s), furthest pull %.3f m", TAG, is_pump(g_wp) ? "fore-end" : "slide", why, g_max_pull);
+    }
 }
 } // namespace
 
@@ -163,6 +169,9 @@ bool active() { return g_hand_on; }
 bool grip_pose() { return g_grip; }
 void on_shot() { if (g_hold_closed) LOGI("%s rack: first shot after the rack: the slide is the game's again", TAG); g_hold_closed = false; }
 int wp_now() { return g_wp; }
+float travel() { return g_travel; }
+float pull_m() { return g_hand_on ? g_pull_m : 0.0f; }
+void* slide_joint() { return g_joint; }
 
 void need(const char* why) {
     if (g_w == nullptr) return;
@@ -256,7 +265,11 @@ void frame() {
             g_pulled = false;
             g_base = along_gun();
             g_pull_m = 0.0f;
+            g_max_pull = 0.0f;
             bridge::rumble(bridge::LEFT, cfg::RACK_BUZZ_AMP * 0.5f, cfg::RACK_BUZZ_SEC);
+            ghosthand::event("rack", "start");
+        } else {
+            ghosthand::value("dock_miss_m", d);   // LG+LT pressed too far from the slide: the hand never docked
         }
     } else if (g_hand_on && (!lt || !lg || menu)) {
         hand_off(!lt ? "LT let go" : !lg ? "LG let go" : "menu");
@@ -265,6 +278,7 @@ void frame() {
     // the pull: the left controller moving back along the gun, relative to the right one
     if (g_hand_on) {
         g_pull_m = g_base - along_gun();   // positive = pulled back
+        g_max_pull = std::fmax(g_max_pull, g_pull_m);
         const float want = std::fmax(0.0f, std::fmin(1.0f, g_pull_m / cfg::RACK_PULL_M));
         g_travel = g_travel + (want - g_travel) * cfg::RACK_FOLLOW;
         if (!g_pulled && g_travel >= 0.97f) {
@@ -274,7 +288,7 @@ void frame() {
             if (is_pump(g_wp)) pump_native::on_pulled_down();   // the spent shell leaves on the pull, not the return
             LOGI("%s rack: pulled back (%.3f m)", TAG, g_pull_m);
         }
-        if (g_pulled && g_travel <= 0.10f) { g_pulled = false; g_travel = 0.0f; complete(); }
+        if (g_pulled && g_travel <= 0.10f) { g_pulled = false; g_travel = 0.0f; complete(); ghosthand::event("rack", "done"); ghosthand::event("rack", "start"); g_max_pull = 0.0f; g_base = along_gun(); }
     } else if (g_travel > 0.0f) {
         g_travel = std::fmax(0.0f, g_travel - cfg::RACK_RETURN_PER_SEC / 72.0f);   // let go mid-way: it springs back
     }

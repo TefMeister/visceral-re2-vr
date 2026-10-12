@@ -27,4 +27,7 @@ bool active();                     // the hand is on the slide / fore-end right 
 void on_shot();                    // b159: a round was fired (the slide is left to the game again)
 bool grip_pose();                  // b155: the fingers should grip the slide / fore-end (LG held near it, or racking)
 int  wp_now();
+float travel();           // 2026-10-13 Ghost Hand: the slide's travel 0..1
+float pull_m();           // how far back the hand has pulled since the dock (metres along the gun)
+void* slide_joint();      // this frame's slide / fore-end joint (or nullptr)
 } // namespace vn::rack
