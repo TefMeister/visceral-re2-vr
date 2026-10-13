@@ -10,6 +10,7 @@
 #include "reload.h"
 #include "settings.h"
 #include "tune.h"
+#include "weapons.h"
 
 namespace vn::handpose {
 using namespace vn::joints;
@@ -45,10 +46,11 @@ float wrap(float a) {                   // radians, to -pi..pi
 // The game's animation rewrites the fingers every frame; when it has not (our write still stands), the game's last
 // value is kept, so an offset is never added twice.
 namespace {
-float g_open = 0.0f, g_free = 0.0f;
+float g_open = 0.0f, g_open_h = 0.0f, g_free = 0.0f;   // b173: g_open_h = opening for the handle
 Vec3 g_base[kBoneCount]{}, g_wrote[kBoneCount]{};
 bool g_have[kBoneCount]{};
-bool g_open_logged = false, g_free_logged = false;
+int g_open_logged = 0;   // b173: 0 none, 1 slide, 2 handle
+bool g_free_logged = false;
 
 float approach(float cur, float target, float dt, float sec) {
     const float step = sec <= 0.0001f ? 1.0f : std::min(1.0f, dt / sec);
@@ -71,7 +73,7 @@ void point() {
     g_last_t = now;
 
     auto* go = call_ptr(API::get()->get_managed_singleton("app.ropeway.PlayerManager"), "get_CurrentPlayer");
-    if (go == nullptr) { g_factor = 0; g_pose = nullptr; g_open = g_free = 0; return; }
+    if (go == nullptr) { g_factor = 0; g_pose = nullptr; g_open = g_open_h = g_free = 0; return; }
     if (want) {
         const bool claire = read_string(call_ptr(go, "get_Name")).rfind("pl1", 0) == 0;
         const int wp = holding ? reload::wp_now() : rack::wp_now();
@@ -89,16 +91,33 @@ void point() {
     }
 
     // b172: open near the slide / fore-end (also while gripping, underneath, so a let-go opens first); free elsewhere
-    const float d = rack::hand_dist_m();
-    const bool near = !holding && d <= cfg::OPEN_HAND_NEAR_M;
+    // b173: only inside the LG grab zone (the dock's own test), and a second shape near the gun hand, for the handle
+    float ds = 99.0f, dh = 99.0f;
+    const bool zs = !holding && rack::in_grab_zone(ds);
+    if (!holding && weapons::current_id() >= 0) {
+        auto* tfp = call_ptr(go, "get_Transform");
+        auto* lw = joint_by_name(tfp, L"l_arm_wrist");
+        auto* rw = joint_by_name(tfp, L"r_arm_wrist");
+        Vec3 lp, rp;
+        if (lw != nullptr && rw != nullptr && get_v3(JOINT, lw, "get_Position", lp) && get_v3(JOINT, rw, "get_Position", rp)) dh = dist(lp, rp);
+    }
+    const bool zh = !holding && dh <= cfg::OPEN_HANDLE_NEAR_M;
+    const int spot = zs && (!zh || ds <= dh) ? 1 : zh ? 2 : 0;   // the nearer of the two when both
+    const bool near = spot != 0 || (!holding && rack::hand_dist_m() <= cfg::OPEN_HAND_NEAR_M);
     const bool buttons = bridge::held(bridge::S_LGRIP) || bridge::held(bridge::S_LTRIG) || bridge::held(bridge::S_LA) || bridge::held(bridge::S_LB);
     const bool free = !want && !near && !buttons;
-    g_open = approach(g_open, near ? 1.0f : 0.0f, dt, cfg::OPEN_HAND_BLEND_SEC);
+    g_open = approach(g_open, spot == 1 ? 1.0f : 0.0f, dt, cfg::OPEN_HAND_BLEND_SEC);
+    g_open_h = approach(g_open_h, spot == 2 ? 1.0f : 0.0f, dt, cfg::OPEN_HAND_BLEND_SEC);
     g_free = approach(g_free, free ? 1.0f : 0.0f, dt, cfg::FREE_HAND_BLEND_SEC);
     if (g_open < 0.001f) g_open = 0.0f;
+    if (g_open_h < 0.001f) g_open_h = 0.0f;
     if (g_free < 0.001f) g_free = 0.0f;
-    if (near && !g_open_logged) { LOGI("%s handpose: left hand opening (%.3f m from the slide / fore-end)", TAG, d); g_open_logged = true; }
-    if (!near) g_open_logged = false;
+    if (spot != g_open_logged) {
+        if (spot == 1) LOGI("%s handpose: left hand opening for the slide / pump (%.3f m, inside the LG zone)", TAG, ds);
+        else if (spot == 2) LOGI("%s handpose: left hand opening for the handle (%.3f m from the gun hand)", TAG, dh);
+        else LOGI("%s handpose: left hand no longer opening", TAG);
+        g_open_logged = spot;
+    }
     if (free != g_free_logged) { LOGI("%s handpose: left hand %s", TAG, free ? "on its own (its own sliders)" : "busy (grab / button / near the gun)"); g_free_logged = free; }
     tune::free_wrist(g_free);
 
@@ -110,7 +129,7 @@ void point() {
             g_factor = 0; g_pose = nullptr;
         }
     }
-    if (g_pose == nullptr && g_open == 0.0f && g_free == 0.0f) { for (auto& h : g_have) h = false; return; }
+    if (g_pose == nullptr && g_open == 0.0f && g_open_h == 0.0f && g_free == 0.0f) { for (auto& h : g_have) h = false; return; }
 
     auto* tf = call_ptr(go, "get_Transform");
     for (int i = 0; i < kBoneCount; ++i) {
@@ -129,6 +148,12 @@ void point() {
             Vec3 o = game + tune::finger(tune::OPEN, i);
             o.z += cfg::OPEN_FINGER_CURL[finger_of(i)] * (first ? 0.5f : 1.0f);
             t = mix(t, o, g_open);
+        }
+        if (g_open_h > 0.0f) {   // b173: its own shape; the same built-in opening to start from
+            const bool first = i == 0 || i == 3 || i == 6 || i == 10 || i == 14;
+            Vec3 o = game + tune::finger(tune::OPEN_HANDLE, i);
+            o.z += cfg::OPEN_FINGER_CURL[finger_of(i)] * (first ? 0.5f : 1.0f);
+            t = mix(t, o, g_open_h);
         }
         if (g_pose != nullptr && g_factor > 0.0f) {
             Vec3 g{g_pose->a[i][0], g_pose->a[i][1], g_pose->a[i][2]};

@@ -38,8 +38,8 @@ enum Slot : int {
     // 2026-10-13 hand tuning (src/tune.h, lua/visceral_tuning.lua): per character, per gun, per hold
     S_WHO = 84,           // WRITTEN BY THE PLUGIN: the gun in hand (WP number), then the character (pl digit) at +1
     S_HT_ON = 86,         // 1 = the Lua is sending tuning numbers
-    S_HT = 88,            // six holds (magazine, shell, slide, right hand on the gun, b172: left hand opening, left hand on its own) of HT_STRIDE numbers each, see tune.h
-    S_FREEZE = 472,       // b169: 1 = hold both hands still (the Lua menu's tick box, after its 10 s countdown), see tune.h; b172: moved from 344 for the two new holds
+    S_HT = 88,            // seven holds (magazine, shell, slide, right hand on the gun, b172: left hand opening, left hand on its own, b173: left hand opening for the handle) of HT_STRIDE numbers each, see tune.h
+    S_FREEZE = 536,       // b169: 1 = hold both hands still (the Lua menu's tick box, after its 10 s countdown), see tune.h; b172/b173: moved from 344 for the new holds
 };
 constexpr float SENTINEL = 54321.0f;
 constexpr float NO_VALUE = 999.0f;
