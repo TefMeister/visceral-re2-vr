@@ -18,7 +18,7 @@
 #include "common.h"
 
 namespace vn::tune {
-enum Hold : int { MAG = 0, SHELL = 1, SLIDE = 2, GUN = 3, OPEN = 4, FREE = 5, HOLD_COUNT = 6 };   // b172: OPEN, FREE (left hand)
+enum Hold : int { MAG = 0, SHELL = 1, SLIDE = 2, GUN = 3, OPEN = 4, FREE = 5, OPEN_HANDLE = 6, HOLD_COUNT = 7 };   // b172: OPEN, FREE; b173: OPEN_HANDLE (left hand)
 constexpr int kFingerJoints = 17;   // the order of handpose_data.h kBones
 
 void frame();                     // UpdateBehavior pre: tell the Lua which gun and which character
