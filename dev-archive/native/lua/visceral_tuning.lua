@@ -14,7 +14,7 @@
 
 local TAG = "[visceral-tuning]"
 local S_WHO, S_HT_ON, S_HT, STRIDE = 84, 86, 88, 64
-local S_FREEZE, FREEZE_AFTER_SEC = 472, 10   -- b169; b172: moved from 344 (src/bridge.h)
+local S_FREEZE, FREEZE_AFTER_SEC = 536, 10   -- b169; b172/b173: moved from 344 (src/bridge.h)
 local S_RUMBLE_L_AMP, S_RUMBLE_R_AMP = 10, 12   -- amp, then seconds at +1 (visceral_bridge.lua fires them)
 local N_VALUES = 12 + 17 * 3   -- item move 3, item turn 3, hand move 3, hand turn 3, 17 finger joints x (twist, spread, curl)
 
@@ -36,6 +36,8 @@ local HOLDS = {
     -- its own (no button held, not near a gun): one per character, whatever gun is out
     {key = "open", title = "LEFT hand opening to grab the slide / pump", item = nil, nohand = true},
     {key = "free", title = "LEFT hand on its own (no buttons, away from the gun)", item = nil, free = true},
+    -- b173 (Tefa: "hand on the pistol handle is different than that hand going on the slider"): its own opening shape
+    {key = "open_handle", title = "LEFT hand opening to hold the handle", item = nil, nohand = true},
 }
 local FINGERS = {   -- the order of the plugin's 17 finger joints (handpose_data.h kBones)
     {"Index", {"base", "middle", "tip"}},

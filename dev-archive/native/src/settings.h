@@ -202,7 +202,11 @@ constexpr float HANDPOSE_BLEND_SEC = 0.12f;  // his blend time in and out
 // b172 (Tefa 2026-10-14: "the hand open going to the slide and then curling fingers on it"): the left hand OPENS as it
 // comes near the slide / fore-end, then the grip pose above curls it closed over HANDPOSE_BLEND_SEC; let go, it opens
 // again, and away from the gun it relaxes back to the game's own fingers (plus the "left hand on its own" sliders).
-constexpr float OPEN_HAND_NEAR_M = 0.30f;     // the left hand this close to the slide / fore-end joint starts to open
+constexpr float OPEN_HAND_NEAR_M = 0.30f;     // the left hand this close to the slide / fore-end counts as "near the gun" (no "on its own" pose)
+// b173 (Tefa 2026-10-14: "it should only open in the area where LG puts the hand on the slide ... hand on the pistol
+// handle is different than that hand going on the slider"): the hand opens only inside the LG grab zone of the slide /
+// pump (rack::in_grab_zone, the same test the dock uses), or near the gun hand for the handle, each with its own shape
+constexpr float OPEN_HANDLE_NEAR_M = 0.15f;   // the left wrist this close to the right wrist opens it for the handle [hypothesis: the distance]
 constexpr float OPEN_HAND_BLEND_SEC = 0.10f;  // how fast it opens and relaxes
 constexpr float OPEN_FINGER_CURL[5] = {0.35f, 0.35f, 0.35f, 0.35f, 0.25f};   // index middle ring little thumb, radians, on top of the game's fingers; POSITIVE = straighter (his saved grips curl at about -1.1) [inferred-static]
 constexpr float FREE_HAND_BLEND_SEC = 0.20f;  // b172 (Tefa: "tune just the left hand ... with no buttons pressed and not near a gun")

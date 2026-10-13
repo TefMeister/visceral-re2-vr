@@ -228,6 +228,12 @@ int wp_now() { return g_wp; }
 float travel() { return g_travel; }
 float pull_m() { return g_hand_on ? g_pull_m : 0.0f; }
 void* slide_joint() { return g_joint; }
+// b173: the dock's own zone test, for the opening hand (d = how far, metres)
+bool in_grab_zone(float& d) {
+    d = 99.0f;
+    if (g_w == nullptr || g_joint == nullptr || g_gun == nullptr) return false;
+    return is_pump(g_wp) ? hand_on_barrel(d) : hand_near_joint(d);
+}
 // b172: the game's left wrist to the slide / fore-end joint (where the tuned gun has it), metres; 99 = no such gun
 float hand_dist_m() {
     if (g_w == nullptr || g_joint == nullptr) return 99.0f;

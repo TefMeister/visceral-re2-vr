@@ -30,5 +30,6 @@ int  wp_now();
 float travel();           // 2026-10-13 Ghost Hand: the slide's travel 0..1
 float pull_m();           // how far back the hand has pulled since the dock (metres along the gun)
 void* slide_joint();      // this frame's slide / fore-end joint (or nullptr)
+bool in_grab_zone(float& d);   // b173: the left hand inside the LG grab zone of the slide / pump (the dock's own test)
 float hand_dist_m();      // b172: the game's left wrist to that joint, metres (the tuned gun); 99 = none
 } // namespace vn::rack
