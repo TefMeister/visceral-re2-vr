@@ -8,15 +8,20 @@
 // Per hold: the ITEM in the hand (magazine / shell: move in the wrist's axes, turn yaw-pitch-roll), the HAND (on the
 // slide: added to the dock spot; with a magazine or shell: the wrist joint itself is moved and turned), and every
 // FINGER JOINT (17 joints: twist, spread, curl).
+// b168 (Tefa 2026-10-13: "make the bone sliders for the right hand as well ... curl the tip of the finger around the
+// trigger and change how some weapons clip into the hand"): a fourth hold, GUN = the RIGHT hand on the gun, live
+// whenever a gun is in hand. Item = the r_weapon joint (the gun in the hand), hand = r_arm_wrist, fingers = the
+// r_hand_* joints, all ADDED to whatever the game / the VR layer put there this frame (see right_point).
 #pragma once
 #include "common.h"
 
 namespace vn::tune {
-enum Hold : int { MAG = 0, SHELL = 1, SLIDE = 2, HOLD_COUNT = 3 };
+enum Hold : int { MAG = 0, SHELL = 1, SLIDE = 2, GUN = 3, HOLD_COUNT = 4 };
 constexpr int kFingerJoints = 17;   // the order of handpose_data.h kBones
 
 void frame();                     // UpdateBehavior pre: tell the Lua which gun and which character
 void wrist_point();               // LateUpdateBehavior post / PrepareRendering post, BEFORE the item and the fingers
+void right_point();               // after handpose::point: the right hand's sliders (GUN hold)
 bool live();                      // the Lua is sending numbers
 Vec3 item_move(Hold h);           // metres, wrist axes
 Quat item_turn(Hold h);

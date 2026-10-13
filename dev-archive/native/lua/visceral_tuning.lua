@@ -5,7 +5,8 @@
 -- S_WHO, S_WHO + 1); the sliders shown are always for THAT gun and THAT character, and are saved per character in
 -- reframework/data/visceral_tuning_<character>.json, per gun (WP number) and per hold. Every number is added on top of
 -- what is built in, so 0 everywhere = as built. Each frame the numbers for the gun in hand go to the plugin (src/tune.h).
--- Uses the bridge array through _G.visceral_bridge (visceral_bridge.lua); the slot map must match src/bridge.h.
+-- b168: a fourth hold for the RIGHT hand on the gun (fingers, wrist, and the gun in the hand), live whenever a gun is
+-- in hand. Uses the bridge array through _G.visceral_bridge (visceral_bridge.lua); the slot map must match src/bridge.h.
 
 local TAG = "[visceral-tuning]"
 local S_WHO, S_HT_ON, S_HT, STRIDE = 84, 86, 88, 64
@@ -24,6 +25,7 @@ local HOLDS = {
     {key = "mag", title = "Magazine in the hand", item = "The magazine"},
     {key = "shell", title = "Shell in the hand", item = "The shell"},
     {key = "slide", title = "Hand on the slide / pump", item = nil},
+    {key = "gun", title = "RIGHT hand on the gun", item = "The gun in the hand"},   -- b168 (src/tune.cpp right_point)
 }
 local FINGERS = {   -- the order of the plugin's 17 finger joints (handpose_data.h kBones)
     {"Index", {"base", "middle", "tip"}},
