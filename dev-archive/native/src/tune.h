@@ -12,6 +12,8 @@
 // trigger and change how some weapons clip into the hand"): a fourth hold, GUN = the RIGHT hand on the gun, live
 // whenever a gun is in hand. Item = the r_weapon joint (the gun in the hand), hand = r_arm_wrist, fingers = the
 // r_hand_* joints, all ADDED to whatever the game / the VR layer put there this frame (see right_point).
+// b169: visceral_hands_frozen() (exported, read by the VR layer) holds both hands still while the menu's tick box is on
+// and its 10 s countdown has run out, so the controllers can be put down while the sliders are moved.
 #pragma once
 #include "common.h"
 

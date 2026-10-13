@@ -7,9 +7,15 @@
 -- what is built in, so 0 everywhere = as built. Each frame the numbers for the gun in hand go to the plugin (src/tune.h).
 -- b168: a fourth hold for the RIGHT hand on the gun (fingers, wrist, and the gun in the hand), live whenever a gun is
 -- in hand. Uses the bridge array through _G.visceral_bridge (visceral_bridge.lua); the slot map must match src/bridge.h.
+-- b169 (Tefa 2026-10-13: "it has to work with a countdown, so i tick the box, comfortably hold the controllers and in
+-- 10 seconds they stop moving"): the tick box "Hold my hands still" counts down 10 s (a light buzz each second), then
+-- writes S_FREEZE = 1 with a strong buzz; the VR layer then keeps both controllers where they were (src/tune.cpp
+-- visceral_hands_frozen). Untick to let the hands follow again. Never saved: every game starts with the hands free.
 
 local TAG = "[visceral-tuning]"
 local S_WHO, S_HT_ON, S_HT, STRIDE = 84, 86, 88, 64
+local S_FREEZE, FREEZE_AFTER_SEC = 344, 10   -- b169
+local S_RUMBLE_L_AMP, S_RUMBLE_R_AMP = 10, 12   -- amp, then seconds at +1 (visceral_bridge.lua fires them)
 local N_VALUES = 12 + 17 * 3   -- item move 3, item turn 3, hand move 3, hand turn 3, 17 finger joints x (twist, spread, curl)
 
 local CHARACTERS = {[0] = "leon", [1] = "claire", [2] = "ada", [3] = "sherry", [4] = "hunk", [5] = "tofu"}   -- pl digit; 2-5 not yet seen in a log
@@ -38,6 +44,29 @@ local FINGERS = {   -- the order of the plugin's 17 finger joints (handpose_data
 local settings = json.load_file("visceral_tuning_settings.json") or {}
 if settings.on == nil then settings.on = true end
 local files = {}   -- character name -> {guns = {WPxxxx = {mag = {...}, shell = {...}, slide = {...}}}}
+
+-- b169: hold the hands still. os.time() counts whole seconds of the real clock, enough for a 10 s countdown.
+local freeze = {ticked = false, started = 0, frozen = false, last_left = -1}
+local function buzz(b, amp, sec)
+    b.w(S_RUMBLE_L_AMP, amp); b.w(S_RUMBLE_L_AMP + 1, sec)
+    b.w(S_RUMBLE_R_AMP, amp); b.w(S_RUMBLE_R_AMP + 1, sec)
+end
+local function freeze_frame(b)
+    if not freeze.ticked then
+        freeze.frozen = false
+    elseif not freeze.frozen then
+        local left = FREEZE_AFTER_SEC - (os.time() - freeze.started)
+        if left <= 0 then
+            freeze.frozen = true
+            buzz(b, 1.0, 0.4)
+            log.info(TAG .. " hands held still")
+        elseif left ~= freeze.last_left then
+            buzz(b, 0.3, 0.05)
+        end
+        freeze.last_left = left
+    end
+    b.w(S_FREEZE, freeze.frozen and 1 or 0)
+end
 
 local function char_name(ch) return CHARACTERS[ch] or ("pl" .. tostring(ch)) end
 local function file_of(name) return "visceral_tuning_" .. name .. ".json" end
@@ -71,6 +100,7 @@ end
 re.on_pre_application_entry("LateUpdateBehavior", function()
     local b = _G.visceral_bridge
     if not b or not b.ready() then return end
+    freeze_frame(b)
     local wp, ch = who()
     if not wp or not settings.on then b.w(S_HT_ON, 0); return end
     local name = char_name(ch)
@@ -140,6 +170,16 @@ re.on_draw_ui(function()
     local changed
     changed, settings.on = imgui.checkbox("Use the tuning numbers", settings.on)
     if changed then json.dump_file("visceral_tuning_settings.json", settings) end
+    changed, freeze.ticked = imgui.checkbox("Hold my hands still (starts after 10 seconds)", freeze.ticked)
+    if changed then
+        freeze.started, freeze.frozen, freeze.last_left = os.time(), false, -1
+        if not freeze.ticked then log.info(TAG .. " hands follow the controllers again") end
+    end
+    if freeze.ticked and not freeze.frozen then
+        imgui.text(string.format("Hold the controllers where you want the hands: still in %d s", math.max(0, FREEZE_AFTER_SEC - (os.time() - freeze.started))))
+    elseif freeze.frozen then
+        imgui.text("Hands held still: you can put the controllers down. Untick to let go.")
+    end
     local wp, ch = who()
     if not wp then
         imgui.text("Waiting for the game: no character yet (or the bridge is not attached).")

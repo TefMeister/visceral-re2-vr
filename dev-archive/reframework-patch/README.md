@@ -35,3 +35,12 @@ ef-76build-76b.bat` (target RE2) ->
   Without the plugin the stock mapping stays. Build: `D:\ref-76b\build-76b.bat` -> `build2\bin\RE2\dinput8.dll`.
   Why here and not in the plugin: writes into the button record at UpdateBehavior pre never reached these three
   (b134, worn 2026-10-10).
+
+- `2026-10-13-re2-hold-hands-still.patch` — against `76298bd`, CONTAINS the 10-10 sub-weapon-buttons patch (cumulative
+  diff of `src/mods/`; apply this one alone). `VR.cpp update_hmd_state`, right after the runtime's pose update: while
+  `visceral_native.dll`'s exported `visceral_hands_frozen()` returns 1, both controllers keep the pose they had when it
+  switched on (OpenVR `render_poses` and OpenXR `hands[].location`), their speeds are zeroed, and the motion-controls
+  inactivity timer is kept awake (still controllers would otherwise hand the arms back to the animation after 30 s).
+  The headset keeps tracking. For the hand tuning sliders (b169): tick "Hold my hands still" in the "Visceral: hand
+  tuning" menu, hold the controllers where the hands should be, 10 s later a strong buzz, put them down. Log:
+  `[Visceral] hands HELD STILL` / `follow the controllers again`. Build: as the 10-10 patches (`D:\ref-76b\build-76b.bat`).
