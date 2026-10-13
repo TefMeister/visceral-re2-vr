@@ -161,4 +161,14 @@ void right_point() {
     }
 }
 
+// ---- b169: hold both hands still (Tefa 2026-10-13: "freeze hand positions in VR, without the game freezing ... it has
+// to work with a countdown, so i tick the box, comfortably hold the controllers and in 10 seconds they stop moving").
+// The tick box and the countdown are in lua/visceral_tuning.lua, which writes S_FREEZE = 1 once the 10 s are up. The VR
+// layer asks this every frame (VR.cpp update_hmd_state, patch 2026-10-13-re2-hold-hands-still) and, while it says 1,
+// keeps both controllers' poses as they were at the switch. Called from the VR layer's thread: reads one float only.
+extern "C" __declspec(dllexport) int visceral_hands_frozen() {
+    const float v = bridge::view(bridge::S_FREEZE);
+    return v > 0.5f && v < 2.0f ? 1 : 0;
+}
+
 } // namespace vn::tune
