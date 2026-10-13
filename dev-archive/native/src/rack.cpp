@@ -228,6 +228,15 @@ int wp_now() { return g_wp; }
 float travel() { return g_travel; }
 float pull_m() { return g_hand_on ? g_pull_m : 0.0f; }
 void* slide_joint() { return g_joint; }
+// b172: the game's left wrist to the slide / fore-end joint (where the tuned gun has it), metres; 99 = no such gun
+float hand_dist_m() {
+    if (g_w == nullptr || g_joint == nullptr) return 99.0f;
+    Vec3 jp, hp;
+    auto* wrist = joint_by_name(call_ptr(player_go(), "get_Transform"), L"l_arm_wrist");
+    if (wrist == nullptr || !get_v3(JOINT, g_joint, "get_Position", jp) || !get_v3(JOINT, wrist, "get_Position", hp)) return 99.0f;
+    tune::to_tuned(jp, nullptr);
+    return dist(jp, hp);
+}
 
 void need(const char* why) {
     if (g_w == nullptr) return;
