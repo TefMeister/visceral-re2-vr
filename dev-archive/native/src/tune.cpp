@@ -1,6 +1,7 @@
 // tune.cpp -- see tune.h.
 #include "tune.h"
 #include "bridge.h"
+#include "handpose_data.h"
 #include "joints.h"
 #include "reload.h"
 #include "weapons.h"
@@ -80,6 +81,84 @@ void wrist_point() {
     set_any(JOINT, w, "set_LocalPosition", &np);
     set_any(JOINT, w, "set_LocalRotation", &nq);
     g_wrist = w; g_wrote = true; g_wrote_pos = np; g_wrote_rot = nq;
+}
+
+// ---- b168: the RIGHT hand on the gun (GUN hold) -------------------------------------------------------------------
+// The game's animation (and the VR layer, for the wrist) put these joints somewhere new every frame; we ADD the
+// sliders to that. If nobody rewrote a joint since our last write (it still reads what we wrote), we start again from
+// the value we added to last time, so an offset is never added twice and a slider moved while the hand is still is
+// still applied. Same idea as wrist_point, per joint.
+namespace {
+struct Kept { MO* j = nullptr; bool on = false; Vec3 base_p{}; Quat base_q{0, 0, 0, 1}; Vec3 base_e{}; Vec3 wrote_p{}; Quat wrote_q{0, 0, 0, 1}; };
+Kept g_rgun, g_rwrist, g_rfing[kFingerJoints];
+bool g_rlogged = false;
+
+bool same_q(Quat a, Quat b) {
+    const float d = std::fabs(a.x * b.x + a.y * b.y + a.z * b.z + a.w * b.w);   // q and -q are the same turn
+    return d > 1.0f - 1e-6f;
+}
+bool zero(Vec3 v) { return v.x == 0 && v.y == 0 && v.z == 0; }
+
+// move (metres, the joint's own axes) and turn (yaw pitch roll, degrees), added to the joint's local place
+void add_move_turn(Kept& k, MO* j, Vec3 mv, Vec3 tn) {
+    if (j == nullptr) return;
+    Vec3 p;
+    Quat q;
+    if (!get_v3(JOINT, j, "get_LocalPosition", p) || !get_q(JOINT, j, "get_LocalRotation", q)) return;
+    const bool ours = k.on && k.j == j && dist(p, k.wrote_p) < 1e-5f && same_q(q, k.wrote_q);
+    if (!ours) { k.base_p = p; k.base_q = qnorm(q); }
+    const bool want = !zero(mv) || !zero(tn);
+    if (!want && !(ours && k.on)) { k.on = false; return; }
+    const Vec3 np = k.base_p + rotate(k.base_q, mv);
+    const Quat nq = qnorm(qmul(k.base_q, ypr(tn)));
+    set_any(JOINT, j, "set_LocalPosition", &np);
+    set_any(JOINT, j, "set_LocalRotation", &nq);
+    k.j = j; k.on = want; k.wrote_p = np; k.wrote_q = nq;
+}
+
+// twist spread curl (radians), added to the joint's local Euler angles, like the left hand's fingers
+void add_euler(Kept& k, MO* j, Vec3 d) {
+    if (j == nullptr) return;
+    Quat q;
+    if (!get_q(JOINT, j, "get_LocalRotation", q)) return;
+    const bool ours = k.on && k.j == j && same_q(q, k.wrote_q);
+    if (!ours && !get_v3(JOINT, j, "get_LocalEulerAngle", k.base_e)) return;
+    const bool want = !zero(d);
+    if (!want && !ours) { k.on = false; return; }
+    const Vec3 t = k.base_e + d;
+    set_any(JOINT, j, "set_LocalEulerAngle", &t);
+    Quat back{0, 0, 0, 1};
+    k.j = j; k.on = want && get_q(JOINT, j, "get_LocalRotation", back);   // read back what really stands
+    if (k.on) k.wrote_q = back;
+}
+} // namespace
+
+void right_point() {
+    if (!live() || weapons::current_id() < 0) {
+        g_rgun.on = g_rwrist.on = false;
+        for (auto& k : g_rfing) k.on = false;
+        return;
+    }
+    auto* go = call_ptr(API::get()->get_managed_singleton("app.ropeway.PlayerManager"), "get_CurrentPlayer");
+    auto* tf = call_ptr(go, "get_Transform");
+    if (tf == nullptr) return;
+    static std::wstring names[kFingerJoints];
+    if (names[0].empty()) for (int i = 0; i < kFingerJoints; ++i) { names[i] = handpose::kBones[i]; names[i][0] = L'r'; }   // l_hand_* -> r_hand_*
+    auto* wrist = joint_by_name(tf, L"r_arm_wrist");
+    auto* gun = joint_by_name(tf, L"r_weapon");
+    add_move_turn(g_rwrist, wrist, hand_move(GUN), hand_turn_deg(GUN));
+    add_move_turn(g_rgun, gun, item_move(GUN), at3(GUN, 3));
+    int found = 0;
+    for (int i = 0; i < kFingerJoints; ++i) {
+        auto* j = joint_by_name(tf, names[i].c_str());
+        if (j != nullptr) ++found;
+        add_euler(g_rfing[i], j, finger(GUN, i));
+    }
+    if (!g_rlogged) {
+        LOGI("%s tune: right hand joints found: wrist %s, gun (r_weapon) %s, fingers %d of %d", TAG, wrist ? "yes" : "NO",
+             gun ? "yes" : "NO", found, kFingerJoints);
+        g_rlogged = true;
+    }
 }
 
 } // namespace vn::tune
