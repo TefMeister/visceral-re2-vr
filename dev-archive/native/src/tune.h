@@ -31,4 +31,10 @@ Vec3 hand_move(Hold h);           // metres
 Vec3 hand_turn_deg(Hold h);       // yaw pitch roll, degrees
 Vec3 finger(Hold h, int joint);   // x twist, y spread, z curl -- radians, added to the joint's local Euler angles
 Quat ypr(Vec3 deg);               // yaw about Z, then pitch about Y, then roll about X (his convention)
+// b171 (Tefa 2026-10-14, after straightening the shotgun with the gun sliders: "i can NOW grip it in 2 spots"): a world
+// pose read from anything carried by the gun (the fore-end, the slide, the gun's own transform) is the UNTUNED one on
+// frames where the game's animation has rewritten r_weapon since our last write. This moves it to where the tuned gun
+// puts it, so the grab zone and the dock spot follow the gun the player sees. Returns how far it moved the point
+// (0 = the tuned gun was already standing, or no gun sliders are set).
+float to_tuned(Vec3& p, Quat* q);
 } // namespace vn::tune

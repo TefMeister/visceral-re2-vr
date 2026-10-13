@@ -62,6 +62,15 @@ VisceralDockSocket g_socket{1, 0, 0, 0, 0, 0, 0, 0, 1};
 extern "C" __declspec(dllexport) VisceralDockSocket* visceral_dock_socket() { return &g_socket; }
 namespace {
 
+// b171: proves the gun-slider correction on the log: once per dock, how far it moved the point (0 = already tuned)
+float g_tuned_seen = -1.0f;
+void note_tuned(float moved, const char* where) {
+    if (moved > g_tuned_seen + 0.005f) {
+        LOGI("%s rack: gun sliders: the %s point moved %.3f m to the tuned gun (was the untuned one this frame)", TAG, where, moved);
+        g_tuned_seen = moved;
+    }
+}
+
 MO* player_go() { return call_ptr(API::get()->get_managed_singleton("app.ropeway.PlayerManager"), "get_CurrentPlayer"); }
 
 void resolve_frame() {
@@ -85,6 +94,7 @@ bool hand_near_joint(float& d) {
     Vec3 jp, hp;
     auto* wrist = joint_by_name(call_ptr(player_go(), "get_Transform"), L"l_arm_wrist");
     if (!get_v3(JOINT, g_joint, "get_Position", jp) || !get_v3(JOINT, wrist, "get_Position", hp)) return false;
+    note_tuned(tune::to_tuned(jp, nullptr), "grab");   // b171
     d = dist(jp, hp);
     return d <= cfg::RACK_HAND_M;
 }
@@ -111,6 +121,7 @@ void publish_socket() {
     Quat jq, rq;
     if (!get_v3(JOINT, g_joint, "get_Position", jp) || !get_q(JOINT, g_joint, "get_Rotation", jq)) return;
     if (!get_v3(JOINT, g_rwrist, "get_Position", rp) || !get_q(JOINT, g_rwrist, "get_Rotation", rq)) return;
+    note_tuned(tune::to_tuned(jp, &jq), "socket");   // b171: where the TUNED gun has the slide / fore-end
     const Quat inv = qinv(qnorm(rq));
     // b158: where the hand sits on the slide and how it is turned, from the Lua menu sliders while they are live
     // b164: Tefa's numbers built in, the per-character, per-gun sliders (tune.h) added on top
@@ -137,7 +148,9 @@ Vec3 g_axis{0, 0, -1};
 // fore-end travel along it) carried into the room; the controller's -Z only if that fails
 bool gun_axis(Vec3& fwd) {
     Quat gq;
-    if (g_gun_tf != nullptr && get_q(XFORM, g_gun_tf, "get_Rotation", gq) && ghosthand::to_room_dir(rotate(qnorm(gq), Vec3{0, 0, 1}), fwd)) return true;
+    Vec3 gp{};
+    if (g_gun_tf != nullptr && get_q(XFORM, g_gun_tf, "get_Rotation", gq) && (tune::to_tuned(gp, &gq), true) &&
+        ghosthand::to_room_dir(rotate(qnorm(gq), Vec3{0, 0, 1}), fwd)) return true;
     const Quat rq = bridge::view_quat(bridge::S_RROT);
     if (!bridge::has(rq.x)) return false;
     fwd = rotate(qnorm(rq), Vec3{0, 0, -1});   // OpenXR: a controller points along -Z
@@ -155,7 +168,8 @@ float along_gun() {
 bool hand_on_barrel(float& d) {
     // b163: the left controller near the fore-end joint itself, both in the room
     Vec3 jp, jr;
-    if (g_joint != nullptr && get_v3(JOINT, g_joint, "get_Position", jp) && ghosthand::to_room_point(jp, jr)) {
+    if (g_joint != nullptr && get_v3(JOINT, g_joint, "get_Position", jp) && (note_tuned(tune::to_tuned(jp, nullptr), "grab"), true) &&
+        ghosthand::to_room_point(jp, jr)) {
         d = dist(bridge::hand_pos(bridge::LEFT), jr);
         return d <= cfg::PUMP_GRAB_M;
     }
@@ -187,6 +201,7 @@ void complete() {
 
 void hand_off(const char* why) {
     g_hand_on = false;
+    g_tuned_seen = -1.0f;   // b171: log the correction again at the next dock
     g_socket.active = 0;
     const bool armed = g_armed;
     g_armed = false;
