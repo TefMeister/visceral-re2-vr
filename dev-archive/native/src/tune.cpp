@@ -161,6 +161,30 @@ void right_point() {
     }
 }
 
+// ---- b171: the gun-carried point as the TUNED gun puts it (see tune.h). The sliders move r_weapon by mv (its own axes)
+// and turn it by R, so a point x carried by it goes from Pw + Qw x_l to Pw + Qw (mv + R x_l), x_l = Qw^-1 (x - Pw).
+float to_tuned(Vec3& p, Quat* q) {
+    if (!live()) return 0.0f;
+    const Vec3 mv = item_move(GUN);
+    const Vec3 tn = at3(GUN, 3);
+    if (zero(mv) && zero(tn)) return 0.0f;
+    MO* j = g_rgun.j;
+    if (j == nullptr) return 0.0f;
+    Vec3 lp, pw;
+    Quat lq, qw;
+    if (!get_v3(JOINT, j, "get_LocalPosition", lp) || !get_q(JOINT, j, "get_LocalRotation", lq)) return 0.0f;
+    if (g_rgun.on && dist(lp, g_rgun.wrote_p) < 1e-5f && same_q(lq, g_rgun.wrote_q)) return 0.0f;   // ours stands: already tuned
+    if (!get_v3(JOINT, j, "get_Position", pw) || !get_q(JOINT, j, "get_Rotation", qw)) return 0.0f;
+    qw = qnorm(qw);
+    const Quat r = ypr(tn);
+    const Vec3 xl = rotate(qinv(qw), p - pw);
+    const Vec3 np = pw + rotate(qw, mv + rotate(r, xl));
+    const float moved = dist(np, p);
+    p = np;
+    if (q != nullptr) *q = qnorm(qmul(qmul(qw, qmul(r, qinv(qw))), qnorm(*q)));
+    return moved;
+}
+
 // ---- b169: hold both hands still (Tefa 2026-10-13: "freeze hand positions in VR, without the game freezing ... it has
 // to work with a countdown, so i tick the box, comfortably hold the controllers and in 10 seconds they stop moving").
 // The tick box and the countdown are in lua/visceral_tuning.lua, which writes S_FREEZE = 1 once the 10 s are up. The VR
