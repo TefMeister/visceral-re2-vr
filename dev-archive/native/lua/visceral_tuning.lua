@@ -78,10 +78,36 @@ local function data_for(name)
     end
     return files[name]
 end
+-- b170 (Tefa 2026-10-13: "can you differentiate a long extended clip and a regular one?"): each set of upgrades on a
+-- gun (the game's WeaponParts bits: long magazine, stock, muzzle brake ...) gets its own numbers. The plain gun keeps
+-- the old key WPxxxx, so earlier tuning stays where it was; an upgraded gun is WPxxxx_parts<bits>, and the first time
+-- one is seen it starts as a copy of the plain gun's numbers.
+local cur_parts = 0
+local function parts_now()
+    local ok, v = pcall(function()
+        local go = sdk.get_managed_singleton("app.ropeway.PlayerManager"):call("get_CurrentPlayer")
+        local eq = go:call("getComponent(System.Type)", sdk.typeof("app.ropeway.survivor.Equipment"))
+        return eq:call("get_MainWeapon"):call("get_WeaponParts")
+    end)
+    return (ok and type(v) == "number") and math.floor(v) or 0
+end
+local function gun_key(wp)
+    if cur_parts == 0 then return string.format("WP%04d", wp) end
+    return string.format("WP%04d_parts%d", wp, cur_parts)
+end
+local function copy(t)
+    if type(t) ~= "table" then return t end
+    local c = {}
+    for k, v in pairs(t) do c[k] = copy(v) end
+    return c
+end
+local last_logged = nil
+
 local function hold_values(name, wp, key)
     local guns = data_for(name).guns
-    local g = guns[string.format("WP%04d", wp)]
-    if not g then g = {}; guns[string.format("WP%04d", wp)] = g end
+    local gk = gun_key(wp)
+    local g = guns[gk]
+    if not g then g = copy(guns[string.format("WP%04d", wp)]) or {}; guns[gk] = g end
     local v = g[key]
     if not v then v = {}; g[key] = v end
     for i = 1, N_VALUES do if type(v[i]) ~= "number" then v[i] = 0.0 end end
@@ -104,6 +130,11 @@ re.on_pre_application_entry("LateUpdateBehavior", function()
     local wp, ch = who()
     if not wp or not settings.on then b.w(S_HT_ON, 0); return end
     local name = char_name(ch)
+    cur_parts = parts_now()
+    if gun_key(wp) ~= last_logged then
+        last_logged = gun_key(wp)
+        log.info(TAG .. " tuning set " .. name .. " " .. last_logged)
+    end
     for h, hold in ipairs(HOLDS) do
         local v = hold_values(name, wp, hold.key)
         local base = S_HT + (h - 1) * STRIDE
@@ -189,6 +220,8 @@ re.on_draw_ui(function()
     local name = char_name(ch)
     imgui.text(string.format("Character: %s (pl%d), saved in %s", name, ch, file_of(name)))
     imgui.text(string.format("Gun in hand: %s (WP%04d)", GUNS[wp] or "unknown", wp))
+    if cur_parts == 0 then imgui.text("Upgrades: none (these numbers are for the plain gun)")
+    else imgui.text(string.format("Upgrades fitted (set %d): these numbers are for this gun with these upgrades only", cur_parts)) end
     imgui.text("Equip another gun to tune that one. 0 everywhere = as built.")
     local any = false
     for _, hold in ipairs(HOLDS) do any = hold_ui(name, wp, hold) or any end
