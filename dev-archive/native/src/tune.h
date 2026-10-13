@@ -18,12 +18,13 @@
 #include "common.h"
 
 namespace vn::tune {
-enum Hold : int { MAG = 0, SHELL = 1, SLIDE = 2, GUN = 3, HOLD_COUNT = 4 };
+enum Hold : int { MAG = 0, SHELL = 1, SLIDE = 2, GUN = 3, OPEN = 4, FREE = 5, HOLD_COUNT = 6 };   // b172: OPEN, FREE (left hand)
 constexpr int kFingerJoints = 17;   // the order of handpose_data.h kBones
 
 void frame();                     // UpdateBehavior pre: tell the Lua which gun and which character
 void wrist_point();               // LateUpdateBehavior post / PrepareRendering post, BEFORE the item and the fingers
 void right_point();               // after handpose::point: the right hand's sliders (GUN hold)
+void free_wrist(float f);         // b172: the left wrist's "on its own" sliders, scaled by f (0 = off); from handpose::point
 bool live();                      // the Lua is sending numbers
 Vec3 item_move(Hold h);           // metres, wrist axes
 Quat item_turn(Hold h);

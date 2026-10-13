@@ -199,6 +199,13 @@ constexpr int   THROW_HOLD_FRAMES = 12;      // the grenade throw = HOLD sent th
 // The fingers take the saved RELOADED pose (handpose_data.h) while a magazine or shell is in the left hand.
 constexpr bool  HANDPOSE_ON = true;          // false = the fingers keep the game's animation
 constexpr float HANDPOSE_BLEND_SEC = 0.12f;  // his blend time in and out
+// b172 (Tefa 2026-10-14: "the hand open going to the slide and then curling fingers on it"): the left hand OPENS as it
+// comes near the slide / fore-end, then the grip pose above curls it closed over HANDPOSE_BLEND_SEC; let go, it opens
+// again, and away from the gun it relaxes back to the game's own fingers (plus the "left hand on its own" sliders).
+constexpr float OPEN_HAND_NEAR_M = 0.30f;     // the left hand this close to the slide / fore-end joint starts to open
+constexpr float OPEN_HAND_BLEND_SEC = 0.10f;  // how fast it opens and relaxes
+constexpr float OPEN_FINGER_CURL[5] = {0.35f, 0.35f, 0.35f, 0.35f, 0.25f};   // index middle ring little thumb, radians, on top of the game's fingers; POSITIVE = straighter (his saved grips curl at about -1.1) [inferred-static]
+constexpr float FREE_HAND_BLEND_SEC = 0.20f;  // b172 (Tefa: "tune just the left hand ... with no buttons pressed and not near a gun")
 // b164: Tefa's b160 finger sliders (visceral_slide_fingers.json 2026-10-11 23:45), radians: index middle ring little thumb
 constexpr float SLIDE_FINGER_CURL[5] = {-0.17f, -0.04f, 0.03f, 0.17f, 0.62f};
 constexpr float SLIDE_FINGER_SPREAD[5] = {0.0f, 0.0f, 0.05f, 0.10f, 0.36f};

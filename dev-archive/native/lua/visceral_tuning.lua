@@ -14,7 +14,7 @@
 
 local TAG = "[visceral-tuning]"
 local S_WHO, S_HT_ON, S_HT, STRIDE = 84, 86, 88, 64
-local S_FREEZE, FREEZE_AFTER_SEC = 344, 10   -- b169
+local S_FREEZE, FREEZE_AFTER_SEC = 472, 10   -- b169; b172: moved from 344 (src/bridge.h)
 local S_RUMBLE_L_AMP, S_RUMBLE_R_AMP = 10, 12   -- amp, then seconds at +1 (visceral_bridge.lua fires them)
 local N_VALUES = 12 + 17 * 3   -- item move 3, item turn 3, hand move 3, hand turn 3, 17 finger joints x (twist, spread, curl)
 
@@ -32,6 +32,10 @@ local HOLDS = {
     {key = "shell", title = "Shell in the hand", item = "The shell"},
     {key = "slide", title = "Hand on the slide / pump", item = nil},
     {key = "gun", title = "RIGHT hand on the gun", item = "The gun in the hand"},   -- b168 (src/tune.cpp right_point)
+    -- b172 (Tefa 2026-10-14): the left hand opening as it nears the slide / pump (fingers only), and the left hand on
+    -- its own (no button held, not near a gun): one per character, whatever gun is out
+    {key = "open", title = "LEFT hand opening to grab the slide / pump", item = nil, nohand = true},
+    {key = "free", title = "LEFT hand on its own (no buttons, away from the gun)", item = nil, free = true},
 }
 local FINGERS = {   -- the order of the plugin's 17 finger joints (handpose_data.h kBones)
     {"Index", {"base", "middle", "tip"}},
@@ -104,6 +108,12 @@ end
 local last_logged = nil
 
 local function hold_values(name, wp, key)
+    if key == "free" then   -- b172: one per character, not per gun
+        local d = data_for(name)
+        d.free = d.free or {}
+        for i = 1, N_VALUES do if type(d.free[i]) ~= "number" then d.free[i] = 0.0 end end
+        return d.free
+    end
     local guns = data_for(name).guns
     local gk = gun_key(wp)
     local g = guns[gk]
@@ -136,9 +146,13 @@ re.on_pre_application_entry("LateUpdateBehavior", function()
         log.info(TAG .. " tuning set " .. name .. " " .. last_logged)
     end
     for h, hold in ipairs(HOLDS) do
-        local v = hold_values(name, wp, hold.key)
         local base = S_HT + (h - 1) * STRIDE
-        for i = 1, N_VALUES do b.w(base + i - 1, v[i]) end
+        if wp < 0 and not hold.free then   -- b172: no gun out: only the left hand's own numbers
+            for i = 1, N_VALUES do b.w(base + i - 1, 0.0) end
+        else
+            local v = hold_values(name, wp, hold.key)
+            for i = 1, N_VALUES do b.w(base + i - 1, v[i]) end
+        end
     end
     b.w(S_HT_ON, 1)
 end)
@@ -168,7 +182,7 @@ local function hold_ui(name, wp, hold)
         any = three(v, 4, {"Turn 1", "Turn 2", "Turn 3"}, false, id .. "it") or any
         imgui.tree_pop()
     end
-    if imgui.tree_node("The hand##" .. id) then
+    if not hold.nohand and imgui.tree_node("The hand##" .. id) then
         any = three(v, 7, {"Move 1", "Move 2", "Move 3"}, true, id .. "hm") or any
         any = three(v, 10, {"Turn 1", "Turn 2", "Turn 3"}, false, id .. "ht") or any
         imgui.tree_pop()
@@ -219,6 +233,14 @@ re.on_draw_ui(function()
     end
     local name = char_name(ch)
     imgui.text(string.format("Character: %s (pl%d), saved in %s", name, ch, file_of(name)))
+    if wp < 0 then   -- b172: no gun out: the left hand on its own can still be tuned
+        imgui.text("No gun in hand: only the left hand on its own can be tuned now.")
+        local any = false
+        for _, hold in ipairs(HOLDS) do if hold.free then any = hold_ui(name, wp, hold) or any end end
+        if any then save(name) end
+        imgui.tree_pop()
+        return
+    end
     imgui.text(string.format("Gun in hand: %s (WP%04d)", GUNS[wp] or "unknown", wp))
     if cur_parts == 0 then imgui.text("Upgrades: none (these numbers are for the plain gun)")
     else imgui.text(string.format("Upgrades fitted (set %d): these numbers are for this gun with these upgrades only", cur_parts)) end

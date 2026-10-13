@@ -90,7 +90,7 @@ void wrist_point() {
 // still applied. Same idea as wrist_point, per joint.
 namespace {
 struct Kept { MO* j = nullptr; bool on = false; Vec3 base_p{}; Quat base_q{0, 0, 0, 1}; Vec3 base_e{}; Vec3 wrote_p{}; Quat wrote_q{0, 0, 0, 1}; };
-Kept g_rgun, g_rwrist, g_rfing[kFingerJoints];
+Kept g_rgun, g_rwrist, g_rfing[kFingerJoints], g_lfree;
 bool g_rlogged = false;
 
 bool same_q(Quat a, Quat b) {
@@ -159,6 +159,15 @@ void right_point() {
              gun ? "yes" : "NO", found, kFingerJoints);
         g_rlogged = true;
     }
+}
+
+// ---- b172: the left hand on its own (no button, nowhere near the gun): its wrist sliders, faded in and out by f
+void free_wrist(float f) {
+    if (!live() && !g_lfree.on) return;
+    auto* go = call_ptr(API::get()->get_managed_singleton("app.ropeway.PlayerManager"), "get_CurrentPlayer");
+    auto* w = joint_by_name(call_ptr(go, "get_Transform"), L"l_arm_wrist");
+    const Vec3 mv = live() ? hand_move(FREE) : Vec3{}, tn = live() ? hand_turn_deg(FREE) : Vec3{};
+    add_move_turn(g_lfree, w, Vec3{mv.x * f, mv.y * f, mv.z * f}, Vec3{tn.x * f, tn.y * f, tn.z * f});
 }
 
 // ---- b171: the gun-carried point as the TUNED gun puts it (see tune.h). The sliders move r_weapon by mv (its own axes)
