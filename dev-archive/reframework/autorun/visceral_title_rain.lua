@@ -165,7 +165,19 @@ re.on_frame(function()
             log_line(string.format("start-up step %s: %s", m, okm and "ran" or "threw"))
         end
     end
-    local reading = string.format("prefab %s, ready %s, effect data %s", dc and "set" or "none", tostring(ready), built and "BUILT" or "missing")
+    -- 2026-10-14 (desk read of requestEffectInternal @0x141783b40 and what it calls, Fable): the request comes back EMPTY
+    -- (no throw) when the manager's StandardProvider is missing, when its StandardDataMap has no container for our ID,
+    -- or when the EffectManager singleton says IsDisableAllEffect; it THROWS when the EffectManager singleton itself is
+    -- missing (the static read before createEffectAutoDestroy). Everything deeper is inside the effect creation. These
+    -- four readings go into the same once-per-change line, so the next launch names the gate.
+    local provider = safe(function() return oem:get_field("StandardProvider") end) ~= nil
+    local map = safe(function() return oem:get_field("StandardDataMap") end)
+    local has_c0 = map and safe(function() return map:call("ContainsKey", RAIN_CONTAINER) end)
+    local em = safe(function() return sdk.get_managed_singleton("via.effect.script.EffectManager") end)
+    local em_off = em and safe(function() return em:get_field("IsDisableAllEffect") end)
+    local reading = string.format("prefab %s, ready %s, effect data %s | provider %s, container %d in the map %s, EffectManager %s%s",
+        dc and "set" or "none", tostring(ready), built and "BUILT" or "missing",
+        provider and "set" or "MISSING", RAIN_CONTAINER, tostring(has_c0), em and "present" or "MISSING", em_off and " (all effects DISABLED)" or "")
     if reading ~= st.last_reading then
         st.last_reading = reading
         log_line(string.format("attempt %d at %.2f s: %s", st.attempts, now - (st.armed_at or now), reading))
