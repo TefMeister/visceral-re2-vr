@@ -25,9 +25,11 @@ std::atomic<int> g_yes{0};                    // enableAttack answers turned to 
 std::atomic<int> g_request{0}, g_gun_exec{0}, g_eq_exec{0};   // doorbells during this shot
 bool g_forcing = false;                       // switch 1 is on
 bool g_auto = false;                          // this pull is with an automatic weapon: fire while RT is held
+bool g_empty = false;                         // b174: this pull was on an empty gun: no Fire trigger, and the order is never re-raised
 int g_window = 0;                             // frames left for switch 3
 int g_bullets_before = -1;
 int g_shots = 0;
+int g_empty_pulls = 0;
 
 thread_local MO* t_eq = nullptr;
 thread_local int t_type = -1;
@@ -131,13 +133,31 @@ void frame() {
         g_bullets_before = bullets(p.eq);
         g_window = cfg::FIRE_WINDOW_FRAMES;
         g_in_flight = true;
-        if (reload::mag_out() || rack::blocks_fire() || (reload::managed_now() && bullets(p.eq) == 0)) { set_precede(p.orderer, false); } else set_precede(p.orderer, true);   // b142: no shot with the magazine out / a rack needed (the game played the shot sound, b141 worn)
-        auto* set_fire = p.updater ? find_method_deep(p.updater->get_type_definition(), "set_Fire") : nullptr;
-        if (set_fire != nullptr) set_fire->call<void>(API::get()->get_vm_context(), (void*)p.updater, true);   // switch 2
-        if (g_shots <= cfg::FIRE_LOG_FIRST)
-            LOGI("%s fire: RT without RG, pull #%d (automatic %d) | bullets %d IsHold %d ATTACK input %d Precede %d", TAG, g_shots, (int)g_auto,
-                 g_bullets_before, (int)call_direct<bool>(p.cond, "get_IsHold", false), (int)attack_input_on(),
-                 call_direct<int>(p.orderer, "get_Precede", -1));
+        // b174: an EMPTY gun gets no Fire trigger. b142 dropped the order (switch 1) and b155/b156 skipped requestFire, and
+        // Tefa still heard a gunshot on RT with an empty gun (2026-10-11, again 2026-10-14). What those builds still did at
+        // the press was switch 2 -- and on 2026-10-07 the Fire trigger without the gun's YES made the FSM "play the real
+        // shoot clip ... and no round is spent": the gunshot is that clip's own sound [hypothesis until worn]. Also, the
+        // b142 gate was undone a frame later: the in-flight branch below re-raised the order every frame until a shot
+        // ran, which on an empty gun is never. The click itself comes from reload_block::frame().
+        const bool mag_out = reload::mag_out(), rack_needed = rack::blocks_fire(), ours = reload::managed_now();
+        g_empty = cfg::FIRE_EMPTY_SILENT && (mag_out || rack_needed || g_bullets_before == 0);
+        if (g_empty) {
+            set_precede(p.orderer, !ours);   // our guns: no order either (b142); the game's own guns keep it, so the game does its own empty-gun thing
+            ++g_empty_pulls;
+            if (g_empty_pulls <= cfg::FIRE_LOG_FIRST)
+                LOGI("%s fire: pull #%d on an EMPTY gun (bullets %d, magazine out %d, rack needed %d, our reload %d): Fire trigger NOT raised, order %s -- a gunshot now is NOT from this plugin's press",
+                     TAG, g_shots, g_bullets_before, (int)mag_out, (int)rack_needed, (int)ours, ours ? "off" : "left to the game");
+        } else {
+            if (mag_out || rack_needed || (ours && g_bullets_before == 0)) { set_precede(p.orderer, false); } else set_precede(p.orderer, true);   // b142: no shot with the magazine out / a rack needed (the game played the shot sound, b141 worn)
+            auto* set_fire = p.updater ? find_method_deep(p.updater->get_type_definition(), "set_Fire") : nullptr;
+            if (set_fire != nullptr) set_fire->call<void>(API::get()->get_vm_context(), (void*)p.updater, true);   // switch 2
+            if (g_shots <= cfg::FIRE_LOG_FIRST)
+                LOGI("%s fire: RT without RG, pull #%d (automatic %d) | bullets %d IsHold %d ATTACK input %d Precede %d", TAG, g_shots, (int)g_auto,
+                     g_bullets_before, (int)call_direct<bool>(p.cond, "get_IsHold", false), (int)attack_input_on(),
+                     call_direct<int>(p.orderer, "get_Precede", -1));
+        }
+    } else if (g_forcing && want && g_empty) {
+        // b174: an empty pull: the order is never re-raised; the pull ends on its own when the window runs out
     } else if (g_forcing && want && g_auto) {
         // automatics (Tefa 2026-10-08: b098 "automatic weapons also just fire one round and stop"): the order and the
         // gun's YES stay on while RT is held, so the game's own rapid-fire loop keeps going; let go = stop

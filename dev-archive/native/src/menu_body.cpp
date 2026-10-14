@@ -2,6 +2,7 @@
 #include "menu_body.h"
 #include "bridge.h"
 #include "common.h"
+#include "ladder.h"
 #include "settings.h"
 
 #include <vector>
@@ -123,6 +124,9 @@ struct Cam {
     int render_writes = 0, render_misses = 0;    // joint writes at BeginRendering during this hold
     int settled = 0;                             // frames in a row FirstPerson's camera sat at the held view after the close
     float max_swing = 0.0f;                      // the biggest turn FirstPerson's camera made away from the held view after the close
+    bool jack = false;                           // b174: this pin is a jack-start hold, not a menu hold
+    bool jack_done = false;                      // b174: this jack's hold is over (cap reached or FirstPerson back): no re-pin until the jack ends
+    int jack_frames = 0, jack_holds = 0;         // b174: frames of the current jack hold; jack holds this launch (the first few are logged)
 } g_cam;
 
 MO* primary_camera() {
@@ -166,6 +170,10 @@ int gui_state() {
     auto* gm = API::get()->get_managed_singleton("app.ropeway.gui.GUIMaster");
     auto* p = field_ptr<int32_t>(gm, "<State_>k__BackingField");
     return p != nullptr ? *p : -1;
+}
+
+int camera_type() {   // CameraSystem.BusyCameraType: 0 = PLAYER (FirstPerson drives); anything else = the VR layer drives
+    return call_direct<int>(API::get()->get_managed_singleton("app.ropeway.camera.CameraSystem"), "get_BusyCameraType", -1);
 }
 
 // FirstPerson drives when the GUI state is not PAUSE(2)/INVENTORY(1) and the camera type is PLAYER(0) (FirstPerson.cpp
@@ -238,6 +246,43 @@ void camera_point(bool last_point) {
     Quat q;
     if (!call_vec3(tf, "get_Position", p) || !call_quat(tf, "get_Rotation", q)) return;
     const bool fp = fp_driving();
+
+    // b174: THE JACK-START FLICK (ladders, cupboard pushes, switches; Tefa 2026-10-14: "the camera jump[s] to hmd direction
+    // and quickly back"). The 2026-10-08 reading of the VR layer's source: a jack switches the camera type away from PLAYER
+    // for a frame or two, FirstPerson steps aside, and the VR layer multiplies the headset turn onto FirstPerson's last
+    // camera -- which already carries it -- so the head's turn relative to the body is applied twice, different every
+    // time [hypothesis until the log says FirstPerson really steps aside at a jack]. Same cure as the menus (b100): for
+    // those frames the last FirstPerson view is written stripped, pin x inv(H0) x inv(R_off), and the hold ends the moment
+    // FirstPerson drives again (no settle wait, the body is moving). Capped at JACK_CAM_HOLD_FRAMES_MAX frames: a jack
+    // that keeps FirstPerson aside for longer is left to ladder.cpp's own view hold and logged, never frozen.
+    const bool jacked = cfg::JACK_CAM_HOLD && !g_is_hidden && ladder::jacked_now();
+    if (!jacked) g_cam.jack_done = false;
+    const bool jack_hold = jacked && !fp && !g_cam.jack_done;
+    if (jack_hold && !g_cam.pinned && g_cam.has_last) {
+        g_cam.pin = g_cam.last;
+        g_cam.pin_rot = g_cam.last_rot;
+        g_cam.pin_hmd = g_cam.last_hmd;
+        g_cam.pinned = true;
+        g_cam.jack = true;
+        g_cam.jack_frames = 0;
+        g_cam.stripped = g_cam.plain = 0;
+        if (++g_cam.jack_holds <= 8)
+            LOGI("%s jack: FirstPerson stepped aside at a jack (gui %d, camera type %d): the last FirstPerson view is held, stripped of the headset turn", TAG, gui_state(), camera_type());
+    }
+    if (g_cam.jack) {
+        if (jack_hold && g_cam.jack_frames < cfg::JACK_CAM_HOLD_FRAMES_MAX) {
+            if (!last_point) ++g_cam.jack_frames;
+            write_pin(tf, false);
+            return;
+        }
+        const char* why = fp ? "FirstPerson drives again" : !jacked ? "the jack ended" : "cap reached with FirstPerson still aside: left to the ladder hold";
+        if (g_cam.jack_holds <= 8)
+            LOGI("%s jack: hold off after %d frames (%s; %d stripped + %d plain writes; camera type %d)", TAG, g_cam.jack_frames, why, g_cam.stripped, g_cam.plain, camera_type());
+        g_cam.pinned = false;
+        g_cam.jack = false;
+        g_cam.jack_done = jacked;   // no second hold in the same jack
+    }
+
     if (!g_is_hidden) {
         if (g_cam.pinned) {
             // after the menu closes: FirstPerson's first frames take the MENU camera controller's rotation as their base

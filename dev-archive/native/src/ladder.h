@@ -14,4 +14,5 @@
 namespace vn::ladder {
 void late_update();          // LateUpdateBehavior POST, once per frame
 void restore(bool final);    // LockScene PRE (false) and PrepareRendering POST (true): put the body rotation back
+bool jacked_now();           // b174: the game has the body this frame (JackDominator.Jacked), read fresh, for menu_body's jack-start hold
 } // namespace vn::ladder

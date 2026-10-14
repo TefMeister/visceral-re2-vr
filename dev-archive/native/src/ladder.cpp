@@ -418,6 +418,8 @@ void late_update() {
     g_climb.snap_valid = body_rot(player_transform(), g_climb.snap);
 }
 
+bool jacked_now() { return bridge::live() && jacked(); }
+
 void restore(bool final) {
     if (!g_climb.snap_valid) return;
     set_body_rot(player_transform(), g_climb.snap);

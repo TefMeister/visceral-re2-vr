@@ -1,7 +1,7 @@
 """owner.py <VA> ... : name the il2cpp_dump method that contains each VA (nearest lower method start)."""
 import sys, re, io, bisect
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
-DUMP = r"D:\RE2 test copy\il2cpp_dump.json"
+DUMP = r"D:\Visceral RE2 archive (old, 2026-10-04)\RE2 REFramework builds - old\full-backup-2026-09-25-before-clean-install\il2cpp_dump.json"
 dump = open(DUMP, "rb").read()
 addrs = []
 cur_type = None; cur_method = None

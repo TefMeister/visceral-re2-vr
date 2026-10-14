@@ -2,8 +2,8 @@
 from il2cpp_dump.json (nearest lower method start)."""
 import sys, re, io, bisect, pefile, capstone
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
-EXE = r"D:\RE2 test copy\re2.exe"
-DUMP = r"D:\RE2 test copy\il2cpp_dump.json"
+EXE = r"C:\Steam\steamapps\common\RESIDENT EVIL 2  BIOHAZARD RE2\re2.exe"   # the Steam game (the D: test copy went 2026-10-04)
+DUMP = r"D:\Visceral RE2 archive (old, 2026-10-04)\RE2 REFramework builds - old\full-backup-2026-09-25-before-clean-install\il2cpp_dump.json"
 pe = pefile.PE(EXE, fast_load=True)
 base = pe.OPTIONAL_HEADER.ImageBase
 data = open(EXE, "rb").read()
