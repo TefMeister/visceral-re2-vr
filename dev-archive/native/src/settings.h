@@ -121,10 +121,13 @@ constexpr float MENU_CAM_BACK_M    = 0.10f;   // after a menu closes, the camera
 constexpr float MENU_CAM_BACK_DEG  = 2.0f;    // and within this many degrees of the held turn
 constexpr int   MENU_CAM_RELEASE_FRAMES = 20; // and is held at most this many frames while it comes back
 constexpr int   MENU_CAM_SETTLE_FRAMES  = 3;  // b102: released only once FirstPerson's camera has sat at the held view this many frames in a row
+constexpr bool  JACK_CAM_HOLD = true;         // b174: a jack start (ladder, cupboard, switch) with FirstPerson aside: the camera is written stripped (menu_body.cpp "jack")
+constexpr int   JACK_CAM_HOLD_FRAMES_MAX = 6; // ... for at most this many frames; FirstPerson aside for longer = left to the ladder hold, and logged
 
 // ---- RT fires without RG (2026-10-08, detour step 2; the three switches found flat 2026-10-07) -----------------
 constexpr int   FIRE_WINDOW_FRAMES = 20;      // the gun's "may fire" answer stays YES at most this long after the press
 constexpr int   FIRE_LOG_FIRST     = 30;
+constexpr bool  FIRE_EMPTY_SILENT  = true;    // b174: an empty gun (0 rounds, magazine out, rack needed) gets NO Fire trigger on RT (fire.cpp)
 // automatics fire while RT is held (WP numbers): MQ 11, LE 5, flamethrower, the miniguns. Everything else: one per pull
 constexpr int   FIRE_AUTOMATIC_WP[] = {2000, 2200, 4200, 4700, 8700, 4520, 4900};      // log the first shots in full (press + bullets before/after + doorbells)
 
