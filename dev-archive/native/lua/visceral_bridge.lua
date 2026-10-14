@@ -217,7 +217,7 @@ re.on_pre_application_entry("LateUpdateBehavior", function()
 end)
 
 -- the camera as the renderer gets it, after the VR layer's own BeginRendering pass, and one "picture presented" mark
-re.on_post_application_entry("BeginRendering", function() jl_camera() end)
+re.on_application_entry("BeginRendering", function() jl_camera() end)   -- REFramework's "post" hook is on_application_entry (2026-10-14: on_post_... is nil and killed the whole script)
 
 -- b156-b159's three slider menus (shell in the hand, hand on the slide, fingers on the slide) became
 -- visceral_tuning.lua on 2026-10-13 (b164): per character, per gun, per hold; Tefa's numbers are built into the plugin.
