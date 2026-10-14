@@ -44,3 +44,11 @@ ef-76build-76b.bat` (target RE2) ->
   The headset keeps tracking. For the hand tuning sliders (b169): tick "Hold my hands still" in the "Visceral: hand
   tuning" menu, hold the controllers where the hands should be, 10 s later a strong buzz, put them down. Log:
   `[Visceral] hands HELD STILL` / `follow the controllers again`. Build: as the 10-10 patches (`D:\ref-76b\build-76b.bat`).
+
+- `2026-10-14-re2-one-grip-per-gun-no-steer-on-the-slide.patch` — against `76298bd`, CONTAINS the 10-13 hold-hands-still
+  patch (cumulative diff of `src/mods/`; apply this one alone). The plugin's dock socket (`visceral_dock_socket`) is read
+  as version 2: `owned` = 1 (a pump gun) means the VR layer never docks the left hand on the gun's aid joint, so there
+  is ONE grip spot, the plugin's (Tefa 2026-10-14: the shotgun grip "ending up in 2 places"); `steer` = 0 (a pistol slide
+  being racked) means the VR layer skips its turn-the-gun-to-meet-the-left-hand step, so the right hand alone aims
+  while the left works the slide. Built on the home PC: `D:\ref-76b\build-76b.bat` (the tree was first reset to the
+  10-13 state with `git checkout -- src/mods` + that patch). Note: `modding-notes/2026-10-14-b176-one-grip-per-gun-and-right-hand-aims-on-the-slide.md`.
