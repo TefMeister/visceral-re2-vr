@@ -56,8 +56,14 @@ bool g_hold_closed = false;   // b159: after a rack, keep the slide closed until
 float g_auto_t0 = 0.0f;
 
 // the socket handed to the VR layer: the slide joint (plus an offset) in right-wrist space
-struct VisceralDockSocket { int version; int active; float px, py, pz; float qx, qy, qz, qw; };
-VisceralDockSocket g_socket{1, 0, 0, 0, 0, 0, 0, 0, 1};
+// v2 (b176, 2026-10-14, Tefa: "the grip ending up in 2 places ... the wrist spot and the actual hand" on the shotgun, and
+// "stopping left hand from moving the pistol when hand is on the slider"): two more words the VR layer reads --
+//   steer: 1 = the docked left hand may turn the gun (the two-handed aim), 0 = the right hand alone aims while the
+//          hand sits on our socket (a pistol slide being racked)
+//   owned: 1 = this gun's grip is the plugin's business: when our socket is NOT active the VR layer must not dock the
+//          hand on the gun's own aid joint either (a pump gun: one grip spot, ours, instead of two)
+struct VisceralDockSocket { int version; int active; float px, py, pz; float qx, qy, qz, qw; int steer; int owned; };
+VisceralDockSocket g_socket{2, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0};
 } // namespace
 extern "C" __declspec(dllexport) VisceralDockSocket* visceral_dock_socket() { return &g_socket; }
 namespace {
@@ -114,6 +120,10 @@ void write_joint() {
 
 // the socket for the VR layer: where the slide is now, relative to the right wrist
 void publish_socket() {
+    // b176: the pump gun's grip is ours alone and keeps steering; a pistol on our socket is aimed by the right hand only
+    const bool pump = g_wp >= 0 && is_pump(g_wp);
+    g_socket.owned = pump ? 1 : 0;
+    g_socket.steer = pump ? 1 : 0;
     if (g_socket_frozen && g_grip) return;   // b157: keep the last socket (active) while LG is still held
     g_socket.active = 0;
     if (!(g_hand_on || g_grip) || g_joint == nullptr || g_rwrist == nullptr) return;
