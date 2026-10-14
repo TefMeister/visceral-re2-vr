@@ -2,7 +2,7 @@
 -a prints every method; default hides plain get_/set_ accessors."""
 import sys, json, io
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
-P = r"D:\RE2 test copy\il2cpp_dump.json"
+P = r"D:\Visceral RE2 archive (old, 2026-10-04)\RE2 REFramework builds - old\full-backup-2026-09-25-before-clean-install\il2cpp_dump.json"
 data = open(P, "rb").read()
 show_all = "-a" in sys.argv
 names = [a for a in sys.argv[1:] if a != "-a"]
