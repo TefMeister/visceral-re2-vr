@@ -6,13 +6,13 @@ weapon handling, manual reloads, hand-pose slide racking and pump action,
 holsters, body IK and posture, and more: the game's guns and body handled
 with your own hands.
 
-> **Status: v0.1.0 released — the first slice (body & posture).** This build fixes
-> how your character's body behaves in VR with a weapon out: torso straightening,
-> feet planted on the ground while aiming, and cutscene/grab safety. Weapon
-> handling, reloads and holsters are still to come. Full list in
-> [`CHANGELOG.md`](CHANGELOG.md).
+> **Status: work in progress. The newest build is 0.4.0 (2026-10-11), the movement and combat
+> overhaul, on the [Releases page](https://github.com/TefMeister/visceral-re2-vr/releases/latest).** Since then the
+> left hand grips with its fingers, the slide and pump can be worked by hand, and the hands can be
+> tuned per character and gun. Each build's notes are on its release page, and the `README.txt`
+> inside the 0.4.0 zip has its install steps. The rest of this page describes the first release, 0.1.0.
 
-## What's in this release (0.1.0)
+## What the first release brought (0.1.0)
 
 - **Torso straightening** — removes the twisted weapon-hold posture; the upper
   body faces forward while normal gait/breathing motion is kept.
