@@ -16,3 +16,5 @@ the Arcade Controls way (a shell flies out only after a shot; a pump with a live
 **What it'd take** (reasoning, nothing checked against the game): the flying shell is easy (the game
 already throws spent ones); taking one off the count is a small change; the hard part is a real item on
 the floor that the game lets you pick up, which means spawning a pick-up object at runtime.
+
+Chosen by Tefa: 2026-10-15
