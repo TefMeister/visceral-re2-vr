@@ -1672,6 +1672,19 @@ on.
 - **Built: `visceral_title_rain.lua` puts it on the main menu** `[verified-live 2026-10-02, flat, n=2]`: managed `EffectID`
   (a ValueType is refused), `requestEffectInternal(id, nil, -1)`, **retried every 0.5 s — the first call is refused while the
   effect data loads**; kills ours when Story opens, adopts the game's container on close (field cleared first). ESC = back.
+- **⭐ The "refusal" is an ACCESS VIOLATION, not a throw (2026-10-15, /pd, from the 10-14 23:01 log + re2.exe):**
+  every refused `requestEffectInternal` logs `c0000005` at `re2.exe+0xf80203` inside `EffectManager.createEffectInternal`
+  @0x140f7fd90, `RSI=0x0063006500660066` (UTF-16 text read as a pointer) `[verified-live 2026-10-14, n=10]`,
+  while all four manager readings (provider, container in the map, EffectManager, IsDisableAllEffect) were fine from
+  0.05 s `[verified-live 2026-10-14, n=1]`. The code: a native call at 0x140f80110 makes the effect's GameObjects
+  from the element's `ProviderData` into a native list, 0x140f8012b/0x140f80176 copy it into a managed `GameObject[]`,
+  and the loop at 0x140f801e0 dies on entry 1 (`cmp [rsi+0x18],0`) `[inferred-static]`. Working guess: the
+  element's effect file (`ProviderData.getResources(i)` → `EffectResourceHolder`) is still streaming `[hypothesis]`.
+  b177's `visceral_title_rain.lua` loads those paths itself (`sdk.create_resource("via.effect.EffectResource", p)` +
+  `add_ref`) once the data is built and logs `preloaded K of N` + `resources isValid v/n`. Useful lookups:
+  `ObjectEffectManager.getProviderData(containerID, elementID)` → `EPVStandardData.Element` (a `ProviderData`:
+  `getResourcesCount`, `getResources(i)`, `isValid(i)`, `get_Valid`); `ResourceHolder.get_ResourcePath`.
+  Note: `modding-notes/2026-10-15-title-rain-the-refusal-is-a-crash-in-effect-creation.md`.
 
 ## RELOADED port step 2, first run (2026-10-03, /lm flat)
 

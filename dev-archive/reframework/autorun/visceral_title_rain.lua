@@ -42,6 +42,7 @@ if not story_t then log_line("MenuStoryBehavior NOT FOUND -- off"); return end
 local function reset(why)
     if st.menu then log_line("title left (" .. why .. ")") end
     st.menu, st.ours, st.story_open, st.attempts, st.gave_up, st.logged_fail, st.logged_el, st.nudged = nil, nil, false, 0, false, false, false, false
+    st.preloaded = false   -- the held resources (st.held) stay referenced: loading them again next visit is free
 end
 
 local function kill(c) if c then safe(function() c:set_field("KillAllRequest", true) end) end end
@@ -175,9 +176,47 @@ re.on_frame(function()
     local has_c0 = map and safe(function() return map:call("ContainsKey", RAIN_CONTAINER) end)
     local em = safe(function() return sdk.get_managed_singleton("via.effect.script.EffectManager") end)
     local em_off = em and safe(function() return em:get_field("IsDisableAllEffect") end)
-    local reading = string.format("prefab %s, ready %s, effect data %s | provider %s, container %d in the map %s, EffectManager %s%s",
+    -- 2026-10-15 (/pd, home PC, read from the 2026-10-14 23:01 log + re2.exe): the "Invoke threw" is NOT a throw. Every
+    -- refused attempt is an ACCESS VIOLATION (c0000005) that REFramework catches, inside EffectManager.createEffectInternal
+    -- @0x140f7fd90 at +0x473 (0x140f80203): the effect GameObjects it has just made from the element's ProviderData come
+    -- back as a list holding a junk pointer (RSI = 0x0063006500660066, UTF-16 text "ffec"), read before any of them is
+    -- used. All four 10-14 readings were fine at the refused attempts ("provider set, container 0 in the map true,
+    -- EffectManager present" at 0.05 s, refused until later), so the gate is the element's own data: most likely its
+    -- effect file (EffectResourceHolder) still streaming in [hypothesis]. Lever: read the element's resource paths the
+    -- moment the data is built and load them ourselves (sdk.create_resource + add_ref), once per title visit; log how many
+    -- loaded and how long it took, and each resource's isValid reading, so the next launch proves or kills it by itself.
+    local rid = safe(function() return id:get_field("ElementID") end)
+    if built and not st.preloaded and rid then
+        st.preloaded = true
+        local el = safe(function() return oem:call("getProviderData", RAIN_CONTAINER, rid) end)
+        local n = el and safe(function() return el:call("getResourcesCount") end) or 0
+        local t0, loaded, names = os.clock(), 0, {}
+        for i = 0, n - 1 do
+            local h = safe(function() return el:call("getResources", i) end)
+            local path = h and safe(function() return h:call("get_ResourcePath") end)
+            if path and path ~= "" then
+                local res = safe(function() return sdk.create_resource("via.effect.EffectResource", path) end)
+                if res then safe(function() res:add_ref() end); st.held = st.held or {}; table.insert(st.held, res); loaded = loaded + 1 end
+                table.insert(names, path .. (res and "" or " (NOT loaded)"))
+            end
+        end
+        log_line(string.format("preloaded %d of %d rain resources in %.1f ms: %s", loaded, n, (os.clock() - t0) * 1000,
+            #names > 0 and table.concat(names, ", ") or (el and "none listed" or "element NOT found")))
+    end
+    local rvalid = "?"
+    if built and rid then
+        local el = safe(function() return oem:call("getProviderData", RAIN_CONTAINER, rid) end)
+        local n = el and safe(function() return el:call("getResourcesCount") end)
+        if n then
+            local v = 0
+            for i = 0, n - 1 do if safe(function() return el:call("isValid", i) end) then v = v + 1 end end
+            rvalid = string.format("%d/%d", v, n)
+        end
+    end
+    local reading = string.format("prefab %s, ready %s, effect data %s | provider %s, container %d in the map %s, EffectManager %s%s | resources isValid %s",
         dc and "set" or "none", tostring(ready), built and "BUILT" or "missing",
-        provider and "set" or "MISSING", RAIN_CONTAINER, tostring(has_c0), em and "present" or "MISSING", em_off and " (all effects DISABLED)" or "")
+        provider and "set" or "MISSING", RAIN_CONTAINER, tostring(has_c0), em and "present" or "MISSING", em_off and " (all effects DISABLED)" or "",
+        rvalid)
     if reading ~= st.last_reading then
         st.last_reading = reading
         log_line(string.format("attempt %d at %.2f s: %s", st.attempts, now - (st.armed_at or now), reading))
