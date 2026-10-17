@@ -49,7 +49,22 @@ The camera type then stays PLAYER, FirstPerson records the player's own controll
 first frame after the close has nothing to swing from -- the pause menu, which never switches camera, has been clean
 both ways since b179. Unworn.
 
-## If b181 does not do it
+## b181 worn (23:40): the jump got about twice as far -- b182 turns it off again
+
+Tefa: *"whatever you did made the world jump left about twice the distance ... but it still does jump and at least it
+seems that it's not always the same, just most of the time"*. Probe, three closes (f1527, f1637, f1730): held view at
+LockScene POST, then at BeginRendering PRE a view ~32 deg smaller in yaw (b180: ~24 deg), with FirstPerson's head
+position; right the next frame. `[disproved 2026-10-17]` that the inventory camera's own direction is the source:
+without the switch the error grows. b182: `INVENTORY_KEEP_WORLD_CAMERA=false`; the probe prints the bridge's raw
+headset quaternion (`hmd=`) on every line and dumps up to 80 menu changes.
+
+Hypothesis for the next session `[hypothesis]`: FirstPerson's first allowed frame builds its view from the controller
+rotation it recorded during the menu, which is its own last written view INCLUDING the headset turn
+(`cameraController->worldRotation = final_quat`), and multiplies the real headset turn on again: the head's turn
+relative to the body counted twice. That fits a size that varies and a few clean closes. Not explained: why the pause
+menu, which keeps the same controller, is clean.
+
+## If b181 does not do it (kept for history)
 
 The renderer may use something else than the transform/joint at this point (FirstPerson also re-runs its camera write
 from the render thread after submit, VR.cpp ~1684). Next: log at BeginRendering PRE what the root joint reads before and
