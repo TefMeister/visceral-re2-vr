@@ -35,7 +35,21 @@ PRE — after FirstPerson's write and after the VR layer's camera pass, so it is
 VR layer picked. Cost: H is one pose old for three frames (b103's "shaky" was this for the whole hold; here it is three
 frames against a 24 deg jump). Not during the open hold, not for jack holds.
 
-## If b180 does not do it
+## b180 worn (23:28): the jump stays -- b181 removes the camera switch instead
+
+Tefa: *"the whole world in front of me teleports to the left for a frame or 2 and then snaps back ... 3 or 4 times out of
+20 it actually works, or the flicker is subtler"*. The log shows the write happened every time (35 closes, 3 joint
+writes each, 0 misses), so the renderer did not use it: FirstPerson rewrites the camera from the render thread after
+submitting each frame (VR.cpp ~1684), later than any point a plugin can reach. `[disproved 2026-10-17]` for the
+render-point write; `MENU_CAM_CLOSE_RENDER_FRAMES` is 0 now.
+
+b181 goes for the cause: the inventory's `CameraSystem.startInventoryCamera` (the switch to camera type 7) is skipped
+whenever the headset is live, for every inventory open, exactly as a pick-up has kept the world camera since b110/b144.
+The camera type then stays PLAYER, FirstPerson records the player's own controller while the menu is open, and its
+first frame after the close has nothing to swing from -- the pause menu, which never switches camera, has been clean
+both ways since b179. Unworn.
+
+## If b181 does not do it
 
 The renderer may use something else than the transform/joint at this point (FirstPerson also re-runs its camera write
 from the render thread after submit, VR.cpp ~1684). Next: log at BeginRendering PRE what the root joint reads before and
