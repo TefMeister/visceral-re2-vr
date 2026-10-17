@@ -1602,6 +1602,22 @@ unless marked; nothing launched.
 - ghidrust `decompile` on re2.exe (92 MB .text) hit the 30-minute idle limit on every call today (eleven calls); the type
   database and REFramework's source answered instead. `[measured 2026-10-10]`
 
+## Menus: the two flicker frames (2026-10-17, REFramework source + the probe) `[verified-live 2026-10-17]`
+
+- **Open frame (fixed, b179):** the bridge's FirstPerson flag (read at UpdateHID) is a frame old at a menu open; the VR
+  layer is already in its menu regime, so a FULL camera write there doubles the headset turn for one frame. Rule: while a
+  menu is open, the fresh read (GUI state PAUSE/INVENTORY + `CameraSystem.BusyCameraType`) decides; at the close the
+  bridge's flag decides (b108).
+- **Inventory close frame (b180, unworn):** the inventory uses `InventoryCameraController`; FirstPerson records the ACTIVE
+  controller's rotation while not allowed (`on_update_camera_controller2`) and its first allowed frame interpolates
+  `m_rotation_offset` from the inventory camera's direction (`update_camera_transform`): the camera is written ~24 deg off
+  in yaw between LockScene POST and BeginRendering PRE, once. The pause menu keeps the player's controller: no such frame.
+  Only BeginRendering PRE comes after that write (mod order: VR, FirstPerson, then plugins); b180 writes the full held
+  view (transform + root joint) there for 3 frames after a close. FirstPerson's flags (`m_last_pause_state`,
+  `m_last_camera_type`) are refreshed in `update_camera_transform`, which the VR layer also calls from the render thread
+  after submit (VR.cpp ~1684), so `will_be_used()` cannot be predicted exactly from the game thread.
+- Note: `modding-notes/2026-10-17b-menu-flicker-the-open-frame-and-the-inventory-close-frame.md`.
+
 ## 11. Dead ends & false leads (save future time)
 
 - **🧭 HABIT, earned the expensive way: check for a dormant enum before building a mechanism.**
