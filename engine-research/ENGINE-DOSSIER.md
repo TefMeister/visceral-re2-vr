@@ -1685,6 +1685,24 @@ on.
   `ObjectEffectManager.getProviderData(containerID, elementID)` → `EPVStandardData.Element` (a `ProviderData`:
   `getResourcesCount`, `getResources(i)`, `isValid(i)`, `get_Valid`); `ResourceHolder.get_ResourcePath`.
   Note: `modding-notes/2026-10-15-title-rain-the-refusal-is-a-crash-in-effect-creation.md`.
+- **⭐⭐ SOLVED 2026-10-17 (Fable, x64dbg live): the crash is the thread context's SCRATCH-PAGE CLEANUP running under
+  `createEffectInternal`'s own temporary `GameObject[]`** `[verified-live 2026-10-17, n=2 + the write-watch]`. The
+  array allocator `0x141f79930` (`r9b == 0`) takes the array from the context's scratch page (`[ctx+0x60]`, 4000-byte
+  pages, object stamped `0x80000000`). Inside the same call, making a component (`0x141f8b8c0`) allocates a managed
+  object (`0x141f5d750`): that routine does `inc [ctx+0x78]` at entry, `dec` at exit, and when the counter reaches 0 it
+  runs the cleanup `0x141f790b0`, which rewinds the page to its base (`[page+0x12] = [page+0x10]`) and zeroes the freed
+  span; the new object then lands on the array (`memset` from `vcruntime140`, caught by a hardware write-watch on the
+  length field), and the loop at `0x140f801e0` reads length `0xNN0000` and entry 1 = `"ffec"`. The streaming-file
+  guess is `[disproved 2026-10-17]` (b177 preloaded the file; no change). The game's own request runs with the counter
+  already at 1 (`1 -> 2` logged); ours at 0. **Cure (b178): `native/src/rainhold.cpp`** hooks
+  `ObjectEffectManager.requestEffectInternal` and holds `[ctx+0x78]` one higher for the call (restored in the post
+  hook): rain at attempt 1, 0.00 s, at boot and after Quit to title. Also: `visceral_title_rain.lua` now ticks in
+  `re.on_pre_application_entry("UpdateBehavior")`, not `re.on_frame` (the thread was not the cause, `[disproved
+  2026-10-17]`, but the game's own update is the right place). The context layout learned: `+0x50` → state object
+  (`+0x18` exception pending, `+0x8` makes the cleanup return early), `+0x60` current scratch page, `+0x68/+0x70` page
+  bookkeeping, `+0x78` allocation-nesting counter, `+0x88`/`+0x98` page array and count, `+0xd2` "release extra pages"
+  flag; page: `+0x10` base offset, `+0x12` bump offset, `+0x14` mark, objects from `+0x40`. Note:
+  `modding-notes/2026-10-17-title-rain-the-scratch-page-cleanup-under-the-effect-list.md`.
 
 ## RELOADED port step 2, first run (2026-10-03, /lm flat)
 

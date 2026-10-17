@@ -35,6 +35,7 @@
 #include "pickup.h"
 #include "pump_native.h"
 #include "rack.h"
+#include "rainhold.h"
 #include "ghosthand.h"
 #include "tune.h"
 #include "reload.h"
@@ -51,7 +52,7 @@ using namespace vn;
 namespace {
 void on_frame() {
     static std::atomic<bool> installed{false};
-    if (!installed.exchange(true)) { bridge::install(); shortcut::install(); suppress::install(); run::install(); fire::install(); pickup::install(); spread::install(); menu_tint::install(); reload_block::install(); pump_native::install(); flashlight::install(); }   // hooks need the type database: first game frame
+    if (!installed.exchange(true)) { bridge::install(); shortcut::install(); suppress::install(); run::install(); fire::install(); pickup::install(); spread::install(); menu_tint::install(); reload_block::install(); pump_native::install(); flashlight::install(); rainhold::install(); }   // hooks need the type database: first game frame
     menu_probe::point("UpdateBehavior.pre");
     bridge::frame_begin();
     reload_block::frame();                         // b132: before anything reads this frame's buttons
