@@ -31,7 +31,7 @@ void emit(const std::string& s) {
 } // namespace
 
 void point(const char* where) {
-    if (!bridge::live() || g_dumps >= 30) return;   // b105: was 6, which ran out before the inventory closes
+    if (!bridge::live() || g_dumps >= 80) return;   // b105: was 6, which ran out before the inventory closes; b182: 30 -> 80 (30 ran out after two inventory closes)
     if (std::string(where) == "UpdateBehavior.pre") ++g_frame;
     const bool open = menu_body::probe_menu_open();
     if (open != g_last_open) {
@@ -57,10 +57,13 @@ void point(const char* where) {
     static API::Method* get_fov = nullptr;
     if (cam_frame != g_frame) { cam_frame = g_frame; cam = (MO*)menu_body::probe_camera(); if (cam && !get_fov) get_fov = find_method_deep(cam->get_type_definition(), "get_FOV"); }
     const float fov = (cam && get_fov) ? get_fov->call<float>(API::get()->get_vm_context(), (void*)cam) : -1.0f;
-    char buf[320];
-    std::snprintf(buf, sizeof buf, "f%d %-24s open=%d gui=%d fp=%d hidden=%d fov=%.1f pos=%s%.3f %.3f %.3f rot=%s%.3f %.3f %.3f %.3f",
+    // b182: the raw headset turn (bridge, one pose old) on every line, so the inventory's closing jump can be compared
+    // with how far the head is turned: is the jump the headset turn counted twice? [hypothesis 2026-10-17]
+    const Quat hq_ = bridge::view_quat(bridge::S_HMD_Q);
+    char buf[400];
+    std::snprintf(buf, sizeof buf, "f%d %-24s open=%d gui=%d fp=%d hidden=%d fov=%.1f pos=%s%.3f %.3f %.3f rot=%s%.3f %.3f %.3f %.3f hmd=%.3f %.3f %.3f %.3f",
                   g_frame, where, (int)open, menu_body::probe_gui_state(), (int)(bridge::view(bridge::S_FP_USED) > 0.5f),
-                  (int)menu_body::probe_body_hidden(), fov, hp ? "" : "?", p.x, p.y, p.z, hq ? "" : "?", q.x, q.y, q.z, q.w);
+                  (int)menu_body::probe_body_hidden(), fov, hp ? "" : "?", p.x, p.y, p.z, hq ? "" : "?", q.x, q.y, q.z, q.w, hq_.x, hq_.y, hq_.z, hq_.w);
     emit(buf);
 }
 

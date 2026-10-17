@@ -69,7 +69,7 @@ constexpr const char* PICKUP_HIDE[] = {"GUIBlackMask"};    // GUI elements not d
 constexpr int   PICKUP_GIVE_UP_FRAMES = 300;               // the inventory never read open this long after the call: stop
 constexpr int   PICKUP_NAME_CACHE = 512;                   // element names remembered per pick-up
 constexpr bool  PICKUP_KEEP_WORLD_CAMERA = true;           // b144: skip the game's item camera in a pick-up (the world stays behind it)
-constexpr bool  INVENTORY_KEEP_WORLD_CAMERA = true;        // b181: with the headset live, EVERY inventory open keeps the world camera (the inventory's own camera switch is the closing jump; pickup.cpp)
+constexpr bool  INVENTORY_KEEP_WORLD_CAMERA = false;       // b182: OFF again, Tefa 2026-10-17 23:40: the jump got about twice as far with it (probe: ~32 deg vs ~24). b181: with the headset live, EVERY inventory open keeps the world camera (the inventory's own camera switch is the closing jump; pickup.cpp)
 constexpr int   PICKUP_COMING_FRAMES = 30;                 // b145: after ItemGetMenu.start, the next item camera this many frames on is a pick-up's
 
 // ---- every menu over the live game world: no tint, no blur (b128, 2026-10-10, Tefa's screenshot) -------------
