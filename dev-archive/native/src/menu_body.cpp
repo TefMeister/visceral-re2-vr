@@ -188,14 +188,18 @@ bool fp_driving() {
     const int gui = gui_state();
     if (cam_type < 0 || gui < 0) return bridge_says;
     const bool now = gui != GUI_INVENTORY && gui != GUI_PAUSE && cam_type == CAMERA_PLAYER;
+    // b179 (2026-10-17, Fable, desk): the OPEN frame is the mirror image of the close. The bridge's flag is read at
+    // UpdateHID, before the menu opened, so it still says "driving"; by BeginRendering the VR layer is already in its
+    // menu regime (FirstPerson refreshes its pause flag at the camera's transform update, and once more from the render
+    // thread: VR.cpp "Forcefully update the camera transform after submitting the frame"). With the bridge winning we
+    // wrote the FULL pin and the VR layer added the headset turn on top: the one-frame doubled turn going IN (10-16 log:
+    // "read fresh = 0 (gui 2, camera type 0), the bridge said 1" -> "written as the full pin"). So while the menu is
+    // open and the fresh read says the menus own the camera, the fresh read wins. At the close the bridge keeps winning
+    // (b108: b104's fresh "drives" in the close frame was wrong; the VR layer still added the turn, 2.6 deg for a frame).
+    const bool fresh_wins = g_is_hidden && !now && bridge_says;
     static int disagreed = 0;
-    if (now != bridge_says && disagreed < 10) { ++disagreed; LOGI("%s menu: FirstPerson driving read fresh = %d (gui %d, camera type %d), the bridge said %d", TAG, (int)now, gui, cam_type, (int)bridge_says); }
-    // b108: the BRIDGE wins. The VR layer does not read the truth, it reads FirstPerson's own flag (will_be_used), and
-    // that flag lags the truth by a frame at a menu close -- which is exactly what the bridge reports. b104's "fresh"
-    // answer said FirstPerson drives in the close frame, we wrote the full view, the VR layer still added the headset
-    // turn on top: a 2.6 deg yaw jump for one frame at BeginRendering (probe, b107 f1701) = the inventory's world
-    // flicker. The fresh read stays as a log line only.
-    return bridge_says;
+    if (now != bridge_says && disagreed < 10) { ++disagreed; LOGI("%s menu: FirstPerson driving read fresh = %d (gui %d, camera type %d), the bridge said %d -> %s wins", TAG, (int)now, gui, cam_type, (int)bridge_says, fresh_wins ? "the fresh read (menu open)" : "the bridge"); }
+    return fresh_wins ? false : bridge_says;
 }
 
 // the view to write: while FirstPerson drives, the pre-menu base with THIS frame's headset turn (pin x inv(H0) x H), so
