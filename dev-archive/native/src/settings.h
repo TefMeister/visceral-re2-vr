@@ -21,6 +21,7 @@ constexpr ZoneOffset BACK         { 0.12f, -0.62f, -0.30f};   // the sub weapon 
 // Switched by LT with the LEFT hand at the left shoulder (the LEFT_SHOULDER spot). The beam shines from the left upper
 // chest and points where the head looks; the torch model is hidden in play and seen only in cutscenes.
 constexpr bool  FLASHLIGHT_ON = true;
+constexpr int   RAINHOLD_CTX_ALLOC_DEPTH = 0x78;   // via.clr thread context: allocation-nesting counter (re2.exe 0x141f5d750; scratch cleanup when it returns to 0), rainhold.h
 constexpr ZoneOffset FLASHLIGHT_BEAM {-0.12f, -0.25f, 0.05f};   // the beam's start from the camera: left, down, forward (m)
 
 constexpr float ZONE_ENTER_M    = 0.15f;   // hand closer than this = in the zone

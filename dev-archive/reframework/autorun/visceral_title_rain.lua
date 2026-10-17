@@ -84,6 +84,14 @@ hook_pre("close", function(o)
     end
 end)
 
+-- 2026-10-17 (Fable, x64dbg live on the home PC, 22:27): WHY THE REQUEST CRASHED AT RANDOM, AND THE CURE. The game's
+-- createEffectInternal keeps its one-entry list of effect objects in the calling thread's SCRATCH PAGE; inside the same
+-- call, the first managed-object allocation runs the context's scratch CLEANUP when the context's allocation-nesting
+-- counter ([ctx+0x78]) drops back to 0, which rewinds and zeroes the page under the list, so the loop reads junk
+-- (length 0xNN0000, entry 1 = UTF-16 "ffec"). Caught in the act with a hardware write-watch on the page offset. The
+-- cure holds that counter one higher for the length of every requestEffectInternal call; it lives in the native
+-- plugin (dev-archive/native/src/rainhold.cpp) because Lua cannot write the thread context. Lua only logs here.
+
 local function find_menu()
     local sm = sdk.get_native_singleton("via.SceneManager")
     local smt = sdk.find_type_definition("via.SceneManager")
@@ -126,7 +134,16 @@ local function make_id(m)
     return id
 end
 
-re.on_frame(function()
+-- 2026-10-17 (Fable, desk read of re2.exe + the 22 crash dumps in the 10-16 log, then one flat launch): WHY THE REQUEST
+-- WAS REFUSED AT RANDOM. The game's createEffectInternal builds a one-entry list of effect objects and keeps it in a
+-- GameObject[] that it takes from the calling thread's SCRATCH PAGE (allocator 0x141f79930: a 4000-byte page hanging
+-- off the thread's VM context, objects stamped 0x80000000 = temporary, never ref-counted). In every dump that array
+-- sat exactly 0x60 bytes after the event-args object made the same way, its length read as 0xNN0000 and entry 1 held
+-- UTF-16 text ("ffec"): the page had been rewritten under the call before the loop read it again. The game's own request
+-- (Story open) runs on the main thread, whose page is reset every frame; ours ran in re.on_frame, i.e. on the render
+-- thread, whose page is never reset and wraps at a moment that depends only on how much was allocated before, hence
+-- "random". So the whole tick now runs in the game's own update (pre UpdateBehavior, main thread), nothing else changed.
+local function tick()
     local now = os.clock()
     if not st.menu then
         if now < st.next_find then return end
@@ -224,7 +241,7 @@ re.on_frame(function()
     local ok, r = pcall(function() return oem:call(SIG, id, nil, -1) end)
     if ok and r then
         st.ours = r
-        log_line(string.format("rain requested for the main menu (attempt %d, %.2f s after the title was found)", st.attempts, now - (st.armed_at or now)))
+        log_line(string.format("rain requested for the main menu (attempt %d, %.2f s after the title was found, from UpdateBehavior)", st.attempts, now - (st.armed_at or now)))
     elseif st.attempts >= MAX_ATTEMPTS then
         st.gave_up = true
         log_line(string.format("gave up after %d attempts (last: %s)", st.attempts, tostring(r)))
@@ -240,6 +257,12 @@ re.on_frame(function()
         -- and on the press-any-button screen after a game until A is pressed). Switch its update on once and retry.
         -- 2026-10-10 01:25: NO wake-up any more. Forcing UpdateSelf on made the boot rain slower (11 s instead of 2-5 s) and did not speed up the after-game case (about 10 s with or without it: the title scene is still loading its effect data, and the game accepts the request the moment it is there). Removed; the refusal line stays for the log.
     end
+end
+
+-- main thread, inside the engine's own update (2026-10-17, see the note above tick); was re.on_frame since 2026-10-02
+re.on_pre_application_entry("UpdateBehavior", function()
+    local ok, err = pcall(tick)
+    if not ok and not st.tick_err then st.tick_err = true; log_line("tick error: " .. tostring(err)) end
 end)
 
 log_line("loaded")
