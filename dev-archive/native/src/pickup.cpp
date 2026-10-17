@@ -57,8 +57,17 @@ int pre_itemget_start(int, void**, REFrameworkTypeDefinitionHandle*, unsigned lo
 }
 int pre_start_inv_cam(int, void**, REFrameworkTypeDefinitionHandle*, unsigned long long) {
     const bool pick = g_on || g_coming_frames.load() > 0;
-    const bool skip = pick && cfg::PICKUP_KEEP_WORLD_CAMERA;   // flat too: the monitor shows the same stage since our GuiBack skip
-    if (g_cam_logs.fetch_add(1) < 60) LOGI("%s pickup: CameraSystem.startInventoryCamera (pick-up up %d): %s", TAG, (int)g_on.load(), skip ? "SKIPPED, the world camera stays" : "let through");
+    // b181 (2026-10-17, Fable): the INVENTORY'S CLOSING JUMP (Tefa: the world teleports left for a frame or two, most
+    // closes) comes from this camera switch. The inventory switches the game to its own camera (switchCamera type 7),
+    // FirstPerson records that camera's turn while the menu is open, and its first frame after the close starts its
+    // smoothing from there: one frame ~24 deg off (probe f7047), written last from the render thread, where no write of
+    // ours can follow (b180 tried: 3 writes per close, the jump stayed). The pause menu never switches camera and is
+    // clean both ways since b179. So with the headset live the inventory keeps the world camera too, the way a pick-up
+    // has since b110: FirstPerson then records the player's own controller and has nothing to swing from. The world
+    // behind the menu is held by menu_body as before; the item view is the inventory's own.
+    const bool inv = cfg::INVENTORY_KEEP_WORLD_CAMERA && bridge::live();
+    const bool skip = (pick && cfg::PICKUP_KEEP_WORLD_CAMERA) || inv;   // flat too for pick-ups: the monitor shows the same stage since our GuiBack skip
+    if (g_cam_logs.fetch_add(1) < 60) LOGI("%s pickup: CameraSystem.startInventoryCamera (pick-up up %d, headset %d): %s", TAG, (int)g_on.load(), (int)bridge::live(), skip ? (inv && !pick ? "SKIPPED, the world camera stays (inventory, b181)" : "SKIPPED, the world camera stays") : "let through");
     return skip ? REFRAMEWORK_HOOK_SKIP_ORIGINAL : REFRAMEWORK_HOOK_CALL_ORIGINAL;
 }
 bool g_skipped_end = false;

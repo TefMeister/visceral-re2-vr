@@ -69,6 +69,7 @@ constexpr const char* PICKUP_HIDE[] = {"GUIBlackMask"};    // GUI elements not d
 constexpr int   PICKUP_GIVE_UP_FRAMES = 300;               // the inventory never read open this long after the call: stop
 constexpr int   PICKUP_NAME_CACHE = 512;                   // element names remembered per pick-up
 constexpr bool  PICKUP_KEEP_WORLD_CAMERA = true;           // b144: skip the game's item camera in a pick-up (the world stays behind it)
+constexpr bool  INVENTORY_KEEP_WORLD_CAMERA = true;        // b181: with the headset live, EVERY inventory open keeps the world camera (the inventory's own camera switch is the closing jump; pickup.cpp)
 constexpr int   PICKUP_COMING_FRAMES = 30;                 // b145: after ItemGetMenu.start, the next item camera this many frames on is a pick-up's
 
 // ---- every menu over the live game world: no tint, no blur (b128, 2026-10-10, Tefa's screenshot) -------------
@@ -122,7 +123,7 @@ constexpr float MENU_CAM_BACK_M    = 0.10f;   // after a menu closes, the camera
 constexpr float MENU_CAM_BACK_DEG  = 2.0f;    // and within this many degrees of the held turn
 constexpr int   MENU_CAM_RELEASE_FRAMES = 20; // and is held at most this many frames while it comes back
 constexpr int   MENU_CAM_SETTLE_FRAMES  = 3;
-constexpr int   MENU_CAM_CLOSE_RENDER_FRAMES = 3; // b180: after a menu closes, the held view is also written at BeginRendering PRE for this many frames (over FirstPerson's first, inventory-turned frame)  // b102: released only once FirstPerson's camera has sat at the held view this many frames in a row
+constexpr int   MENU_CAM_CLOSE_RENDER_FRAMES = 0; // b180: after a menu closes, the held view is also written at BeginRendering PRE for this many frames; b181: 0, it wrote 3 times per close and the jump stayed (FirstPerson rewrites the camera from the render thread after submit, VR.cpp ~1684)  // b102: released only once FirstPerson's camera has sat at the held view this many frames in a row
 constexpr bool  JACK_CAM_HOLD = true;         // b174: a jack start (ladder, cupboard, switch) with FirstPerson aside: the camera is written stripped (menu_body.cpp "jack")
 constexpr int   JACK_CAM_HOLD_FRAMES_MAX = 6; // ... for at most this many frames; FirstPerson aside for longer = left to the ladder hold, and logged
 
