@@ -347,7 +347,52 @@ void camera_point(bool last_point) {
 
 // b103 wrote joint 0 at BeginRendering PRE with the bridge's (one pose old) headset turn: 61-147 writes per hold, no misses,
 // the flicker stayed and the menu view lagged a pose (Tefa 2026-10-09: "the camera felt a bit shaky"). Out again (b104).
-void render_point() {}
+//
+// b180 (2026-10-17, Fable, from Tefa's own run with the probe on): THE INVENTORY'S CLOSING FLICKER, frame by frame. The
+// inventory switches to its own camera controller; while it is open FirstPerson records THAT controller's turn as "the
+// camera's", and in the first frame after the close (gui back to 0, FirstPerson allowed again) its smoothing starts from
+// the inventory camera's direction: the probe's close frame shows the camera written between LockScene POST and
+// BeginRendering PRE turned ~24 deg in yaw from the held view, right again the frame after (f7047 -> f7048, 23:09:34).
+// The pause menu keeps the player's controller, so it has no such frame (f5077: the view is right at once). That write
+// lands AFTER every game-thread write of ours, so the only place to overrule it is here, BeginRendering PRE, which runs
+// after FirstPerson's write and after the VR layer's own camera pass. For the first MENU_CAM_CLOSE_RENDER_FRAMES frames
+// of the release the FULL view (pin x inv(H0) x H) goes into the transform and the root joint -- full, not stripped:
+// whatever regime the VR layer picked this frame, its pass is already over, so this is the view that renders. H is the
+// bridge's, one pose old: a lag of one pose for three frames, against a 24 deg jump. Not during the open hold (b103's
+// shaky feel) and not for a jack hold.
+void render_point() {
+    // the body stays hidden two frames past the close and the release count starts only then, so the gate is the GUI
+    // itself: menu closed, hold still on, the first few frames (render_writes is reset when the hold is pinned)
+    if (!bridge::live() || !g_cam.pinned || g_cam.jack || menu_open()) return;
+    if (g_cam.render_writes >= cfg::MENU_CAM_CLOSE_RENDER_FRAMES) return;
+    auto* tf = camera_transform();
+    if (tf == nullptr) { ++g_cam.render_misses; return; }
+    const Quat h = bridge::view_quat(bridge::S_HMD_Q);
+    if (!bridge::has(h.x)) { ++g_cam.render_misses; return; }
+    const Quat rot = qnorm(qmul(qmul(g_cam.pin_rot, qinv(g_cam.pin_hmd)), h));
+    const Vec3 pos = g_cam.pin;
+    set_pos(tf, pos);
+    set_rot(tf, rot);
+    auto* joints = call_ptr(tf, "get_Joints");                                  // via.Joint[]; element 0 is the root joint (b103)
+    MO* j0 = joints != nullptr ? *(MO**)((char*)joints + 0x20) : nullptr;
+    static API::Method* jset_rot = nullptr;
+    static API::Method* jset_pos = nullptr;
+    static bool looked = false;
+    if (is_managed(j0) && !looked) {
+        looked = true;
+        jset_rot = find_method_deep(j0->get_type_definition(), "set_Rotation");
+        jset_pos = find_method_deep(j0->get_type_definition(), "set_Position");
+        LOGI("%s menu: camera root joint found; set_Rotation %s, set_Position %s", TAG, jset_rot ? "found" : "MISSING", jset_pos ? "found" : "MISSING");
+    }
+    if (is_managed(j0) && jset_rot != nullptr && jset_pos != nullptr) {
+        auto* ctx = API::get()->get_vm_context();
+        jset_pos->call<void>(ctx, (void*)j0, (void*)&pos);
+        jset_rot->call<void>(ctx, (void*)j0, (void*)&rot);
+    } else {
+        ++g_cam.render_misses;
+    }
+    ++g_cam.render_writes;
+}
 
 void late_write() {
     if (!bridge::live() || !g_cam.pinned) return;

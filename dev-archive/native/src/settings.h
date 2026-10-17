@@ -121,7 +121,8 @@ constexpr int   MENU_WALK_CHILDREN = 500;     // and at most this many children 
 constexpr float MENU_CAM_BACK_M    = 0.10f;   // after a menu closes, the camera counts as back this close to the held spot
 constexpr float MENU_CAM_BACK_DEG  = 2.0f;    // and within this many degrees of the held turn
 constexpr int   MENU_CAM_RELEASE_FRAMES = 20; // and is held at most this many frames while it comes back
-constexpr int   MENU_CAM_SETTLE_FRAMES  = 3;  // b102: released only once FirstPerson's camera has sat at the held view this many frames in a row
+constexpr int   MENU_CAM_SETTLE_FRAMES  = 3;
+constexpr int   MENU_CAM_CLOSE_RENDER_FRAMES = 3; // b180: after a menu closes, the held view is also written at BeginRendering PRE for this many frames (over FirstPerson's first, inventory-turned frame)  // b102: released only once FirstPerson's camera has sat at the held view this many frames in a row
 constexpr bool  JACK_CAM_HOLD = true;         // b174: a jack start (ladder, cupboard, switch) with FirstPerson aside: the camera is written stripped (menu_body.cpp "jack")
 constexpr int   JACK_CAM_HOLD_FRAMES_MAX = 6; // ... for at most this many frames; FirstPerson aside for longer = left to the ladder hold, and logged
 
