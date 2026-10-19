@@ -52,3 +52,13 @@ ef-76build-76b.bat` (target RE2) ->
   being racked) means the VR layer skips its turn-the-gun-to-meet-the-left-hand step, so the right hand alone aims
   while the left works the slide. Built on the home PC: `D:\ref-76b\build-76b.bat` (the tree was first reset to the
   10-13 state with `git checkout -- src/mods` + that patch). Note: `modding-notes/2026-10-14-b176-one-grip-per-gun-and-right-hand-aims-on-the-slide.md`.
+
+- `2026-10-19-re2-inventory-close-no-cutscene-path.patch` — against `76298bd`, cumulative (everything installed so far
+  in `src/mods/FirstPerson.cpp` / `.hpp` / `VR.cpp`; apply this one alone). New: `update_camera_transform` treats the
+  inventory's camera (`CameraControlType::INVENTORY`), still busy for a frame or two after the inventory closes, as the
+  player's camera once the menu is closed. Before, those frames took the cutscene path: the last rendered view (head
+  turn included) became the controller rotation and the head turn was added again on the first frame back, the
+  world jumping sideways by the head's turn (Tefa 2026-10-17: "teleports to the left for a frame or 2"). Opus,
+  `[inferred-static 2026-10-19]` from the source; built `dinput8.dll` 78d65384, installed, unworn. Previous build kept:
+  `D:/Visceral build versions/dinput8-b3ea3abd-before-inventory-close-fix.dll`.
+
