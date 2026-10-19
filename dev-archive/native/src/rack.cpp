@@ -350,11 +350,23 @@ void frame() {
     const bool pump = is_pump(g_wp);
     const bool may_rack = pump || g_parked || g_needed;   // pistols: only an empty / locked-open gun (Tefa)
     if (!lt) g_spent = false;
+    // b183 (Tefa 2026-10-16 and 10-19: "the left grip still does not grip the shotgun at all"): since b176 a pump gun's
+    // grip is ours alone (owned = 1, the VR layer no longer docks on the aid joint), but only LG + LT ever docked here.
+    // So LG by itself near the fore-end now docks the hand too (no pull armed until LT); once on, it stays on until LG
+    // is let go (the zone test would flicker with the hand on the pump).
+    if (pump) {
+        float d = 0.0f;
+        const bool grip = lg && !menu && !reload::session_active() && (g_grip || hand_on_barrel(d));
+        if (grip != g_grip) LOGI("%s rack: left hand %s the fore-end on LG (controller %.3f m, need %.2f)", TAG, grip ? "grips" : "lets go of", d, cfg::PUMP_GRAB_M);
+        g_grip = grip;
+    } else {
+        g_grip = false;
+    }
     if (!g_hand_on && !menu && !reload::session_active() && may_rack && !g_spent) {
         float d = 0.0f;
         const bool want = pump ? (lg && bridge::pressed(bridge::S_LTRIG)) : lg;
         if (want) {
-            const bool near = pump ? hand_on_barrel(d) : hand_near_joint(d);
+            const bool near = pump ? (g_grip || hand_on_barrel(d)) : hand_near_joint(d);
             if ((pump || bridge::pressed(bridge::S_LGRIP)) && g_log_near < 30) { ++g_log_near; LOGI("%s rack: %s, left hand %.3f m from the %s (need %.2f): %s", TAG, pump ? "LG+LT" : "LG", d, pump ? "fore-end" : "slide", pump ? cfg::PUMP_GRAB_M : cfg::RACK_HAND_M, near ? "HAND ON" : "too far"); }
             if (near) {
                 g_hand_on = true;
