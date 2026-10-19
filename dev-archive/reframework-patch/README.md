@@ -62,3 +62,11 @@ ef-76build-76b.bat` (target RE2) ->
   `[inferred-static 2026-10-19]` from the source; built `dinput8.dll` 78d65384, installed, unworn. Previous build kept:
   `D:/Visceral build versions/dinput8-b3ea3abd-before-inventory-close-fix.dll`.
 
+- `2026-10-19b-re2-switch-start-keeps-the-head-turn.patch` — against `76298bd`, cumulative (contains the 10-19
+  inventory-close patch; apply this one alone). New: a switch, ladder or cupboard push starts with a frame or two of
+  `SwitchingCamera` on the player camera; those frames are not "in control", so `update_camera_transform` measured the
+  headset's turn against the stored pre-cutscene headset rotation (stale) and the view snapped to that old head
+  direction (Tefa: "grabs the camera and points it at the centered hmd direction for just a frame or 2"). Now only a
+  return FROM a cutscene (`m_has_cutscene_rotation`) uses that compensation; a switch from normal play keeps the real
+  headset turn. Opus, `[inferred-static 2026-10-19]`; dinput8 b55e4770, installed, unworn.
+
