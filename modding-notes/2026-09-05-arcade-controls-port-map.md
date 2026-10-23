@@ -114,7 +114,7 @@ asking.
 **Andyalpa**, for RE2VRMODRELOADED, the base layer this all builds on, studied with permission.
 **praydog**, for REFramework and the FirstPerson plugin the whole system sits on. **Junh2x**, whose
 diagnostic scripts are cited in the dossier's §8d rather than here. If someone should be credited
-and is not, email us and it is fixed the same day.
+and is not, open an issue on GitHub and it is fixed the same day.
 
 ---
 
