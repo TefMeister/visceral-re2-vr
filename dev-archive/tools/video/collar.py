@@ -1,8 +1,9 @@
+import os
 """collar.py <video> : left-eye picture at 480x480, every frame. Collar tip = topmost row of the red jacket; hand = the
 skin-coloured blob's top row (the hand is on the controller, so it is our fixed reference). Prints at 10 fps:
 collar_top, hand_top, and collar relative to hand (pixels; 480 px = the full vertical view)."""
 import subprocess, sys, numpy as np
-F = r"~\AppData\Local\Programs\Python\Python312\Lib\site-packages\imageio_ffmpeg\binaries\ffmpeg-win-x86_64-v7.1.exe"
+F = os.path.expanduser(r"~\AppData\Local\Programs\Python\Python312\Lib\site-packages\imageio_ffmpeg\binaries\ffmpeg-win-x86_64-v7.1.exe")
 W = H = 480
 p = subprocess.Popen([F, "-hide_banner", "-loglevel", "error", "-i", sys.argv[1], "-vf", f"crop=iw/2:ih:0:0,scale={W}:{H}",
                       "-f", "rawvideo", "-pix_fmt", "rgb24", "-"], stdout=subprocess.PIPE)
