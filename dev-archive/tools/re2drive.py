@@ -21,7 +21,7 @@ Usage:
 """
 import ctypes, ctypes.wintypes as w, importlib.util, os, sys, time
 
-TOOLKIT = r"~\github-backups\flat-to-vr-RE-toolkit\tools\game-harness.py"
+TOOLKIT = os.path.expanduser(r"~\github-backups\flat-to-vr-RE-toolkit\tools\game-harness.py")
 # 2026-09-27 (Tefa): nothing of Visceral goes into the real game folder any more; this targets the TEST COPY.
 GAME = r"D:\RE2 test copy"
 LOG = os.path.join(GAME, "re2_framework_log.txt")
