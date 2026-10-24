@@ -1,3 +1,4 @@
+import os
 """mouse_look.py -- turn the RE2 camera from outside the game (2026-09-12, /lm lane).
 
 The automation profile carried "character+camera: not exercised" from 2026-09-04 until this script,
@@ -15,7 +16,7 @@ Focus is taken first through the shared harness, because synthetic input follows
 """
 import ctypes, ctypes.wintypes as w, time, sys, importlib.util
 
-TOOLKIT = r"~\github-backups\flat-to-vr-RE-toolkit\tools\game-harness.py"
+TOOLKIT = os.path.expanduser(r"~\github-backups\flat-to-vr-RE-toolkit\tools\game-harness.py")
 spec = importlib.util.spec_from_file_location("harness", TOOLKIT)
 H = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(H)
