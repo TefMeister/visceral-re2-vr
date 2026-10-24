@@ -1780,9 +1780,12 @@ fixed in b100 by stripping). The ladder start flick is probably the same thing. 
   REFramework window) `[verified-live 2026-10-11, n=1]`.
 - **VR UI squish:** the UI is drawn at the eye size (Quest 3 via VD: 2688x2880 per eye) and stretched onto the window;
   setting `NormalWindowResolution` to that shape made it a thin strip `[disproved 2026-10-11, n=1]`.
-  Cause `[inferred-static 2026-10-24, ref-76b]`: ImGui's DisplaySize comes from the window's client size, and on
-  OpenXR the menu is drawn into the eye-size back buffer, so a 16:9 layout is stretched onto a 0.93 image. Fix plan
-  (DisplaySize at the back buffer's aspect + mouse X scaled): `modding-notes/2026-10-24-pd-build-saved-...md` §2.
+  Cause, corrected the same day `[inferred-static 2026-10-24, ref-76b]`: on OpenXR the menu never reaches the
+  headset (the eye images are copied in `on_present`, before the menu is drawn); it is drawn 1:1 at the window's
+  client size into the top-left of the eye-size back buffer (2688x2880, `[measured 2026-10-24]` from the log), and
+  the window shows that back buffer shrunk to 16:9, which flattens it. Fix b186 `[compile-verified 2026-10-24]`:
+  `io.DisplayFramebufferScale` = back buffer / client while the headset is on, so the shrink undoes it and the mouse
+  needs no change; tick box "Menu Text Not Squished (window)". `modding-notes/2026-10-24-pd-b186-menu-text-not-squished.md`.
 - **EMV Poser files** (`data/EMV_Engine/Poses/*.json`) store `_LocalEulerAngle` as `"vec:x y z"` per joint, the
   property handpose.cpp writes; `tools/emv_pose_to_handpose.py` merges them into `handpose_data.h` `[verified-numerically 2026-10-24]`.
 - **Magazines are empty models:** the Matilda's `wp0000_vp70.mesh` has no bullet material; the long-magazine pickup

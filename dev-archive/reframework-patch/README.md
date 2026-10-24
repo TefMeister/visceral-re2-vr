@@ -70,3 +70,15 @@ ef-76build-76b.bat` (target RE2) ->
   return FROM a cutscene (`m_has_cutscene_rotation`) uses that compensation; a switch from normal play keeps the real
   headset turn. Opus, `[inferred-static 2026-10-19]`; dinput8 b55e4770, installed, unworn.
 
+
+- `2026-10-24-re2-menu-text-not-squished.patch` — against `76298bd`, cumulative (contains the 10-19b switch-start
+  patch; also touches `src/REFramework.cpp`, so apply it to `src/mods` AND `src/REFramework.cpp`). New: on OpenXR
+  the REFramework menu is never put in the headset; it is drawn onto the eye-size back buffer (2688x2880), which the
+  window shows shrunk into its 16:9 client area, so the menu came out flattened (Tefa 2026-10-11: "squished").
+  `run_imgui_frame` now sets `io.DisplayFramebufferScale` = back buffer size / window client size while the headset
+  is on (OpenXR only), so the menu covers the whole back buffer and the window's shrink undoes it; the mouse is
+  already in window pixels and lines up unchanged. VR options tick box "Menu Text Not Squished (window)", on by
+  default (config `VR_VisceralMenuFitWindow`); off brings back the old drawing, for REFramework's on-screen markers
+  (object boxes, Lua `draw.*`), which are placed in back buffer pixels and land off target while it is on. Log:
+  `[Visceral] menu drawn at scale X x Y (window WxH, back buffer WxH)`. Opus, `[compile-verified 2026-10-24]`;
+  dinput8 293aef6e, installed, unrun. Previous: `D:/Visceral build versions/dinput8-b55e4770-before-menu-fit.dll`.
