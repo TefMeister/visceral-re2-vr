@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import os
 """Independent numeric check of the v0.6 reach clamp's measurement.
 
 Ground truth is the joint dump the game itself produced on 2026-09-05 run 12
@@ -9,7 +10,7 @@ measurements of the same skeleton.
 """
 import re, sys, math
 
-LOG = r"~\github-backups-pd\visceral-re2-vr\dev-archive\recon\2026-09-05-dock-v04\run12-dock-v05-final-space-mapping.txt"
+LOG = os.path.expanduser(r"~\github-backups-pd\visceral-re2-vr\dev-archive\recon\2026-09-05-dock-v04\run12-dock-v05-final-space-mapping.txt")
 FRAC = 0.98            # DOCK_REACH_FRAC in Plugin.cpp
 BAND = (0.05, 1.0)     # the per-segment acceptance band in Plugin.cpp
 

@@ -1,7 +1,8 @@
+import os
 """track.py <video> : left-eye picture, every frame at 240x240; the red jacket's area, its top edge (rows from the top)
 and its centroid, plus a mean frame-to-frame change so jumps stand out. Prints one line per 1/10 s and marks big steps."""
 import subprocess, sys, numpy as np
-F = r"~\AppData\Local\Programs\Python\Python312\Lib\site-packages\imageio_ffmpeg\binaries\ffmpeg-win-x86_64-v7.1.exe"
+F = os.path.expanduser(r"~\AppData\Local\Programs\Python\Python312\Lib\site-packages\imageio_ffmpeg\binaries\ffmpeg-win-x86_64-v7.1.exe")
 W = H = 240
 cmd = [F, "-hide_banner", "-loglevel", "error", "-i", sys.argv[1], "-vf", f"crop=iw/2:ih:0:0,scale={W}:{H}", "-f", "rawvideo", "-pix_fmt", "rgb24", "-"]
 p = subprocess.Popen(cmd, stdout=subprocess.PIPE)
