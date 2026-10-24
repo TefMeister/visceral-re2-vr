@@ -15,6 +15,8 @@
 local TAG = "[visceral-tuning]"
 local S_WHO, S_HT_ON, S_HT, STRIDE = 84, 86, 88, 64
 local S_FREEZE, FREEZE_AFTER_SEC = 536, 10   -- b169; b172/b173: moved from 344 (src/bridge.h)
+local S_LADDER_HOLD_OFF = 537   -- b188: 1 = the ladder/cupboard view hold is off (tick box below), so Tefa can compare at one ladder
+local ladder = {hold = true}    -- never saved: every game starts with the hold on, as shipped since b086
 local S_RUMBLE_L_AMP, S_RUMBLE_R_AMP = 10, 12   -- amp, then seconds at +1 (visceral_bridge.lua fires them)
 local N_VALUES = 12 + 17 * 3   -- item move 3, item turn 3, hand move 3, hand turn 3, 17 finger joints x (twist, spread, curl)
 
@@ -72,6 +74,7 @@ local function freeze_frame(b)
         freeze.last_left = left
     end
     b.w(S_FREEZE, freeze.frozen and 1 or 0)
+    b.w(S_LADDER_HOLD_OFF, ladder.hold and 0 or 1)
 end
 
 local function char_name(ch) return CHARACTERS[ch] or ("pl" .. tostring(ch)) end
@@ -227,6 +230,11 @@ re.on_draw_ui(function()
     elseif freeze.frozen then
         imgui.text("Hands held still: you can put the controllers down. Untick to let go.")
     end
+    -- b188: the ladder/cupboard view hold (Arcade Controls port, b086) can be switched off live, to compare the start of
+    -- a climb with and without it at the same ladder (the 10-19 log shows the hold turning the view "in one go" right
+    -- after a jack starts, a candidate for the flick Tefa sees there)
+    changed, ladder.hold = imgui.checkbox("Ladder / cupboard: hold the view facing the body (untick to compare)", ladder.hold)
+    if changed then log.info(TAG .. (ladder.hold and " ladder view hold ON" or " ladder view hold OFF (the game's own camera runs the jacks)")) end
     local wp, ch = who()
     if not wp then
         imgui.text("Waiting for the game: no character yet (or the bridge is not attached).")

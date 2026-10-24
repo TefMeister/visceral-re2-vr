@@ -1786,6 +1786,16 @@ fixed in b100 by stripping). The ladder start flick is probably the same thing. 
   the window shows that back buffer shrunk to 16:9, which flattens it. Fix b186 `[compile-verified 2026-10-24]`:
   `io.DisplayFramebufferScale` = back buffer / client while the headset is on, so the shrink undoes it and the mouse
   needs no change; tick box "Menu Text Not Squished (window)". `modding-notes/2026-10-24-pd-b186-menu-text-not-squished.md`.
+- **Inventory exit jump (the world turning by the head's yaw for a frame or two at the close):** the game seeds the
+  returning player camera's rotation from the camera as it stood (headset turn included) through its switch smoothing
+  (`SyncCameraRotation`), and FirstPerson's `on_update_camera_controller` took that as the body direction and multiplied
+  the live headset turn on top `[inferred-static 2026-10-24]`; the 10-19 log's 22 inventory closes show the close frame
+  off by exactly the headset yaw and the settled view off by exactly the head's turn during the menu (20 of 22 within
+  2 deg) `[measured 2026-10-24]`. Cure b187: the pre-menu body direction rules FirstPerson for 4 frames after a menu
+  closes `[compile-verified 2026-10-24]`. Note: `modding-notes/2026-10-24-fable-inventory-exit-jump-cause-and-ladder-probe.md`.
+- **Jack start (ladder, cupboard, switch):** our ladder hold engages at every jack and turns the rendered view to the
+  body facing "in one go" 14–55 ms after `jacked -> 1` (−12.8 to −80.3 deg seen) `[measured 2026-10-24, 6 jacks]`;
+  whether that or FirstPerson's switching frames (b185) is the flick Tefa sees is for b188's jack probe to say.
 - **EMV Poser files** (`data/EMV_Engine/Poses/*.json`) store `_LocalEulerAngle` as `"vec:x y z"` per joint, the
   property handpose.cpp writes; `tools/emv_pose_to_handpose.py` merges them into `handpose_data.h` `[verified-numerically 2026-10-24]`.
 - **Magazines are empty models:** the Matilda's `wp0000_vp70.mesh` has no bullet material; the long-magazine pickup

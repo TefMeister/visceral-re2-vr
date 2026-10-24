@@ -411,7 +411,15 @@ void late_update() {
         }
         LOGI("%s ladder: jacked -> %d (layer0 %s)", TAG, (int)j, g_layer0.c_str());
     }
-    if (j) update_hold(now);
+    if (j) {
+        if (hold_enabled()) {
+            update_hold(now);
+        } else if (A.hold_valid) {
+            // b188: switched off mid-jack by the tick box: stop writing, the game's own camera runs the rest of this jack
+            A.hold_valid = false;
+            LOGI("%s ladder: view hold switched OFF (menu tick box): the game's own camera runs this jack", TAG);
+        }
+    }
 
     update_climb(now);
     if (!g_climb.on) { g_climb.snap_valid = false; return; }
@@ -419,6 +427,16 @@ void late_update() {
 }
 
 bool jacked_now() { return bridge::live() && jacked(); }
+
+// b188: the Lua menu's tick box; a slot never written (old Lua, bridge not up) reads NO_VALUE and means ON
+bool hold_enabled() {
+    const float v = bridge::view(bridge::S_LADDER_HOLD_OFF);
+    return !bridge::has(v) || v < 0.5f;
+}
+
+float probe_ctrl_yaw() {
+    return (A.ctrl != nullptr && A.yaw != nullptr) ? *(float*)A.yaw->get_data_raw(A.ctrl, false) : 999.0f;
+}
 
 void restore(bool final) {
     if (!g_climb.snap_valid) return;

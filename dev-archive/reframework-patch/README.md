@@ -82,3 +82,17 @@ ef-76build-76b.bat` (target RE2) ->
   (object boxes, Lua `draw.*`), which are placed in back buffer pixels and land off target while it is on. Log:
   `[Visceral] menu drawn at scale X x Y (window WxH, back buffer WxH)`. Opus, `[compile-verified 2026-10-24]`;
   dinput8 293aef6e, installed, unrun. Previous: `D:/Visceral build versions/dinput8-b55e4770-before-menu-fit.dll`.
+
+- `2026-10-24b-re2-menu-close-hold.patch` — against `76298bd`, cumulative (contains the 10-24 menu-text patch; `src/mods`
+  AND `src/REFramework.cpp`). New: THE INVENTORY EXIT JUMP (Tefa 2026-10-17: "the whole world in front of me teleports
+  to the left for a frame or 2 and then snaps back"). Read from the 10-19 log (22 inventory closes): the close frame's
+  view is off by exactly the headset's yaw, the settled view is right. When the inventory closes the game switches back
+  to the player camera and seeds its rotation from the camera as it stood, headset turn included; FirstPerson's
+  `on_update_camera_controller` took that as the body direction and multiplied the live headset turn on top, so the
+  head's yaw was in the view twice for the frame or two the game's switch smoothing lasts. Now `note_pause_state` sees
+  every menu open and close once; at the open FirstPerson remembers the body direction (controller rotation, pitch, yaw),
+  and for `MENU_CLOSE_HOLD_FRAMES` (4) frames after the close that direction rules the view and is written back into the
+  controller. Log: `[Visceral] menu closed: the game offered a body direction N deg off the one from before the menu; the
+  old one rules for 4 frames`. Fable, `[inferred-static 2026-10-24]` from the log and the source, `[compile-verified
+  2026-10-24]`; dinput8 0c51f5ea, installed, unrun. Previous: `D:/Visceral build versions/dinput8-293aef6e-before-menu-close-hold.dll`.
+  Note: `modding-notes/2026-10-24-fable-inventory-exit-jump-cause-and-ladder-probe.md`.

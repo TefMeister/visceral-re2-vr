@@ -15,4 +15,6 @@ namespace vn::ladder {
 void late_update();          // LateUpdateBehavior POST, once per frame
 void restore(bool final);    // LockScene PRE (false) and PrepareRendering POST (true): put the body rotation back
 bool jacked_now();           // b174: the game has the body this frame (JackDominator.Jacked), read fresh, for menu_body's jack-start hold
+bool hold_enabled();         // b188: the view hold is on (the Lua menu's tick box; S_LADDER_HOLD_OFF unset or 0)
+float probe_ctrl_yaw();      // b188: the player camera controller's Yaw field (radians) for the jack probe, 999 if not acquired
 } // namespace vn::ladder
