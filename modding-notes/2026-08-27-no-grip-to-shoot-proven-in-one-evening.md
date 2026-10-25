@@ -29,8 +29,8 @@ to hard-block empty fire — turns out to be a **clean latching switch**:
   recomputation (the force lives above the per-frame ButtonBits rebuild that
   doomed the old SUPPORT_HOLD bit-clearing attempt).
 
-Probe: `visceral_noaim_fire_probe.lua` in `-dev-archive` (v1 `33de98a`, v2 result
-`49b2b4c`). Verified flat; the input abstraction is shared, so VR should follow,
+Probe: `visceral_noaim_fire_probe.lua` in `-dev-archive` (v1 `4fa79be`, v2 result
+`3d05bd2`). Verified flat; the input abstraction is shared, so VR should follow,
 but that's still to be verified in-headset.
 
 ## The design this enables (user's vision, sharpened by the result)
