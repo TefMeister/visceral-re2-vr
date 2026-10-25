@@ -1,7 +1,7 @@
 # RELOADED port step 2: the sound player and the dry-fire click (2026-10-03 evening, home PC, /pd, Opus)
 
 **The game was not launched; nothing here has been run.** Code on branch `split-plugin-2026-09-27`, commit
-`5f1f82f`, on top of bridge v2 (`d1e7894`). `[compile-verified 2026-10-03]`: builds; our files add 0 warnings (the
+`154fb2f`, on top of bridge v2 (`85bf32c`). `[compile-verified 2026-10-03]`: builds; our files add 0 warnings (the
 8 MinHook warnings were there before on a clean build).
 
 ## What was built

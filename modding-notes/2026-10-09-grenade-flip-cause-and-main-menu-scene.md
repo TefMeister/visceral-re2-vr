@@ -44,7 +44,7 @@ Tefa 22:45: "the police station is not seen in the main menu, it is visible rain
 save file". This was solved on 2026-09-27 (`visceral_title_one_scene.lua`, round 11, Tefa: "the switch is now
 seamless"; `modding-notes/2026-09-27-one-title-background-nine-rounds.md`). The 2026-10-04 clean reinstall took only
 the rain script back (b058: "No ... other menu extras"), so the scene script was missing, not broken. Reinstalled as
-b117 (commit 4b9b559 of the script). The rain script was written to sit beside it.
+b117 (commit 177600f of the script). The rain script was written to sit beside it.
 
 ## 2026-10-10 00:25 -- b119: the left hand docks in any state (Fable)
 

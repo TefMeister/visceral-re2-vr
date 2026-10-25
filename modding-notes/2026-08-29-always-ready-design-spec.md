@@ -45,7 +45,7 @@ divorcing the upper body from the locomotion animation.
 
 ## Status
 
-Probe v3 (dev-archive `bbc015e`) is deployed and answers 1 & 2 empirically:
+Probe v3 (dev-archive `ae2a969`) is deployed and answers 1 & 2 empirically:
 latch with NUMPAD7, try a door and a pickup. Control test matters — first try
 the same door/pickup while aiming *vanilla-style* (hold RMB): the latch forces
 the same HOLD bit vanilla aiming sets, so latched behavior should mirror
