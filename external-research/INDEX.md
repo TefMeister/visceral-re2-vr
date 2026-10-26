@@ -1,6 +1,8 @@
 # Research index
 
-**Last `/gr` pass: 2026-10-11 (estate sweep) — CHECK-IN.** Inbox empty. Found a public RE2 VR gameplay pack (Nexus 2483: holsters, manual reload, recoil); its author is not yet confirmed and it may be the already-known RE2VRModReloaded. REFramework master moved again 2026-10-10/11 (nightly-01432: world_to_screen fix for RE9, session log kept across restarts, C# API fixes); nothing we use.
+**Last `/gr` pass: 2026-10-26 — CHECK-IN.** Inbox empty. REFramework moved once since 10-11 (nightly-01433, 2026-10-21: a Dragon's Dogma 2 window fix); its issues since then are DD2, Monster Hunter, RE9 and RE7 ultrawide, nothing for RE2 VR. One search for a public report of the one-frame camera flick at a ladder, switch or cupboard push in REFramework VR found none (a negative from one search). Nothing new.
+
+_Previous: **Last `/gr` pass: 2026-10-11 (estate sweep) — CHECK-IN.** Inbox empty. Found a public RE2 VR gameplay pack (Nexus 2483: holsters, manual reload, recoil); its author is not yet confirmed and it may be the already-known RE2VRModReloaded. REFramework master moved again 2026-10-10/11 (nightly-01432: world_to_screen fix for RE9, session log kept across restarts, C# API fixes); nothing we use._
 
 _Previous: **Last `/gr` pass: 2026-10-07 (estate sweep) — CHECK-IN.** Inbox empty. REFramework master still 2026-09-16 (nightly-01424). One search for a public 'fire without aiming' mod found none; Andyalpa's RE2VRModReloaded is already known. Nothing new._
 
