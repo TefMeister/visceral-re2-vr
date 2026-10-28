@@ -16,7 +16,7 @@
 -- Slot map must match src/bridge.h.
 
 local TAG = "[visceral-bridge]"
-local N = 538   -- b173: 84 + the hand tuning slots (src/bridge.h S_WHO .. S_HT + 7 x 64) + S_FREEZE; b188: + S_LADDER_HOLD_OFF
+local N = 539   -- b173: 84 + the hand tuning slots (src/bridge.h S_WHO .. S_HT + 7 x 64) + S_FREEZE; b188: + S_LADDER_HOLD_OFF; 2026-10-28: + S_AUTO_EXPOSURE_ON
 local S_FRAME, S_HMD = 0, 1
 local S_LGRIP, S_LTRIG, S_RGRIP, S_RTRIG = 2, 3, 4, 5
 local S_LA, S_LB, S_RA, S_RB = 6, 7, 8, 9

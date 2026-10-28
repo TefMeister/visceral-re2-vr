@@ -787,6 +787,17 @@ and `setMaterialsEnable` exist (live type list) but are all-pass and cannot spli
 Not judged by eye yet: the shadow itself (no visible player shadow at the flat test spot; the headset decides).
 Modes and keys in the file header.
 
+### 7n. The automatic brightness (eye adaptation) kept off (2026-10-28, `/lm`, flat)
+
+Note: `modding-notes/2026-10-28-the-automatic-brightness-off.md`. The main camera's `via.render.ToneMapping` runs
+auto exposure (`getAutoExposure` Enable = 0, `BrightAdaptationRate` 0.01, `DarkAdaptationRate` 0.7, EV −8..16 around the
+area's authored EV); `app.ropeway.posteffect.ToneMapController` re-applies `CurrentParam` (AutoExposure Enable) every
+`lateUpdate`, so a one-off write is undone `[verified-live 2026-10-28, n=1]`. **Disable = 2** (UseAutoExposure reads
+false). `exposure.cpp` writes 2 every frame at `BeginRendering` pre: brightness after a view turn stays within ±0.3 over
+8 s, against −1.3 / −5.0 with the game's own `[verified-live 2026-10-28, n=2 each]`. NUM7 / tuning-menu tick box
+compare. The same component holds `KerareBeginAngle`/`KerareEndAngle` (the vignette, Disable = 2 already) and the
+Temporal AA mode.
+
 ### 7l. Why the face pack stalls VR: two suspects dead, and the pack should be 8× smaller anyway (2026-09-12, reader, static)
 
 Drained from `inbox/2026-09-12-reader-vr-90pct-stall-mechanism.md` the same day.
