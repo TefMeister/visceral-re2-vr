@@ -27,6 +27,8 @@
 //      by app.ropeway.posteffect.ColorCorrectController. With the controller and the component both off, live: "the
 //      blue is gone, looks much better, so much better" `[verified-live 2026-10-28, headset, n=1]`. Kept off;
 //      NUM6 gives the game's grading back (and takes it away again) to compare.
+// b193: contrast 1.2 (the game has 1.0; Tefa, live: "contrast looks right"). Its ToneMapController never writes
+// Contrast, so one write would hold; it is written every frame anyway, and NUM6 gives the game's 1.0 back with the grading.
 #include "exposure.h"
 #include "bridge.h"
 #include "common.h"
@@ -39,7 +41,8 @@ namespace {
 constexpr int AE_ENABLE = 0;           // via.render.ToneMapping.AutoExposure.Enable [verified-live 2026-10-28]
 constexpr int AE_CANDIDATES[] = {2, 1};   // Disable is one of these; FixedEnable the other [inferred-static: Vignetting's Disable = 2]
 constexpr float REPORT_S = 10.0f;
-constexpr float GAME_MIN_EV = -8.0f, GAME_MAX_EV = 16.0f;   // the limits the game leaves on the component (read live), put back when ours is off
+constexpr float GAME_MIN_EV = -8.0f, GAME_MAX_EV = 16.0f;
+constexpr float OUR_CONTRAST = 1.2f, GAME_CONTRAST = 1.0f;   // b193: Tefa's choice in the headset; the game's own   // the limits the game leaves on the component (read live), put back when ours is off
 
 struct State {
     int disable_value = -1;            // learned: the value that makes get_UseAutoExposure false
@@ -126,6 +129,7 @@ void render_point() {
     grading(cam_go);
     MO* tm = component(cam_go, "via.render.ToneMapping");
     if (tm == nullptr) return;
+    set_float(tm, "set_Contrast", g.grading_off ? OUR_CONTRAST : GAME_CONTRAST);   // b193, with the grading switch
     if (tm != g.last_tm) { g.last_tm = tm; g.limits_pinned = false; LOGI("%s exposure: main camera ToneMapping %p: AutoExposure %d, UseAutoExposure %d", TAG, (void*)tm, get_ae(tm), (int)use_ae(tm)); }
     if (!keep_off) {   // the game's own value stands (its controller writes Enable every frame); its limits come back once
         if (g.limits_pinned) { set_float(tm, "set_AutoExposureMinEV", GAME_MIN_EV); set_float(tm, "set_AutoExposureMaxEV", GAME_MAX_EV); g.limits_pinned = false; }

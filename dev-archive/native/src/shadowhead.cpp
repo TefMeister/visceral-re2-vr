@@ -29,6 +29,10 @@
 // game hid her hair again every frame and we showed it again every frame (now: shown ONCE when a cutscene starts, then
 // left to the game), and nothing to say where her copy went. The mode file is now re-read whenever it changes too, so
 // mode 3 (the copy visible, held out in front) can be switched on from the desk while she plays.
+// b193: Claire, the same night: her head showed in the shadow, then went (Tefa: "head dissapeared again"). The log had
+// both copies in mode 2 following her head, but DrawShadowCast 0: the game switched it off after our one write (we
+// applied the mode only when it changed). Now the flags are held every frame, and the first few times the game flips
+// them are logged.
 // [compile-verified] at most until it has run.
 #include "shadowhead.h"
 #include "common.h"
@@ -57,6 +61,7 @@ constexpr int CAMERA_PLAYER = 0;         // CameraSystem.BusyCameraType: the pla
 // skeleton (its joints: root, neck_1, head, hair..), so the same bind head is taken for it [hypothesis].
 constexpr Vec3 BIND_HEAD{0.0f, 1.5640067f, 0.0178933f};
 constexpr float REPORT_S = 5.0f;
+constexpr int FLIP_LOGS = 6;   // how many of the game's flips of the copies' flags are logged
 constexpr Vec3 DEBUG_OFFSET{0.0f, -0.3f, 1.0f};   // mode 3: along the head's own axes
 
 // One shadow copy: its own GameObject with a via.render.Mesh, given the holders of a mesh the game has loaded.
@@ -80,6 +85,7 @@ struct State {
     bool cutscene{false}, cutscene_sent{false};
     int hair_shown{-1};           // what we last did to the real hair: -1 nothing yet, 0 hidden, 1 shown
     float last_report_t{0.0f};
+    int flips{0};                 // times the game switched a copy's flags away from ours
     bool key8{false}, key9{false};
     MO* player{};
 } g;
@@ -325,6 +331,17 @@ void frame() {
         const int m = g.cutscene ? 0 : g.mode;   // in cutscenes the real head and hair cast their own shadow
         for (Copy* c : {&g.head, &g.hair}) apply_mode(*c, m);
         g.mode_sent = g.mode; g.cutscene_sent = g.cutscene;
+    } else {   // b193: held every frame; the game switches a copy's shadow off now and then
+        const int m = g.cutscene ? 0 : g.mode;
+        const bool draw = m == 1 || m == 3, shadow = m != 0;
+        for (Copy* c : {&g.head, &g.hair}) {
+            if (c->mesh == nullptr) continue;
+            const bool d = call_direct<bool>(c->mesh, "get_DrawDefault", draw), sh = call_direct<bool>(c->mesh, "get_DrawShadowCast", shadow);
+            if (d == draw && sh == shadow) continue;
+            set_bool(c->mesh, "set_DrawDefault", draw);
+            set_bool(c->mesh, "set_DrawShadowCast", shadow);
+            if (++g.flips <= FLIP_LOGS) LOGI("%s shadowhead: the game had switched the %s copy to DrawDefault=%d DrawShadowCast=%d; put back (flip %d)", TAG, c->what, (int)d, (int)sh, g.flips);
+        }
     }
     const float t = now_s();
     for (Copy* c : {&g.head, &g.hair}) report_ready(*c, t);
