@@ -15,12 +15,18 @@
 //
 // Modes (NUM8 cycles, NUM9 re-reads the mode file; reframework/data/visceral_shadowhead.txt holds the start mode):
 //   0 off   1 VISIBLE copy (to see it)   2 SHADOW ONLY (the goal)   3 VISIBLE copy held 1 m in front, 0.3 m down (debug)
+// Worn 2026-10-28 (Tefa): the shadow head shows, but "the head is carved out from the lower neck and is just too high up".
+// reframework/data/visceral_shadowhead_offset.txt ("<down cm> <forward cm>") moves the copy, re-read whenever the file
+// changes, so it can be tuned live. The same evening the strand in the left eye was Leon's hair mesh: HIDE_HAIR keeps it
+// out of view, its shadow is not affected (the hair casts none with the head joint hidden; seen in the headset, on vs off).
 // [compile-verified] at most until it has run.
 #include "shadowhead.h"
 #include "common.h"
 #include "joints.h"
 #include <windows.h>
 #include <cstdio>
+#include <cmath>
+#include <filesystem>
 #include <fstream>
 
 using namespace vn;
@@ -31,6 +37,9 @@ namespace {
 constexpr const char* FACE_MESH = "SectionRoot/Character/Player/pl1000/pl1050/pl1050.mesh";
 constexpr const char* FACE_MDF  = "SectionRoot/Character/Player/pl1000/pl1050/pl1050.mdf2";
 constexpr const char* MODE_FILE = "reframework/data/visceral_shadowhead.txt";
+constexpr const char* OFFSET_FILE = "reframework/data/visceral_shadowhead_offset.txt";
+constexpr float OFFSET_CHECK_S = 0.5f;   // how often the offset file's date is looked at
+constexpr bool HIDE_HAIR = true;         // the player's hair out of the normal view (shadow casting left as it is)
 // The face mesh's "head" bone in its bind pose (pl1050.mesh skeleton, read 2026-10-28): position (0, 1.564, 0.018),
 // rotation a 5.6 degree pitch about x, ignored here (a shadow does not show it).
 constexpr Vec3 BIND_HEAD{0.0f, 1.5640067f, 0.0178933f};
@@ -51,11 +60,27 @@ struct State {
     MO* player{};
 } g;
 
-int read_mode_file() {
-    std::ifstream f(MODE_FILE);
-    int m = -1;
-    if (f && (f >> m) && m >= 0 && m <= 3) return m;
-    return -1;
+// The tuning, outside State so a recreated copy keeps it.
+struct Offset {
+    float down_m{0.0f}, forward_m{0.0f};   // world down; forward along the body's facing, flat
+    std::filesystem::file_time_type stamp{};
+    bool seen{false};
+    float last_check_t{-1.0f};
+} off;
+
+void read_offset_file(float t) {
+    if (t - off.last_check_t < OFFSET_CHECK_S) return;
+    off.last_check_t = t;
+    std::error_code ec;
+    const auto stamp = std::filesystem::last_write_time(OFFSET_FILE, ec);
+    if (ec || (off.seen && stamp == off.stamp)) return;
+    off.stamp = stamp; off.seen = true;
+    std::ifstream f(OFFSET_FILE);
+    float down_cm = 0.0f, fwd_cm = 0.0f;
+    if (!(f >> down_cm)) return;
+    if (!(f >> fwd_cm)) fwd_cm = 0.0f;
+    off.down_m = down_cm / 100.0f; off.forward_m = fwd_cm / 100.0f;
+    LOGI("%s shadowhead: offset from the file: %.1f cm down, %.1f cm forward", TAG, down_cm, fwd_cm);
 }
 
 MO* resource_holder(const char* res_type, const char* path, const char* holder_type) {
@@ -87,6 +112,23 @@ int material_num(MO* mesh) { return mesh ? call_direct<int>(mesh, "get_MaterialN
 void set_bool(MO* o, const char* name, bool v) {
     auto* m = o ? find_method_deep(o->get_type_definition(), name) : nullptr;
     if (m != nullptr) m->call<void>(API::get()->get_vm_context(), (void*)o, v);
+}
+
+// The real hair: hidden from the normal view, every frame (a costume change brings it back otherwise).
+void hide_hair(MO* player) {
+    if (!HIDE_HAIR) return;
+    auto* hair = call_ptr(component(player, "app.ropeway.survivor.SurvivorCostumeChanger"), "get_Hair");
+    if (hair == nullptr || !call_direct<bool>(hair, "get_DrawDefault", false)) return;
+    set_bool(hair, "set_DrawDefault", false);
+    LOGI("%s shadowhead: the player's hair %p hidden from view (shadow casting left on: %d)", TAG, (void*)hair,
+         (int)call_direct<bool>(hair, "get_DrawShadowCast", false));
+}
+
+int read_mode_file() {
+    std::ifstream f(MODE_FILE);
+    int m = -1;
+    if (f && (f >> m) && m >= 0 && m <= 3) return m;
+    return -1;
 }
 
 void apply_mode() {
@@ -154,8 +196,17 @@ void place(MO* player) {
     if (head == nullptr || !get_v3(JOINT, head, "get_Position", hp) || !get_q(JOINT, head, "get_Rotation", hq)) return;
     // T = live head frame x inverse(bind head frame), with the bind rotation taken as identity: the copy's bind-pose
     // head then sits on the live head joint, turning with it.
-    const Vec3 off = g.mode == 3 ? DEBUG_OFFSET : Vec3{0, 0, 0};
-    const Vec3 pos = hp - rotate(hq, BIND_HEAD) + rotate(hq, off);
+    const Vec3 dbg = g.mode == 3 ? DEBUG_OFFSET : Vec3{0, 0, 0};
+    Vec3 pos = hp - rotate(hq, BIND_HEAD) + rotate(hq, dbg);
+    pos.y -= off.down_m;
+    if (off.forward_m != 0.0f) {   // along the body's facing, kept flat
+        Quat pq{};
+        if (get_q(joints::XFORM, ptf, "get_Rotation", pq)) {
+            Vec3 f = rotate(pq, Vec3{0, 0, 1});
+            const float len = std::sqrt(f.x * f.x + f.z * f.z);
+            if (len > 1e-4f) { pos.x += f.x / len * off.forward_m; pos.z += f.z / len * off.forward_m; }
+        }
+    }
     struct V4 { float x, y, z, w; };
     const V4 p{pos.x, pos.y, pos.z, 0.0f}, q{hq.x, hq.y, hq.z, hq.w};
     set_any(joints::XFORM, g.tf, "set_Position", &p);
@@ -177,6 +228,7 @@ void frame() {
     static bool first = true;
     if (first) { first = false; const int m = read_mode_file(); if (m >= 0) g.mode = m; LOGI("%s shadowhead: start mode %d (file %s)", TAG, g.mode, MODE_FILE); }
     keys();
+    read_offset_file(now_s());
     auto* player = call_ptr(API::get()->get_managed_singleton("app.ropeway.PlayerManager"), "get_CurrentPlayer");
     if (player == nullptr) { if (g.created) { LOGI("%s shadowhead: player gone, the copy is dropped", TAG); } g = State{.mode = g.mode}; return; }
     if (g.created && (!is_managed(g.go) || !is_managed(g.mesh))) { LOGW("%s shadowhead: the copy is no longer a managed object, recreating", TAG); g = State{.mode = g.mode}; }
@@ -198,6 +250,7 @@ void frame() {
             }
         }
     }
+    hide_hair(player);
     place(player);
     if (g.mode_sent != g.mode) apply_mode();
     const float t = now_s();
