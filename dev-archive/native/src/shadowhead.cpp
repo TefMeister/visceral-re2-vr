@@ -25,6 +25,10 @@
 // hidden from view during play, and in cutscenes (camera not the PLAYER camera) the real hair comes back and both
 // copies stop casting, so the shadow is not doubled. Leon, Claire and Ada alike: both copies take the holders of
 // whatever face and hair the costume changer has now.
+// b191: Claire's first run (Tefa: "her head shadow was not there") showed two things in the log: in a cutscene the
+// game hid her hair again every frame and we showed it again every frame (now: shown ONCE when a cutscene starts, then
+// left to the game), and nothing to say where her copy went. The mode file is now re-read whenever it changes too, so
+// mode 3 (the copy visible, held out in front) can be switched on from the desk while she plays.
 // [compile-verified] at most until it has run.
 #include "shadowhead.h"
 #include "common.h"
@@ -74,6 +78,7 @@ struct State {
     Copy hair{"hair", "get_Hair", L"visceral_shadowhair"};
     int mode{2}, mode_sent{-1};   // 0 off, 1 visible copy, 2 shadow only, 3 visible copy held out in front (debug)
     bool cutscene{false}, cutscene_sent{false};
+    int hair_shown{-1};           // what we last did to the real hair: -1 nothing yet, 0 hidden, 1 shown
     float last_report_t{0.0f};
     bool key8{false}, key9{false};
     MO* player{};
@@ -87,6 +92,12 @@ struct Offset {
     float last_check_t{-1.0f};
 } off;
 
+struct ModeFile {   // the mode file is watched like the offset file, so the mode can be changed from outside
+    std::filesystem::file_time_type stamp{};
+    bool seen{false};
+    float last_check_t{-1.0f};
+} mode_file;
+
 void reset_keep_mode() { const int m = g.mode; g = State{}; g.mode = m; }
 
 int read_mode_file() {
@@ -94,6 +105,19 @@ int read_mode_file() {
     int m = -1;
     if (f && (f >> m) && m >= 0 && m <= 3) return m;
     return -1;
+}
+
+void watch_mode_file(float t) {
+    if (t - mode_file.last_check_t < OFFSET_CHECK_S) return;
+    mode_file.last_check_t = t;
+    std::error_code ec;
+    const auto stamp = std::filesystem::last_write_time(MODE_FILE, ec);
+    if (ec || (mode_file.seen && stamp == mode_file.stamp)) return;
+    const bool first_look = !mode_file.seen;
+    mode_file.stamp = stamp; mode_file.seen = true;
+    if (first_look) return;   // the start mode is read once at the first frame
+    const int m = read_mode_file();
+    if (m >= 0 && m != g.mode) { g.mode = m; LOGI("%s shadowhead: mode %d from the changed file", TAG, m); }
 }
 
 void read_offset_file(float t) {
@@ -141,16 +165,23 @@ bool in_cutscene() {
     return t >= 0 && t != CAMERA_PLAYER;
 }
 
-// The real hair: hidden from view during play, shown in cutscenes; set again whenever it differs (a costume change
-// brings a fresh hair mesh that draws).
+// The real hair: hidden from view during play, held hidden every frame (a costume change brings a fresh hair mesh
+// that draws); shown ONCE as a cutscene starts and then left to the game, which hides it itself in some cutscenes.
 void real_hair(MO* player) {
     if (!HIDE_HAIR) return;
     auto* hair = real_mesh(player, "get_Hair");
     if (hair == nullptr) return;
-    const bool want = g.cutscene;
-    if (call_direct<bool>(hair, "get_DrawDefault", !want) == want) return;
-    set_bool(hair, "set_DrawDefault", want);
-    LOGI("%s shadowhead: the player's hair %p %s", TAG, (void*)hair, want ? "shown (cutscene)" : "hidden from view (play)");
+    if (g.cutscene) {
+        if (g.hair_shown == 1) return;
+        set_bool(hair, "set_DrawDefault", true);
+        g.hair_shown = 1;
+        LOGI("%s shadowhead: the player's hair %p shown (a cutscene starts; the game has it from here)", TAG, (void*)hair);
+        return;
+    }
+    if (!call_direct<bool>(hair, "get_DrawDefault", true)) { g.hair_shown = 0; return; }
+    set_bool(hair, "set_DrawDefault", false);
+    if (g.hair_shown != 0) LOGI("%s shadowhead: the player's hair %p hidden from view (play)", TAG, (void*)hair);
+    g.hair_shown = 0;
 }
 
 void apply_mode(Copy& c, int mode) {
@@ -278,6 +309,7 @@ void frame() {
     if (first) { first = false; const int m = read_mode_file(); if (m >= 0) g.mode = m; LOGI("%s shadowhead: start mode %d (file %s)", TAG, g.mode, MODE_FILE); }
     keys();
     read_offset_file(now_s());
+    watch_mode_file(now_s());
     auto* player = call_ptr(API::get()->get_managed_singleton("app.ropeway.PlayerManager"), "get_CurrentPlayer");
     if (player == nullptr) { if (g.head.created) { LOGI("%s shadowhead: player gone, the copies are dropped", TAG); } reset_keep_mode(); return; }
     for (Copy* c : {&g.head, &g.hair})
@@ -298,9 +330,13 @@ void frame() {
     for (Copy* c : {&g.head, &g.hair}) report_ready(*c, t);
     if (t - g.last_report_t >= REPORT_S) {
         g.last_report_t = t;
-        Vec3 p{}; get_v3(joints::XFORM, g.head.tf, "get_Position", p);
-        LOGI("%s shadowhead: mode %d%s, head copy at (%.2f %.2f %.2f), materials head=%d hair=%d", TAG, g.mode,
-             g.cutscene ? " (cutscene: copies off)" : "", p.x, p.y, p.z, material_num(g.head.mesh), material_num(g.hair.mesh));
+        Vec3 p{}, hp{}; get_v3(joints::XFORM, g.head.tf, "get_Position", p);
+        auto* head = joint_by_name(call_ptr(player, "get_Transform"), L"head");
+        if (head != nullptr) get_v3(JOINT, head, "get_Position", hp);
+        LOGI("%s shadowhead: mode %d%s, head copy at (%.2f %.2f %.2f), live head joint (%.2f %.2f %.2f), materials head=%d hair=%d, ShadowCast head=%d hair=%d",
+             TAG, g.mode, g.cutscene ? " (cutscene: copies off)" : "", p.x, p.y, p.z, hp.x, hp.y, hp.z,
+             material_num(g.head.mesh), material_num(g.hair.mesh),
+             (int)call_direct<bool>(g.head.mesh, "get_DrawShadowCast", false), (int)call_direct<bool>(g.hair.mesh, "get_DrawShadowCast", false));
     }
 }
 
