@@ -41,6 +41,7 @@
 #include "reload.h"
 #include "reload_block.h"
 #include "run.h"
+#include "shadowhead.h"
 #include "shortcut.h"
 #include "spread.h"
 #include "subweapon.h"
@@ -72,6 +73,7 @@ void on_frame() {
     pickup::frame();
     menu_tint::frame();
     options::frame();
+    shadowhead::frame();                           // 2026-10-28: the shadow-only head copy
     menu_probe::point("UpdateBehavior.ours-done");
 }
 } // namespace
