@@ -130,7 +130,7 @@ space would only hide the bug.
 The install was **stamped for the first time on this machine** — `deployed.sh check` reported
 `NO-RECORD`. The deployed `visceral_core.dll` was confirmed **same source as `origin/main`** by
 rebuilding and comparing with `same-build.py` (6 differing bytes, all linker timestamps), so it is
-current; seven files are now recorded in `deployed/home-pc/visceral-re2-vr.tsv`.
+current; seven files are now recorded in `deployed/<home PC>/visceral-re2-vr.tsv`.
 
 ## Automation scorecard
 
