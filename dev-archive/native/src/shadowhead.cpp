@@ -33,6 +33,9 @@
 // both copies in mode 2 following her head, but DrawShadowCast 0: the game switched it off after our one write (we
 // applied the mode only when it changed). Now the flags are held every frame, and the first few times the game flips
 // them are logged.
+// b193 too: the height per character (Tefa with Claire: "her head is too low, needs to be 5cm maybe higher"; Leon
+// looked right at 10 cm down, Claire at 5). The offset file takes "<who> <down cm> <forward cm>" lines, who = leon,
+// claire or the costume changer's SurvivorType number; a bare "<down> <forward>" line is for everyone else.
 // [compile-verified] at most until it has run.
 #include "shadowhead.h"
 #include "common.h"
@@ -42,6 +45,9 @@
 #include <cmath>
 #include <filesystem>
 #include <fstream>
+#include <map>
+#include <sstream>
+#include <string>
 
 using namespace vn;
 using namespace vn::joints;
@@ -91,8 +97,14 @@ struct State {
 } g;
 
 // The tuning, outside State so recreated copies keep it.
+constexpr float DEFAULT_DOWN_CM = 10.0f;   // b193: what looked right on Leon, for a character with no line of its own
+constexpr int LEON = 0, CLAIRE = 1;         // app.ropeway.SurvivorDefine.SurvivorType, read live 2026-10-28/29
+
+struct Shift { float down_m{DEFAULT_DOWN_CM / 100.0f}, forward_m{0.0f}; };   // world down; forward along the body's facing, flat
 struct Offset {
-    float down_m{0.0f}, forward_m{0.0f};   // world down; forward along the body's facing, flat
+    Shift any;                     // the bare line
+    std::map<int, Shift> who;      // per SurvivorType
+    float down_m{0.0f}, forward_m{0.0f};   // this frame's, for the current character
     std::filesystem::file_time_type stamp{};
     bool seen{false};
     float last_check_t{-1.0f};
@@ -134,11 +146,35 @@ void read_offset_file(float t) {
     if (ec || (off.seen && stamp == off.stamp)) return;
     off.stamp = stamp; off.seen = true;
     std::ifstream f(OFFSET_FILE);
-    float down_cm = 0.0f, fwd_cm = 0.0f;
-    if (!(f >> down_cm)) return;
-    if (!(f >> fwd_cm)) fwd_cm = 0.0f;
-    off.down_m = down_cm / 100.0f; off.forward_m = fwd_cm / 100.0f;
-    LOGI("%s shadowhead: offset from the file: %.1f cm down, %.1f cm forward", TAG, down_cm, fwd_cm);
+    off.who.clear();
+    off.any = Shift{};
+    std::string line;
+    while (std::getline(f, line)) {
+        std::istringstream in(line);
+        std::string first;
+        if (!(in >> first)) continue;
+        int who = -1;
+        if (first == "leon") who = LEON;
+        else if (first == "claire") who = CLAIRE;
+        else if (!first.empty() && first.find_first_not_of("0123456789") == std::string::npos && !(in.peek() == EOF)) {
+            std::istringstream probe(line); float a, b, c;   // "<number> <down> <fwd>" vs a bare "<down> <fwd>"
+            if (probe >> a >> b >> c) who = std::stoi(first);
+        }
+        float down_cm = 0.0f, fwd_cm = 0.0f;
+        if (who >= 0) { if (!(in >> down_cm)) continue; if (!(in >> fwd_cm)) fwd_cm = 0.0f; }
+        else { std::istringstream bare(line); if (!(bare >> down_cm)) continue; if (!(bare >> fwd_cm)) fwd_cm = 0.0f; }
+        Shift sh{down_cm / 100.0f, fwd_cm / 100.0f};
+        if (who >= 0) off.who[who] = sh; else off.any = sh;
+        LOGI("%s shadowhead: offset from the file for %s: %.1f cm down, %.1f cm forward", TAG, who < 0 ? "everyone else" : first.c_str(), down_cm, fwd_cm);
+    }
+}
+
+// this frame's shift, for whoever is being played
+void pick_offset(MO* player) {
+    const int who = call_direct<int>(component(player, CHANGER), "get_SurvivorType", -1);
+    auto it = off.who.find(who);
+    const Shift& sh = it != off.who.end() ? it->second : off.any;
+    off.down_m = sh.down_m; off.forward_m = sh.forward_m;
 }
 
 MO* resource_holder(const char* res_type, const char* path, const char* holder_type) {
@@ -326,6 +362,7 @@ void frame() {
     for (Copy* c : {&g.head, &g.hair}) if (c->created) hand_over(*c, player);
     g.cutscene = in_cutscene();
     real_hair(player);
+    pick_offset(player);
     for (Copy* c : {&g.head, &g.hair}) if (c->created) place(*c, player);
     if (g.mode_sent != g.mode || g.cutscene_sent != g.cutscene) {
         const int m = g.cutscene ? 0 : g.mode;   // in cutscenes the real head and hair cast their own shadow
