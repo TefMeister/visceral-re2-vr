@@ -16,9 +16,15 @@
 // Modes (NUM8 cycles, NUM9 re-reads the mode file; reframework/data/visceral_shadowhead.txt holds the start mode):
 //   0 off   1 VISIBLE copy (to see it)   2 SHADOW ONLY (the goal)   3 VISIBLE copy held 1 m in front, 0.3 m down (debug)
 // Worn 2026-10-28 (Tefa): the shadow head shows, but "the head is carved out from the lower neck and is just too high up".
-// reframework/data/visceral_shadowhead_offset.txt ("<down cm> <forward cm>") moves the copy, re-read whenever the file
-// changes, so it can be tuned live. The same evening the strand in the left eye was Leon's hair mesh: HIDE_HAIR keeps it
-// out of view, its shadow is not affected (the hair casts none with the head joint hidden; seen in the headset, on vs off).
+// reframework/data/visceral_shadowhead_offset.txt ("<down cm> <forward cm>") moves the copies, re-read whenever the file
+// changes, so it can be tuned live (10 cm down looked right-ish the same night).
+// b190, the same evening: the strand in the left eye was the hair mesh (hidden live: "yes it's gone!"); the hair casts
+// no shadow of its own with the head joint hidden (shadow the same with it on or off, Tefa). Tefa: "is there any way to
+// hide hair but keep the shadow like you managed to do with the head", and the hair must stay in third person. So the
+// hair gets the head's treatment: a second shadow-only copy (the hair's own mesh and material holders), the real hair
+// hidden from view during play, and in cutscenes (camera not the PLAYER camera) the real hair comes back and both
+// copies stop casting, so the shadow is not doubled. Leon, Claire and Ada alike: both copies take the holders of
+// whatever face and hair the costume changer has now.
 // [compile-verified] at most until it has run.
 #include "shadowhead.h"
 #include "common.h"
@@ -38,35 +44,57 @@ constexpr const char* FACE_MESH = "SectionRoot/Character/Player/pl1000/pl1050/pl
 constexpr const char* FACE_MDF  = "SectionRoot/Character/Player/pl1000/pl1050/pl1050.mdf2";
 constexpr const char* MODE_FILE = "reframework/data/visceral_shadowhead.txt";
 constexpr const char* OFFSET_FILE = "reframework/data/visceral_shadowhead_offset.txt";
+constexpr const char* CHANGER = "app.ropeway.survivor.SurvivorCostumeChanger";
 constexpr float OFFSET_CHECK_S = 0.5f;   // how often the offset file's date is looked at
-constexpr bool HIDE_HAIR = true;         // the player's hair out of the normal view (shadow casting left as it is)
+constexpr bool HIDE_HAIR = true;         // the player's real hair out of the normal view during play
+constexpr int CAMERA_PLAYER = 0;         // CameraSystem.BusyCameraType: the player camera (FirstPerson drives)
 // The face mesh's "head" bone in its bind pose (pl1050.mesh skeleton, read 2026-10-28): position (0, 1.564, 0.018),
-// rotation a 5.6 degree pitch about x, ignored here (a shadow does not show it).
+// rotation a 5.6 degree pitch about x, ignored here (a shadow does not show it). The hair mesh is built on the same
+// skeleton (its joints: root, neck_1, head, hair..), so the same bind head is taken for it [hypothesis].
 constexpr Vec3 BIND_HEAD{0.0f, 1.5640067f, 0.0178933f};
 constexpr float REPORT_S = 5.0f;
 constexpr Vec3 DEBUG_OFFSET{0.0f, -0.3f, 1.0f};   // mode 3: along the head's own axes
 
-struct State {
+// One shadow copy: its own GameObject with a via.render.Mesh, given the holders of a mesh the game has loaded.
+struct Copy {
+    const char* what{};          // "head" / "hair", for the log
+    const char* getter{};        // the costume changer's getter of the real mesh
+    const wchar_t* go_name{};
     MO* go{};
     MO* tf{};
     MO* mesh{};
-    bool created{false}, tried{false};
-    int mode{2}, mode_sent{-1};   // 0 off, 1 visible copy, 2 shadow only, 3 visible copy held out in front (debug)
-    bool parented{false};
-    bool handed{false};   // route B done: the face's own mesh + material holders are on the copy
-    float created_t{0.0f}, last_report_t{0.0f};
+    MO* source{};                // the real mesh whose holders this copy carries (a costume change swaps it)
+    bool created{false}, tried{false}, parented{false};
+    float created_t{0.0f};
     int mat_reports{0};
+};
+
+struct State {
+    Copy head{"head", "get_Face", L"visceral_shadowhead"};
+    Copy hair{"hair", "get_Hair", L"visceral_shadowhair"};
+    int mode{2}, mode_sent{-1};   // 0 off, 1 visible copy, 2 shadow only, 3 visible copy held out in front (debug)
+    bool cutscene{false}, cutscene_sent{false};
+    float last_report_t{0.0f};
     bool key8{false}, key9{false};
     MO* player{};
 } g;
 
-// The tuning, outside State so a recreated copy keeps it.
+// The tuning, outside State so recreated copies keep it.
 struct Offset {
     float down_m{0.0f}, forward_m{0.0f};   // world down; forward along the body's facing, flat
     std::filesystem::file_time_type stamp{};
     bool seen{false};
     float last_check_t{-1.0f};
 } off;
+
+void reset_keep_mode() { const int m = g.mode; g = State{}; g.mode = m; }
+
+int read_mode_file() {
+    std::ifstream f(MODE_FILE);
+    int m = -1;
+    if (f && (f >> m) && m >= 0 && m <= 3) return m;
+    return -1;
+}
 
 void read_offset_file(float t) {
     if (t - off.last_check_t < OFFSET_CHECK_S) return;
@@ -97,16 +125,9 @@ MO* resource_holder(const char* res_type, const char* path, const char* holder_t
     return h;
 }
 
-// The player's own face mesh component, from the game's costume changer (get_Face: the same setter the old plugin
-// hooked; live 2026-10-28 the player's transform children are only weapons, so a child walk finds nothing).
-MO* find_face_mesh(MO* player) {
-    auto* changer = component(player, "app.ropeway.survivor.SurvivorCostumeChanger");
-    auto* face = call_ptr(changer, "get_Face");
-    static bool said = false;
-    if (face != nullptr) LOGI("%s shadowhead: the player's face mesh is %p (costume changer %p), materials=%d", TAG, (void*)face, (void*)changer, call_direct<int>(face, "get_MaterialNum", -1));
-    else if (!said) { said = true; LOGW("%s shadowhead: no face mesh from the costume changer (%p) yet, waiting", TAG, (void*)changer); }
-    return face;
-}
+// The player's real face or hair mesh, from the game's costume changer (get_Face / get_Hair: live 2026-10-28 the
+// player's transform children are only weapons, so a child walk finds nothing).
+MO* real_mesh(MO* player, const char* getter) { return call_ptr(component(player, CHANGER), getter); }
 
 int material_num(MO* mesh) { return mesh ? call_direct<int>(mesh, "get_MaterialNum", -1) : -1; }
 void set_bool(MO* o, const char* name, bool v) {
@@ -114,82 +135,99 @@ void set_bool(MO* o, const char* name, bool v) {
     if (m != nullptr) m->call<void>(API::get()->get_vm_context(), (void*)o, v);
 }
 
-// The real hair: hidden from the normal view, every frame (a costume change brings it back otherwise).
-void hide_hair(MO* player) {
+// A cutscene (or any camera that is not the player's): REFramework shows the real head then, so the copies stand down.
+bool in_cutscene() {
+    const int t = call_direct<int>(API::get()->get_managed_singleton("app.ropeway.camera.CameraSystem"), "get_BusyCameraType", -1);
+    return t >= 0 && t != CAMERA_PLAYER;
+}
+
+// The real hair: hidden from view during play, shown in cutscenes; set again whenever it differs (a costume change
+// brings a fresh hair mesh that draws).
+void real_hair(MO* player) {
     if (!HIDE_HAIR) return;
-    auto* hair = call_ptr(component(player, "app.ropeway.survivor.SurvivorCostumeChanger"), "get_Hair");
-    if (hair == nullptr || !call_direct<bool>(hair, "get_DrawDefault", false)) return;
-    set_bool(hair, "set_DrawDefault", false);
-    LOGI("%s shadowhead: the player's hair %p hidden from view (shadow casting left on: %d)", TAG, (void*)hair,
-         (int)call_direct<bool>(hair, "get_DrawShadowCast", false));
+    auto* hair = real_mesh(player, "get_Hair");
+    if (hair == nullptr) return;
+    const bool want = g.cutscene;
+    if (call_direct<bool>(hair, "get_DrawDefault", !want) == want) return;
+    set_bool(hair, "set_DrawDefault", want);
+    LOGI("%s shadowhead: the player's hair %p %s", TAG, (void*)hair, want ? "shown (cutscene)" : "hidden from view (play)");
 }
 
-int read_mode_file() {
-    std::ifstream f(MODE_FILE);
-    int m = -1;
-    if (f && (f >> m) && m >= 0 && m <= 3) return m;
-    return -1;
+void apply_mode(Copy& c, int mode) {
+    if (c.mesh == nullptr) return;
+    const bool draw = mode == 1 || mode == 3, shadow = mode != 0;
+    set_bool(c.mesh, "set_DrawDefault", draw);
+    set_bool(c.mesh, "set_DrawShadowCast", shadow);
+    LOGI("%s shadowhead: %s copy mode %d (%s): DrawDefault=%d DrawShadowCast=%d materials=%d", TAG, c.what, mode,
+         mode == 0 ? "off" : mode == 1 ? "VISIBLE copy" : mode == 2 ? "SHADOW ONLY" : "VISIBLE, held out in front",
+         (int)call_direct<bool>(c.mesh, "get_DrawDefault", false), (int)call_direct<bool>(c.mesh, "get_DrawShadowCast", false),
+         material_num(c.mesh));
 }
 
-void apply_mode() {
-    if (g.mesh == nullptr) return;
-    const bool draw = g.mode == 1 || g.mode == 3, shadow = g.mode != 0;
-    set_bool(g.mesh, "set_DrawDefault", draw);
-    set_bool(g.mesh, "set_DrawShadowCast", shadow);
-    g.mode_sent = g.mode;
-    LOGI("%s shadowhead: mode %d (%s): DrawDefault=%d DrawShadowCast=%d materials=%d", TAG, g.mode,
-         g.mode == 0 ? "off" : g.mode == 1 ? "VISIBLE copy" : g.mode == 2 ? "SHADOW ONLY" : "VISIBLE, held out in front",
-         (int)call_direct<bool>(g.mesh, "get_DrawDefault", false), (int)call_direct<bool>(g.mesh, "get_DrawShadowCast", false),
-         material_num(g.mesh));
-}
-
-bool create(MO* player) {
-    g.tried = true;
+bool create(Copy& c, MO* player, bool with_file_route) {
+    c.tried = true;
     auto& api = API::get();
     auto* go_t = api->tdb()->find_type("via.GameObject");
     auto* create = go_t != nullptr ? go_t->find_method("create(System.String)") : nullptr;
     if (create == nullptr) { LOGE("%s shadowhead: via.GameObject.create(System.String) not found", TAG); return false; }
-    auto* name = api->create_managed_string(L"visceral_shadowhead");
+    auto* name = api->create_managed_string(c.go_name);
     auto r = create->invoke(nullptr, {name});
-    if (r.exception_thrown || r.ptr == nullptr) { LOGE("%s shadowhead: GameObject.create failed", TAG); return false; }
-    g.go = (MO*)r.ptr;
-    g.go->add_ref();
-    g.tf = call_ptr(g.go, "get_Transform");
+    if (r.exception_thrown || r.ptr == nullptr) { LOGE("%s shadowhead: GameObject.create (%s) failed", TAG, c.what); return false; }
+    c.go = (MO*)r.ptr;
+    c.go->add_ref();
+    c.tf = call_ptr(c.go, "get_Transform");
     auto* mesh_t = api->typeof("via.render.Mesh");
-    auto* add = find_method_deep(g.go->get_type_definition(), "createComponent(System.Type)");
+    auto* add = find_method_deep(c.go->get_type_definition(), "createComponent(System.Type)");
     if (mesh_t == nullptr || add == nullptr) { LOGE("%s shadowhead: createComponent / typeof(via.render.Mesh) missing", TAG); return false; }
-    auto cr = add->invoke(g.go, {mesh_t});
-    if (cr.exception_thrown || cr.ptr == nullptr) { LOGE("%s shadowhead: createComponent(via.render.Mesh) failed", TAG); return false; }
-    g.mesh = (MO*)cr.ptr;
-    g.mesh->add_ref();
-    auto* mesh_h = resource_holder("via.render.MeshResource", FACE_MESH, "via.render.MeshResourceHolder");
-    auto* mdf_h = resource_holder("via.render.MeshMaterialResource", FACE_MDF, "via.render.MeshMaterialResourceHolder");
-    if (mesh_h == nullptr) return false;
-    auto* set_mesh = find_method_deep(g.mesh->get_type_definition(), "setMesh");
-    if (set_mesh == nullptr) { LOGE("%s shadowhead: via.render.Mesh.setMesh not found", TAG); return false; }
-    if (set_mesh->invoke(g.mesh, {mesh_h}).exception_thrown) { LOGE("%s shadowhead: setMesh threw", TAG); return false; }
-    auto* set_mat = find_method_deep(g.mesh->get_type_definition(), "set_Material");
-    // Two material routes, logged apart: the game's own mdf through a fresh holder (route A), and, if the player's
-    // face mesh is found, ITS material holder (route B: already loaded and bound to this very mesh).
-    if (mdf_h != nullptr && set_mat != nullptr) {
-        if (set_mat->invoke(g.mesh, {mdf_h}).exception_thrown) LOGW("%s shadowhead: set_Material(fresh holder) threw", TAG);
-        LOGI("%s shadowhead: route A (fresh holder of %s): materials=%d", TAG, FACE_MDF, material_num(g.mesh));
+    auto cr = add->invoke(c.go, {mesh_t});
+    if (cr.exception_thrown || cr.ptr == nullptr) { LOGE("%s shadowhead: createComponent(via.render.Mesh) failed (%s)", TAG, c.what); return false; }
+    c.mesh = (MO*)cr.ptr;
+    c.mesh->add_ref();
+    if (with_file_route) {   // route A, the head only: Leon's face from its file, until the game's own holders arrive
+        auto* mesh_h = resource_holder("via.render.MeshResource", FACE_MESH, "via.render.MeshResourceHolder");
+        auto* mdf_h = resource_holder("via.render.MeshMaterialResource", FACE_MDF, "via.render.MeshMaterialResourceHolder");
+        auto* set_mesh = find_method_deep(c.mesh->get_type_definition(), "setMesh");
+        auto* set_mat = find_method_deep(c.mesh->get_type_definition(), "set_Material");
+        if (mesh_h != nullptr && set_mesh != nullptr && set_mesh->invoke(c.mesh, {mesh_h}).exception_thrown) LOGE("%s shadowhead: setMesh threw", TAG);
+        if (mdf_h != nullptr && set_mat != nullptr) {
+            if (set_mat->invoke(c.mesh, {mdf_h}).exception_thrown) LOGW("%s shadowhead: set_Material(fresh holder) threw", TAG);
+            LOGI("%s shadowhead: route A (fresh holder of %s): materials=%d", TAG, FACE_MDF, material_num(c.mesh));
+        }
     }
     auto* ptf = call_ptr(player, "get_Transform");
     if (ptf != nullptr) {
-        auto* set_parent = find_method_deep(g.tf->get_type_definition(), "set_Parent");
-        g.parented = set_parent != nullptr && !set_parent->invoke(g.tf, {ptf}).exception_thrown;
+        auto* set_parent = find_method_deep(c.tf->get_type_definition(), "set_Parent");
+        c.parented = set_parent != nullptr && !set_parent->invoke(c.tf, {ptf}).exception_thrown;
     }
-    g.created = true;
-    g.created_t = now_s();
-    g.mat_reports = 0;
-    LOGI("%s shadowhead: CREATED go=%p mesh=%p (the game's own %s + %s), parented to the player: %d, materials now %d",
-         TAG, (void*)g.go, (void*)g.mesh, FACE_MESH, FACE_MDF, (int)g.parented, material_num(g.mesh));
-    g.mode_sent = -1;
+    c.created = true;
+    c.created_t = now_s();
+    c.mat_reports = 0;
+    LOGI("%s shadowhead: CREATED the %s copy go=%p mesh=%p, parented to the player: %d, materials now %d",
+         TAG, c.what, (void*)c.go, (void*)c.mesh, (int)c.parented, material_num(c.mesh));
     return true;
 }
 
-void place(MO* player) {
+// Route B: the real mesh's own mesh + material holders (already loaded and bound) onto the copy; again after a
+// costume change, when the costume changer hands out a different mesh.
+void hand_over(Copy& c, MO* player) {
+    auto* src = real_mesh(player, c.getter);
+    if (src == nullptr || src == c.source) return;
+    auto* mesh_holder = call_ptr(src, "getMesh");
+    auto* mat_holder = call_ptr(src, "get_Material");
+    auto* set_mesh = find_method_deep(c.mesh->get_type_definition(), "setMesh");
+    auto* set_mat = find_method_deep(c.mesh->get_type_definition(), "set_Material");
+    if (mesh_holder == nullptr || set_mesh == nullptr) return;
+    if (set_mesh->invoke(c.mesh, {mesh_holder}).exception_thrown) LOGW("%s shadowhead: setMesh(%s's holder) threw", TAG, c.what);
+    if (mat_holder != nullptr && set_mat != nullptr && set_mat->invoke(c.mesh, {mat_holder}).exception_thrown) LOGW("%s shadowhead: set_Material(%s's holder) threw", TAG, c.what);
+    c.source = src;
+    c.created_t = now_s(); c.mat_reports = 0;   // report readiness again from here
+    g.mode_sent = -1;
+    LOGI("%s shadowhead: route B: the real %s %p handed its holders over (mesh %p, material %p): materials=%d", TAG, c.what,
+         (void*)src, (void*)mesh_holder, (void*)mat_holder, material_num(c.mesh));
+}
+
+void place(Copy& c, MO* player) {
+    if (c.tf == nullptr) return;
     auto* ptf = call_ptr(player, "get_Transform");
     auto* head = joint_by_name(ptf, L"head");
     Vec3 hp{}; Quat hq{};
@@ -209,8 +247,19 @@ void place(MO* player) {
     }
     struct V4 { float x, y, z, w; };
     const V4 p{pos.x, pos.y, pos.z, 0.0f}, q{hq.x, hq.y, hq.z, hq.w};
-    set_any(joints::XFORM, g.tf, "set_Position", &p);
-    set_any(joints::XFORM, g.tf, "set_Rotation", &q);
+    set_any(joints::XFORM, c.tf, "set_Position", &p);
+    set_any(joints::XFORM, c.tf, "set_Rotation", &q);
+}
+
+void report_ready(Copy& c, float t) {
+    if (c.mesh == nullptr || c.mat_reports >= 4 || t - c.created_t < 0.5f * (c.mat_reports + 1)) return;
+    ++c.mat_reports;
+    LOGI("%s shadowhead: %s copy %.1f s after creation: materials=%d DrawDefault=%d DrawShadowCast=%d MeshReady=%d MaterialReady=%d ReadyToDraw=%d HasJoint=%d Skinning=%d Viewable=%d",
+         TAG, c.what, t - c.created_t, material_num(c.mesh), (int)call_direct<bool>(c.mesh, "get_DrawDefault", false),
+         (int)call_direct<bool>(c.mesh, "get_DrawShadowCast", false), (int)call_direct<bool>(c.mesh, "get_MeshReady", false),
+         (int)call_direct<bool>(c.mesh, "get_MaterialReady", false), (int)call_direct<bool>(c.mesh, "get_ReadyToDraw", false),
+         (int)call_direct<bool>(c.mesh, "get_HasJoint", false), (int)call_direct<bool>(c.mesh, "get_SkinningMesh", false),
+         (int)call_direct<bool>(c.mesh, "get_Viewable", false));
 }
 
 void keys() {
@@ -230,43 +279,28 @@ void frame() {
     keys();
     read_offset_file(now_s());
     auto* player = call_ptr(API::get()->get_managed_singleton("app.ropeway.PlayerManager"), "get_CurrentPlayer");
-    if (player == nullptr) { if (g.created) { LOGI("%s shadowhead: player gone, the copy is dropped", TAG); } g = State{.mode = g.mode}; return; }
-    if (g.created && (!is_managed(g.go) || !is_managed(g.mesh))) { LOGW("%s shadowhead: the copy is no longer a managed object, recreating", TAG); g = State{.mode = g.mode}; }
-    if (player != g.player) { g.player = player; if (g.created) { LOGI("%s shadowhead: a new player object, recreating", TAG); g = State{.mode = g.mode, .player = player}; } }
-    if (!g.created) { if (g.tried) return; if (!create(player)) return; }
-    if (!g.handed) {   // route B, deferred: the game assigns the face mesh after our creation moment
-        if (auto* face = find_face_mesh(player); face != nullptr) {
-            auto* mesh_holder = call_ptr(face, "getMesh");
-            auto* mat_holder = call_ptr(face, "get_Material");
-            auto* set_mesh = find_method_deep(g.mesh->get_type_definition(), "setMesh");
-            auto* set_mat = find_method_deep(g.mesh->get_type_definition(), "set_Material");
-            if (mesh_holder != nullptr && set_mesh != nullptr) {
-                if (set_mesh->invoke(g.mesh, {mesh_holder}).exception_thrown) LOGW("%s shadowhead: setMesh(face's holder) threw", TAG);
-                if (mat_holder != nullptr && set_mat != nullptr && set_mat->invoke(g.mesh, {mat_holder}).exception_thrown) LOGW("%s shadowhead: set_Material(face's holder) threw", TAG);
-                g.handed = true;
-                g.created_t = now_s(); g.mat_reports = 0;   // report readiness again from here
-                g.mode_sent = -1;
-                LOGI("%s shadowhead: route B: the face's own holders handed over (mesh %p, material %p): materials=%d", TAG, (void*)mesh_holder, (void*)mat_holder, material_num(g.mesh));
-            }
-        }
+    if (player == nullptr) { if (g.head.created) { LOGI("%s shadowhead: player gone, the copies are dropped", TAG); } reset_keep_mode(); return; }
+    for (Copy* c : {&g.head, &g.hair})
+        if (c->created && (!is_managed(c->go) || !is_managed(c->mesh))) { LOGW("%s shadowhead: the %s copy is no longer a managed object, recreating", TAG, c->what); reset_keep_mode(); break; }
+    if (player != g.player) { if (g.head.created) { LOGI("%s shadowhead: a new player object, recreating", TAG); reset_keep_mode(); } g.player = player; }
+    if (!g.head.created) { if (g.head.tried) return; if (!create(g.head, player, true)) return; }
+    if (!g.hair.created && !g.hair.tried && real_mesh(player, "get_Hair") != nullptr) create(g.hair, player, false);
+    for (Copy* c : {&g.head, &g.hair}) if (c->created) hand_over(*c, player);
+    g.cutscene = in_cutscene();
+    real_hair(player);
+    for (Copy* c : {&g.head, &g.hair}) if (c->created) place(*c, player);
+    if (g.mode_sent != g.mode || g.cutscene_sent != g.cutscene) {
+        const int m = g.cutscene ? 0 : g.mode;   // in cutscenes the real head and hair cast their own shadow
+        for (Copy* c : {&g.head, &g.hair}) apply_mode(*c, m);
+        g.mode_sent = g.mode; g.cutscene_sent = g.cutscene;
     }
-    hide_hair(player);
-    place(player);
-    if (g.mode_sent != g.mode) apply_mode();
     const float t = now_s();
-    if (g.mat_reports < 4 && t - g.created_t >= 0.5f * (g.mat_reports + 1)) {
-        ++g.mat_reports;
-        LOGI("%s shadowhead: %.1f s after creation: materials=%d DrawDefault=%d DrawShadowCast=%d MeshReady=%d MaterialReady=%d ReadyToDraw=%d HasJoint=%d Skinning=%d Viewable=%d",
-             TAG, t - g.created_t, material_num(g.mesh), (int)call_direct<bool>(g.mesh, "get_DrawDefault", false),
-             (int)call_direct<bool>(g.mesh, "get_DrawShadowCast", false), (int)call_direct<bool>(g.mesh, "get_MeshReady", false),
-             (int)call_direct<bool>(g.mesh, "get_MaterialReady", false), (int)call_direct<bool>(g.mesh, "get_ReadyToDraw", false),
-             (int)call_direct<bool>(g.mesh, "get_HasJoint", false), (int)call_direct<bool>(g.mesh, "get_SkinningMesh", false),
-             (int)call_direct<bool>(g.mesh, "get_Viewable", false));
-    }
+    for (Copy* c : {&g.head, &g.hair}) report_ready(*c, t);
     if (t - g.last_report_t >= REPORT_S) {
         g.last_report_t = t;
-        Vec3 p{}; get_v3(joints::XFORM, g.tf, "get_Position", p);
-        LOGI("%s shadowhead: mode %d, copy at (%.2f %.2f %.2f), materials=%d", TAG, g.mode, p.x, p.y, p.z, material_num(g.mesh));
+        Vec3 p{}; get_v3(joints::XFORM, g.head.tf, "get_Position", p);
+        LOGI("%s shadowhead: mode %d%s, head copy at (%.2f %.2f %.2f), materials head=%d hair=%d", TAG, g.mode,
+             g.cutscene ? " (cutscene: copies off)" : "", p.x, p.y, p.z, material_num(g.head.mesh), material_num(g.hair.mesh));
     }
 }
 
