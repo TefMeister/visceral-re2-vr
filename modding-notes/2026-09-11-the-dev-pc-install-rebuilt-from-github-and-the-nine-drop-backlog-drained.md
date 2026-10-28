@@ -12,7 +12,7 @@ time since 2026-09-07.
 
 ## 1. Can the home build be reproduced from GitHub alone? Mostly yes, and here is the exact answer
 
-**10 of the 11 text files reproduce bit-for-bit** against the `deployed/RTX` manifest, and both
+**10 of the 11 text files reproduce bit-for-bit** against the `deployed/home PC` manifest, and both
 plugins rebuild to the same size. Method: for every file in the home manifest, write it, hash it, and
 compare — not "copy it and assume".
 

@@ -1,6 +1,6 @@
 # 2026-09-10 — first headset run: poses yes, grip no, camera dead
 
-Home PC `RTX`, Quest 3 over Virtual Desktop, **OpenXR** (no `openvr_api.dll` — the board's
+Home PC, Quest 3 over Virtual Desktop, **OpenXR** (no `openvr_api.dll` — the board's
 "copy it first" step was stale; `openxr_loader.dll` is what RE2 and Village both use here).
 Tefa driving, one launch, two level loads (RPD arrival save, then a later level), ~7 minutes.
 Log window: `re2_framework_log.txt` from line 2257, 22:06–22:14.

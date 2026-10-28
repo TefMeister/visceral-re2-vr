@@ -1,6 +1,6 @@
 # The speed lever exists, the motlist paths are read — and the head hider is hiding the flashlight
 
-**2026-09-09, home PC (`RTX`), `/lm`, ONE FLAT LAUNCH.** Continue → last save → three board rows
+**2026-09-09, home PC, `/lm`, ONE FLAT LAUNCH.** Continue → last save → three board rows
 answered on the same launch. Game closed with `WM_CLOSE`, exited cleanly, nothing saved.
 
 Evidence: `dev-archive/recon/2026-09-09-speed-lever-and-the-motlist-paths/`.
@@ -130,7 +130,7 @@ space would only hide the bug.
 The install was **stamped for the first time on this machine** — `deployed.sh check` reported
 `NO-RECORD`. The deployed `visceral_core.dll` was confirmed **same source as `origin/main`** by
 rebuilding and comparing with `same-build.py` (6 differing bytes, all linker timestamps), so it is
-current; seven files are now recorded in `deployed/RTX/visceral-re2-vr.tsv`.
+current; seven files are now recorded in `deployed/<home PC>/visceral-re2-vr.tsv`.
 
 ## Automation scorecard
 
