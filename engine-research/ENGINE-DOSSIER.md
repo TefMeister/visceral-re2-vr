@@ -765,6 +765,28 @@ the pl1000 set it was cloned from). What our own `.mesh` files call their slots 
 crude ASCII scan of the mesh finds no name table, so it needs RE Mesh Editor. That comparison is the
 next step and it needs no game.
 
+### 7m. ⭐⭐ SOLVED: spawned meshes get their material from the GAME'S OWN holders, never from ours — and a shadow-only head copy (2026-10-28, `/lm`, flat)
+
+Note: `modding-notes/2026-10-28-a-shadow-only-copy-of-the-head.md`. **Supersedes §7k's "bound by name" hypothesis
+`[disproved 2026-10-28]`.** A `via.render.Mesh` we create gets `setMesh`/`set_Material` holders that WE make
+(`create_resource` + a holder allocated without its constructor) and never becomes ready: `MeshReady` 0,
+`MaterialReady` 0, `ReadyToDraw` 0, `HasJoint` 0, materials 0, nothing drawn, not even grey, even with the game's own
+`pl1050.mesh` + `pl1050.mdf2` `[verified-live 2026-10-28, n=2 runs]`. The same component given the player's face mesh's
+OWN holders (`app.ropeway.survivor.SurvivorCostumeChanger.get_Face()` → `getMesh()` / `get_Material()`) is ready within
+half a second (6 materials, all flags true) and draws a full textured head where its GameObject is placed
+`[verified-live 2026-10-28, n=1]`. ⚠️ `get_Face()` is null at the moment our object is created (the face is assigned
+later): retry per frame. A skinned mesh on a joint-less GameObject draws in its bind pose at the GameObject's transform.
+The live link (RE Engine MCP `invoke_method`) cannot pass an object argument: it arrives as null and clears the holder.
+
+**The shadow-only head (`dev-archive/native/src/shadowhead.cpp`, build b179, start mode 2):** keep REFramework's Hide
+Joint Mesh (neck present, head gone from every pass) and put the head's shadow back with a second copy of the face mesh
+on its own GameObject, `DrawDefault` off, `DrawShadowCast` on, placed every frame so its bind-pose head (0, 1.564,
+0.018 in the file) sits on the live `head` joint (the joint's zero scale leaves position and rotation readable). Why a
+copy: the face file `pl1050.mesh` has one part; the neck tube is inside the Face submesh (y 1.40..1.71); `setPartsEnable`
+and `setMaterialsEnable` exist (live type list) but are all-pass and cannot split neck from head `[measured 2026-10-28]`.
+Not judged by eye yet: the shadow itself (no visible player shadow at the flat test spot; the headset decides).
+Modes and keys in the file header.
+
 ### 7l. Why the face pack stalls VR: two suspects dead, and the pack should be 8× smaller anyway (2026-09-12, reader, static)
 
 Drained from `inbox/2026-09-12-reader-vr-90pct-stall-mechanism.md` the same day.
