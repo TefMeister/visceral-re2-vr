@@ -116,6 +116,7 @@ struct Anchor {
     float view_cal = 0.0f; bool has_cal = false;
     bool measured = false;                       // this jack's hold came from the measured view, not a formula
     int snap_wait = 0, snaps = 0;                // the jack-start snap: frames left to wait, snaps done
+    float pre_turn = 0.0f; bool pre_checked = false;   // 2026-10-29: the head's turn taken out at the capture, and its check logged
     float body_prev = 0.0f; bool has_body_prev = false;
 
     float jack_t = 0.0f, last_t = -1.0f;
@@ -263,12 +264,25 @@ void capture_hold(MO* tf, float now) {
         branch = "formula";
     }
     if (has_desired) rotate_hold(desired - A.hold_yaw);
+    // 2026-10-29 (Fable, from the 10-28 log's seven jacks): at the frame a jack takes the camera, the game's camera
+    // transform gains the headset's own turn once more (f18507: -89.8 -> -124.4 deg with the head at -33; f18168: +8.2
+    // with the head at +8.6; f52264: -3.8 with -6.3) [measured 2026-10-29, 5 of 7 jacks; one jack went the other way].
+    // The servo below used to notice it three frames later, through the rendered-view reading, and snap it away: those
+    // three frames were the flick Tefa sees at the start of every climb. So the head's turn (the headset yaw relative
+    // to its recentred zero: hmd0 + offext) is taken out NOW, with the capture, which reaches the camera the same frame
+    // the game adds it. The servo still runs, so a wrong guess costs what it cost before, not more.
+    A.pre_turn = 0.0f;
+    A.pre_checked = false;
+    if (cfg::JACK_PRE_TURN && A.has_yaw && bridge::has(A.hmd0) && bridge::has(offext)) {
+        A.pre_turn = -wrap_pi(A.hmd0 + offext) * A.vsign;
+        rotate_hold(A.pre_turn);
+    }
     A.has_body_prev = has_b0;
     A.body_prev = b0;
     A.hold_valid = A.has_yaw || A.has_rot;
     if (A.hold_valid)
-        LOGI("%s ladder: HOLD captured yaw=%.4f hmd0=%.3f offext=%.3f cam=%.3f body=%.3f k=%s branch=%s", TAG, A.hold_yaw,
-             A.hmd0, offext, A.vt0, A.body0, A.has_k ? std::to_string(A.k).c_str() : "none", branch);
+        LOGI("%s ladder: HOLD captured yaw=%.4f hmd0=%.3f offext=%.3f cam=%.3f body=%.3f k=%s branch=%s pre-turned %.1f deg (the head's turn)",
+             TAG, A.hold_yaw, A.hmd0, offext, A.vt0, A.body0, A.has_k ? std::to_string(A.k).c_str() : "none", branch, A.pre_turn / DEG);
     (void)now;
 }
 
@@ -353,10 +367,17 @@ void update_hold(float now) {
             // the jack's own extra turn of the view differs every time and only shows once the jack has begun
             // (2026-10-06 wear: "it teleports there and turns to the right spot"), so in the first moments the
             // whole measured error is corrected at once, then the view is given a frame or two to show it
+            // 2026-10-29: the wait counts down every frame (it is for the rendered view to show what was written), and
+            // the first measurement after it is logged whatever its size: it says whether the pre-turn guessed right
+            if (A.snap_wait > 0) {
+                --A.snap_wait;
+            } else if (!A.pre_checked) {
+                A.pre_checked = true;
+                LOGI("%s ladder: pre-turn check: view %.1f deg off the body, %.0f ms in (pre-turned %.1f; under %.0f = no snap needed)",
+                     TAG, verr / DEG, (now - A.jack_t) * 1000.0f, A.pre_turn / DEG, cfg::SERVO_DEADBAND_DEG);
+            }
             if (now - A.jack_t < cfg::SNAP_WINDOW_S && av > cfg::SERVO_DEADBAND_DEG * DEG) {
-                if (A.snap_wait > 0) {
-                    --A.snap_wait;
-                } else {
+                if (A.snap_wait == 0) {
                     rotate_hold(verr * A.vsign);
                     A.snap_wait = cfg::SNAP_SETTLE_FRAMES;
                     if (++A.snaps <= 4)
@@ -403,7 +424,7 @@ void late_update() {
             A.vsign = 1.0f;
             A.v_flipped = false;
             A.v_grow = A.v_last_abs = -1.0f;
-            A.snap_wait = 1;        // the capture's own turn needs a frame to show
+            A.snap_wait = cfg::SNAP_FIRST_WAIT_FRAMES;   // the capture's turn, and the game's own, need frames to show
             A.snaps = 0;
         } else {
             if (A.hold_valid) release();

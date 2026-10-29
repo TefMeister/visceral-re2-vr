@@ -163,18 +163,14 @@ re.on_frame(function()
         state.own_call = false
         log_line("  cut back to LATEST after the back move: " .. tostring(ok))
     end
-    local d = safe(function() return reframework:is_key_down(VK_NUMPAD9) end)
-    if d and not state.key_prev then
-        cfg.enabled = not cfg.enabled
-        save()
-        log_line("NUM9: swap " .. (cfg.enabled and "ON" or "OFF"))
-    end
-    state.key_prev = d or false
+    -- 2026-10-29: the NUM9 hotkey is gone. is_key_down sees the key in ANY window, so a 9 typed on the numpad anywhere
+    -- on the PC while the game ran switched the save-game picture off (found off on 2026-10-28 20:35, Tefa: "the main
+    -- menu picture is back to the default one"). The tick box below is the only switch now.
 end)
 
 re.on_draw_ui(function()
     if imgui.tree_node("Visceral: one title background") then
-        local changed, v = imgui.checkbox("Use the last-save scene everywhere (NUM9)", cfg.enabled)
+        local changed, v = imgui.checkbox("Use the last-save scene everywhere", cfg.enabled)
         if changed then cfg.enabled = v; save() end
         imgui.text("Scene set last: " .. name(state.current))
         imgui.tree_pop()
