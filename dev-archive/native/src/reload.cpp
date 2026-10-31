@@ -7,6 +7,7 @@
 #include "reload.h"
 #include "tune.h"
 #include "bridge.h"
+#include "ghosthand.h"
 #include "menu_body.h"
 #include "reload_block.h"
 #include "reload_data.h"
@@ -63,6 +64,17 @@ Vec3 g_fall_from{};               // world
 Quat g_fall_rot{0, 0, 0, 1};      // world
 bool g_scale_restore = false;     // the magazine is back: write its rest scale once
 float g_last_grab = -10.0f, g_last_dock = -10.0f;
+
+// ---- Village's rules (2026-10-31, from Visceral RE8 reload.cpp; settings.h CHAMBER_ROUND / MAG_GRAB_M) ----------------
+// The rounds stay in the game's count while the magazine is out; what the player may do with them is decided here:
+int g_chamber = 0;                // the round kept in the chamber while the magazine is out: one shot with it out
+int g_loaded_out = -1;            // the game's count when it came out (a lower count later = the chambered round was fired)
+bool g_dry = false;               // the chamber is empty: a rack is due once a magazine is back in
+bool g_same_mag = false;          // the magazine in the hand is the one pulled from this gun: back in with its own rounds only
+bool g_lt_to_seat = false;        // ... and only with LT at the magwell (a pouch magazine seats by itself)
+bool g_lt_free = false;           // LT has been let go since the pull-out (the pull's own LT never seats it)
+bool g_hand_on_mag = false;       // long guns: LG was pressed with the hand at the seated magazine; LT then pulls it out
+float g_closest = 99.0f;          // the nearest the magazine in the hand came to the magwell (logged when it is let go)
 
 // ---- shotgun shells (bundle 2): the gun's own hidden shell part rides the shell joint to the left wrist ------------
 const ShellWeapon* g_sw = nullptr;
@@ -263,7 +275,7 @@ void top_up() {
         }
     }
     if (g_gun != nullptr) call_direct<void*>(g_gun, "executeEndReload", nullptr);   // fire-ready again
-    if (before == 0 && loaded() > 0) rack::need("a magazine into an empty gun");
+    if ((before == 0 || g_dry) && loaded() > 0) rack::need(before == 0 ? "a magazine into an empty gun" : "the chamber was fired empty with the magazine out");
     reload_block::show_ammo_counter(cfg::HUD_AFTER_RELOAD_SEC);
     LOGI("%s reload: WP%04d topped up by %s: loaded %d -> %d (capacity %d), carried %d -> %d", TAG, g_wp, how, before, loaded(), cap,
          res_before, reserve());
@@ -329,7 +341,14 @@ void hand_checks() {
     Vec3 wp, lp;
     Quat wr;
     if (!hand_pose(wp, wr)) return;
+    if (!bridge::held(bridge::S_LTRIG)) g_lt_free = true;
     if (!bridge::held(bridge::S_LGRIP)) {
+        LOGI("%s reload: let go; the magazine came within %.3f m of the magwell (needs %.3f)%s", TAG, g_closest,
+             std::fmax(g_w->dock, cfg::RELOAD_DOCK_MIN_M), g_same_mag ? " -- the gun's own magazine, dropped: the pouch gives a new one" : "");
+        ghosthand::value("mag_closest_m", g_closest);
+        ghosthand::event("mag", "fail");
+        g_closest = 99.0f;
+        g_same_mag = g_lt_to_seat = false;   // on the floor now: its rounds come back with the next one from the pouch (top_up)
         g_fall_from = wp;
         g_fall_rot = wr;
         set_state(St::HAND_FALL, "left grip let go");
@@ -338,22 +357,58 @@ void hand_checks() {
     if (!to_weapon_local(wp, wr, lp, nullptr)) return;
     const float d = dist(lp, g_w->exit), need = std::fmax(g_w->dock, cfg::RELOAD_DOCK_MIN_M);
     const float now = now_s();
+    g_closest = std::fmin(g_closest, d);
     if (d > need || now - g_last_dock < cfg::RELOAD_DOCK_COOLDOWN_SEC) return;
+    // RE8 2026-10-25 / 10-31 (Tefa: "LT must be pressed again for it to go back in"; "only the requirement to press LT when i
+    // need to re-insert the same mag i just took out"): the gun's own magazine waits at the well for LT, pressed or held,
+    // but never the LT that pulled it out
+    if (g_lt_to_seat) {
+        static float told = -10.0f;
+        if (!g_lt_free || !bridge::held(bridge::S_LTRIG) || now - g_t0 < cfg::INSERT_LT_MIN_SEC) {
+            if (now - told > 2.0f) { told = now; LOGI("%s reload: the gun's own magazine is at the magwell (%.3f m): LT seats it", TAG, d); }
+            return;
+        }
+        g_lt_to_seat = false;
+        LOGI("%s reload: LT at the magwell: the same magazine goes back in", TAG);
+    }
     g_last_dock = now;
-    set_state(St::INSERT, "brought to the magwell");
+    set_state(St::INSERT, g_same_mag ? "the same magazine, back in with LT" : "brought to the magwell");
     LOGI("%s reload: insert at %.3f m from the magwell (his %.3f, ours at least %.3f)", TAG, d, g_w->dock, cfg::RELOAD_DOCK_MIN_M);
+    ghosthand::value("mag_closest_m", d);
+    ghosthand::event("mag", "done");
+    g_closest = 99.0f;
     sfx::play("mag_insert", g_w->sfx, g_w->vol);
     bridge::rumble(bridge::LEFT, cfg::RELOAD_INSERT_BUZZ_AMP, cfg::RELOAD_INSERT_BUZZ_SEC);
 }
 
 void put_back_on_swap(const char* why) {
+    g_hand_on_mag = false;
     if (g_st == St::SEATED) return;
     LOGI("%s reload: WP%04d magazine put back as it was (%s) -- its rounds never left the gun", TAG, g_wp, why);
     if (g_joint != nullptr) write_scale(g_rest_scale);
     g_st = St::SEATED;
+    g_chamber = 0;
+    g_loaded_out = -1;
+    g_dry = g_same_mag = g_lt_to_seat = false;
 }
 
-void begin_drop() {
+bool long_mag() {
+    for (int wp : cfg::MAG_LONG_WP) if (wp == g_wp) return true;
+    return false;
+}
+
+// the drawn left wrist to the seated magazine joint (where the tuned gun has it), metres; 99 = not known
+float hand_to_mag() {
+    Vec3 mp, hp;
+    if (g_joint == nullptr || g_wrist == nullptr || !get_v3(JOINT, g_joint, "get_Position", mp) || !get_v3(JOINT, g_wrist, "get_Position", hp)) return 99.0f;
+    tune::to_tuned(mp, nullptr);   // b171: the gun is moved by the hand tuning after the joints are read
+    return dist(mp, hp);
+}
+
+// the magazine leaves the gun: dropped (falls to the floor) or into the left hand (the same magazine, back in with LT).
+// RE8's real-gun rule (2026-10-31): a slide gun with rounds keeps one in the chamber; the game's count is not touched, the
+// fire gate (fire_blocked) and the HUD read (hud_rounds) let only that one round be seen and fired.
+void take_out(bool to_hand, const char* why) {
     if (g_joint == nullptr) { LOGW("%s reload: WP%04d joint %s not found on the gun, no drop", TAG, g_wp, g_w->joint); return; }
     Vec3 p, s;
     Quat q;
@@ -363,9 +418,75 @@ void begin_drop() {
     g_rest_rot = qnorm(q);
     g_rest_scale = s;
     g_slide_from = p;
-    set_state(St::SLIDE_OUT, "right B");
-    LOGI("%s reload: drop with %d loaded, %d carried; rest %.3f %.3f %.3f", TAG, loaded(), reserve(), p.x, p.y, p.z);
+    const int n = loaded();
+    g_loaded_out = n;
+    g_chamber = (cfg::CHAMBER_ROUND && n > 0 && slide_weapon(g_wp) != nullptr && !is_pump(g_wp)) ? 1 : 0;
+    g_dry = n <= 0;
+    g_same_mag = g_lt_to_seat = to_hand;
+    g_lt_free = false;
+    g_hand_on_mag = false;
+    g_closest = 99.0f;
+    set_state(to_hand ? St::IN_HAND : St::SLIDE_OUT, why);
+    LOGI("%s reload: %s with %d loaded (%d of them chambered, staying), %d carried; rest %.3f %.3f %.3f", TAG, to_hand ? "into the left hand" : "drop",
+         n, g_chamber, reserve(), p.x, p.y, p.z);
     sfx::play("mag_drop", g_w->sfx, g_w->vol);
+    if (to_hand) {
+        bridge::rumble(bridge::LEFT, cfg::RELOAD_GRAB_BUZZ_AMP, cfg::RELOAD_GRAB_BUZZ_SEC);
+        ghosthand::event("mag", "start");
+    }
+    reload_block::show_ammo_counter(cfg::HUD_AFTER_RELOAD_SEC);   // RE8 b016: the counter says what is left at once
+}
+
+// the magazine is seated: B and the left hand (RE8 2026-10-25 and 10-30: "B only ejects the mag on pistols"; "rifles and long
+// guns with mag in the middle of the gun only need LG + LT"; "just LG held and the mag just slides out after pressing B with
+// hand on the mag")
+void seated_controls() {
+    const bool lg = bridge::held(bridge::S_LGRIP);
+    if (!lg) g_hand_on_mag = false;
+    if (rack::active()) return;
+    if (long_mag()) {
+        if (bridge::pressed(bridge::S_LGRIP)) {
+            const float d = hand_to_mag();
+            g_hand_on_mag = d <= cfg::MAG_GRAB_M;
+            LOGI("%s reload: LG pressed with the magazine seated: the hand %.3f m from it (takes it within %.2f)%s", TAG, d, cfg::MAG_GRAB_M,
+                 g_hand_on_mag ? ": LT pulls it out" : "");
+            if (g_hand_on_mag) bridge::rumble(bridge::LEFT, cfg::RELOAD_GRAB_BUZZ_AMP * 0.5f, cfg::RELOAD_GRAB_BUZZ_SEC);
+        }
+        if (g_hand_on_mag && bridge::pressed(bridge::S_LTRIG)) take_out(true, "pulled out by hand (LG on it + LT)");
+        else if (bridge::pressed(bridge::S_RB)) LOGI("%s reload: WP%04d: B does nothing on this gun: LG on the magazine, then LT, pulls it out", TAG, g_wp);
+        return;
+    }
+    if (!bridge::pressed(bridge::S_RB)) return;
+    const float d = lg ? hand_to_mag() : 99.0f;
+    LOGI("%s reload: right B%s (the left hand %.3f m from the magazine, takes it within %.2f)", TAG, lg ? " with LG held" : "", d, cfg::MAG_GRAB_M);
+    if (lg && d <= cfg::MAG_GRAB_M) take_out(true, "right B with the left hand on the magazine");
+    else take_out(false, "right B");
+}
+
+// the chambered round, while the magazine is out: fired = the gun is empty until a magazine and a rack
+void watch_chamber() {
+    if (g_st == St::SEATED || g_chamber <= 0) return;
+    const int n = loaded();
+    if (n < 0 || n >= g_loaded_out) return;
+    g_chamber = 0;
+    g_dry = true;
+    LOGI("%s reload: WP%04d the chambered round was fired with the magazine out (%d -> %d): the gun is empty until a magazine and a rack", TAG, g_wp, g_loaded_out, n);
+    g_loaded_out = n;
+    reload_block::show_ammo_counter(cfg::HUD_AFTER_RELOAD_SEC);
+}
+
+// seated again: a pouch magazine is topped up from the carried ammo; the gun's own magazine holds just its own rounds
+void seat_done() {
+    if (!g_same_mag) {
+        top_up();
+    } else {
+        if (g_dry && loaded() > 0) rack::need("the gun's own magazine back in with the chamber empty");
+        reload_block::show_ammo_counter(cfg::HUD_AFTER_RELOAD_SEC);
+        LOGI("%s reload: WP%04d the same magazine back in: %d rounds (no top-up)%s", TAG, g_wp, loaded(), g_dry ? ", waiting for a rack" : "");
+    }
+    g_chamber = 0;
+    g_loaded_out = -1;
+    g_dry = g_same_mag = g_lt_to_seat = false;
 }
 } // namespace
 
@@ -373,6 +494,8 @@ void begin_drop() {
 // headset only: without it there is no B, no left hand and no pouch, so the game keeps its own reload
 bool managed_now() { return cfg::RELOAD_ON && (g_w != nullptr || g_sw != nullptr) && g_gun != nullptr && bridge::live(); }
 bool mag_out() { return managed_now() && g_w != nullptr && g_st != St::SEATED; }
+bool fire_blocked() { return mag_out() && g_chamber <= 0; }
+int hud_rounds() { return mag_out() ? g_chamber : -1; }
 bool session_active() { return mag_out() || g_shell_in_hand; }
 int wp_now() { return g_wp; }
 bool mag_in_hand() { return managed_now() && g_w != nullptr && (g_st == St::IN_HAND || g_st == St::INSERT); }
@@ -415,17 +538,19 @@ void frame() {
         if (t >= cfg::RELOAD_INSERT_SEC) {
             set_state(St::SEATED, "seated");
             g_scale_restore = true;
-            top_up();
+            seat_done();
         }
         break;
     default:
         break;
     }
+    watch_chamber();
 
-    // right B in normal play (FirstPerson driving: no menu, no cutscene) drops a seated magazine
+    // in normal play (FirstPerson driving: no menu, no cutscene): right B / the left hand take a seated magazine out
     const float fp = bridge::view(bridge::S_FP_USED);
     const bool in_play = bridge::live() && !menu_body::is_menu_open() && bridge::has(fp) && fp > 0.5f;
-    if (in_play && bridge::pressed(bridge::S_RB) && g_st == St::SEATED) begin_drop();
+    if (in_play && g_st == St::SEATED) seated_controls();
+    else if (g_st == St::SEATED) g_hand_on_mag = false;
 }
 
 void late_point() {
@@ -468,7 +593,10 @@ bool pouch_grab() {
         bridge::rumble(bridge::LEFT, cfg::RELOAD_DENY_BUZZ_AMP, cfg::RELOAD_DENY_BUZZ_SEC);
         return true;
     }
+    g_same_mag = g_lt_to_seat = false;   // a fresh one: topped up from the carried ammo, seats at the magwell by itself
+    g_closest = 99.0f;
     set_state(St::IN_HAND, "taken from the pouch");
+    ghosthand::event("mag", "start");
     sfx::play("mag_grab", g_w->sfx, g_w->vol);
     bridge::rumble(bridge::LEFT, cfg::RELOAD_GRAB_BUZZ_AMP, cfg::RELOAD_GRAB_BUZZ_SEC);
     return true;

@@ -9,6 +9,7 @@
 #include "settings.h"
 #include "sfx.h"
 
+#include <algorithm>
 #include <atomic>
 #include <chrono>
 
@@ -103,9 +104,9 @@ int pre_fire(int argc, void** argv, REFrameworkTypeDefinitionHandle*, unsigned l
             return REFRAMEWORK_HOOK_SKIP_ORIGINAL;
         }
     }
-    if (reload::mag_out() || rack::blocks_fire()) {
+    if (reload::fire_blocked() || rack::blocks_fire()) {   // 2026-10-31: with the magazine out, the chambered round still fires
         const int n = g_fire_blocked.fetch_add(1) + 1;
-        if (n <= 10 || n % 100 == 0) LOGI("%s block: shot stopped, %s (#%d)", TAG, reload::mag_out() ? "the magazine is out" : "a rack / pump is needed", n);
+        if (n <= 10 || n % 100 == 0) LOGI("%s block: shot stopped, %s (#%d)", TAG, reload::fire_blocked() ? "the magazine is out and the chamber empty" : "a rack / pump is needed", n);
         dry_click();
         return REFRAMEWORK_HOOK_SKIP_ORIGINAL;
     }
@@ -119,7 +120,7 @@ int g_rounds_at_pre = -1;
 MO* t_gun = nullptr;
 int pre_fire_count(int argc, void** argv, REFrameworkTypeDefinitionHandle*, unsigned long long) {
     g_rounds_at_pre = -1;
-    if (!cfg::RELOAD_ON || !reload::managed_now() || reload::mag_out() || argc < 2) return REFRAMEWORK_HOOK_CALL_ORIGINAL;
+    if (!cfg::RELOAD_ON || !reload::managed_now() || reload::fire_blocked() || argc < 2) return REFRAMEWORK_HOOK_CALL_ORIGINAL;
     auto* eq = is_managed(argv[1]) ? (MO*)argv[1] : nullptr;
     t_gun = field_obj(eq, "<EquipWeapon>k__BackingField");
     g_rounds_at_pre = call_direct<int>(t_gun, "getBulletNumber", -1);
@@ -135,10 +136,10 @@ void post_fire_count(void**, REFrameworkTypeDefinitionHandle, unsigned long long
     }
 }
 
-// the HUD's loaded count while the magazine is out
+// the HUD's loaded count while the magazine is out: 0, or 1 with a round left in the chamber (2026-10-31, RE8's rule)
 void post_hud_rounds(void** ret_val, REFrameworkTypeDefinitionHandle, unsigned long long) {
     if (ret_val == nullptr || !cfg::RELOAD_HUD_ZERO_WHEN_OUT || g_commit > 0 || !reload::mag_out()) return;
-    *ret_val = (void*)(uintptr_t)0;
+    *ret_val = (void*)(uintptr_t)std::max(0, reload::hud_rounds());
 }
 int pre_nop(int, void**, REFrameworkTypeDefinitionHandle*, unsigned long long) { return REFRAMEWORK_HOOK_CALL_ORIGINAL; }
 
@@ -206,7 +207,7 @@ void frame() {
     // requestFire is never reached and the click has to come from the press itself)
     if (ours && bridge::pressed(bridge::S_RTRIG) && !menu_body::is_menu_open()) {
         auto* gun = field_obj(component(call_ptr(API::get()->get_managed_singleton("app.ropeway.PlayerManager"), "get_CurrentPlayer"), "app.ropeway.survivor.Equipment"), "<EquipWeapon>k__BackingField");
-        if (reload::mag_out() || rack::blocks_fire() || call_direct<int>(gun, "getBulletNumber", -1) == 0) dry_click();
+        if (reload::fire_blocked() || rack::blocks_fire() || call_direct<int>(gun, "getBulletNumber", -1) == 0) dry_click();
     }
     if (ours) inhibit_reload(true);
     else if (g_inhibited) inhibit_reload(false);   // a shotgun, revolver or no headset: the game's reload is back
