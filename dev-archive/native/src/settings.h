@@ -151,7 +151,25 @@ constexpr float RELOAD_GRAB_BUZZ_AMP = 0.99f, RELOAD_GRAB_BUZZ_SEC = 0.057f;    
 constexpr float RELOAD_INSERT_BUZZ_AMP = 0.7f, RELOAD_INSERT_BUZZ_SEC = 0.06f;
 constexpr float RELOAD_DENY_BUZZ_AMP = 1.0f, RELOAD_DENY_BUZZ_SEC = 0.25f;       // empty pouch
 constexpr float RELOAD_DRY_FIRE_GAP_SEC = 0.3f;   // one click per pull on automatics
-constexpr bool  RELOAD_HUD_ZERO_WHEN_OUT = true;  // the HUD's loaded count reads 0 while the magazine is out
+constexpr bool  RELOAD_HUD_ZERO_WHEN_OUT = true;  // the HUD's loaded count reads 0 while the magazine is out (1 with a round chambered)
+
+// ---- Village's reload rules, brought back from Visceral RE8 (2026-10-31, Tefa: "look at re8 right now and how the
+// reloads work and implement this system into re2 and 3 as best as possible"). Worn in Village: the real-gun magazine
+// (b014, "wow this is so cool"), the magazine pulled out by hand on long guns (2026-10-25, "unbelievable"). Unworn here.
+// A slide / bolt gun that is not empty keeps one round in the chamber when its magazine comes out: it fires once with the
+// magazine out, and the slide never locks back on a magazine change. The rounds never leave the game's own count (the
+// fire gate and the HUD read below decide), so the same magazine going back in holds exactly its own rounds.
+constexpr bool  CHAMBER_ROUND = true;
+// LG held with the drawn left hand this close to the seated magazine: right B (handguns, the MQ 11) releases it INTO the left
+// hand instead of dropping it; on a long gun (MAG_LONG_WP) an LG press at the magazine, then LT, pulls it out. That same
+// magazine then goes back in only with LT (a fresh press, or held, at the magwell); a new one from the pouch needs no LT.
+constexpr float MAG_GRAB_M = 0.15f;               // first guess: RE8 uses 0.12 m from its IK target; here it is the drawn wrist
+constexpr int   MAG_LONG_WP[] = {2200};           // LE 5: the magazine sits ahead of the grip (RE8: "long guns with the mag in the middle")
+constexpr float INSERT_LT_MIN_SEC = 0.25f;        // the pull-out's own LT never counts as the seat press
+// a slide (not a pump) can be taken any time with a fresh LG press this close to it; a rack with none due is cosmetic.
+// Tighter than RACK_HAND_M so a two-handed pistol grip (the left hand under the gun) is never pulled onto the slide.
+constexpr bool  RACK_SLIDE_ANY_TIME = true;
+constexpr float RACK_ANYTIME_HAND_M = 0.08f;      // first guess, logged on every press
 constexpr int   SFX_VOICES = 16;
 constexpr float SFX_DEBOUNCE_SEC = 0.10f;         // his ext_5 debounce per kind
 constexpr float SFX_MASTER = 1.0f;

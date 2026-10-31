@@ -23,7 +23,9 @@ void render_point();     // PrepareRendering post: pose it again (the engine rew
 bool pouch_grab();       // holster.cpp: the left grip went down in the pouch spot; true if a magazine was taken
 
 bool managed_now();      // the gun in hand is one of ours (its game reload is off)
-bool mag_out();          // the magazine is not seated: the gun must not fire
+bool mag_out();          // the magazine is not seated
+bool fire_blocked();     // the magazine is out and no round is left in the chamber: the gun must not fire (2026-10-31)
+int  hud_rounds();       // what the ammo counter shows while the magazine is out (0 or the chambered 1); -1 = seated
 bool session_active();   // a reload is under way (the left grip must not ready the sub weapon)
 bool mag_in_hand();      // a magazine is in the left hand (taken from the pouch, or going in)
 bool shell_in_hand();    // a shotgun shell is in the left hand
