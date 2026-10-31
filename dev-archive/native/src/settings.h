@@ -179,6 +179,11 @@ constexpr float INSERT_LT_MIN_SEC = 0.25f;        // the pull-out's own LT never
 // tuning menu's own "LEFT hand on the magazine in the gun" sliders (tune.h MAG_DOCK).
 constexpr bool  MAG_HAND_DOCK = true;
 constexpr float MAG_DOCK_DOWN_M = 0.05f;          // first guess, tune with the sliders
+// b184 (Tefa, b183 worn: "the mag works, it now comes out with LG and B and stays in my hand. problem is that grip handle is
+// still a docking point as well, and docking hand on the mag turns the weapon in right hand and left hand motion controller
+// can move the gun around"): on handgun-type magazine guns (not MAG_LONG_WP) the magazine is the ONLY place the left hand
+// docks (no more grip-handle dock), and the hand on the magazine never turns the gun: the right hand alone aims.
+constexpr bool  MAG_ONLY_DOCK = true;
 // a slide (not a pump) can be taken any time with a fresh LG press this close to it; a rack with none due is cosmetic.
 // Tighter than RACK_HAND_M so a two-handed pistol grip (the left hand under the gun) is never pulled onto the slide.
 constexpr bool  RACK_SLIDE_ANY_TIME = true;

@@ -31,7 +31,8 @@ bool mag_in_hand();      // a magazine is in the left hand (taken from the pouch
 bool shell_in_hand();    // a shotgun shell is in the left hand
 bool hand_docked();      // 2026-10-31: the drawn left hand sits ON the magazine (seated, sliding out into the hand, or going in)
 // 2026-10-31, for rack.cpp's dock socket: 1 = dock the left wrist at (p, q), right-wrist space (steer: the left hand may
-// turn the gun); 0 = the left hand must stay free (a magazine is in it: no grip dock); -1 = not the reload's business
+// turn the gun); 0 = the left hand must stay free (a magazine is in it: no grip dock); -1 = not the reload's business;
+// 2 (b184) = the rack may keep its own socket (the slide), but the gun's grip handle is no dock spot
 int  hand_socket(Vec3& p, Quat& q, bool& steer);
 int  wp_now();           // the gun in hand (WP number), -1 if none
 const char* sfx_folder_now();

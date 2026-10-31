@@ -448,15 +448,16 @@ void reload_socket() {
     Quat q;
     bool steer = false;
     const int r = reload::hand_socket(p, q, steer);
-    if (r < 0) {
+    if (r < 0 || r == 2) {
         if (g_reload_socket) {   // handed back: as rack.cpp would have it with nothing of its own on
             g_reload_socket = false;
             const bool pump = g_wp >= 0 && is_pump(g_wp);
             if (!g_hand_on && !g_grip) g_socket.active = 0;
             g_socket.owned = pump ? 1 : 0;
             g_socket.steer = pump ? 1 : 0;
-            LOGI("%s rack: the left hand is the grip's again (the reload let go of it)", TAG);
+            LOGI("%s rack: the reload let go of the left hand", TAG);
         }
+        if (r == 2) g_socket.owned = 1;   // b184: the slide socket (if on) stands; the grip handle is no dock spot
         return;
     }
     if (!g_reload_socket) LOGI("%s rack: the reload has the left hand (%s)", TAG, r == 1 ? "docked on the magazine" : "free, a magazine in it");
