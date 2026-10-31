@@ -14,6 +14,8 @@
 
 local TAG = "[visceral-tuning]"
 local S_WHO, S_HT_ON, S_HT, STRIDE = 84, 86, 88, 64
+local S_HT2 = 540   -- 2026-10-31: the eighth hold onward (src/bridge.h)
+local function hold_base(h) if h <= 7 then return S_HT + (h - 1) * STRIDE end return S_HT2 + (h - 8) * STRIDE end
 local S_FREEZE, FREEZE_AFTER_SEC = 536, 10   -- b169; b172/b173: moved from 344 (src/bridge.h)
 local S_LADDER_HOLD_OFF = 537   -- b188: 1 = the ladder/cupboard view hold is off (tick box below), so Tefa can compare at one ladder
 local ladder = {hold = true}    -- never saved: every game starts with the hold on, as shipped since b086
@@ -42,6 +44,10 @@ local HOLDS = {
     {key = "free", title = "LEFT hand on its own (no buttons, away from the gun)", item = nil, free = true},
     -- b173 (Tefa: "hand on the pistol handle is different than that hand going on the slider"): its own opening shape
     {key = "open_handle", title = "LEFT hand opening to hold the handle", item = nil, nohand = true},
+    -- 2026-10-31 (Tefa: "hold on to the mag that is in the gun and not the grip itself"): where the left hand sits on the
+    -- magazine while it is in the gun, sliding out and going in (src/reload.cpp dock_wrist). Hand move/turn only; the
+    -- fingers there are the "Magazine in the hand" ones. Its numbers live at S_HT2 (after S_FREEZE), not S_HT + 7 x STRIDE.
+    {key = "magdock", title = "LEFT hand on the magazine in the gun", item = nil, nofingers = true},
 }
 local FINGERS = {   -- the order of the plugin's 17 finger joints (handpose_data.h kBones)
     {"Index", {"base", "middle", "tip"}},
@@ -154,7 +160,7 @@ re.on_pre_application_entry("LateUpdateBehavior", function()
         log.info(TAG .. " tuning set " .. name .. " " .. last_logged)
     end
     for h, hold in ipairs(HOLDS) do
-        local base = S_HT + (h - 1) * STRIDE
+        local base = hold_base(h)
         if wp < 0 and not hold.free then   -- b172: no gun out: only the left hand's own numbers
             for i = 1, N_VALUES do b.w(base + i - 1, 0.0) end
         else
@@ -195,7 +201,7 @@ local function hold_ui(name, wp, hold)
         any = three(v, 10, {"Turn 1", "Turn 2", "Turn 3"}, false, id .. "ht") or any
         imgui.tree_pop()
     end
-    if imgui.tree_node("Fingers##" .. id) then
+    if not hold.nofingers and imgui.tree_node("Fingers##" .. id) then
         local j = 0
         for _, f in ipairs(FINGERS) do
             if imgui.tree_node(f[1] .. "##" .. id) then

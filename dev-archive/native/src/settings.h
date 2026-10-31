@@ -166,6 +166,19 @@ constexpr bool  CHAMBER_ROUND = true;
 constexpr float MAG_GRAB_M = 0.15f;               // first guess: RE8 uses 0.12 m from its IK target; here it is the drawn wrist
 constexpr int   MAG_LONG_WP[] = {2200};           // LE 5: the magazine sits ahead of the grip (RE8: "long guns with the mag in the middle")
 constexpr float INSERT_LT_MIN_SEC = 0.25f;        // the pull-out's own LT never counts as the seat press
+// 2026-10-31 (Tefa, first wear of the above: "mag does land in my hand but because the LG also grips the grip handle, mag
+// just gets stuck through the right hand ... hold on to the mag that is in the gun and not the grip itself? so when inserted
+// or ejected, hand travels with the mag"). The log agreed: the hand stayed docked on the grip and the magazine never came
+// closer than 0.111 m to the magwell. Now (RE8's hand-on-the-magazine, by RE2's own route, the dock socket in rack.cpp):
+//   an LG press at the seated magazine puts the drawn left hand ON the magazine, not on the grip;
+//   B (handguns) or LT (long guns) slides it out with the hand riding on it; once out the hand is free and carries it
+//   (the grip can no longer catch the hand while a magazine is in it);
+//   going in, the hand rides up with it and stays on it until LG is let go.
+// Where the hand sits on it: the magazine-in-the-hand hold (reload_data.h and its "Magazine in the hand" sliders), moved
+// MAG_DOCK_DOWN_M toward where the magazine comes out (so the hand holds its bottom, clear of the right hand), plus the
+// tuning menu's own "LEFT hand on the magazine in the gun" sliders (tune.h MAG_DOCK).
+constexpr bool  MAG_HAND_DOCK = true;
+constexpr float MAG_DOCK_DOWN_M = 0.05f;          // first guess, tune with the sliders
 // a slide (not a pump) can be taken any time with a fresh LG press this close to it; a rack with none due is cosmetic.
 // Tighter than RACK_HAND_M so a two-handed pistol grip (the left hand under the gun) is never pulled onto the slide.
 constexpr bool  RACK_SLIDE_ANY_TIME = true;

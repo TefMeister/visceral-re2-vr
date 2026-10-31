@@ -42,6 +42,7 @@ enum Slot : int {
     S_FREEZE = 536,       // b169: 1 = hold both hands still (the Lua menu's tick box, after its 10 s countdown), see tune.h; b172/b173: moved from 344 for the new holds
     S_LADDER_HOLD_OFF = 537, // b188: 1 = the ladder/cupboard view hold (ladder.cpp) is switched off by the Lua menu's tick box; 0 or unset = on
     S_AUTO_EXPOSURE_ON = 538, // 2026-10-28: 1 = the game keeps its own automatic brightness (Lua tick box); 0 or unset = ours keeps it off (exposure.cpp)
+    S_HT2 = 540,          // 2026-10-31: the eighth hold onward (tune.h MAG_DOCK: the left hand on the magazine in the gun), HT_STRIDE each; the array is 604 long (visceral_bridge.lua N)
 };
 constexpr float SENTINEL = 54321.0f;
 constexpr float NO_VALUE = 999.0f;

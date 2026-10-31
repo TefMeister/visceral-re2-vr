@@ -64,7 +64,7 @@ int finger_of(int i) { return i < 3 ? 0 : i < 6 ? 1 : i < 10 ? 2 : i < 14 ? 3 : 
 
 void point() {
     if (!cfg::HANDPOSE_ON) return;
-    const bool holding = reload::mag_in_hand() || reload::shell_in_hand();
+    const bool holding = reload::mag_in_hand() || reload::hand_docked() || reload::shell_in_hand();   // 2026-10-31: + on the seated magazine
     const bool on_slide = !holding && (rack::active() || rack::grip_pose());   // b154/b155: the hand on the slide / pump
     const bool want = holding || on_slide;
     const Ctx ctx = holding ? Ctx::MAG : Ctx::SLIDE;
