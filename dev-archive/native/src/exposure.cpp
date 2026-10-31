@@ -29,6 +29,15 @@
 //      NUM6 gives the game's grading back (and takes it away again) to compare.
 // b193: contrast 1.2 (the game has 1.0; Tefa, live: "contrast looks right"). Its ToneMapController never writes
 // Contrast, so one write would hold; it is written every frame anyway, and NUM6 gives the game's 1.0 back with the grading.
+//
+// b184, 2026-10-31 (Tefa: "re2 needs the single frame multipass without DLSS i have decided ... eyes are showing different
+// lighting in re2"): the two eyes still differ under Single Frame Multipass with the writes above. Village's cure, which
+// made its eyes match (2026-10-29 23:12, "it works! whatever you did it works!", `[verified-live 2026-10-29, Village,
+// headset, n=1]`), wrote AutoExposure Disable right AFTER the game's ToneMapController.lateUpdate (a post-hook), the moment
+// the controller has put its Enable back, instead of at BeginRendering. Same here: the Disable and the pinned limits are
+// also written in a post-hook on app.ropeway.posteffect.ToneMapController.lateUpdate; BeginRendering keeps writing too
+// (and the grading, contrast and log). RE2 keeps the area's own EV (4.2 in the RPD hall, a CPU value both eyes share):
+// Village needed set_EV(6.4) only because its authored EV of 3 was far too bright. `[compile-verified 2026-10-31]`
 #include "exposure.h"
 #include "bridge.h"
 #include "common.h"
@@ -54,6 +63,9 @@ struct State {
     MO* last_tm = nullptr;
     MO* last_cc = nullptr;
     int writes = 0;
+    bool keep_off = true;              // b184: the last decision of render_point, for the controller hook
+    int hook_writes = 0;               // b184: writes made right after the controller's late update
+    bool hooked = false;
     float last_report = 0.0f;
 } g;
 
@@ -110,9 +122,32 @@ float now_s() {
     return (GetTickCount() - t0) / 1000.0f;
 }
 
+// b184: right after the game's ToneMapController.lateUpdate: its Enable is undone before anything downstream reads it
+void post_controller(void**, REFrameworkTypeDefinitionHandle, unsigned long long) {
+    if (!g.keep_off || g.disable_value < 0) return;
+    MO* cam_go = main_camera_go();
+    MO* tm = cam_go != nullptr ? component(cam_go, "via.render.ToneMapping") : nullptr;
+    if (tm == nullptr) return;
+    const float ev = call_direct<float>(tm, "get_EV", 0.0f);
+    set_float(tm, "set_AutoExposureMinEV", ev);
+    set_float(tm, "set_AutoExposureMaxEV", ev);
+    set_ae(tm, g.disable_value);
+    ++g.hook_writes;
+}
+
 }  // namespace
 
 namespace vn::exposure {
+
+void install() {
+    if (g.hooked) return;
+    g.hooked = true;
+    auto* td = API::get()->tdb()->find_type("app.ropeway.posteffect.ToneMapController");
+    auto* m = td != nullptr ? td->find_method("lateUpdate") : nullptr;
+    if (m == nullptr) { LOGW("%s exposure: app.ropeway.posteffect.ToneMapController.lateUpdate not found: writes at BeginRendering only", TAG); return; }
+    m->add_hook(nullptr, post_controller, false);
+    LOGI("%s exposure: hooked app.ropeway.posteffect.ToneMapController.lateUpdate (the brightness is held right after it)", TAG);
+}
 
 void render_point() {
     const bool k7 = (GetAsyncKeyState(VK_NUMPAD7) & 0x8000) != 0;
@@ -123,6 +158,7 @@ void render_point() {
     g.key6 = k6;
     const float menu = bridge::view(bridge::S_AUTO_EXPOSURE_ON);
     const bool keep_off = g.off && !(menu > 0.5f && menu < bridge::NO_VALUE - 1.0f);
+    g.keep_off = keep_off;
 
     MO* cam_go = main_camera_go();
     if (cam_go == nullptr) return;
@@ -162,7 +198,7 @@ void render_point() {
     const float t = now_s();
     if (t - g.last_report >= REPORT_S) {
         g.last_report = t;
-        LOGI("%s exposure: kept off (%d writes; AutoExposure %d, UseAutoExposure %d, EV %.2f, limits %.2f..%.2f, grading %s)", TAG, g.writes, get_ae(tm),
+        LOGI("%s exposure: kept off (%d writes, %d after the controller; AutoExposure %d, UseAutoExposure %d, EV %.2f, limits %.2f..%.2f, grading %s)", TAG, g.writes, g.hook_writes, get_ae(tm),
              (int)use_ae(tm), call_direct<float>(tm, "get_EV", -99.0f), call_direct<float>(tm, "get_AutoExposureMinEV", -99.0f),
              call_direct<float>(tm, "get_AutoExposureMaxEV", -99.0f), g.grading_off ? "off" : "the game's");
     }

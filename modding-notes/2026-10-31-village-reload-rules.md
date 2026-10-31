@@ -75,3 +75,19 @@ left hand (docked on the magazine | free, a magazine in it)`, `the left hand doc
 while a magazine is in it. It needs RE2's VR-layer socket changes rebuilt for RE3 first.
 
 Old RE2 files: `D:/Visceral build versions/_backup-2026-10-31-*-before-hand-on-magazine/`.
+
+
+## b183 worn, b184 (2026-10-31 evening)
+
+Tefa: *"the mag works, it now comes out with LG and B and stays in my hand. problem is that grip handle is still a docking
+point as well, and docking hand on the mag turns the weapon in right hand and left hand motion controller can move the gun
+around"* `[verified-live 2026-10-31, headset, n=1]` for the magazine into the hand.
+
+b184 (`[compile-verified 2026-10-31]`, installed, unworn): on handgun-type magazine guns the magazine is the ONLY left-hand
+dock spot (`MAG_ONLY_DOCK`: the socket says "owned" whenever the reload has nothing else on, so the VR layer never docks on
+the grip handle; the slide's own socket still works), and the hand on the magazine never turns the gun (steer off: the
+right hand alone aims). The LE 5 keeps its grip dock.
+
+Same build, the lighting: Tefa decided RE2 is developed on Single Frame Multipass without DLSS (config already so:
+`VR_RenderingTechnique_V2=2`, `TemporalUpscaler_Enabled=false`) and the eyes differ. `exposure.cpp` now also writes the
+Disable and the pinned limits in a post-hook on `app.ropeway.posteffect.ToneMapController.lateUpdate`, Village's cure.

@@ -569,7 +569,7 @@ bool hand_docked() {
 int hand_socket(Vec3& p, Quat& q, bool& steer) {
     if (!cfg::MAG_HAND_DOCK || !managed_now() || g_w == nullptr) return -1;
     if (g_st == St::IN_HAND) return 0;   // the magazine is in the hand: the hand is the controller's, the grip must not catch it
-    if (!hand_docked()) { g_dock_logged = -1; return -1; }
+    if (!hand_docked()) { g_dock_logged = -1; return cfg::MAG_ONLY_DOCK && !long_mag() ? 2 : -1; }   // b184: no grip-handle dock
     Vec3 lp, wp, rp;
     Quat lq, wq, rq;
     const float down = g_st == St::INSERT ? ease((now_s() - g_t0) / cfg::RELOAD_INSERT_SEC) : 1.0f;
@@ -579,7 +579,7 @@ int hand_socket(Vec3& p, Quat& q, bool& steer) {
     const Quat inv = qinv(qnorm(rq));
     p = rotate(inv, wp - rp);
     q = qnorm(qmul(inv, wq));
-    steer = g_st == St::SEATED;   // just holding it: the two-handed aim as usual; while it moves, the right hand alone aims
+    steer = false;   // b184 (Tefa: "docking hand on the mag turns the weapon"): the right hand alone aims, always
     if (g_dock_logged != static_cast<int>(g_st)) {
         g_dock_logged = static_cast<int>(g_st);
         LOGI("%s reload: the left hand docked on the magazine (%s): %.3f %.3f %.3f from the right wrist", TAG, st_name(g_st), p.x, p.y, p.z);
