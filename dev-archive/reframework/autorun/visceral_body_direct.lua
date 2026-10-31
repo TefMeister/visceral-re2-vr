@@ -14,7 +14,7 @@ end
 
 local TAG = "[visceral_direct]"
 local NS = sdk.game_namespace
-local VK_NUMPAD6 = 0x66
+local VK_NUMPAD6 = 0x63   -- 2026-10-31: NUM3 now (the variable keeps its old name): NUM6 is the plugin's colour-grading switch (exposure.cpp)
 
 local cfg = { enabled = true }
 local st = { calls = 0, overridden = 0, game_true = 0, last_log = 0, prev_key = false, keys_ok = true }
