@@ -29,6 +29,10 @@ int  hud_rounds();       // what the ammo counter shows while the magazine is ou
 bool session_active();   // a reload is under way (the left grip must not ready the sub weapon)
 bool mag_in_hand();      // a magazine is in the left hand (taken from the pouch, or going in)
 bool shell_in_hand();    // a shotgun shell is in the left hand
+bool hand_docked();      // 2026-10-31: the drawn left hand sits ON the magazine (seated, sliding out into the hand, or going in)
+// 2026-10-31, for rack.cpp's dock socket: 1 = dock the left wrist at (p, q), right-wrist space (steer: the left hand may
+// turn the gun); 0 = the left hand must stay free (a magazine is in it: no grip dock); -1 = not the reload's business
+int  hand_socket(Vec3& p, Quat& q, bool& steer);
 int  wp_now();           // the gun in hand (WP number), -1 if none
 const char* sfx_folder_now();
 float sfx_volume_now();

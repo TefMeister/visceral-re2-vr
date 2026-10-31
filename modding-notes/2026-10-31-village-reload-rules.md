@@ -43,3 +43,35 @@ Home PC 2026-10-31 17:1x. RE2 `visceral_native.dll` db1d6f6a (saved build `manua
 
 Log lines: `reload: right B ... the left hand X m from the magazine`, `reload: into the left hand ...`, `the chambered
 round was fired`, `rack: LG, left hand X m from the slide (need 0.08): HAND ON (no rack due: cosmetic)`.
+
+
+## First wear, and the hand on the magazine (2026-10-31 evening, builds.py b183)
+
+Tefa, Lightning Hawk: *"mag does land in my hand but because the LG also grips the grip handle, mag just gets stuck through
+the right hand. is is possible to in this game also use all the windiw view tools and hold on to the mag that is in the gun
+and not the grip itself? so when inserted or ejected, hand travels with the mag."*
+
+The log agreed `[measured 2026-10-31, n=3]`: after B with LG held, the left hand stayed docked on the grip (the VR layer's
+aid-joint dock, sticky while LG is held), so the magazine in it never came closer than 0.111 m to the magwell (needs 0.06).
+Pouch magazines went in fine (pressed away from the gun, so never docked). The B-into-the-hand rule itself worked.
+
+b183 (`[compile-verified 2026-10-31]`, installed, unworn) gives the reload the last word on the left hand, through the
+same dock socket the slide rack uses (`rack.cpp reload_socket`, after the rack's own socket each frame):
+
+- **LG pressed at the seated magazine** (within 0.15 m of the spot the hand takes on it) = the hand docks ON the magazine
+  instead of the grip. Holding it like that still aims two-handed (steer on).
+- **B (handguns) / LT (LE 5)** = the magazine slides out with the hand riding on it (right hand aims alone while it moves).
+- **Out:** the hand is free (socket owned, inactive: no grip dock while a magazine is in it) and carries it.
+- **Going in:** the hand rides up with it and stays on it until LG is let go (Village's 2026-10-24 rule).
+- Where the hand sits: the magazine-in-the-hand hold undone (so the "Magazine in the hand" sliders still count), moved
+  `MAG_DOCK_DOWN_M` 0.05 m toward where the magazine comes out, plus a new slider set in the hand-tuning menu:
+  **"LEFT hand on the magazine in the gun"** (hand move/turn; bridge array 539 -> 604, slots at 540).
+- The any-time slide grab is not taken while the hand is on the magazine.
+
+Log lines: `LG pressed with the magazine seated: the hand X m from its spot on the magazine`, `rack: the reload has the
+left hand (docked on the magazine | free, a magazine in it)`, `the left hand docked on the magazine (state): x y z`.
+
+**RE3 is not done:** its VR layer is the older socket (version 1, no "owned"), which cannot keep the hand off the grip
+while a magazine is in it. It needs RE2's VR-layer socket changes rebuilt for RE3 first.
+
+Old RE2 files: `D:/Visceral build versions/_backup-2026-10-31-*-before-hand-on-magazine/`.

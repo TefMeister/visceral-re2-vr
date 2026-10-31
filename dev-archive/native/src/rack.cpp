@@ -268,7 +268,7 @@ void slide_lock_empty() {
     g_parked = true;
 }
 
-void frame() {
+void frame_body() {
     if (!cfg::RELOAD_ON) return;
     const int wp = weapons::current_id();
     if (wp != g_wp) {
@@ -366,7 +366,7 @@ void frame() {
     } else {
         g_grip = false;
     }
-    if (!g_hand_on && !menu && !reload::session_active() && may_rack && !g_spent) {
+    if (!g_hand_on && !menu && !reload::session_active() && !reload::hand_docked() && may_rack && !g_spent) {   // 2026-10-31: not with the hand on the magazine
         float d = 0.0f;
         const bool want = pump ? (lg && bridge::pressed(bridge::S_LTRIG)) : any_time ? bridge::pressed(bridge::S_LGRIP) : lg;
         if (want) {
@@ -435,6 +435,44 @@ void frame() {
         g_travel = std::fmax(0.0f, g_travel - cfg::RACK_RETURN_PER_SEC / 72.0f);   // let go mid-way: it springs back
     }
     publish_socket();
+}
+
+// 2026-10-31 (Tefa, RE2 first wear of the Village reloads: the magazine taken into the left hand "gets stuck through the right
+// hand" because LG also docked the hand on the grip): the reload has the last word on the left hand while it has a magazine
+// to do with -- docked ON the magazine (seated with LG pressed at it, sliding out into the hand, going in), or kept free
+// while the magazine is in the hand (owned, no socket: the VR layer must not dock it on the aid joint). Runs after the rack's
+// own publish_socket, every frame, guns without a slide too.
+bool g_reload_socket = false;
+void reload_socket() {
+    Vec3 p;
+    Quat q;
+    bool steer = false;
+    const int r = reload::hand_socket(p, q, steer);
+    if (r < 0) {
+        if (g_reload_socket) {   // handed back: as rack.cpp would have it with nothing of its own on
+            g_reload_socket = false;
+            const bool pump = g_wp >= 0 && is_pump(g_wp);
+            if (!g_hand_on && !g_grip) g_socket.active = 0;
+            g_socket.owned = pump ? 1 : 0;
+            g_socket.steer = pump ? 1 : 0;
+            LOGI("%s rack: the left hand is the grip's again (the reload let go of it)", TAG);
+        }
+        return;
+    }
+    if (!g_reload_socket) LOGI("%s rack: the reload has the left hand (%s)", TAG, r == 1 ? "docked on the magazine" : "free, a magazine in it");
+    g_reload_socket = true;
+    g_socket.owned = 1;
+    g_socket.steer = (r == 1 && steer) ? 1 : 0;
+    g_socket.active = r == 1 ? 1 : 0;
+    if (r == 1) {
+        g_socket.px = p.x; g_socket.py = p.y; g_socket.pz = p.z;
+        g_socket.qx = q.x; g_socket.qy = q.y; g_socket.qz = q.z; g_socket.qw = q.w;
+    }
+}
+
+void frame() {
+    frame_body();
+    if (cfg::RELOAD_ON) reload_socket();
 }
 
 void late_point() { if (g_w != nullptr) write_joint(); }

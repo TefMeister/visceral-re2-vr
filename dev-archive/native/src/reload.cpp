@@ -38,6 +38,7 @@ int capacity();
 int reserve();
 MO* inventory();
 MO* equipment();
+float hand_to_dock();
 enum class St { SEATED, SLIDE_OUT, FALL, OUT, IN_HAND, HAND_FALL, INSERT };
 const char* st_name(St s) {
     switch (s) {
@@ -55,6 +56,7 @@ MO* g_gun = nullptr;              // this frame's Gun, joint and transforms (val
 MO* g_joint = nullptr;
 MO* g_wtf = nullptr;
 MO* g_wrist = nullptr;
+MO* g_rwrist = nullptr;           // 2026-10-31: the right wrist (the dock socket is in its space)
 bool g_claire = false;
 float g_t0 = 0.0f;                // when the current state began
 Vec3 g_rest_pos{}, g_rest_scale{1, 1, 1};
@@ -73,7 +75,9 @@ bool g_dry = false;               // the chamber is empty: a rack is due once a 
 bool g_same_mag = false;          // the magazine in the hand is the one pulled from this gun: back in with its own rounds only
 bool g_lt_to_seat = false;        // ... and only with LT at the magwell (a pouch magazine seats by itself)
 bool g_lt_free = false;           // LT has been let go since the pull-out (the pull's own LT never seats it)
-bool g_hand_on_mag = false;       // long guns: LG was pressed with the hand at the seated magazine; LT then pulls it out
+bool g_hand_on_mag = false;       // LG was pressed with the hand at the seated magazine: the hand is on it (B / LT takes it out)
+int g_dock_logged = -1;           // the state the hand-on-magazine dock was last logged in (-1 = not docked)
+bool g_out_to_hand = false;       // 2026-10-31: this slide-out ends in the left hand (the hand rides out on it), not on the floor
 float g_closest = 99.0f;          // the nearest the magazine in the hand came to the magwell (logged when it is let go)
 
 // ---- shotgun shells (bundle 2): the gun's own hidden shell part rides the shell joint to the left wrist ------------
@@ -114,11 +118,12 @@ MO* equipment() { return component(player_go(), "app.ropeway.survivor.Equipment"
 MO* inventory() { return component(player_go(), "app.ropeway.survivor.Inventory"); }
 
 void resolve_frame() {
-    g_gun = g_joint = g_wtf = g_wrist = nullptr;
+    g_gun = g_joint = g_wtf = g_wrist = g_rwrist = nullptr;
     auto* go = player_go();
     if (go == nullptr) return;
     g_claire = read_string(call_ptr(go, "get_Name")).rfind("pl1", 0) == 0;
     g_wrist = joint_by_name(call_ptr(go, "get_Transform"), L"l_arm_wrist");
+    g_rwrist = joint_by_name(call_ptr(go, "get_Transform"), L"r_arm_wrist");
     auto* gun = field_obj(component(go, "app.ropeway.survivor.Equipment"), "<EquipWeapon>k__BackingField");
     if (gun == nullptr || type_name(gun).find("Gun") == std::string::npos) return;
     g_gun = gun;
@@ -382,7 +387,7 @@ void hand_checks() {
 }
 
 void put_back_on_swap(const char* why) {
-    g_hand_on_mag = false;
+    g_hand_on_mag = g_out_to_hand = false;
     if (g_st == St::SEATED) return;
     LOGI("%s reload: WP%04d magazine put back as it was (%s) -- its rounds never left the gun", TAG, g_wp, why);
     if (g_joint != nullptr) write_scale(g_rest_scale);
@@ -425,8 +430,9 @@ void take_out(bool to_hand, const char* why) {
     g_same_mag = g_lt_to_seat = to_hand;
     g_lt_free = false;
     g_hand_on_mag = false;
+    g_out_to_hand = to_hand;   // 2026-10-31: it slides out either way; into the hand, the hand rides out on it (hand_socket)
     g_closest = 99.0f;
-    set_state(to_hand ? St::IN_HAND : St::SLIDE_OUT, why);
+    set_state(St::SLIDE_OUT, why);
     LOGI("%s reload: %s with %d loaded (%d of them chambered, staying), %d carried; rest %.3f %.3f %.3f", TAG, to_hand ? "into the left hand" : "drop",
          n, g_chamber, reserve(), p.x, p.y, p.z);
     sfx::play("mag_drop", g_w->sfx, g_w->vol);
@@ -439,27 +445,29 @@ void take_out(bool to_hand, const char* why) {
 
 // the magazine is seated: B and the left hand (RE8 2026-10-25 and 10-30: "B only ejects the mag on pistols"; "rifles and long
 // guns with mag in the middle of the gun only need LG + LT"; "just LG held and the mag just slides out after pressing B with
-// hand on the mag")
+// hand on the mag"). 2026-10-31 (RE2 first wear, "hold on to the mag that is in the gun and not the grip itself"): an LG press
+// at the magazine puts the hand ON it, every gun (hand_socket docks it there, not on the grip).
 void seated_controls() {
     const bool lg = bridge::held(bridge::S_LGRIP);
-    if (!lg) g_hand_on_mag = false;
+    if (!lg && g_hand_on_mag) { g_hand_on_mag = false; LOGI("%s reload: LG let go: the left hand leaves the magazine", TAG); }
     if (rack::active()) return;
+    if (bridge::pressed(bridge::S_LGRIP) && !g_hand_on_mag) {
+        // the spot the hand would take on it (the VR layer docks within 0.15 m of that spot, so it is measured, not the joint)
+        const float d = cfg::MAG_HAND_DOCK ? hand_to_dock() : hand_to_mag();
+        g_hand_on_mag = d <= cfg::MAG_GRAB_M;
+        LOGI("%s reload: LG pressed with the magazine seated: the hand %.3f m from %s (%.3f from the joint; takes it within %.2f)%s", TAG, d,
+             cfg::MAG_HAND_DOCK ? "its spot on the magazine" : "it", hand_to_mag(), cfg::MAG_GRAB_M,
+             !g_hand_on_mag ? "" : long_mag() ? ": the hand on the magazine, LT pulls it out" : ": the hand on the magazine, right B releases it into the hand");
+        if (g_hand_on_mag) bridge::rumble(bridge::LEFT, cfg::RELOAD_GRAB_BUZZ_AMP * 0.5f, cfg::RELOAD_GRAB_BUZZ_SEC);
+    }
     if (long_mag()) {
-        if (bridge::pressed(bridge::S_LGRIP)) {
-            const float d = hand_to_mag();
-            g_hand_on_mag = d <= cfg::MAG_GRAB_M;
-            LOGI("%s reload: LG pressed with the magazine seated: the hand %.3f m from it (takes it within %.2f)%s", TAG, d, cfg::MAG_GRAB_M,
-                 g_hand_on_mag ? ": LT pulls it out" : "");
-            if (g_hand_on_mag) bridge::rumble(bridge::LEFT, cfg::RELOAD_GRAB_BUZZ_AMP * 0.5f, cfg::RELOAD_GRAB_BUZZ_SEC);
-        }
         if (g_hand_on_mag && bridge::pressed(bridge::S_LTRIG)) take_out(true, "pulled out by hand (LG on it + LT)");
         else if (bridge::pressed(bridge::S_RB)) LOGI("%s reload: WP%04d: B does nothing on this gun: LG on the magazine, then LT, pulls it out", TAG, g_wp);
         return;
     }
     if (!bridge::pressed(bridge::S_RB)) return;
-    const float d = lg ? hand_to_mag() : 99.0f;
-    LOGI("%s reload: right B%s (the left hand %.3f m from the magazine, takes it within %.2f)", TAG, lg ? " with LG held" : "", d, cfg::MAG_GRAB_M);
-    if (lg && d <= cfg::MAG_GRAB_M) take_out(true, "right B with the left hand on the magazine");
+    LOGI("%s reload: right B%s", TAG, g_hand_on_mag ? " with the left hand on the magazine" : lg ? " with LG held away from the magazine" : "");
+    if (g_hand_on_mag) take_out(true, "right B with the left hand on the magazine");
     else take_out(false, "right B");
 }
 
@@ -488,6 +496,60 @@ void seat_done() {
     g_loaded_out = -1;
     g_dry = g_same_mag = g_lt_to_seat = false;
 }
+
+// ---- 2026-10-31: the left hand ON the magazine (Tefa: "so when inserted or ejected, hand travels with the mag") ----------
+// The magazine's place in the weapon frame this frame: as the game has it while seated, as pose_joint writes it while it
+// slides out or goes in.
+bool mag_local_now(Vec3& p, Quat& q) {
+    const float t = now_s() - g_t0;
+    switch (g_st) {
+    case St::SEATED:
+        if (g_joint == nullptr || !get_v3(JOINT, g_joint, "get_LocalPosition", p) || !get_q(JOINT, g_joint, "get_LocalRotation", q)) return false;
+        q = qnorm(q);
+        return true;
+    case St::SLIDE_OUT:
+        p = lerp(g_slide_from, g_w->exit, ease(t / cfg::RELOAD_SLIDE_SEC));
+        q = g_rest_rot;
+        return true;
+    case St::INSERT: {
+        const float u = ease(t / cfg::RELOAD_INSERT_SEC);
+        p = Vec3{g_rest_pos.x, g_w->exit.y + (g_rest_pos.y - g_w->exit.y) * u, g_w->exit.z + (g_rest_pos.z - g_w->exit.z) * u};
+        q = g_rest_rot;
+        return true;
+    }
+    default:
+        return false;
+    }
+}
+
+// where the left wrist goes so the hand holds the magazine standing at (lp, lq): the magazine-in-the-hand hold undone
+// (magazine = wrist * hold), moved `down` x MAG_DOCK_DOWN_M toward where it comes out, plus the MAG_DOCK sliders
+bool dock_wrist(Vec3 lp, Quat lq, float down, Vec3& wp, Quat& wq) {
+    Vec3 mp, a, b;
+    Quat mq, qa, qb;
+    const Vec3 rest = g_st == St::SEATED ? lp : g_rest_pos;
+    if (!from_weapon_local(lp, lq, mp, mq) || !from_weapon_local(rest, lq, a, qa) || !from_weapon_local(g_w->exit, lq, b, qb)) return false;
+    tune::to_tuned(mp, &mq);   // b171: where the TUNED gun has it
+    tune::to_tuned(a, nullptr);
+    tune::to_tuned(b, nullptr);
+    const float len = dist(a, b);
+    const Vec3 out = len > 1e-4f ? (b - a) * (1.0f / len) : Vec3{0, 0, 0};
+    const Hold& h = g_claire ? g_w->claire : g_w->leon;
+    const Quat hq = qnorm(qmul(quat_from_ypr(h), tune::item_turn(tune::MAG)));
+    const Vec3 ho = Vec3{h.ox, h.oy, h.oz} + tune::item_move(tune::MAG);
+    wq = qnorm(qmul(mq, qinv(hq)));
+    wp = mp - rotate(wq, ho) + out * (cfg::MAG_DOCK_DOWN_M * down) + rotate(wq, tune::hand_move(tune::MAG_DOCK));
+    wq = qnorm(qmul(wq, tune::ypr(tune::hand_turn_deg(tune::MAG_DOCK))));
+    return true;
+}
+
+// the drawn left wrist to the spot it would take on the seated magazine, metres; 99 = not known
+float hand_to_dock() {
+    Vec3 lp, wp, hp;
+    Quat lq, wq;
+    if (g_wrist == nullptr || !mag_local_now(lp, lq) || !dock_wrist(lp, lq, 1.0f, wp, wq) || !get_v3(JOINT, g_wrist, "get_Position", hp)) return 99.0f;
+    return dist(wp, hp);
+}
 } // namespace
 
 // ---- the public side --------------------------------------------------------------------------------------------------
@@ -500,6 +562,30 @@ bool session_active() { return mag_out() || g_shell_in_hand; }
 int wp_now() { return g_wp; }
 bool mag_in_hand() { return managed_now() && g_w != nullptr && (g_st == St::IN_HAND || g_st == St::INSERT); }
 bool shell_in_hand() { return managed_now() && g_shell_in_hand; }
+bool hand_docked() {
+    if (!cfg::MAG_HAND_DOCK || !managed_now() || g_w == nullptr || g_joint == nullptr) return false;
+    return (g_st == St::SEATED && g_hand_on_mag) || (g_st == St::SLIDE_OUT && g_out_to_hand) || g_st == St::INSERT;
+}
+int hand_socket(Vec3& p, Quat& q, bool& steer) {
+    if (!cfg::MAG_HAND_DOCK || !managed_now() || g_w == nullptr) return -1;
+    if (g_st == St::IN_HAND) return 0;   // the magazine is in the hand: the hand is the controller's, the grip must not catch it
+    if (!hand_docked()) { g_dock_logged = -1; return -1; }
+    Vec3 lp, wp, rp;
+    Quat lq, wq, rq;
+    const float down = g_st == St::INSERT ? ease((now_s() - g_t0) / cfg::RELOAD_INSERT_SEC) : 1.0f;
+    if (!mag_local_now(lp, lq) || !dock_wrist(lp, lq, down, wp, wq) || g_rwrist == nullptr || !get_v3(JOINT, g_rwrist, "get_Position", rp) ||
+        !get_q(JOINT, g_rwrist, "get_Rotation", rq))
+        return 0;
+    const Quat inv = qinv(qnorm(rq));
+    p = rotate(inv, wp - rp);
+    q = qnorm(qmul(inv, wq));
+    steer = g_st == St::SEATED;   // just holding it: the two-handed aim as usual; while it moves, the right hand alone aims
+    if (g_dock_logged != static_cast<int>(g_st)) {
+        g_dock_logged = static_cast<int>(g_st);
+        LOGI("%s reload: the left hand docked on the magazine (%s): %.3f %.3f %.3f from the right wrist", TAG, st_name(g_st), p.x, p.y, p.z);
+    }
+    return 1;
+}
 const char* sfx_folder_now() { return g_w ? g_w->sfx : g_sw ? g_sw->sfx : "handgun"; }
 float sfx_volume_now() { return g_w ? g_w->vol : g_sw ? g_sw->vol : 1.0f; }
 
@@ -523,6 +609,16 @@ void frame() {
     switch (g_st) {
     case St::SLIDE_OUT:
         if (t >= cfg::RELOAD_SLIDE_SEC) {
+            if (g_out_to_hand && bridge::held(bridge::S_LGRIP)) {   // 2026-10-31: out, the hand lets go of the gun and carries it
+                g_out_to_hand = false;
+                set_state(St::IN_HAND, "out of the magwell, in the left hand");
+                break;
+            }
+            if (g_out_to_hand) {   // LG let go while it slid out: it falls, and the pouch gives a new one
+                LOGI("%s reload: LG let go while the magazine slid out: it falls", TAG);
+                ghosthand::event("mag", "fail");
+                g_same_mag = g_lt_to_seat = g_out_to_hand = false;
+            }
             if (!from_weapon_local(g_w->exit, g_rest_rot, g_fall_from, g_fall_rot)) g_fall_from = Vec3{0, 0, 0};
             set_state(St::FALL, "out of the magwell");
         }
@@ -539,6 +635,9 @@ void frame() {
             set_state(St::SEATED, "seated");
             g_scale_restore = true;
             seat_done();
+            // 2026-10-31 (RE8 2026-10-24: "the hand stay on the bottom of the mag and follow it fully until it's in the gun"):
+            // seated with LG still held, the hand stays on the magazine until LG is let go
+            g_hand_on_mag = cfg::MAG_HAND_DOCK && bridge::held(bridge::S_LGRIP);
         }
         break;
     default:

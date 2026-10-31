@@ -11,7 +11,8 @@ using namespace joints;
 
 namespace {
 float at(Hold h, int i) {
-    const float v = bridge::view(static_cast<bridge::Slot>(bridge::S_HT + h * bridge::HT_STRIDE + i));
+    const int base = h < MAG_DOCK ? bridge::S_HT + h * bridge::HT_STRIDE : bridge::S_HT2 + (h - MAG_DOCK) * bridge::HT_STRIDE;   // 2026-10-31: S_FREEZE sits after the seventh
+    const float v = bridge::view(static_cast<bridge::Slot>(base + i));
     return bridge::has(v) ? v : 0.0f;
 }
 Vec3 at3(Hold h, int i) { return {at(h, i), at(h, i + 1), at(h, i + 2)}; }
@@ -61,7 +62,8 @@ void frame() {
 // The hand while it holds a magazine or a shell: the wrist joint moved and turned in its own axes. The VR layer places
 // the wrist; if it rewrites it after us, these two sliders do nothing.
 void wrist_point() {
-    const bool mag = reload::mag_in_hand(), shell = !mag && reload::shell_in_hand();
+    // 2026-10-31: not while the hand is docked on the magazine (the dock spot already carries its own sliders, MAG_DOCK)
+    const bool mag = reload::mag_in_hand() && !reload::hand_docked(), shell = !reload::mag_in_hand() && reload::shell_in_hand();
     if (!live() || (!mag && !shell)) { g_wrote = false; return; }
     const Hold h = mag ? MAG : SHELL;
     const Vec3 mv = hand_move(h), tn = hand_turn_deg(h);
