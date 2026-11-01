@@ -59,6 +59,7 @@ void frame_begin();                // snapshot buttons for edge detection; once 
 void rumble(Hand h, float amplitude, float seconds);
 Vec3 hmd_pos();
 Quat hmd_rot();
+Quat right_rot();                   // 2026-11-01: the right controller's turn in room space (S_RROT)
 Vec3 hand_pos(Hand h);
 float view(Slot s);                // read a view slot NOW (not the frame-start snapshot); NO_VALUE if not live
 Quat view_quat(Slot s);            // four slots read NOW; check has(.x) before use

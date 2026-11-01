@@ -28,6 +28,7 @@ add_library(visceral_native SHARED
     src/reload_block.cpp
     src/sfx.cpp
     src/rack.cpp
+    src/breech.cpp
     src/ghosthand.cpp
     src/tune.cpp
     src/pump_native.cpp

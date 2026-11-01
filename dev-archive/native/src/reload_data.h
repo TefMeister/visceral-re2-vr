@@ -84,6 +84,9 @@ constexpr ShellWeapon SHELL_WEAPONS[] = {
     {1100, "_04", 31, {-0.001f, -0.030f, 0.148f}, 0.22f, "shotgun_w870", 2.0f},
     {1200, "_04", 31, {-0.001f, -0.030f, 0.148f}, 0.22f, "shotgun_w870", 2.0f},
     {1500, "_04", 31, {-0.001f, -0.030f, 0.148f}, 0.22f, "shotgun_w870", 2.0f},
+    // 2026-11-01 the GM 79 (Village port): one round at a time, only while the barrel is open (breech.cpp); the round is the
+    // joint _04 the game's own reload carries in the hand, no mesh part to switch (-1); the port is read live (the chamber, _100)
+    {4100, "_04", -1, {0.0f, 0.0f, 0.0f}, 0.08f, "grenade_launcher", 1.0f},   // 0.08 m reach: a first guess
 };
 inline const ShellWeapon* shell_weapon(int wp) {
     for (const auto& s : SHELL_WEAPONS)

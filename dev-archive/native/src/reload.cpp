@@ -5,6 +5,7 @@
 // to the weapon transform for a joint). World positions are never read back from a joint we wrote the same frame
 // (the stale-world-matrix trap, port map §D): the slide's end point is computed from the weapon transform instead.
 #include "reload.h"
+#include "breech.h"
 #include "tune.h"
 #include "bridge.h"
 #include "ghosthand.h"
@@ -136,6 +137,7 @@ void resolve_frame() {
 }
 
 void shell_part(bool show) {   // the shell mesh part of the gun (hidden by the game unless it is being loaded)
+    if (g_sw != nullptr && g_sw->mesh_part < 0) return;   // 2026-11-01: the GM 79's round has no part to switch
     auto* mesh = call_ptr(g_gun, "get_Mesh");
     auto* m = mesh ? find_method_deep(mesh->get_type_definition(), "setPartsEnable(System.UInt64, System.Boolean)") : nullptr;
     if (m != nullptr && g_sw != nullptr) m->call<void>(API::get()->get_vm_context(), (void*)mesh, (uint64_t)g_sw->mesh_part, show);
@@ -192,7 +194,7 @@ void shell_insert() {
         if (g_gun != nullptr) call_direct<void*>(g_gun, "executeEndReload", nullptr);
     }
     LOGI("%s reload: WP%04d shell in: loaded %d -> %d, carried %d -> %d%s", TAG, g_wp, before, loaded(), res_before, reserve(), ok ? "" : " -- NOTHING WENT IN");
-    if (ok) pump_native::on_shells_inserted(before == 0);
+    if (ok && !breech::here()) pump_native::on_shells_inserted(before == 0);
     reload_block::show_ammo_counter(cfg::HUD_AFTER_RELOAD_SEC);
 }
 
@@ -203,9 +205,15 @@ void shell_checks() {
     if (!shell_hand_pose(wp, wr)) return;
     if (!bridge::held(bridge::S_LGRIP)) { shell_put_back("left grip let go"); return; }
     if (!to_weapon_local(wp, wr, lp, nullptr)) return;
-    const float d = dist(lp, g_sw->port);
+    Vec3 port = g_sw->port;
+    float live[3];
+    if (breech::port_local(live)) port = Vec3{live[0], live[1], live[2]};   // 2026-11-01: the GM 79's chamber, read live
+    if (!breech::loading_allowed()) return;                                  // the GM 79 takes a round only while open
+    const float d = dist(lp, port);
     const float now = now_s();
-    const float need = std::fmin(g_sw->dock, cfg::SHELL_DOCK_MAX_M);
+    const float need = breech::here() ? g_sw->dock : std::fmin(g_sw->dock, cfg::SHELL_DOCK_MAX_M);   // the GM 79's round: its own reach
+    static float s_told = 0.0f;   // 2026-11-01: how far the round is, twice a second, so a test (or a log read) can find the port
+    if (now - s_told > 0.5f) { s_told = now; LOGI("%s reload: the round %.3f m from the port (needs %.3f)", TAG, d, need); }
     if (d > need || now - g_shell_last_dock < cfg::RELOAD_DOCK_COOLDOWN_SEC) return;
     g_shell_last_dock = now;
     LOGI("%s reload: shell at the port (%.3f m, need %.3f)", TAG, d, need);
@@ -556,7 +564,7 @@ float hand_to_dock() {
 // headset only: without it there is no B, no left hand and no pouch, so the game keeps its own reload
 bool managed_now() { return cfg::RELOAD_ON && (g_w != nullptr || g_sw != nullptr) && g_gun != nullptr && bridge::live(); }
 bool mag_out() { return managed_now() && g_w != nullptr && g_st != St::SEATED; }
-bool fire_blocked() { return mag_out() && g_chamber <= 0; }
+bool fire_blocked() { return (mag_out() && g_chamber <= 0) || breech::blocks_fire(); }   // 2026-11-01: + the GM 79 open
 int hud_rounds() { return mag_out() ? g_chamber : -1; }
 bool session_active() { return mag_out() || g_shell_in_hand; }
 int wp_now() { return g_wp; }
@@ -567,6 +575,9 @@ bool hand_docked() {
     return (g_st == St::SEATED && g_hand_on_mag) || (g_st == St::SLIDE_OUT && g_out_to_hand) || g_st == St::INSERT;
 }
 int hand_socket(Vec3& p, Quat& q, bool& steer) {
+    // 2026-11-01: a launcher round in the left hand: the hand is free (owned, no socket), or the VR layer's two-handed grip
+    // holds it on the front grip and it can never reach the chamber (simulator: 0.120 m from the port wherever it went)
+    if (managed_now() && g_shell_in_hand && breech::here()) return 0;
     if (!cfg::MAG_HAND_DOCK || !managed_now() || g_w == nullptr) return -1;
     if (g_st == St::IN_HAND) return 0;   // the magazine is in the hand: the hand is the controller's, the grip must not catch it
     if (!hand_docked()) { g_dock_logged = -1; return cfg::MAG_ONLY_DOCK && !long_mag() ? 2 : -1; }   // b184: no grip-handle dock
@@ -670,6 +681,11 @@ bool pouch_grab() {
         const float now = now_s();
         if (now - g_last_grab < cfg::RELOAD_GRAB_COOLDOWN_SEC || g_shell_in_hand) return true;
         g_last_grab = now;
+        if (!breech::loading_allowed()) {   // 2026-11-01: the GM 79 is shut: open it first (LG + LT on the front grip)
+            LOGI("%s reload: the GM 79 is shut: open it first (LG + LT with the left hand on the front grip)", TAG);
+            bridge::rumble(bridge::LEFT, cfg::RELOAD_DENY_BUZZ_AMP, cfg::RELOAD_DENY_BUZZ_SEC);
+            return true;
+        }
         if (reserve() <= 0 || tube_space() <= 0) {
             LOGI("%s reload: no shell to take (carried %d, space %d)", TAG, reserve(), tube_space());
             bridge::rumble(bridge::LEFT, cfg::RELOAD_DENY_BUZZ_AMP, cfg::RELOAD_DENY_BUZZ_SEC);

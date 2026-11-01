@@ -65,6 +65,7 @@ void rumble(Hand h, float amplitude, float seconds) {
 }
 
 Vec3 hmd_pos() { return {g_now[S_HMD_POS], g_now[S_HMD_POS + 1], g_now[S_HMD_POS + 2]}; }
+Quat right_rot() { return {g_now[S_RROT], g_now[S_RROT + 1], g_now[S_RROT + 2], g_now[S_RROT + 3]}; }
 Quat hmd_rot() { return {g_now[S_HMD_ROT], g_now[S_HMD_ROT + 1], g_now[S_HMD_ROT + 2], g_now[S_HMD_ROT + 3]}; }
 float view(Slot s) { return live() ? elems()[s] : NO_VALUE; }
 Quat view_quat(Slot s) { if (!live()) return {NO_VALUE, 0, 0, 1}; const float* e = elems(); return {e[s], e[s + 1], e[s + 2], e[s + 3]}; }

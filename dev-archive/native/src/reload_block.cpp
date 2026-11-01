@@ -6,6 +6,7 @@
 #include "pump_native.h"
 #include "rack.h"
 #include "reload.h"
+#include "breech.h"
 #include "settings.h"
 #include "sfx.h"
 
@@ -90,6 +91,7 @@ void dry_click() {
     if (now - g_last_dry < cfg::RELOAD_DRY_FIRE_GAP_SEC && !bridge::pressed(bridge::S_RTRIG)) return;
     g_last_dry = now;
     if (!cfg::DRY_CLICK_SOUND) { LOGI("%s block: dry click (muted for the b156 test)", TAG); return; }
+    if (breech::is_open()) return;   // 2026-11-01: an open launcher has nothing to click
     if (GetFileAttributesA(cfg::DRY_CLICK_OFF_FILE) != INVALID_FILE_ATTRIBUTES) { LOGI("%s block: dry click muted (test switch file)", TAG); return; }
     sfx::play(cfg::DRY_CLICK_KIND, cfg::DRY_CLICK_FOLDER, cfg::DRY_CLICK_VOL);
 }

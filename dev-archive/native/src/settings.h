@@ -184,6 +184,19 @@ constexpr float MAG_DOCK_DOWN_M = 0.05f;          // first guess, tune with the 
 // can move the gun around"): on handgun-type magazine guns (not MAG_LONG_WP) the magazine is the ONLY place the left hand
 // docks (no more grip-handle dock), and the hand on the magazine never turns the gun: the right hand alone aims.
 constexpr bool  MAG_ONLY_DOCK = true;
+// 2026-11-01 (Village port; Tefa: "grenade launcher and revolvers must not open with a swing, only LG + LT, but close with LG + LT
+// and the motion swing"): the GM 79's break action (breech.cpp). Village's numbers where it has them.
+constexpr bool  BREAK_ON = true;
+constexpr int   BREAK_WP = 4100;                  // the GM 79
+constexpr float BREAK_OPEN_DEG = 40.0f;           // the barrel's turn open (the game's own reload turns _01 40 deg)
+constexpr float BREAK_SWING_SEC = 0.15f;          // the swing open or shut
+constexpr float BREAK_FRONT_T = 0.45f;            // the front grip: this far from the hinge towards the muzzle (a guess)
+constexpr float BREAK_FRONT_M = 0.15f;            // the drawn left wrist this close to it = on the front grip (a guess)
+constexpr float BREAK_FLICK_DEG_S = 420.0f;       // the barrel thrown up this fast = a flick (Village's number)
+constexpr float BREAK_FLICK_LOG_DEG_S = 150.0f;
+constexpr float BREAK_FLICK_WINDOW_SEC = 0.06f;   // the flick's speed is measured across this long, not frame to frame   // log the fastest upward swing each second above this
+constexpr float BREAK_COOLDOWN_SEC = 0.4f;        // no second open / shut this soon after one
+constexpr float BREAK_BUZZ_AMP = 0.5f, BREAK_BUZZ_SEC = 0.06f;
 // 2026-11-01 (Village port: Hand Poser poses a hand only while it is on the gun): besides our own docks (magazine, slide, pump),
 // the left hand counts as on the gun while LG is held with a gun out and the hand is this close to the gun hand (the VR layer's
 // own two-handed grip, which it does not tell us about) [hypothesis: a first guess]
