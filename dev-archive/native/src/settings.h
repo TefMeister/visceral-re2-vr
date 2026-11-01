@@ -184,6 +184,10 @@ constexpr float MAG_DOCK_DOWN_M = 0.05f;          // first guess, tune with the 
 // can move the gun around"): on handgun-type magazine guns (not MAG_LONG_WP) the magazine is the ONLY place the left hand
 // docks (no more grip-handle dock), and the hand on the magazine never turns the gun: the right hand alone aims.
 constexpr bool  MAG_ONLY_DOCK = true;
+// 2026-11-01 (Village port: Hand Poser poses a hand only while it is on the gun): besides our own docks (magazine, slide, pump),
+// the left hand counts as on the gun while LG is held with a gun out and the hand is this close to the gun hand (the VR layer's
+// own two-handed grip, which it does not tell us about) [hypothesis: a first guess]
+constexpr float LEFT_ON_GUN_NEAR_M = 0.45f;
 // a slide (not a pump) can be taken any time with a fresh LG press this close to it; a rack with none due is cosmetic.
 // Tighter than RACK_HAND_M so a two-handed pistol grip (the left hand under the gun) is never pulled onto the slide.
 constexpr bool  RACK_SLIDE_ANY_TIME = true;

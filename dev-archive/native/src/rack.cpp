@@ -488,6 +488,13 @@ void reload_socket() {
 void frame() {
     frame_body();
     if (cfg::RELOAD_ON) reload_socket();
+    // 2026-11-01: tell Hand Poser whether the left hand is on the gun
+    bool on = g_socket.active != 0;
+    if (!on && weapons::current_id() >= 0 && bridge::live() && bridge::held(bridge::S_LGRIP)) {
+        const Vec3 d = bridge::hand_pos(bridge::LEFT) - bridge::hand_pos(bridge::RIGHT);
+        on = std::sqrt(d.x * d.x + d.y * d.y + d.z * d.z) < cfg::LEFT_ON_GUN_NEAR_M;
+    }
+    bridge::put(bridge::S_LEFT_ON_GUN, on ? 1.0f : 0.0f);
 }
 
 void late_point() { if (g_w != nullptr) write_joint(); }
