@@ -394,9 +394,22 @@ void hand_checks() {
     bridge::rumble(bridge::LEFT, cfg::RELOAD_INSERT_BUZZ_AMP, cfg::RELOAD_INSERT_BUZZ_SEC);
 }
 
+// 2026-11-01 (Tefa: "when i eject the mag, leave it empty so i do not insert a new mag in, then upon changing weapons the
+// mag is in the chamber again"): a gun put away with its magazine out keeps it out; it comes back that way
+struct KeptMag { Vec3 pos, scale; Quat rot; int chamber, loaded_out; bool dry; };
+std::map<int, KeptMag> g_kept_mag;
+
 void put_back_on_swap(const char* why) {
     g_hand_on_mag = g_out_to_hand = false;
     if (g_st == St::SEATED) return;
+    if (cfg::MAG_KEEP_OUT_ON_SWAP && g_w != nullptr && g_wp >= 0) {
+        g_kept_mag[g_wp] = KeptMag{g_rest_pos, g_rest_scale, g_rest_rot, g_chamber, g_loaded_out, g_dry};
+        LOGI("%s reload: WP%04d put away with its magazine out (%s): it stays out (chamber %d)", TAG, g_wp, why, g_chamber);
+        if (g_joint != nullptr) write_scale(Vec3{0, 0, 0});   // the magazine is not in the gun put away either
+        g_st = St::SEATED;   // our state for the next gun; this gun's own state is in g_kept_mag
+        g_same_mag = g_lt_to_seat = false;
+        return;
+    }
     LOGI("%s reload: WP%04d magazine put back as it was (%s) -- its rounds never left the gun", TAG, g_wp, why);
     if (g_joint != nullptr) write_scale(g_rest_scale);
     g_st = St::SEATED;
@@ -612,6 +625,15 @@ void frame() {
         g_shell_have_rest = false;
         if (g_sw != nullptr) LOGI("%s reload: WP%04d %s loads single shells (joint %s, part %d)", TAG, wp, weapons::name(wp), g_sw->joint, g_sw->mesh_part);
         if (g_w != nullptr) LOGI("%s reload: WP%04d %s uses the manual magazine reload (joint %s)", TAG, wp, weapons::name(wp), g_w->joint);
+        if (auto it = g_kept_mag.find(wp); g_w != nullptr && it != g_kept_mag.end()) {   // 2026-11-01: back with its magazine out
+            const KeptMag k = it->second;
+            g_kept_mag.erase(it);
+            g_rest_pos = k.pos; g_rest_scale = k.scale; g_rest_rot = k.rot;
+            g_chamber = k.chamber; g_loaded_out = k.loaded_out; g_dry = k.dry;
+            g_same_mag = g_lt_to_seat = false;
+            g_st = St::OUT; g_t0 = now_s();
+            LOGI("%s reload: WP%04d back with its magazine still out (chamber %d)", TAG, wp, g_chamber);
+        }
     }
     resolve_frame();
     if (g_w == nullptr || g_gun == nullptr) return;

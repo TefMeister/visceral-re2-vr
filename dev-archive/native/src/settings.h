@@ -184,6 +184,7 @@ constexpr float MAG_DOCK_DOWN_M = 0.05f;          // first guess, tune with the 
 // can move the gun around"): on handgun-type magazine guns (not MAG_LONG_WP) the magazine is the ONLY place the left hand
 // docks (no more grip-handle dock), and the hand on the magazine never turns the gun: the right hand alone aims.
 constexpr bool  MAG_ONLY_DOCK = true;
+constexpr bool  MAG_KEEP_OUT_ON_SWAP = true;   // 2026-11-01: a magazine taken out stays out when the gun is put away and comes back (Tefa)
 // 2026-11-01 (Village port; Tefa: "grenade launcher and revolvers must not open with a swing, only LG + LT, but close with LG + LT
 // and the motion swing"): the GM 79's break action (breech.cpp). Village's numbers where it has them.
 constexpr bool  BREAK_ON = true;

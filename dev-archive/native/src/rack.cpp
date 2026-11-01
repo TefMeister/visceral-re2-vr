@@ -43,6 +43,7 @@ bool g_needed = false;    // a rack is required
 // switch back, it will still require racking"): each gun's pending rack and locked-back slide are kept when it is put away
 // and given back when it returns
 struct Kept { bool needed, parked; };
+std::map<int, Vec3> g_rest_by_wp;   // 2026-11-01: each gun's slide rest, read once
 std::map<int, Kept> g_kept;
 bool g_parked = false;    // the slide is locked open (empty gun, or needed)
 bool g_hand_on = false;   // the hand is docked on the slide / fore-end
@@ -97,7 +98,10 @@ void resolve_frame() {
     g_rwrist = joint_by_name(call_ptr(go, "get_Transform"), L"r_arm_wrist");
     if (g_joint != nullptr && !g_have_rest) {
         Vec3 p;
-        if (get_v3(JOINT, g_joint, "get_LocalPosition", p)) { g_rest = p; g_have_rest = true; LOGI("%s rack: WP%04d joint %s rests at local %.3f %.3f %.3f (his rest %.3f)", TAG, g_wp, g_w->joint, p.x, p.y, p.z, g_w->rest_z); }
+        // 2026-11-01 (RE3 worn: "when i change weapons, the slide is too far back unnaturally"): a gun coming back with its slide
+        // locked back must not take that as its rest: each gun's rest is read once and kept
+        if (auto it = g_rest_by_wp.find(g_wp); it != g_rest_by_wp.end()) { g_rest = it->second; g_have_rest = true; }
+        else if (get_v3(JOINT, g_joint, "get_LocalPosition", p)) { g_rest = p; g_have_rest = true; g_rest_by_wp[g_wp] = p; LOGI("%s rack: WP%04d joint %s rests at local %.3f %.3f %.3f (his rest %.3f)", TAG, g_wp, g_w->joint, p.x, p.y, p.z, g_w->rest_z); }
     }
 }
 
