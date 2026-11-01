@@ -228,6 +228,12 @@ constexpr ShellHold SHELL_HOLD = {0.108f, -0.042f, 0.032f, 13.0f, 86.0f, 0.0f}; 
 constexpr float SHELL_DOCK_MAX_M = 0.045f;  // b158: 0.07 -> 0.045, Tefa: "just like 2-3cm more closer" (screenshot)
 // b157 was: 0.07f, Tefa: "a little closer to the shotgun"
 // was:  SHELL_DOCK_MAX_M = 0.10f;   // b155: the shell goes in this close to the port at most (his 0.22, Tefa: "the activation area was too far away")
+// 2026-11-01 (Tefa, Village, then "port it over to re2 and re3"): the empty click is a short hammer cock (Village's M1851
+// hammer, recorded; sfx/dry_hammer.wav, installed to custom_sfx/common), not the old click
+constexpr const char* DRY_CLICK_KIND = "dry_hammer";
+constexpr const char* DRY_CLICK_FOLDER = "common";
+constexpr float DRY_CLICK_VOL = 1.0f;
+constexpr const char* DRY_CLICK_OFF_FILE = "reframework/data/visceral_dry_click_off";   // test switch: present = ours muted
 constexpr bool  DRY_CLICK_SOUND = true;   // b157: back on; the b156 test (muted) still had the gunshot, so it is the game's
 // b156 was: DRY_CLICK_SOUND = false;  // b156 TEST: the click muted for one run, to hear whether the "gunshot" on empty is our
                                           // click file or the game (b155: requestFire skipped, click played, Tefa still heard a shot)

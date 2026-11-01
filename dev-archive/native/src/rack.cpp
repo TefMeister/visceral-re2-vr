@@ -21,6 +21,7 @@
 #include "settings.h"
 #include "sfx.h"
 #include "weapons.h"
+#include <map>
 
 namespace vn::rack {
 
@@ -38,6 +39,11 @@ Vec3 g_rest{};            // the joint's own LOCAL pose at rest, read once per w
 bool g_have_rest = false; // b140 wrote them as positions and the W-870's fore-end went to the gun's origin, worn 2026-10-10)
 
 bool g_needed = false;    // a rack is required
+// 2026-11-01 (ported from Village b-10-24; Tefa there: "when a rifle needs racking then after i switch to a different gun and
+// switch back, it will still require racking"): each gun's pending rack and locked-back slide are kept when it is put away
+// and given back when it returns
+struct Kept { bool needed, parked; };
+std::map<int, Kept> g_kept;
 bool g_parked = false;    // the slide is locked open (empty gun, or needed)
 bool g_hand_on = false;   // the hand is docked on the slide / fore-end
 bool g_pulled = false;    // reached the back this cycle
@@ -272,10 +278,18 @@ void frame_body() {
     if (!cfg::RELOAD_ON) return;
     const int wp = weapons::current_id();
     if (wp != g_wp) {
-        if (g_needed) LOGI("%s rack: WP%04d put away with a rack pending -- forgotten (the game's own state rules)", TAG, g_wp);
+        if (g_w != nullptr && g_wp >= 0) {
+            g_kept[g_wp] = Kept{g_needed, g_parked};
+            if (g_needed || g_parked) LOGI("%s rack: WP%04d put away with a rack pending: kept for when it comes back", TAG, g_wp);
+        }
         g_wp = wp;
         g_w = slide_weapon(wp);
         g_needed = g_parked = g_hand_on = g_pulled = g_grip = g_let_go = g_hold_closed = g_armed = g_spent = false;
+        if (auto it = g_kept.find(wp); g_w != nullptr && it != g_kept.end()) {
+            g_needed = it->second.needed; g_parked = it->second.parked;
+            g_kept.erase(it);
+            if (g_needed || g_parked) LOGI("%s rack: WP%04d back with its rack still pending (needed %d, slide back %d)", TAG, wp, g_needed, g_parked);
+        }
         g_auto = 0;
         g_travel = 0.0f;
         g_have_rest = false;
