@@ -193,7 +193,12 @@ constexpr float BREAK_OPEN_DEG = 40.0f;           // the barrel's turn open (the
 constexpr float BREAK_SWING_SEC = 0.15f;          // the swing open or shut
 constexpr float BREAK_FRONT_T = 0.45f;            // the front grip: this far from the hinge towards the muzzle (a guess)
 constexpr float BREAK_FRONT_M = 0.15f;            // the drawn left wrist this close to it = on the front grip (a guess)
-constexpr float BREAK_FLICK_DEG_S = 420.0f;       // the barrel thrown up this fast = a flick (Village's number)
+constexpr float BREAK_FLICK_RISE_SEC = 0.25f;     // 2026-11-01: over this long before a flick the gun must have RISEN by
+constexpr float BREAK_FLICK_RISE_DEG = 20.0f;     // ... at least this much (a downward snap and its bounce end level: no close)
+constexpr float BREAK_FLICK_DIP_DEG = 10.0f;      // ... without first dipping more than this below where it started
+constexpr bool  BREAK_ROUNDS_FOLLOW = true;       // the rounds (_100, _101) ride in the barrel while it is open
+constexpr bool  BREAK_HAND_RIDES = true;          // the left hand rides on the barrel while it is open (LG held)
+constexpr float BREAK_FLICK_DEG_S = 520.0f;   // was 420 (Village's): Tefa, worn, "a little too easy"; his flicks logged 427-944       // the barrel thrown up this fast = a flick (Village's number)
 constexpr float BREAK_FLICK_LOG_DEG_S = 150.0f;
 constexpr float BREAK_FLICK_WINDOW_SEC = 0.06f;   // the flick's speed is measured across this long, not frame to frame   // log the fastest upward swing each second above this
 constexpr float BREAK_COOLDOWN_SEC = 0.4f;        // no second open / shut this soon after one

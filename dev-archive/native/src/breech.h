@@ -11,5 +11,9 @@ bool here();             // the gun in hand has a break action (the GM 79)
 bool is_open();          // here() and open
 bool blocks_fire();      // the barrel is open
 bool loading_allowed();  // not a break action, or open
-bool port_local(float out[3]);   // the chamber (joint _100) in the weapon transform's frame, for the round's insert point
+bool port_local(float out[3]);
+// 2026-11-01 (Tefa, worn: "the left hand doesn't travel with the motion and stay on the front end of it"): while the barrel is
+// open or swinging and the left hand took it at the front (LG still held), the hand rides on the barrel: its place and turn
+// in the right wrist's space, for the VR layer's dock socket
+bool hand_socket(float p[3], float q[4]);   // the chamber (joint _100) in the weapon transform's frame, for the round's insert point
 }

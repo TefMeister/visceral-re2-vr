@@ -16,6 +16,7 @@
 #include "menu_body.h"
 #include "pump_native.h"
 #include "reload.h"
+#include "breech.h"
 #include "reload_block.h"
 #include "reload_data.h"
 #include "settings.h"
@@ -462,6 +463,16 @@ void frame_body() {
 // own publish_socket, every frame, guns without a slide too.
 bool g_reload_socket = false;
 void reload_socket() {
+    {   // 2026-11-01: the GM 79's barrel, open, carries the left hand
+        float bp[3], bq[4];
+        if (breech::hand_socket(bp, bq)) {
+            g_socket.owned = 1; g_socket.steer = 0; g_socket.active = 1;
+            g_socket.px = bp[0]; g_socket.py = bp[1]; g_socket.pz = bp[2];
+            g_socket.qx = bq[0]; g_socket.qy = bq[1]; g_socket.qz = bq[2]; g_socket.qw = bq[3];
+            g_reload_socket = true;
+            return;
+        }
+    }
     Vec3 p;
     Quat q;
     bool steer = false;

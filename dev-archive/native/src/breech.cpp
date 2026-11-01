@@ -23,6 +23,13 @@ MO* g_wtf = nullptr;
 MO* g_hinge = nullptr;
 MO* g_muzzle = nullptr;
 MO* g_chamber = nullptr;
+MO* g_case = nullptr;            // _101, the spent case / second round
+// 2026-11-01 (Tefa, worn: "the inserted round doesn't show up in the barrel ... it has to travel with the barrel inside it"):
+// the rounds' place in the barrel's frame, read while shut, written back each frame while it is open
+struct Rel { Vec3 p; Quat q; bool ok; };
+Rel g_rel_chamber{}, g_rel_case{};
+bool g_hand_on = false;          // the left hand took the barrel at the front and LG is still held
+Quat g_hand_rel{0, 0, 0, 1};     // the left wrist's turn in the barrel's frame when it took it
 Quat g_rest{0, 0, 0, 1};
 bool g_have_rest = false;
 bool g_open = false;
@@ -50,7 +57,8 @@ void resolve() {
     const int wp = weapons::current_id();
     if (wp != g_wp) {
         g_wp = wp;
-        g_open = false; g_swing = 0.0f; g_have_rest = false; g_logged_near = -1;
+        g_open = false; g_swing = 0.0f; g_have_rest = false; g_logged_near = -1; g_hand_on = false;
+        g_rel_chamber.ok = g_rel_case.ok = false;
     }
     g_gun = g_wtf = g_hinge = g_muzzle = g_chamber = nullptr;
     if (wp != cfg::BREAK_WP) return;
@@ -60,6 +68,7 @@ void resolve() {
     g_hinge = joint_by_name(g_wtf, L"_01");
     g_muzzle = joint_by_name(g_wtf, L"vfx_muzzle1");
     g_chamber = joint_by_name(g_wtf, L"_100");
+    g_case = joint_by_name(g_wtf, L"_101");
 }
 
 // the front grip: along the barrel from the hinge towards the muzzle
@@ -83,6 +92,18 @@ bool is_open() { return here() && g_open; }
 bool blocks_fire() { return is_open(); }
 bool loading_allowed() { return g_wp != cfg::BREAK_WP || g_open; }
 
+bool hand_socket(float p[3], float q[4]) {
+    if (!cfg::BREAK_ON || !cfg::BREAK_HAND_RIDES || !here() || !g_hand_on || g_swing <= 0.0f || !bridge::held(bridge::S_LGRIP)) return false;
+    Vec3 f, rp; Quat rq, hq;
+    auto* rwrist = joint_by_name(call_ptr(player_go(), "get_Transform"), L"r_arm_wrist");
+    if (!front_grip(f) || !get_v3(JOINT, rwrist, "get_Position", rp) || !get_q(JOINT, rwrist, "get_Rotation", rq) || !get_q(JOINT, g_hinge, "get_Rotation", hq)) return false;
+    const Quat inv = qinv(qnorm(rq));
+    const Vec3 l = rotate(inv, f - rp);
+    const Quat lq = qnorm(qmul(inv, qmul(qnorm(hq), g_hand_rel)));
+    p[0] = l.x; p[1] = l.y; p[2] = l.z; q[0] = lq.x; q[1] = lq.y; q[2] = lq.z; q[3] = lq.w;
+    return true;
+}
+
 bool port_local(float out[3]) {
     if (!here() || g_chamber == nullptr) return false;
     Vec3 c, wp;
@@ -105,8 +126,16 @@ void frame() {
         g_logged_near = on ? 1 : 0;
         if (on && bridge::held(bridge::S_LGRIP)) LOGI("%s breech: the left hand on the GM 79's front grip (%.3f m): LT %s it", TAG, d, g_open ? "shuts" : "opens");
     }
+    if (!bridge::held(bridge::S_LGRIP)) g_hand_on = false;
     if (on && bridge::held(bridge::S_LGRIP) && bridge::pressed(bridge::S_LTRIG) && now >= g_cool) {
         set_open(!g_open, "LG + LT on the front grip");
+        // the hand rides on the barrel from here: its turn in the barrel's frame now
+        Quat hq, wq;
+        auto* wrist = joint_by_name(call_ptr(player_go(), "get_Transform"), L"l_arm_wrist");
+        if (get_q(JOINT, g_hinge, "get_Rotation", hq) && get_q(JOINT, wrist, "get_Rotation", wq)) {
+            g_hand_rel = qnorm(qmul(qinv(qnorm(hq)), qnorm(wq)));
+            g_hand_on = true;
+        }
         return;
     }
     if (bridge::pressed(bridge::S_LTRIG) && bridge::held(bridge::S_LGRIP) && !on)
@@ -132,7 +161,22 @@ void frame() {
                 if (g_peak >= cfg::BREAK_FLICK_LOG_DEG_S) LOGI("%s breech: fastest upward swing this second %.0f deg/s (a flick needs %.0f)", TAG, g_peak, cfg::BREAK_FLICK_DEG_S);
                 g_peak = 0.0f; g_peak_t = now;
             }
-            if (g_open && rate >= cfg::BREAK_FLICK_DEG_S && now >= g_cool) set_open(false, "flicked up");
+            // 2026-11-01 (Tefa, worn: "downward flick also closes it ... the flick is a little too easy"): the wrist's bounce back
+            // up after a downward snap read as an upward flick; now the gun must also END higher than it was
+            // BREAK_FLICK_RISE_SEC ago, without first dipping below where it started
+            int back = -1;
+            for (int k = 1; k < g_hist_n; ++k) {
+                const int j = (g_hist_i - 1 - k + NHIST) % NHIST;
+                if (now - g_hist_t[j] >= cfg::BREAK_FLICK_RISE_SEC) { back = j; break; }
+            }
+            float lowest = pitch;
+            for (int k = 0; k < g_hist_n; ++k) {
+                const int j = (g_hist_i - 1 - k + NHIST) % NHIST;
+                if (now - g_hist_t[j] > cfg::BREAK_FLICK_RISE_SEC) break;
+                lowest = std::fmin(lowest, g_hist_p[j]);
+            }
+            const bool rose = back >= 0 && pitch - g_hist_p[back] >= cfg::BREAK_FLICK_RISE_DEG && g_hist_p[back] - lowest <= cfg::BREAK_FLICK_DIP_DEG;
+            if (g_open && rate >= cfg::BREAK_FLICK_DEG_S && rose && now >= g_cool) set_open(false, "flicked up");
         }
         g_last_pitch = pitch;
         g_last_t = now;
@@ -151,11 +195,39 @@ void pose_point() {
     const float step = cfg::BREAK_SWING_SEC > 0.0f ? dt / cfg::BREAK_SWING_SEC : 1.0f;
     const float want = g_open ? 1.0f : 0.0f;
     g_swing = want > g_swing ? std::fmin(want, g_swing + step) : std::fmax(want, g_swing - step);
-    if (g_swing <= 0.0f) return;   // shut: the game's own animation (the reload is ours, so it stays put)
+    if (g_swing <= 0.0f) {   // shut: the game's own animation; read where the rounds sit in the barrel's frame
+        Vec3 hp; Quat hq;
+        if (get_v3(JOINT, g_hinge, "get_Position", hp) && get_q(JOINT, g_hinge, "get_Rotation", hq)) {
+            const Quat inv = qinv(qnorm(hq));
+            MO* js[2] = {g_chamber, g_case};
+            Rel* rs[2] = {&g_rel_chamber, &g_rel_case};
+            for (int i = 0; i < 2; ++i) {
+                Vec3 jp; Quat jq;
+                if (js[i] != nullptr && get_v3(JOINT, js[i], "get_Position", jp) && get_q(JOINT, js[i], "get_Rotation", jq))
+                    *rs[i] = Rel{rotate(inv, jp - hp), qnorm(qmul(inv, qnorm(jq))), true};
+            }
+        }
+        return;
+    }
     const float a = cfg::BREAK_OPEN_DEG * g_swing * 3.14159265f / 360.0f;
     const Quat turn{std::sin(a), 0.0f, 0.0f, std::cos(a)};
     const Quat q = qnorm(qmul(g_rest, turn));
     set_any(JOINT, g_hinge, "set_LocalRotation", &q);
+    if (cfg::BREAK_ROUNDS_FOLLOW) {   // the rounds ride in the barrel
+        Vec3 hp; Quat hq;
+        if (get_v3(JOINT, g_hinge, "get_Position", hp) && get_q(JOINT, g_hinge, "get_Rotation", hq)) {
+            hq = qnorm(hq);
+            MO* js[2] = {g_chamber, g_case};
+            Rel* rs[2] = {&g_rel_chamber, &g_rel_case};
+            for (int i = 0; i < 2; ++i) {
+                if (js[i] == nullptr || !rs[i]->ok) continue;
+                const Vec3 wp = hp + rotate(hq, rs[i]->p);
+                const Quat wq = qnorm(qmul(hq, rs[i]->q));
+                set_any(JOINT, js[i], "set_Position", &wp);
+                set_any(JOINT, js[i], "set_Rotation", &wq);
+            }
+        }
+    }
 }
 
 } // namespace vn::breech
