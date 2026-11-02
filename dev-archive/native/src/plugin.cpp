@@ -22,6 +22,7 @@
 #include <atomic>
 
 #include "bridge.h"
+#include "shellclip.h"
 #include "common.h"
 #include "fire.h"
 #include "handpose.h"
@@ -54,6 +55,7 @@ using namespace vn;
 
 namespace {
 void on_frame() {
+    shellclip::frame();   // 2026-11-02: the test file for the shell-in finger clip (shellclip.h)
     static std::atomic<bool> installed{false};
     if (!installed.exchange(true)) { bridge::install(); shortcut::install(); suppress::install(); run::install(); fire::install(); pickup::install(); spread::install(); menu_tint::install(); reload_block::install(); pump_native::install(); flashlight::install(); rainhold::install(); exposure::install(); }   // hooks need the type database: first game frame
     menu_probe::point("UpdateBehavior.pre");
@@ -110,7 +112,7 @@ extern "C" __declspec(dllexport) bool reframework_plugin_initialize(const REFram
     param->functions->on_post_application_entry("UpdateScene", []() { menu_probe::point("UpdateScene.post"); });
     param->functions->on_pre_application_entry("LockScene", []() { menu_probe::point("LockScene.pre"); ladder::restore(false); menu_body::camera_point(false); menu_probe::point("LockScene.ours-done"); });
     param->functions->on_post_application_entry("LockScene", []() { menu_body::late_write(); menu_probe::point("LockScene.post"); });
-    param->functions->on_post_application_entry("PrepareRendering", []() { menu_probe::point("PrepareRendering.post"); ladder::restore(true); tune::wrist_point(); reload::render_point(); rack::render_point(); breech::pose_point(); handpose::point(); tune::right_point(); menu_body::camera_point(true); menu_probe::point("PrepareRendering.ours-done"); });
+    param->functions->on_post_application_entry("PrepareRendering", []() { menu_probe::point("PrepareRendering.post"); ladder::restore(true); tune::wrist_point(); reload::render_point(); rack::render_point(); breech::pose_point(); handpose::point(); tune::right_point(); shellclip::render_point(); menu_body::camera_point(true); menu_probe::point("PrepareRendering.ours-done"); });
     param->functions->on_pre_application_entry("UnlockScene", []() { menu_probe::point("UnlockScene.pre"); });
     param->functions->on_post_application_entry("UnlockScene", []() { menu_probe::point("UnlockScene.post"); });
     return true;

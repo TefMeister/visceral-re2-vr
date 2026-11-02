@@ -290,4 +290,9 @@ constexpr float SLIDE_FINGER_SPREAD[5] = {0.0f, 0.0f, 0.05f, 0.10f, 0.36f};
 constexpr bool  HANDPOSE_SLIDE_USES_MAG = true;   // b156: the saved slide poses are nearly the relaxed hand (worn b155: "fingers still
                                                  // don't wrap around the slide"), so the slide grip uses the magazine grip
 
+// 2026-11-02: pump shotguns take two shells per pouch grab, dock at the port, LT puts them in (reload.cpp, shellclip.cpp)
+constexpr int   SHELLS_PER_GRAB = 2;
+constexpr float SHELLS_STEP_S = 0.5f;        // one shell after another: the finger movement (0.42 s) and a breath
+constexpr float SHELL_PORT_DOCK_M = 0.10f;   // the shells this close to the port: the hand docks there
+
 } // namespace vn::cfg

@@ -24,6 +24,7 @@ add_library(visceral_native SHARED
     src/pickup.cpp
     src/menu_tint.cpp
     src/reload.cpp
+    src/shellclip.cpp
     src/handpose.cpp
     src/reload_block.cpp
     src/sfx.cpp
