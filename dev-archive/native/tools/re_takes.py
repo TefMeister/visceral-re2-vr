@@ -8,7 +8,7 @@ CFG = {
                 folder=r"C:\Steam\steamapps\common\RESIDENT EVIL 2  BIOHAZARD RE2",
                 menu=["insert", "w1", "enter", "w4", "enter", "w3", "space"]),
     "re3": dict(app="952060", title="RESIDENT EVIL 3", exe="re3.exe", folder=r"C:\Steam\steamapps\common\RE3",
-                menu=["insert", "w1", "enter", "w5", "enter", "w4", "enter", "w4", "space"]),
+                menu=["insert", "w1", "enter", "w5", "space", "w4", "space", "w3", "space"]),
 }[GAME]
 GUNS = [g.split(":") for g in sys.argv[2].split(",")]   # WPxxxx:ammo1/ammo2
 D = os.path.join(CFG["folder"], "reframework", "data", "finger_rec")
@@ -82,9 +82,11 @@ def boot():
             time.sleep(float(step[1:]))
         else:
             key(step)
-    for _ in range(60):
+    for k in range(60):
         if gun() is not None:
             return True
+        if k in (12, 24):         # an extra screen (RE3's "Completed Challenges"): Story and Continue are the first items
+            key("space")
         time.sleep(1.5)
     return False
 
@@ -118,7 +120,12 @@ for wp, ammo in GUNS:
     # a gifted gun's slot names no ammo (bullet id 0) and the game will not reload it: name one, add some, until the
     # game says rounds are ready (RE2 2026-11-02: set_BulletID 15 on the Matilda -> reloadable 82, and R reloaded)
     sp = "no ammo found"
-    for a in [x for x in ammo.split("/") if x] + [str(i) for i in range(15, 31)]:
+    r0 = cmd("ammo", 1.0)
+    m0 = re.search(r"reloadable (\d+)", r0)
+    tries = [] if (m0 and int(m0.group(1)) > 0) else [x for x in ammo.split("/") if x] + [str(i) for i in range(15, 41)]
+    if not tries:
+        sp = f"its own ammo ({r0})"
+    for a in tries:
         cmd(f"slotcall set_BulletID {a}", 0.8)
         cmd(f"additem {a} 60", 0.8)
         r = cmd("ammo", 1.0)
