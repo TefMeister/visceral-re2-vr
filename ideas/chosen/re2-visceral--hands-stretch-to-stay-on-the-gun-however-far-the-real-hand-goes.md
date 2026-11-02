@@ -16,3 +16,5 @@ like rubber rather than the hand letting go.
 the hand lets go or drops) would come off while the grip is held, and the forearm would stretch to fill the gap.
 
 ---
+
+Chosen by Tefa: 2026-10-24

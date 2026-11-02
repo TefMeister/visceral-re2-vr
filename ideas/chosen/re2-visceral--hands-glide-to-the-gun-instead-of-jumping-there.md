@@ -18,3 +18,5 @@ poser (2026-10-16), which could carry the glide time as one of its sliders.
 is a blend between the two over a set time, eased in and out. The finger pose would blend the same way.
 
 ---
+
+Chosen by Tefa: 2026-10-24

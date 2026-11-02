@@ -16,3 +16,5 @@ with the right stick (today the D-pad is the right stick click with the left sti
 the D-pad combination is an interaction-profile change.
 
 ---
+
+Chosen by Tefa: 2026-10-24

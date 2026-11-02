@@ -16,3 +16,5 @@ example). Either fix each one, or show cutscenes on a flat screen floating in fr
 "cutscene on a screen" mode in the VR layer.
 
 ---
+
+Chosen by Tefa: 2026-10-24

@@ -16,3 +16,5 @@ latches LT (b166: "LT is a latch").
 LT held throughout instead of latched, matching RE8.
 
 ---
+
+Chosen by Tefa: 2026-10-24

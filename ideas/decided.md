@@ -28,3 +28,10 @@ One line per idea, so nothing is offered twice.
 - 2026-10-15 chosen `re2-visceral--pumping-a-live-round-throws-it-out-and-you-can-pick-it-up-again` - Pumping a live round throws it out, and you can pick it up again
 - 2026-10-15 chosen `all-games--a-universal-poser-finds-a-game-s-hand-and-arm-joints-by-itself-then-be` - A universal poser: finds a game's hand and arm joints by itself, then bends them with sliders
 - 2026-10-15 chosen `all-games--a-hand-and-body-poser-like-emv-engine-s-for-our-other-third-person-gam` - A hand and body poser like EMV Engine's, for our other third-person games
+- 2026-10-24 chosen `re2-visceral--nail-polish-for-claire-and-ada-that-cracks-and-fades-as-the-game-goes` - Nail polish for Claire and Ada that cracks and fades as the game goes on
+- 2026-10-24 chosen `re2-visceral--hands-glide-to-the-gun-instead-of-jumping-there` - Hands glide to the gun instead of jumping there
+- 2026-10-24 chosen `re2-visceral--fix-the-broken-cutscenes-maybe-by-showing-them-on-a-flat-screen` - Fix the broken cutscenes, maybe by showing them on a flat screen
+- 2026-10-24 chosen `re2-visceral--hands-stretch-to-stay-on-the-gun-however-far-the-real-hand-goes` - Hands stretch to stay on the gun, however far the real hand goes
+- 2026-10-24 chosen `re2-visceral--holsters-like-our-re8-mod-same-system-new-hud-d-pad-on-left-thumb-rest` - Holsters like our RE8 mod: same system, new HUD, D-pad on left thumb rest + right stick
+- 2026-10-24 chosen `re2-visceral--reloads-like-our-re8-mod-lg-puts-the-hand-on-the-slide-lt-held-through` - Reloads like our RE8 mod: LG puts the hand on the slide, LT held throughout to rack or pump
+- 2026-10-24 chosen `re2-visceral--title-rain-after-quitting-to-the-main-menu-broke-again` - Title rain after quitting to the main menu broke again

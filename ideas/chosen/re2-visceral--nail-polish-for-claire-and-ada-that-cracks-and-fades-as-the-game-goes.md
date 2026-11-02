@@ -17,3 +17,5 @@ could ride the game's own dirt/blood "Record" system, which already builds up on
 Dirty hands HD row on the board).
 
 ---
+
+Chosen by Tefa: 2026-10-24
