@@ -103,4 +103,10 @@ void frame() {
     if (g_hold_frames > 0) --g_hold_frames;
 }
 
+// 2026-11-02 (Tefa: "hand smoothing must always be off for melee weapons in any game, only option for guns"): the VR
+// layer's hand smoothing (our REFramework patch, VR.cpp) asks this every frame and pauses while the knife or a grenade
+// is out. Needed in RE3: there the gun stays the equipped weapon while the sub weapon is held, so the arm code's own
+// gun test cannot see it (simulator run 2026-11-02). Called from the VR layer's thread: reads one bool.
+extern "C" __declspec(dllexport) int visceral_sub_weapon_out() { return g_out ? 1 : 0; }
+
 } // namespace vn::subweapon

@@ -96,3 +96,13 @@ ef-76build-76b.bat` (target RE2) ->
   old one rules for 4 frames`. Fable, `[inferred-static 2026-10-24]` from the log and the source, `[compile-verified
   2026-10-24]`; dinput8 0c51f5ea, installed, unrun. Previous: `D:/Visceral build versions/dinput8-293aef6e-before-menu-close-hold.dll`.
   Note: `modding-notes/2026-10-24-fable-inventory-exit-jump-cause-and-ladder-probe.md`.
+
+- `2026-11-02-re2-hand-smoothing-guns-only.patch` — against `76298bd`, cumulative (everything installed in `src/mods/`;
+  apply this one alone). HAND SMOOTHING, Village's One Euro filter, in `VR.cpp update_hmd_state` right after the controllers
+  are read (after the hold-still block), so arms, gun, aim, dock and plugin all see the steadier hand. Settings from
+  `reframework/data/visceral/hand_smooth.json` (menu: `lua/visceral_hand_smooth.lua`), read once a second. GUNS ONLY
+  (Tefa 2026-11-02: "hand smoothing must always be off for melee weapons in any game"): `FirstPerson.cpp`'s arm code
+  publishes whether a real gun is in hand, and the plugin's `visceral_sub_weapon_out()` says when the knife or a grenade
+  is out. Simulator 2026-11-02, a made-up tremor on the right hand: 75-76% of the shake taken out at strength 4; knife out
+  = paused, back to the gun = working `[verified-live 2026-11-02, simulator, n=1]`. Build: `D:ef-76build-76b.bat`.
+  RE3 gets the same code on top of its own b145 set: `visceral-re3-vr/dev-archive/reframework-patch/`.
