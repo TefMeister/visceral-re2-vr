@@ -44,7 +44,11 @@ std::filesystem::path data_dir() {
     GetModuleFileNameW(nullptr, exe, MAX_PATH);
     return std::filesystem::path(exe).parent_path() / "reframework" / "data" / "visceral" / "clips";
 }
-std::string game_prefix() { return std::filesystem::exists(data_dir().parent_path().parent_path().parent_path() / "re3.exe") ? "RE3" : "RE2"; }
+std::string game_prefix() {   // the game's own exe name (re3.exe = RE3)
+    wchar_t exe[MAX_PATH]{};
+    GetModuleFileNameW(nullptr, exe, MAX_PATH);
+    return std::filesystem::path(exe).filename().wstring() == L"re3.exe" ? "RE3" : "RE2";
+}
 
 const Clip* load(int wp) {
     auto it = g_clips.find(wp);
