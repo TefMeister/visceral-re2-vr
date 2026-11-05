@@ -369,9 +369,11 @@ void update_hold(float now) {
             // whole measured error is corrected at once, then the view is given a frame or two to show it
             // 2026-10-29: the wait counts down every frame (it is for the rendered view to show what was written), and
             // the first measurement after it is logged whatever its size: it says whether the pre-turn guessed right
-            if (A.snap_wait > 0) {
-                --A.snap_wait;
-            } else if (!A.pre_checked) {
+            // 2026-11-05 (simulator, five lever pulls): the check used to log one frame AFTER the first snap had already
+            // corrected the view, so it always read ~0 and hid the real first error. It now logs the first measurement
+            // itself, the frame the wait ends, before the snap below acts on it
+            if (A.snap_wait > 0) --A.snap_wait;
+            if (A.snap_wait == 0 && !A.pre_checked) {
                 A.pre_checked = true;
                 LOGI("%s ladder: pre-turn check: view %.1f deg off the body, %.0f ms in (pre-turned %.1f; under %.0f = no snap needed)",
                      TAG, verr / DEG, (now - A.jack_t) * 1000.0f, A.pre_turn / DEG, cfg::SERVO_DEADBAND_DEG);
