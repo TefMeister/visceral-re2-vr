@@ -1833,3 +1833,16 @@ fixed in b100 by stripping). The ladder start flick is probably the same thing. 
   property handpose.cpp writes; `tools/emv_pose_to_handpose.py` merges them into `handpose_data.h` `[verified-numerically 2026-10-24]`.
 - **Magazines are empty models:** the Matilda's `wp0000_vp70.mesh` has no bullet material; the long-magazine pickup
   `sm71_901_vp70longmagazine.mesh` carries `sm70_100_HandGun_Bullet01A` rounds, the source for bullets `[inferred-static 2026-10-24]`.
+
+## The get-item screen hides the world by scene folder (2026-11-05, flat, probe) `[measured 2026-11-05, n=2]`
+
+The pick-up (NewInventoryBehavior CallOpenMode 4 / 5) switches whole scene folders off with `via.Folder.set_DrawSelf(false)`:
+`Environments` under the location folder and 15 more in the RPD hall (Effect, Event, File, Fsm, GimmickEnv, Item,
+LocationFsm_*, LocationResident_RPD, Scenario, SearchText, VFX_RPD). Every object inside then reads `get_Draw` false with its
+own `DrawSelf` still true, so writing the objects does nothing; `set_DrawSelf(true)` on the folder brings the world back and
+the game does not switch it off again until the screen closes, when it restores its own state. `via.Folder` has
+`get_Draw` / `get_DrawSelf` / `set_DrawSelf` (no `set_Draw`), `set_UpdateSelf`, `set_Standby`; the scene's folders start at
+`via.Scene.get_FirstFolder` and chain by `get_Child` / `get_Next`, or `findFolder(name)`. Characters (`Player`, `Enemy`) are
+hidden by their objects' own flags, not a folder. A pick-up can be opened by script: `GUIMaster.openInventoryGetItemMode(
+stock, nil)` with a `StockItem` from `sdk.create_instance` + `setStock(id, 0, 0, 1)`. Built as `lua/visceral_pickup_world.lua`;
+probe `lua/visceral_pickup_probe.lua`; note `modding-notes/2026-11-05-the-world-behind-a-pick-up.md`.
