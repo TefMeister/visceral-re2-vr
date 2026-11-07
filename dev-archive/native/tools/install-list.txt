@@ -47,3 +47,7 @@
 2 backup:reframework/data/visceral_options_set.txt           reframework/data/visceral_options_set.txt
 2 backup:reframework/data/visceral_steady_light.json         reframework/data/visceral_steady_light.json
 2 backup:reframework/data/visceral_title_one_scene.json      reframework/data/visceral_title_one_scene.json
+
+# ---- layer 3: the guns (2026-11-07) ---------------------------------------------------------------------------------
+# No new files: the gun code is in the plugin (src/guns/), and its sounds (custom_sfx, incl. common/dry_hammer.wav, the
+# empty click) came back with layer 2. Deploy with --layer 3 so the build is named for it.

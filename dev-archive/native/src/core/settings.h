@@ -1,5 +1,6 @@
 // settings.h -- every number of Visceral's new native code, named, in one place (code-shape rule).
 #pragma once
+#include "common.h"
 
 namespace vn::cfg {
 
@@ -111,10 +112,6 @@ constexpr float SPREAD_STILL_TWO_HANDS = 1.0f;         // standing still, any gu
 constexpr float SPREAD_DOCK_HANDS_M = 0.75f;      // left grip held + controllers closer than this = two hands on the gun
 constexpr int   SPREAD_LOG_SHOTS = 200;           // shots logged per launch
 
-// ---- spread probe (b124, 2026-10-10) ---------------------------------------------------------------------------
-constexpr int   SPREADPROBE_MAX_LINES = 600;   // log lines per launch
-constexpr float SPREADPROBE_FIT_STEP = 0.05f;  // log the fit point when it moved more than this since the last line
-
 // ---- running stop (2026-10-06, ported from Arcade Controls' re2_vr_run_toggle_fix.lua) -------------------------
 constexpr float RUN_STICK_DEADZONE = 0.05f;   // left stick nearer the middle than this = let go: running stops
 constexpr int   RUN_LOG_FIRST      = 10;      // log the first few jog-flag changes, to prove the write lands
@@ -137,130 +134,13 @@ constexpr bool  FIRE_EMPTY_SILENT  = true;    // b174: an empty gun (0 rounds, m
 // automatics fire while RT is held (WP numbers): MQ 11, LE 5, flamethrower, the miniguns. Everything else: one per pull
 constexpr int   FIRE_AUTOMATIC_WP[] = {2000, 2200, 4200, 4700, 8700, 4520, 4900};      // log the first shots in full (press + bullets before/after + doorbells)
 
-// ---- manual magazine reload, bundle 1 of the RELOADED port (2026-10-10; reload.h, reload_block.h, sfx.h) ----------
-// Times and distances are Andyalpa's (re2_vr_reload.json `anim`, `mag_holster`); per-weapon numbers in reload_data.h.
-constexpr bool  RELOAD_ON = true;                 // false = the game's own reload everywhere, nothing of ours runs
-constexpr float RELOAD_SLIDE_SEC = 0.19f;         // the magazine slides out of the magwell
-constexpr float RELOAD_FALL_SEC = 0.5f;           // then falls
-constexpr float RELOAD_FALL_M = 1.2f;             // this far, then it is hidden
-constexpr float RELOAD_INSERT_SEC = 0.19f;        // a new one slides in
-constexpr float RELOAD_DOCK_MIN_M = 0.06f;        // OURS: the insert distance is at least this (his are 2-10 cm); first test
-constexpr float RELOAD_DOCK_COOLDOWN_SEC = 0.5f;
-constexpr float RELOAD_GRAB_COOLDOWN_SEC = 0.6f;  // between two pouch grabs
-constexpr float RELOAD_GRAB_BUZZ_AMP = 0.99f, RELOAD_GRAB_BUZZ_SEC = 0.057f;     // his grab haptic
-constexpr float RELOAD_INSERT_BUZZ_AMP = 0.7f, RELOAD_INSERT_BUZZ_SEC = 0.06f;
-constexpr float RELOAD_DENY_BUZZ_AMP = 1.0f, RELOAD_DENY_BUZZ_SEC = 0.25f;       // empty pouch
-constexpr float RELOAD_DRY_FIRE_GAP_SEC = 0.3f;   // one click per pull on automatics
-constexpr bool  RELOAD_HUD_ZERO_WHEN_OUT = true;  // the HUD's loaded count reads 0 while the magazine is out (1 with a round chambered)
-
-// ---- Village's reload rules, brought back from Visceral RE8 (2026-10-31, Tefa: "look at re8 right now and how the
-// reloads work and implement this system into re2 and 3 as best as possible"). Worn in Village: the real-gun magazine
-// (b014, "wow this is so cool"), the magazine pulled out by hand on long guns (2026-10-25, "unbelievable"). Unworn here.
-// A slide / bolt gun that is not empty keeps one round in the chamber when its magazine comes out: it fires once with the
-// magazine out, and the slide never locks back on a magazine change. The rounds never leave the game's own count (the
-// fire gate and the HUD read below decide), so the same magazine going back in holds exactly its own rounds.
-constexpr bool  CHAMBER_ROUND = true;
-// LG held with the drawn left hand this close to the seated magazine: right B (handguns, the MQ 11) releases it INTO the left
-// hand instead of dropping it; on a long gun (MAG_LONG_WP) an LG press at the magazine, then LT, pulls it out. That same
-// magazine then goes back in only with LT (a fresh press, or held, at the magwell); a new one from the pouch needs no LT.
-constexpr float MAG_GRAB_M = 0.15f;               // first guess: RE8 uses 0.12 m from its IK target; here it is the drawn wrist
-constexpr int   MAG_LONG_WP[] = {2200};           // LE 5: the magazine sits ahead of the grip (RE8: "long guns with the mag in the middle")
-constexpr float INSERT_LT_MIN_SEC = 0.25f;        // the pull-out's own LT never counts as the seat press
-// 2026-10-31 (Tefa, first wear of the above: "mag does land in my hand but because the LG also grips the grip handle, mag
-// just gets stuck through the right hand ... hold on to the mag that is in the gun and not the grip itself? so when inserted
-// or ejected, hand travels with the mag"). The log agreed: the hand stayed docked on the grip and the magazine never came
-// closer than 0.111 m to the magwell. Now (RE8's hand-on-the-magazine, by RE2's own route, the dock socket in rack.cpp):
-//   an LG press at the seated magazine puts the drawn left hand ON the magazine, not on the grip;
-//   B (handguns) or LT (long guns) slides it out with the hand riding on it; once out the hand is free and carries it
-//   (the grip can no longer catch the hand while a magazine is in it);
-//   going in, the hand rides up with it and stays on it until LG is let go.
-// Where the hand sits on it: the magazine-in-the-hand hold (reload_data.h and its "Magazine in the hand" sliders), moved
-// MAG_DOCK_DOWN_M toward where the magazine comes out (so the hand holds its bottom, clear of the right hand), plus the
-// tuning menu's own "LEFT hand on the magazine in the gun" sliders (tune.h MAG_DOCK).
-constexpr bool  MAG_HAND_DOCK = true;
-constexpr float MAG_DOCK_DOWN_M = 0.05f;          // first guess, tune with the sliders
-// b184 (Tefa, b183 worn: "the mag works, it now comes out with LG and B and stays in my hand. problem is that grip handle is
-// still a docking point as well, and docking hand on the mag turns the weapon in right hand and left hand motion controller
-// can move the gun around"): on handgun-type magazine guns (not MAG_LONG_WP) the magazine is the ONLY place the left hand
-// docks (no more grip-handle dock), and the hand on the magazine never turns the gun: the right hand alone aims.
-constexpr bool  MAG_ONLY_DOCK = true;
-constexpr bool  MAG_KEEP_OUT_ON_SWAP = true;   // 2026-11-01: a magazine taken out stays out when the gun is put away and comes back (Tefa)
-// 2026-11-01 (Village port; Tefa: "grenade launcher and revolvers must not open with a swing, only LG + LT, but close with LG + LT
-// and the motion swing"): the GM 79's break action (breech.cpp). Village's numbers where it has them.
-constexpr bool  BREAK_ON = true;
-constexpr int   BREAK_WP = 4100;                  // the GM 79
-constexpr float BREAK_OPEN_DEG = 40.0f;           // the barrel's turn open (the game's own reload turns _01 40 deg)
-constexpr float BREAK_SWING_SEC = 0.15f;          // the swing open or shut
-constexpr float BREAK_FRONT_T = 0.45f;            // the front grip: this far from the hinge towards the muzzle (a guess)
-constexpr float BREAK_FRONT_M = 0.15f;            // the drawn left wrist this close to it = on the front grip (a guess)
-constexpr float BREAK_FLICK_RISE_SEC = 0.25f;     // 2026-11-01: over this long before a flick the gun must have RISEN by
-constexpr float BREAK_FLICK_RISE_DEG = 20.0f;     // ... at least this much (a downward snap and its bounce end level: no close)
-constexpr float BREAK_FLICK_DIP_DEG = 10.0f;      // ... without first dipping more than this below where it started
-constexpr bool  BREAK_ROUNDS_FOLLOW = true;       // the rounds (_100, _101) ride in the barrel while it is open
-constexpr bool  BREAK_HAND_RIDES = true;          // the left hand rides on the barrel while it is open (LG held)
-constexpr float BREAK_FLICK_DEG_S = 520.0f;   // was 420 (Village's): Tefa, worn, "a little too easy"; his flicks logged 427-944       // the barrel thrown up this fast = a flick (Village's number)
-constexpr float BREAK_FLICK_LOG_DEG_S = 150.0f;
-constexpr float BREAK_FLICK_WINDOW_SEC = 0.06f;   // the flick's speed is measured across this long, not frame to frame   // log the fastest upward swing each second above this
-constexpr float BREAK_COOLDOWN_SEC = 0.4f;        // no second open / shut this soon after one
-constexpr float BREAK_BUZZ_AMP = 0.5f, BREAK_BUZZ_SEC = 0.06f;
-// 2026-11-01 (Village port: Hand Poser poses a hand only while it is on the gun): besides our own docks (magazine, slide, pump),
-// the left hand counts as on the gun while LG is held with a gun out and the hand is this close to the gun hand (the VR layer's
-// own two-handed grip, which it does not tell us about) [hypothesis: a first guess]
-constexpr float LEFT_ON_GUN_NEAR_M = 0.45f;
-// a slide (not a pump) can be taken any time with a fresh LG press this close to it; a rack with none due is cosmetic.
-// Tighter than RACK_HAND_M so a two-handed pistol grip (the left hand under the gun) is never pulled onto the slide.
-constexpr bool  RACK_SLIDE_ANY_TIME = true;
-constexpr float RACK_ANYTIME_HAND_M = 0.08f;      // first guess, logged on every press
+// ---- the reload sounds (body/sfx.cpp: Andyalpa's RELOADED sound pack, played by miniaudio) ----------------------
 constexpr int   SFX_VOICES = 16;
 constexpr float SFX_DEBOUNCE_SEC = 0.10f;         // his ext_5 debounce per kind
 constexpr float SFX_MASTER = 1.0f;
 
-// ---- bundle 2: slide rack, pump, shells (2026-10-10; rack.h, pump_native.h) ---------------------------------------
-constexpr float RACK_HAND_M = 0.20f;          // the left hand this close to the slide / fore-end joint when LG is pressed
-constexpr float RACK_PULL_M = 0.05f;          // his pull_dist_default: the left controller this far back along the gun = pulled
-constexpr float RACK_RETURN_M = 0.03f;        // b162: forward this far from the furthest-back point = home and chambered (was: back to the dock spot)
-constexpr float PUMP_ZONE_AHEAD_MIN_M = 0.10f, PUMP_ZONE_AHEAD_MAX_M = 0.70f;   // b162: the pump docks with the left controller this far ahead of the gun hand
-constexpr float PUMP_GRAB_M = 0.20f;          // b163: the left controller this close to the fore-end joint (room) grabs the pump
-constexpr float PUMP_ZONE_OFF_AXIS_M = 0.15f;  // ... and within this of the gun's line (the right controller's forward)
-constexpr float RACK_FOLLOW = 0.5f;           // the slide follows the hand with this much smoothing per frame (1 = raw)
-constexpr float RACK_RETURN_PER_SEC = 5.0f;   // let go mid-way: the slide springs back at this rate (0..1 per second)
-constexpr float SLIDE_PARK_SCALE = 1.5f;      // the locked-open slide sits this much further back than his parked (Tefa: "a little further")
-constexpr float SLIDE_DOCK_YPR[3] = {173.0f, 18.0f, 180.0f};   // b164: Tefa's b160 slider numbers (visceral_slide_grip.json 2026-10-11 23:49)
-// b159 was: SLIDE_DOCK_YPR[3] = {180.0f, 18.0f, 180.0f};   // b159: Tefa set these with the b158 sliders ("approximately how it has to be")
-constexpr Vec3  SLIDE_DOCK_OFF = {0.078f, 0.026f, 0.012f};   // b164: Tefa's b160 numbers
-// b159 was: SLIDE_DOCK_OFF = {0.072f, 0.052f, -0.078f};   // where the hand sits on the slide, in the slide joint's axes (b143: the joint itself; his dock_off is for his hand model)
-constexpr float RACK_BUZZ_AMP = 0.7f, RACK_BUZZ_SEC = 0.06f;
-// 2026-10-11 (Tefa): the release racks and pumps on the BUTTON, Arcade Controls style: LG held + LT pressed runs the
-// whole cycle by itself, no hand near the gun, no pull. "the gameplay has to have fluid controls in combat". false =
-// the b143 motion racking (hand docks on the slide, the left controller pulls it), kept for tinkering after release.
-constexpr bool  RACK_ON_BUTTON = false;   // b165 (Tefa 2026-10-13: hand racking "works really well" with the LT-per-cycle rules): racking by hand is the way now
-constexpr bool  NO_FIRE_WHILE_LG_LT = true;   // b165 (Tefa): no gun fires while LG and LT are both held
-constexpr bool  GHOST_HAND_ON = true;     // b161: record the hands for Ghost Hand BeG0nE (ghosthand.h) while the headset is live
-constexpr float RACK_BUTTON_PULL_SEC = 0.12f;    // the slide / fore-end travels back in this long
-constexpr float RACK_BUTTON_RETURN_SEC = 0.10f;  // and forward again in this long
-constexpr bool  PUMP_NATIVE_ON = true;        // cut the game's own pump animation, hold the shell eject for our pull
-constexpr float PUMP_WINDOW_SEC = 2.5f;       // his pump_window_sec
-// b166 (Tefa 2026-10-13: "the shotgun still makes the reload sound the game normally would make after a shot"): these two
-// fired at the moment the game's BlowBack clip is cut, on every pump shot in the 2026-10-13 log. A first guess, [hypothesis].
-constexpr uint32_t PUMP_SOUND_BLOCK[] = {1474380250u, 3160867172u};
-constexpr float PUMP_EJECT_ALLOW_SEC = 0.3f;  // b166: generate() passes this long after our request() (his REPLAY_GUARD_FRAMES = 10)
-constexpr float HUD_AFTER_RELOAD_SEC = 5.0f;  // the ammo counter stays up this long after a magazine / shell / rack (Tefa 2026-10-10)
-// where a shotgun shell sits in the left hand (wrist axes, metres; yaw/pitch/roll degrees). OURS, a first guess (b142).
-struct ShellHold { float ox, oy, oz, yaw, pitch, roll; };
-constexpr ShellHold SHELL_HOLD = {0.108f, -0.042f, 0.032f, 13.0f, 86.0f, 0.0f};   // b157: Tefa set these with the b156 sliders ("the shell is done")
-constexpr float SHELL_DOCK_MAX_M = 0.045f;  // b158: 0.07 -> 0.045, Tefa: "just like 2-3cm more closer" (screenshot)
-// b157 was: 0.07f, Tefa: "a little closer to the shotgun"
-// was:  SHELL_DOCK_MAX_M = 0.10f;   // b155: the shell goes in this close to the port at most (his 0.22, Tefa: "the activation area was too far away")
-// 2026-11-01 (Tefa, Village, then "port it over to re2 and re3"): the empty click is a short hammer cock (Village's M1851
-// hammer, recorded; sfx/dry_hammer.wav, installed to custom_sfx/common), not the old click
-constexpr const char* DRY_CLICK_KIND = "dry_hammer";
-constexpr const char* DRY_CLICK_FOLDER = "common";
-constexpr float DRY_CLICK_VOL = 1.0f;
-constexpr const char* DRY_CLICK_OFF_FILE = "reframework/data/visceral_dry_click_off";   // test switch: present = ours muted
-constexpr bool  DRY_CLICK_SOUND = true;   // b157: back on; the b156 test (muted) still had the gunshot, so it is the game's
-// b156 was: DRY_CLICK_SOUND = false;  // b156 TEST: the click muted for one run, to hear whether the "gunshot" on empty is our
-                                          // click file or the game (b155: requestFire skipped, click played, Tefa still heard a shot)
-constexpr bool  BLOCK_EMPTY_FIRE = true;   // b155: an empty seated gun never asks the game to fire (Tefa still heard a gunshot on empty)
+// ---- Ghost Hand BeG0nE (hands/ghosthand.cpp) ----------------------------------------------------------------------
+constexpr bool  GHOST_HAND_ON = true;             // record the hands while the headset is live (Lanes PROTOCOL 20)
 
 // ---- the sub weapon from the back holster on RG; RG never aims (b134, 2026-10-10; subweapon.h) ------------------
 constexpr bool  SUB_ON_RG = true;            // false = the game's way (left grip readies the sub weapon, right grip aims)
@@ -269,30 +149,6 @@ constexpr float THROW_SWING_MPS = 1.6f;      // OURS: the right controller must 
 constexpr float THROW_SWING_SMOOTH = 0.35f;  // speed smoothing per frame (1 = raw)
 constexpr int   THROW_HOLD_FRAMES = 12;      // the grenade throw = HOLD sent this many frames on the swing (b137)
 
-// ---- left-hand finger poses while reloading (2026-10-11, Tefa: "a first hand pose on the gun when reloading") ---
-// The fingers take the saved RELOADED pose (handpose_data.h) while a magazine or shell is in the left hand.
-constexpr bool  HANDPOSE_ON = true;          // false = the fingers keep the game's animation
-constexpr float HANDPOSE_BLEND_SEC = 0.12f;  // his blend time in and out
-// b172 (Tefa 2026-10-14: "the hand open going to the slide and then curling fingers on it"): the left hand OPENS as it
-// comes near the slide / fore-end, then the grip pose above curls it closed over HANDPOSE_BLEND_SEC; let go, it opens
-// again, and away from the gun it relaxes back to the game's own fingers (plus the "left hand on its own" sliders).
-constexpr float OPEN_HAND_NEAR_M = 0.30f;     // the left hand this close to the slide / fore-end counts as "near the gun" (no "on its own" pose)
-// b173 (Tefa 2026-10-14: "it should only open in the area where LG puts the hand on the slide ... hand on the pistol
-// handle is different than that hand going on the slider"): the hand opens only inside the LG grab zone of the slide /
-// pump (rack::in_grab_zone, the same test the dock uses), or near the gun hand for the handle, each with its own shape
-constexpr float OPEN_HANDLE_NEAR_M = 0.15f;   // the left wrist this close to the right wrist opens it for the handle [hypothesis: the distance]
-constexpr float OPEN_HAND_BLEND_SEC = 0.10f;  // how fast it opens and relaxes
-constexpr float OPEN_FINGER_CURL[5] = {0.35f, 0.35f, 0.35f, 0.35f, 0.25f};   // index middle ring little thumb, radians, on top of the game's fingers; POSITIVE = straighter (his saved grips curl at about -1.1) [inferred-static]
-constexpr float FREE_HAND_BLEND_SEC = 0.20f;  // b172 (Tefa: "tune just the left hand ... with no buttons pressed and not near a gun")
-// b164: Tefa's b160 finger sliders (visceral_slide_fingers.json 2026-10-11 23:45), radians: index middle ring little thumb
-constexpr float SLIDE_FINGER_CURL[5] = {-0.17f, -0.04f, 0.03f, 0.17f, 0.62f};
-constexpr float SLIDE_FINGER_SPREAD[5] = {0.0f, 0.0f, 0.05f, 0.10f, 0.36f};
-constexpr bool  HANDPOSE_SLIDE_USES_MAG = true;   // b156: the saved slide poses are nearly the relaxed hand (worn b155: "fingers still
-                                                 // don't wrap around the slide"), so the slide grip uses the magazine grip
-
-// 2026-11-02: pump shotguns take two shells per pouch grab, dock at the port, LT puts them in (reload.cpp, shellclip.cpp)
-constexpr int   SHELLS_PER_GRAB = 2;
-constexpr float SHELLS_STEP_S = 0.5f;        // one shell after another: the finger movement (0.42 s) and a breath
-constexpr float SHELL_PORT_DOCK_M = 0.10f;   // the shells this close to the port: the hand docks there
-
 } // namespace vn::cfg
+
+#include "settings_guns.h"   // the gun code's numbers (layer 3), same namespace

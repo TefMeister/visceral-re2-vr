@@ -123,6 +123,11 @@ DONE 2026-11-07 (Opus): Tasks 1-3. The folder held exactly build b192; 256 files
 - Task 11 step 1: RE2's reload is ONE motion per gun on layer 3 (2000:1200), no per-round cycle
   (`dev-archive/rebuild/re2-motion-table.md`): round_in must be cut from the loading hand's curl, new work.
 
+- LAYER 3 DONE the same evening (Tefa: "please just do layer 3 as well"): `src/guns/` written clean in Village's file shape on
+  RE2's proven gun mechanics (not Village's files through game.h: see `2026-11-07b-layer-3-the-guns-written-clean.md` for
+  why), saved as **b195**, every magazine, shell, rack and pump path driven on the simulator. Tasks 8-9 below are done that
+  way; Task 8's "diff against Village" step does not apply.
+
 ## Layer 1: the loader (Task 5 part A)
 
 ### Task 5: build.sh, the install list, and layer 1
