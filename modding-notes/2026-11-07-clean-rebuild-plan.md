@@ -54,18 +54,18 @@ calls into `src/game/game.h`. Installed in 8 layers, each a saved build, each wo
   with its sha256 and verdict)
 - Create: `dev-archive/rebuild/tuned-numbers-2026-11-07.json` (Tefa's tuning, copied, plus what each index means)
 
-- [ ] **Step 1:** list every non-game file in the game folder with its sha256 into the inventory (`find` + `sha256sum`).
-- [ ] **Step 2:** a verdict per stray Lua (design section 3), from its header and the board. Proposed, to confirm by reading:
+- [x] **Step 1:** list every non-game file in the game folder with its sha256 into the inventory (`find` + `sha256sum`).
+- [x] **Step 2:** a verdict per stray Lua (design section 3), from its header and the board. Proposed, to confirm by reading:
   `visceral_title_rain`, `_title_one_scene` = item 10 (port native in Task 7); `_steady_light` = item 5 (port native in Task 7
   if `exposure.cpp` does not already do what it does; say which); `_mute_music` = layer 1 only, then native; `_hand_smooth` =
   the smoothing's menu: its JSON file stays, the script goes (no menu, Q3); `_body_anchor`, `_body_direct`,
   `_lefthand_hold` = the 2026-09-24 aim-stance probes, archive unless the board shows one still worn as a fix;
   `_flicker_catch` + `flickers_begone.dll` = a tool, out of the player build; `visceral_grip_sockets.txt` = read what writes it.
-- [ ] **Step 3:** copy `visceral_tuning_leon.json`, `visceral_slide_grip.json`, `visceral_slide_fingers.json`,
+- [x] **Step 3:** copy `visceral_tuning_leon.json`, `visceral_slide_grip.json`, `visceral_slide_fingers.json`,
   `visceral_shell_tune.json` into `tuned-numbers-2026-11-07.json`, with a note of the non-zero holds `[measured 2026-11-07]`:
   WP0000 "gun" and "slide", WP1000 "gun"; index meaning from `tune.h` (item move 3, item turn 3, hand move 3, hand turn 3,
   17 finger joints x 3).
-- [ ] **Step 4:** commit both files (`git add dev-archive/rebuild/`).
+- [x] **Step 4:** commit both files (`git add dev-archive/rebuild/`).
 
 ### Task 2: Save the current state as a build, then move every mod file out
 
@@ -120,7 +120,7 @@ calls into `src/game/game.h`. Installed in 8 layers, each a saved build, each wo
   is listed in the backup inventory; those not on the list are moved to `_removed-by-deploy/<date>/`, never deleted.
   `--game` defaults to the Steam path `/c/Steam/steamapps/common/RESIDENT EVIL 2  BIOHAZARD RE2` (two spaces).
 - [ ] **Step 3:** layer-1 lines: the patched `dinput8.dll` (from the backup; its hash `0fe6beab...` checked before copying),
-  `openxr_loader.dll`, praydog's package scripts (`re2_*`, `re4_vr_crosshair`, `re8_vr`, `utility/`, `vr/`) from the 76298bd
+  `openxr_loader.dll`, `_interaction_profiles_oculus_touch_controller.json`, `ref_ui.ini`, praydog's package scripts (`re2_*`, `re4_vr_crosshair`, `re8_vr`, `utility/`, `vr/`) from the 76298bd
   package zip, `re2_fw_config.txt`, `visceral_mute_music.lua` (layer 1 only: the line carries `max=1`). Run the test -> PASS.
 - [ ] **Step 4: Review Focus 4.** In the test, assert that `install-list.txt` puts the plugin DLL in no layer below 2.
 - [ ] **Step 5:** commit; deploy layer 1; `builds.py snap ... "layer 1: the loader"`; ask Tefa to wear it: picture in both
@@ -166,6 +166,8 @@ calls into `src/game/game.h`. Installed in 8 layers, each a saved build, each wo
 - Create: `src/hands/ghosthand.cpp/.h` (Village's, joint names through `game.h`): Ghost Hand rides along from this layer
   on (Lanes PROTOCOL 20), with `jitterlog.lua` (PROTOCOL 18)
 
+- [ ] **Step 0:** the 80 hold-pose files of item 0b go back from the backup (install-list lines with a `backup:` source,
+  never pushed); the in-game hold must look as it did in b192.
 - [ ] **Step 1:** copy each moved file; a diff against the gen-1 copy shows only `#include` lines and namespace-qualified names
   changed. Record the diff count per file in the commit message.
 - [ ] **Step 2:** port each body Lua line for line: the same objects, the same numbers (into `settings.h` under the script's

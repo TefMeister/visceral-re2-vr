@@ -70,6 +70,9 @@ KEEP = moved over as the file it is (new folder, new build, same code). REWRITE 
 the game folder, kept in the archive. Headset-proven = Tefa saw it work (the board's done / "worn" rows).
 
 Group A: the body and the controls (KEEP, as files)
+0b. Our relaxed hold poses: 71 `.motlist.524` + 9 look-at `.user.2` files under `natives/` (generated, PC only; found by
+    the 2026-11-07 inventory), back in layer 2 from the backup. The controller bindings json (LT free for the
+    flashlight) goes in layer 1.
 1. The ladder and cupboard view hold + the climbing body guard (`ladder.cpp`) `[verified-live, many]`; the last 5 deg stays its row
 2. No third-person body in the menus, menus over the live world, no inventory colour filter (`menu_body.cpp`, `menu_tint.cpp`)
 3. The world visible behind a pick-up (`pickup.cpp` + its Lua half, which goes native)
