@@ -149,4 +149,8 @@ constexpr float THROW_SWING_MPS = 1.6f;      // OURS: the right controller must 
 constexpr float THROW_SWING_SMOOTH = 0.35f;  // speed smoothing per frame (1 = raw)
 constexpr int   THROW_HOLD_FRAMES = 12;      // the grenade throw = HOLD sent this many frames on the swing (b137)
 
+// ---- the gun code's per-game tuning (guns/shells.cpp) ------------------------------------------------------------
+constexpr float SHELLS_STEP_S = 0.5f;             // one shell after another while LT is pressed at the port
+constexpr float SHELL_PORT_DOCK_M = 0.10f;        // the shells this close to the port: the hand docks there
+
 } // namespace vn::cfg

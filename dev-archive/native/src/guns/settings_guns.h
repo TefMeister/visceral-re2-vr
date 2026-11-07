@@ -32,8 +32,7 @@ constexpr bool  MAG_KEEP_OUT_ON_SWAP = true;      // a magazine taken out stays 
 
 // ---- shotgun shells ----------------------------------------------------------------------------------------------
 constexpr int   SHELLS_PER_GRAB = 2;              // two shells per pouch grab
-constexpr float SHELLS_STEP_S = 0.5f;             // one shell after another while LT is pressed at the port
-constexpr float SHELL_PORT_DOCK_M = 0.10f;        // the shells this close to the port: the hand docks there
+// SHELLS_STEP_S and SHELL_PORT_DOCK_M are each game's own tuning: body/settings_body.h
 struct ShellHold { float ox, oy, oz, yaw, pitch, roll; };
 constexpr ShellHold SHELL_HOLD = {0.108f, -0.042f, 0.032f, 13.0f, 86.0f, 0.0f};   // a shell in the left hand (Tefa set, b157)
 

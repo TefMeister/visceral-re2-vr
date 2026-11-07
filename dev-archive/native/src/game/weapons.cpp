@@ -95,6 +95,8 @@ const char* name(int wp) {
     return it == table().end() ? "unknown" : it->second.name;
 }
 
+bool is_sub(int wp) { return holster_for(wp) == Holster::SUB; }
+
 Holster holster_for(int wp) {
     auto it = table().find(wp);
     return it == table().end() ? Holster::NONE : it->second.holster;
