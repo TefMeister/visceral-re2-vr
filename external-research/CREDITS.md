@@ -99,6 +99,13 @@ For the REFramework Lua API findings behind
   per-joint local position/rotation handling, which independently corroborated the "write every frame"
   technique. Fork by **SilverEzredes** (*EMV-Engine-SILVER*).
 
+## Added by the 2026-11-07 research pass
+
+- **h1nt36r2** — *Resident-Evil-2-Remake-VR* (RE2IVR, MIT): its README and release notes, for the quick-slot belt,
+  the hand reload sequence and the AFR workaround for ray-traced costumes — https://github.com/h1nt36r2/Resident-Evil-2-Remake-VR
+- **praydog** — REFramework's HookManager changes on master (#1885 by **wdre9**, merged 2026-11-04) and issue #400 —
+  https://github.com/praydog/REFramework
+
 ## Respecting creators
 
 This project exists because other people generously shared their
