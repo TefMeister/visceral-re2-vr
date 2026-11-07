@@ -47,6 +47,10 @@ calls into `src/game/game.h`. Installed in 8 layers, each a saved build, each wo
 
 ## Layer 0: back up, archive, wipe (Tasks 1-4)
 
+DONE 2026-11-07 (Opus): Tasks 1-3. The folder held exactly build b192; 256 files moved to
+`D:/Visceral build versions/_before-clean-rebuild-2026-11-07/game/`, all hashes matched, 0 left; saves copied (9 files).
+`builds.py restore visceral-re2-vr 192` puts the old install back. Task 4 waits for Tefa's yes.
+
 ### Task 1: The inventory and Tefa's tuned numbers, read-only
 
 **Files:**
@@ -71,12 +75,12 @@ calls into `src/game/game.h`. Installed in 8 layers, each a saved build, each wo
 
 **Files:** none in the repo; the backup goes to `D:/Visceral build versions/_before-clean-rebuild-2026-11-07/`.
 
-- [ ] **Step 1:** `builds.py which visceral-re2-vr`; if the folder matches no build, `builds.py snap visceral-re2-vr
+- [x] **Step 1:** `builds.py which visceral-re2-vr`; if the folder matches no build, `builds.py snap visceral-re2-vr
   "before the clean rebuild" --note "the whole gen-1 install as worn up to b192"`.
-- [ ] **Step 2:** MOVE (never delete) every file of the inventory to the backup folder, keeping paths; copy (not move)
+- [x] **Step 2:** MOVE (never delete) every file of the inventory to the backup folder, keeping paths; copy (not move)
   `re2_fw_config.txt`, the patched `dinput8.dll` and `openxr_loader.dll` to the backup as well; copy the saves
   (Steam `userdata/<id>/883710/`) to `.../saves/`.
-- [ ] **Step 3:** check: `sha256sum` of every moved file at its new place equals the inventory; the game folder holds no file
+- [x] **Step 3:** check: `sha256sum` of every moved file at its new place equals the inventory; the game folder holds no file
   from the inventory. Record both counts in the inventory file and commit it.
 
 ### Task 3: Archive the old source trees in the repo
@@ -84,12 +88,13 @@ calls into `src/game/game.h`. Installed in 8 layers, each a saved build, each wo
 **Files:**
 - Move: `dev-archive/native/` -> `dev-archive/archive/native-gen1/`
 - Move: `dev-archive/plugin/` -> `dev-archive/archive/plugin-gen0/`
-- Move: the gen-1 Lua under `dev-archive/reframework/autorun/` and `mod/reframework/` -> `dev-archive/archive/lua-gen1/`
+- Move: `dev-archive/reframework/` -> `dev-archive/archive/lua-gen1/` (`mod/` is the released mod: left as it is until the
+  rebuilt mod replaces it)
 
-- [ ] **Step 1:** `git tag pre-rebuild-2026-11-07 && git push origin pre-rebuild-2026-11-07`.
-- [ ] **Step 2:** `git mv` the three trees; delete the `build/` folders' CMake caches from the move (they are not tracked; check
+- [x] **Step 1:** `git tag pre-rebuild-2026-11-07 && git push origin pre-rebuild-2026-11-07`.
+- [x] **Step 2:** `git mv` the three trees; delete the `build/` folders' CMake caches from the move (they are not tracked; check
   with `git status`).
-- [ ] **Step 3:** a README line in `dev-archive/archive/` saying what each tree is and the tag. Commit
+- [x] **Step 3:** a README line in `dev-archive/archive/` saying what each tree is and the tag. Commit
   ("archive gen-1 trees, move only").
 
 ### Task 4: Vanilla check (NEEDS TEFA'S YES TO LAUNCH)
