@@ -1,5 +1,6 @@
 // ammo.cpp -- see ammo.h. RELOADED's two rungs for putting rounds in: Inventory.reloadMainSlot first, then
 // Equipment.executeReload as the fallback (credit: Andyalpa).
+#include "game.h"
 #include "ammo.h"
 #include "game_reload.h"
 #include "gun_frame.h"
@@ -14,7 +15,7 @@ bool add_rounds(int n) {
     game_reload::Commit c;
     call_direct<bool>(gf().inventory, "reloadMainSlot", false, (int32_t)n);
     if (loaded() > before) return true;
-    auto* m = API::get()->tdb()->find_method("app.ropeway.survivor.Equipment", "executeReload(app.ropeway.EquipmentDefine.WeaponType, System.Int32)");
+    auto* m = API::get()->tdb()->find_method(game::type("survivor.Equipment").c_str(), ("executeReload(" + game::type("EquipmentDefine.WeaponType") + ", System.Int32)").c_str());
     const int wt = call_direct<int>(gf().gun, "get_WeaponType", -1);
     if (m != nullptr && wt >= 0) m->call<bool>(API::get()->get_vm_context(), (void*)gf().equipment, wt, (int32_t)n);
     return loaded() > before;
@@ -25,8 +26,8 @@ int loaded() { return gf().gun ? call_direct<int>(gf().gun, "getBulletNumber", -
 int capacity() { return call_direct<int>(call_ptr(gf().inventory, "get_MainSlot"), "get_MaxNumber", -1); }
 
 int reserve() {
-    const int a = call_direct<int>(API::get()->get_managed_singleton("app.ropeway.gamemastering.InventoryManager"), "getMainWeaponReloadableBullet", -1);
-    auto* m = API::get()->tdb()->find_method("app.ropeway.survivor.Inventory", "getReloadableBulletMainSlot");
+    const int a = call_direct<int>(API::get()->get_managed_singleton(game::type("gamemastering.InventoryManager").c_str()), "getMainWeaponReloadableBullet", -1);
+    auto* m = API::get()->tdb()->find_method(game::type("survivor.Inventory").c_str(), "getReloadableBulletMainSlot");
     const int b = (m != nullptr && gf().inventory != nullptr) ? m->call<int>(API::get()->get_vm_context(), (void*)gf().inventory, false) : -1;
     return std::max(a, b);
 }

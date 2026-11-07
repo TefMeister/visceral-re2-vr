@@ -3,6 +3,7 @@
 // from the RE Modding forum's ID thread (residentevilmodding.boards.net/thread/9864): its hex weapon list is the
 // game's WeaponType enum value (01 handgun = WP0000, 0B shotgun = WP1000, 2E knife = WP4500 ...), which matches
 // every weapon we could cross-check [inferred-static 2026-10-05]; the live log confirms each one when held.
+#include "game.h"
 #include "weapons.h"
 
 #include <map>
@@ -58,7 +59,7 @@ const std::map<int, Info>& table() {
 std::map<int, int>& enum_to_wp() {
     static std::map<int, int> m;
     if (!m.empty()) return m;
-    auto* td = API::get()->tdb()->find_type("app.ropeway.EquipmentDefine.WeaponType");
+    auto* td = API::get()->tdb()->find_type(game::type("EquipmentDefine.WeaponType").c_str());
     if (td == nullptr) return m;
     for (auto* f : td->get_fields()) {
         if (f == nullptr || !f->is_static()) continue;
@@ -82,9 +83,9 @@ int enum_of_wp(int wp) {
 }
 
 int current_id() {
-    auto* pm = API::get()->get_managed_singleton("app.ropeway.PlayerManager");
+    auto* pm = API::get()->get_managed_singleton(game::type("PlayerManager").c_str());
     auto* go = call_ptr(pm, "get_CurrentPlayer");
-    auto* eq = component(go, "app.ropeway.survivor.Equipment");
+    auto* eq = component(go, game::type("survivor.Equipment").c_str());
     if (eq == nullptr) return -1;
     return wp_of_enum(call_direct<int>(eq, "get_EquipType", -1));
 }

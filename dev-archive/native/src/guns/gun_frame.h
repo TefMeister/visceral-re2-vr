@@ -2,20 +2,21 @@
 // refresh() runs at the start of the gun code's frame and again at each late point (the objects can change in between).
 // Every pointer may be null; each is valid only until the next refresh.
 #pragma once
+#include "game.h"
 #include "common.h"
 
 namespace vn::guns {
 
 struct GunFrame {
     MO* player = nullptr;      // the player's GameObject
-    MO* equipment = nullptr;   // app.ropeway.survivor.Equipment
-    MO* inventory = nullptr;   // app.ropeway.survivor.Inventory
+    MO* equipment = nullptr;   // <ns>survivor.Equipment
+    MO* inventory = nullptr;   // <ns>survivor.Inventory
     MO* gun = nullptr;         // the Gun in hand (an implement.Gun; null for the knife, grenades, bare hands)
     MO* gun_tf = nullptr;      // the gun's transform (its +Z is the barrel)
     MO* lwrist = nullptr;      // l_arm_wrist / r_arm_wrist joints of the drawn body
     MO* rwrist = nullptr;
     int wp = -1;               // the gun in hand, WP number (-1 = none)
-    bool claire = false;       // Claire (pl1xxx) or Leon / the others
+    bool claire = false;       // the gun holds' second set (game::second_character: Claire in RE2)
 };
 
 void refresh();

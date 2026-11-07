@@ -61,8 +61,7 @@ void set_state(St s, const char* why) {
 }
 
 bool long_mag() {
-    for (int wp : cfg::MAG_LONG_WP) if (g_w != nullptr && wp == g_w->wp) return true;
-    return false;
+    return g_w != nullptr && guns::long_mag(g_w->wp);
 }
 bool keeps_chamber() { return slide_gun(g_w->wp) != nullptr && !is_pump(g_w->wp); }
 

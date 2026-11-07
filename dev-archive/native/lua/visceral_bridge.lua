@@ -10,12 +10,15 @@
 -- Written at LateUpdateBehavior PRE so the plugin reads them at LateUpdateBehavior POST of the same frame.
 --
 -- Hand-over: the array is passed once to a "mailbox" method the plugin hooks
--- (app.ropeway.RagdollControlZoneManager.set_AccessMutex, a real compiled game function); the plugin
+-- (<ns>RagdollControlZoneManager.set_AccessMutex, a real compiled game function); the plugin
 -- recognises it by its sentinel, keeps it, skips the original, and writes 1 into the ACK slot.
 -- The same idea ran live on 2026-10-03 in the old plugin; this is a fresh, smaller copy.
 -- Slot map must match src/bridge.h.
 
 local TAG = "[visceral-bridge]"
+-- 2026-11-07 (the clean rebuild): one file for RE2 and RE3 (shared, RE2's repo owns it); the game decides the type names
+local GAME = reframework:get_game_name()   -- "re2" or "re3"
+local NS = GAME == "re3" and "offline." or "app.ropeway."
 local N = 604   -- 2026-10-31: + the eighth hold at 540 (src/bridge.h S_HT2, the hand on the magazine); b173: 84 + the hand tuning slots (src/bridge.h S_WHO .. S_HT + 7 x 64) + S_FREEZE; b188: + S_LADDER_HOLD_OFF; 2026-10-28: + S_AUTO_EXPOSURE_ON
 local S_FRAME, S_HMD = 0, 1
 local S_LGRIP, S_LTRIG, S_RGRIP, S_RTRIG = 2, 3, 4, 5
@@ -49,7 +52,7 @@ local function setup()
     for s = S_HMD_YAW, S_RENDER_YAW do w(s, NO_VALUE) end
     w(S_HMD_Q, NO_VALUE); w(S_ROT_OFF, NO_VALUE); w(S_ORIGIN, NO_VALUE)
     w(S_SENTINEL, SENTINEL)
-    local t = sdk.find_type_definition("app.ropeway.RagdollControlZoneManager")
+    local t = sdk.find_type_definition(NS .. "RagdollControlZoneManager")
     mailbox = t and t:get_method("set_AccessMutex")
     if not mailbox then log.error(TAG .. " mailbox method not found"); return false end
     log.info(TAG .. " array ready")
@@ -84,11 +87,11 @@ local function poses(vr)
 end
 
 -- BeG0nE Camera Jitter ride-along (board row 6g, wired 2026-10-14): the headset pose as read, the camera as rendered and
--- each picture presented go to %LOCALAPPDATA%\BeG0nE\jitter\visceral-re2-vr_<time>.jl while the headset is live, so
+-- each picture presented go to %LOCALAPPDATA%\BeG0nE\jitter\visceral-<game>-vr_<time>.jl while the headset is live, so
 -- `begone.py new` can say whether the stepped feel on slow turns is a rate fault (pose read less often than rendered)
 -- or a pose fault. jitterlog.lua sits beside this file; without it nothing is recorded and nothing else changes.
 local jl_ok, jl = pcall(require, "jitterlog")
-if jl_ok and jl then jl.init("visceral-re2-vr", "openxr") else jl = nil; log.info(TAG .. " jitterlog.lua not found: no jitter recording") end
+if jl_ok and jl then jl.init("visceral-" .. GAME .. "-vr", "openxr") else jl = nil; log.info(TAG .. " jitterlog.lua not found: no jitter recording") end
 local jl_live = false
 -- yaw / pitch / roll in degrees from a quaternion, the bridge's own convention: forward = q * (0,0,-1), up = q * (0,1,0)
 local function ypr(q)

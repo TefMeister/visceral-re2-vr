@@ -1,5 +1,6 @@
 // dryfire.cpp -- see dryfire.h. RT fires without aiming (body/fire.cpp), so the press itself is where an empty gun clicks;
 // requestFire is still hooked because the game can ask to fire on its own (automatics held).
+#include "game.h"
 #include "dryfire.h"
 #include "bridge.h"
 #include "guns_api.h"
@@ -55,7 +56,7 @@ void post_fire(void**, REFrameworkTypeDefinitionHandle, unsigned long long) {
 
 void install() {
     if (!cfg::RELOAD_ON) return;
-    auto* m = API::get()->tdb()->find_method("app.ropeway.survivor.Equipment", "requestFire");
+    auto* m = API::get()->tdb()->find_method(game::type("survivor.Equipment").c_str(), "requestFire");
     if (m == nullptr) { LOGW("%s trigger: Equipment.requestFire not found: no empty click, no shot gate", TAG); return; }
     m->add_hook(pre_fire, post_fire, false);
 }

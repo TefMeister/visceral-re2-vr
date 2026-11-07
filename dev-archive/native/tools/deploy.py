@@ -1,4 +1,5 @@
-"""deploy.py -- put exactly the install list's files for one layer into the RE2 folder (the clean rebuild, 2026-11-07).
+"""deploy.py -- put exactly the install list's files for one layer into the game folder (the clean rebuild, 2026-11-07).
+Shared by RE2 and RE3 (RE2's repo owns it); the game, its backup and its removed-files folder come from game.conf beside it.
 
     python -I deploy.py --layer N [--game DIR] [--backup DIR] [--removed DIR] [--skip-missing] [--dry]
 
@@ -14,11 +15,22 @@ import argparse, filecmp, os, shutil, sys, time
 HERE = os.path.dirname(os.path.abspath(__file__))
 NATIVE = os.path.dirname(HERE)                                     # dev-archive/native
 DEV = os.path.dirname(NATIVE)                                      # dev-archive
-GAME = r"C:\Steam\steamapps\common\RESIDENT EVIL 2  BIOHAZARD RE2"   # two spaces, as Steam names it
-# Both outside every git repo: "D:\Visceral build versions" is a junction into the builds repo (found 2026-11-07).
-BACKUP = r"D:\claude video game stuff\re2-before-clean-rebuild-2026-11-07\game"
-REMOVED = r"D:\claude video game stuff\re2-removed-by-deploy"
 INVENTORY = os.path.join(DEV, "rebuild", "2026-11-07-inventory.tsv")
+
+
+def read_conf(path=os.path.join(HERE, "game.conf")):
+    """this repo's game: game_dir, backup, removed ... (the backup and removed folders stay outside every git repo)"""
+    conf = {}
+    for line in open(path, encoding="utf-8"):
+        line = line.split("#", 1)[0].strip()
+        if "=" in line:
+            k, v = line.split("=", 1)
+            conf[k.strip()] = v.strip()
+    return conf
+
+
+CONF = read_conf()
+GAME, BACKUP, REMOVED = CONF["game_dir"], CONF["backup"], CONF["removed"]
 NOT_OURS_VERDICTS = ("TOOL", "LEAVE", "LOG")
 
 

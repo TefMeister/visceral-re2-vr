@@ -1,4 +1,5 @@
 // bridge.cpp -- see bridge.h. The array's element offset is not assumed: it is found by the sentinel.
+#include "game.h"
 #include "bridge.h"
 #include "common.h"
 
@@ -40,7 +41,7 @@ int pre_mailbox(int argc, void** argv, REFrameworkTypeDefinitionHandle*, unsigne
 } // namespace
 
 void install() {
-    auto* m = API::get()->tdb()->find_method("app.ropeway.RagdollControlZoneManager", "set_AccessMutex");
+    auto* m = API::get()->tdb()->find_method(game::type("RagdollControlZoneManager").c_str(), "set_AccessMutex");
     if (m == nullptr) { LOGE("%s mailbox method not found: no controller buttons", TAG); return; }
     m->add_hook(pre_mailbox, nullptr, false);
     LOGI("%s bridge mailbox hook in", TAG);

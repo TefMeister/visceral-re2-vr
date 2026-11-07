@@ -1,4 +1,5 @@
 // pump.cpp -- see pump.h.
+#include "game.h"
 #include "pump.h"
 #include "bridge.h"
 #include "gun_data.h"
@@ -76,15 +77,15 @@ void hook(const char* type, const char* method, REFPreHookFn pre, const char* wh
 
 void install() {
     if (!cfg::RELOAD_ON) return;
-    hook("app.ropeway.weapon.shell.ShellCartridgeController", "generate", pre_generate, "the spent shell on our pull-down");
-    hook("app.ropeway.WwiseContainerApp", "trigger(System.UInt32)", pre_wwise, "the game's pump sounds");
+    hook(game::type("weapon.shell.ShellCartridgeController").c_str(), "generate", pre_generate, "the spent shell on our pull-down");
+    hook(game::type("WwiseContainerApp").c_str(), "trigger(System.UInt32)", pre_wwise, "the game's pump sounds");
 }
 
 void before_shot() {
     g_pre_chamber = g_pre_in_gun = -1;
     if (!cfg::RELOAD_ON || !pump_gun() || gf().gun == nullptr) return;
     g_pre_chamber = call_direct<int>(gf().gun, "getBulletNumber", -1);
-    g_pre_in_gun = call_direct<int>(API::get()->get_managed_singleton("app.ropeway.gamemastering.InventoryManager"), "getMainWeaponRemainingBullet", -1);
+    g_pre_in_gun = call_direct<int>(API::get()->get_managed_singleton(game::type("gamemastering.InventoryManager").c_str()), "getMainWeaponRemainingBullet", -1);
 }
 
 void after_shot() {

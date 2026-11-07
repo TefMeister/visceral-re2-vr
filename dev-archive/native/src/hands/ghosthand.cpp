@@ -1,4 +1,5 @@
 // ghosthand.cpp -- see ghosthand.h.
+#include "game.h"
 #include "ghosthand.h"
 #include "bridge.h"
 #include "common.h"
@@ -56,11 +57,11 @@ void vr_on() {
     std::tm tm{};
     localtime_s(&tm, &t);
     std::strftime(stamp, sizeof stamp, "%Y%m%d-%H%M%S", &tm);
-    const std::string path = dir + "\\visceral-re2-vr_" + stamp + ".ghl";
+    const std::string path = dir + "\\" + game::project() + "_" + stamp + ".ghl";
     if (fopen_s(&g_f, path.c_str(), "wb") != 0) { g_f = nullptr; LOGW("%s ghost hand: could not open %s", TAG, path.c_str()); return; }
     g_t0 = std::chrono::steady_clock::now();
     g_need_sent = false;
-    put("#ghosthand 1 game=visceral-re2-vr runtime=openxr\n");
+    put("#ghosthand 1 game=%s runtime=openxr\n", game::project());
     flush();
     LOGI("%s ghost hand: recording to %s", TAG, path.c_str());
 }
@@ -116,7 +117,7 @@ void render_point() {
 
     const ToRoom room = to_room();
     if (room.ok) {
-        auto* tf = call_ptr(call_ptr(API::get()->get_managed_singleton("app.ropeway.PlayerManager"), "get_CurrentPlayer"), "get_Transform");
+        auto* tf = call_ptr(call_ptr(API::get()->get_managed_singleton(game::type("PlayerManager").c_str()), "get_CurrentPlayer"), "get_Transform");
         Vec3 p;
         if (auto* lw = joint_by_name(tf, L"l_arm_wrist"); get_v3(JOINT, lw, "get_Position", p)) { p = room(p); put("%lld G L %.4f %.4f %.4f\n", now_us(), p.x, p.y, p.z); }
         if (auto* rw = joint_by_name(tf, L"r_arm_wrist"); get_v3(JOINT, rw, "get_Position", p)) { p = room(p); put("%lld G R %.4f %.4f %.4f\n", now_us(), p.x, p.y, p.z); }

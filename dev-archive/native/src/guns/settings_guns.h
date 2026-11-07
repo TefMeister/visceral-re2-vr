@@ -26,7 +26,6 @@ constexpr float HUD_AFTER_RELOAD_SEC = 5.0f;      // the ammo counter stays up t
 // going back in holds exactly its own rounds, and a pouch magazine is topped up from the ammo carried.
 constexpr bool  CHAMBER_ROUND = true;
 constexpr float MAG_GRAB_M = 0.15f;               // an LG press this close to the seated magazine puts the hand ON it
-constexpr int   MAG_LONG_WP[] = {2200};           // the magazine sits ahead of the grip: LG on it + LT pulls it out (no B)
 constexpr float INSERT_LT_MIN_SEC = 0.25f;        // the gun's own magazine back in needs a fresh LT; the pull's own LT never counts
 constexpr float MAG_DOCK_DOWN_M = 0.05f;          // the hand on the magazine holds its bottom, this far toward where it comes out
 constexpr bool  MAG_KEEP_OUT_ON_SWAP = true;      // a magazine taken out stays out when the gun is put away and comes back

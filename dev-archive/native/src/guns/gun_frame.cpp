@@ -1,4 +1,5 @@
 // gun_frame.cpp -- see gun_frame.h.
+#include "game.h"
 #include "gun_frame.h"
 #include "joints.h"
 #include "weapons.h"
@@ -16,11 +17,11 @@ GunFrame g;
 
 void refresh() {
     g = GunFrame{};
-    g.player = call_ptr(API::get()->get_managed_singleton("app.ropeway.PlayerManager"), "get_CurrentPlayer");
+    g.player = call_ptr(API::get()->get_managed_singleton(game::type("PlayerManager").c_str()), "get_CurrentPlayer");
     if (g.player == nullptr) return;
-    g.equipment = component(g.player, "app.ropeway.survivor.Equipment");
-    g.inventory = component(g.player, "app.ropeway.survivor.Inventory");
-    g.claire = read_string(call_ptr(g.player, "get_Name")).rfind("pl1", 0) == 0;
+    g.equipment = component(g.player, game::type("survivor.Equipment").c_str());
+    g.inventory = component(g.player, game::type("survivor.Inventory").c_str());
+    g.claire = game::second_character(g.player);
     auto* body = call_ptr(g.player, "get_Transform");
     g.lwrist = joint_by_name(body, L"l_arm_wrist");
     g.rwrist = joint_by_name(body, L"r_arm_wrist");
