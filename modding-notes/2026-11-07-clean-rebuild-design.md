@@ -107,7 +107,9 @@ Group B: the weapons (REWRITE off Village; each item's Village file in brackets)
 21. Rumble: the game's own on the controllers, left only while supporting the gun, a shot in both hands only while both are on it
     (`haptics.cpp`) `[Village: "sooooooo satisfying"]`
 22. The right hand never loses the gun on a swap; a gun already in hand is put away, not re-equipped (`equipguard.cpp`)
-23. The game's own left-hand dock OFF while LG is up (`nodock.cpp`) `[Village: "no jumps now"]`
+23. The game's own left-hand dock OFF while LG is up: in RE2 this is ALREADY our patched loader's job (section 7), so
+    Village's `nodock.cpp` is NOT ported. The four exports the loader looks up stay, same names and signatures:
+    `visceral_vr_buttons`, `visceral_sub_weapon_out`, `visceral_dock_socket`, `visceral_hands_frozen` (now always 0).
 24. Named timings, live from a file (`timings.cpp`), the Animation & Timing window reads/writes them
 24b. The ammo counter at the right hand (`ammo_hud.cpp`), shown while RG is held, told the moment a magazine comes out
     (Tefa 2026-11-07, Q2: "yes please")
@@ -190,7 +192,19 @@ reads them and hands them over through the shared float array (today's mailbox h
 - The REFramework MCP's own plugin (REFramework.NET) is a dev tool: installed by the MCP, not by build.sh; it stays out of the
   player package.
 
-## 7. REFramework: stay on 76298bd for the rebuild
+## 7. REFramework: stay on OUR PATCHED 76298bd for the rebuild
+
+CORRECTION (2026-11-07, Opus, before the plan): the installed loader is not stock. It is our own build of 76298bd with the
+eleven cumulative patches in `dev-archive/reframework-patch/` (the newest, `2026-11-02-re2-hand-smoothing-guns-only.patch`,
+contains all the earlier ones), `dinput8.dll` sha256 `0fe6beab...82b6` `[measured 2026-11-07]`. Those patches ARE kept
+features: the left hand docks only while LG is held and on the gun's own aid joint, the knife / grenade buttons taken from the
+plugin's `visceral_vr_buttons()` export, hold-hands-still, one grip per gun and no steering on the slide, the inventory close
+without the cutscene path, the switch start keeping the head turn, menu text not squished, the menu close hold, and the hand
+smoothing for guns only (it reads `data/visceral/hand_smooth.json`). So: KEEP item 0 = this exact dinput8, restored from the
+backup (and its patch kept as the source). In RE2 the left-hand dock lives in this loader, not in a plugin file: item 23
+(`nodock.cpp`) is NOT ported; the guns code talks to the dock through the plugin exports the patch already reads, and
+`game.h` names that route. A plugin export the patch looks up must keep its exact name and signature (the builder lists them
+from the patch before layer 2: `visceral_vr_buttons`, `visceral_hands_frozen`, any others).
 
 Every engine finding of ours (the title rain's scratch-page counter at `ctx+0x78`, FirstPerson's smoothing at a menu open, the
 inventory close frame, the ladder's rendered-view lag) was read against this build, and the body comes over unchanged. Changing
@@ -202,7 +216,7 @@ praydog's nightly LATER (a layer of its own with a saved build, after the rebuil
 | layer | what goes in | the check |
 | --- | --- | --- |
 | 0 | Step 1 of the plan: back up the whole mod state (game folder's mod files, data/, saves, the system save), convert Tefa's tuning numbers to Hand Poser files, archive the old trees. Wipe. Steam verify. Flat start to the main menu with nothing of ours | the menu with nothing installed |
-| 1 | REFramework 76298bd (dinput8 + openxr_loader, praydog's package scripts as shipped), our `re2_fw_config.txt` (idle timer 86400, Single Frame Multipass, upscaler off, no DLSS files), music muted by config | picture in both eyes, hands from the first second, height |
+| 1 | REFramework: OUR PATCHED dinput8 `0fe6beab` (section 7) + openxr_loader, praydog's package scripts as shipped, our `re2_fw_config.txt` (idle timer 86400, Single Frame Multipass, upscaler off, no DLSS files); the music: RE2 keeps it in the system save, not a file, so `visceral_mute_music.lua` goes in for this layer only and becomes native in layer 2 | picture in both eyes, hands from the first second, height |
 | 2 | the body plugin: group A + the bridge + jitterlog + Ghost Hand; the five body scripts native | ladder, menus over the world, pick-up, shadow head, flashlight, running, holsters, the rain; nothing worse than today |
 | 3 | guns, magazines and rounds: items 13-15, 18-19, 22-23 | Matilda / Lightning Hawk magazine out and in by hand, the W-870 shells, the slide, the empty click, casings |
 | 4 | guns, the opening ones: 16-17 (the GM 79, the three revolvers) | the GM 79 swing, a revolver loaded by the right hand, the hammer |
