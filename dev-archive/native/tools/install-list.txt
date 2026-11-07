@@ -1,0 +1,30 @@
+# What build.sh --deploy puts in the RE2 folder, layer by layer (the clean rebuild, 2026-11-07).
+# One line: <layer> [max=N] <source> <game path>
+#   layer   the line goes in when --layer is this number or higher (max=N: and only up to layer N)
+#   source  repo:<path under dev-archive/native/>   or   backup:<path under the backup's game/ folder>
+#           backup: = files that never go on GitHub (other people's binaries, our generated game-format files)
+#   a source that is a folder is copied whole
+# Everything of OURS in the game folder that is not on the list for the chosen layer is moved out by --deploy.
+
+# ---- layer 1: the loader (design section 7, item 0) ----------------------------------------------------------------
+1 backup:dinput8.dll                                         dinput8.dll
+1 backup:openxr_loader.dll                                   openxr_loader.dll
+1 backup:LICENSE-REFramework.txt                             LICENSE-REFramework.txt
+1 backup:ref_ui.ini                                          ref_ui.ini
+1 repo:game-folder/re2_fw_config.txt                         re2_fw_config.txt
+1 repo:../game-folder/_interaction_profiles_oculus_touch_controller.json   _interaction_profiles_oculus_touch_controller.json
+1 backup:reframework/autorun/re2_sharpness_removal.lua       reframework/autorun/re2_sharpness_removal.lua
+1 backup:reframework/autorun/re2_smooth_movement.lua         reframework/autorun/re2_smooth_movement.lua
+1 backup:reframework/autorun/re2_vr_crosshair.lua            reframework/autorun/re2_vr_crosshair.lua
+1 backup:reframework/autorun/re2_vr_grenade.lua              reframework/autorun/re2_vr_grenade.lua
+1 backup:reframework/autorun/re2_vr_melee.lua                reframework/autorun/re2_vr_melee.lua
+1 backup:reframework/autorun/re4_vr_crosshair.lua            reframework/autorun/re4_vr_crosshair.lua
+1 backup:reframework/autorun/re8_vr.lua                      reframework/autorun/re8_vr.lua
+1 backup:reframework/autorun/utility                         reframework/autorun/utility
+1 backup:reframework/autorun/vr                              reframework/autorun/vr
+1 backup:reframework/data/re2_vr                             reframework/data/re2_vr
+1 backup:reframework/data/visceral/hand_smooth.json          reframework/data/visceral/hand_smooth.json
+1 max=1 repo:lua/visceral_mute_music.lua                     reframework/autorun/visceral_mute_music.lua
+
+# ---- layer 2: the body (Tasks 6-7) ---------------------------------------------------------------------------------
+# filled in by Task 6 / 7: the plugin DLL, the bridge Lua, jitterlog, the hold poses of item 0b, custom_sfx

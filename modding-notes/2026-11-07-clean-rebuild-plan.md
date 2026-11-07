@@ -111,23 +111,24 @@ DONE 2026-11-07 (Opus): Tasks 1-3. The folder held exactly build b192; 256 files
 **Files:**
 - Create: `dev-archive/native/tools/build.sh` (new), `dev-archive/native/tools/install-list.txt`
 - Create: `dev-archive/native/game-folder/re2_fw_config.txt` (from the backup, unchanged)
-- Create: `dev-archive/native/tools/test_deploy.sh`
+- Create: `dev-archive/native/tools/test_deploy.py`, `deploy.py` (build.sh calls it; done 2026-11-07: test ALL PASS, a
+  dry run on the real folder finds all 24 layer-1 files)
 
 **Interfaces:**
 - Produces: `build.sh [--deploy] [--layer N]`; `install-list.txt` lines `<layer> <repo path> <game path>`; `--layer N` installs
   every line with layer <= N.
 
-- [ ] **Step 1: the failing test.** `test_deploy.sh` makes a temp folder shaped like the game folder, seeds
+- [x] **Step 1: the failing test.** `test_deploy.sh` makes a temp folder shaped like the game folder, seeds
   `reframework/autorun/visceral_tuning.lua` and `reframework/data/visceral_slide_grip.json`, runs `build.sh --deploy --layer 1
   --game <temp>`, and asserts: the two seeded files are gone (moved to `<temp>/_removed-by-deploy/`), every layer-1 file is
   present and byte-equal, no file outside the list beginning `visceral_` remains. Run: `bash test_deploy.sh` -> FAIL (no build.sh).
-- [ ] **Step 2:** write `build.sh`. "Ours" = any path under `reframework/` whose name starts with `visceral_`, `visceral/`, or
+- [x] **Step 2:** write `build.sh`. "Ours" = any path under `reframework/` whose name starts with `visceral_`, `visceral/`, or
   is listed in the backup inventory; those not on the list are moved to `_removed-by-deploy/<date>/`, never deleted.
   `--game` defaults to the Steam path `/c/Steam/steamapps/common/RESIDENT EVIL 2  BIOHAZARD RE2` (two spaces).
-- [ ] **Step 3:** layer-1 lines: the patched `dinput8.dll` (from the backup; its hash `0fe6beab...` checked before copying),
+- [x] **Step 3:** layer-1 lines: the patched `dinput8.dll` (from the backup; its hash `0fe6beab...` checked before copying),
   `openxr_loader.dll`, `_interaction_profiles_oculus_touch_controller.json`, `ref_ui.ini`, praydog's package scripts (`re2_*`, `re4_vr_crosshair`, `re8_vr`, `utility/`, `vr/`) from the 76298bd
   package zip, `re2_fw_config.txt`, `visceral_mute_music.lua` (layer 1 only: the line carries `max=1`). Run the test -> PASS.
-- [ ] **Step 4: Review Focus 4.** In the test, assert that `install-list.txt` puts the plugin DLL in no layer below 2.
+- [x] **Step 4: Review Focus 4.** In the test, assert that `install-list.txt` puts the plugin DLL in no layer below 2.
 - [ ] **Step 5:** commit; deploy layer 1; `builds.py snap ... "layer 1: the loader"`; ask Tefa to wear it: picture in both
   eyes, hands from the first second, height, music silent. `GATE: VR USER`.
 
