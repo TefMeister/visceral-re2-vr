@@ -109,6 +109,8 @@ Group B: the weapons (REWRITE off Village; each item's Village file in brackets)
 22. The right hand never loses the gun on a swap; a gun already in hand is put away, not re-equipped (`equipguard.cpp`)
 23. The game's own left-hand dock OFF while LG is up (`nodock.cpp`) `[Village: "no jumps now"]`
 24. Named timings, live from a file (`timings.cpp`), the Animation & Timing window reads/writes them
+24b. The ammo counter at the right hand (`ammo_hud.cpp`), shown while RG is held, told the moment a magazine comes out
+    (Tefa 2026-11-07, Q2: "yes please")
 25. Bullet spread tiers (`spread.cpp`, RE2's own, b125): KEEP as a file (it is RE2-only and worn)
 
 Group C: the hands (NEW for RE2, Village's design)
@@ -121,7 +123,10 @@ Group C: the hands (NEW for RE2, Village's design)
     reload as the game does it (`fingers.cpp`, `righthand.cpp`)
 29. Ghost Hand and the jitter recorder wired in from layer 2 (`ghosthand.cpp`, `jitterlog.lua`: Lanes' rule, not a tick)
 30. Per character: Leon, Claire, Ada, Hunk have different hands (Tefa 2026-10-13). Clips and rest poses are keyed by gun AND
-    character; a missing character falls back to Claire's (the only takes so far). Leon's takes are a FLAT run in the plan.
+    character; a missing character falls back to Claire's (the only takes). DECIDED (Tefa 2026-11-07, Q4): no new takes for
+    this rebuild; Claire's clips on every character. The layer 6 test is Tefa's words: *"as long as hands are roughly placed
+    at the right positions when holding guns"*, every gun, Leon and Claire. (Where the hand SITS comes from the dock and the
+    rest pose, not from a clip; a clip only moves fingers.)
 
 Group D: DROP (archived, out of the game folder)
 31. The hand tuning sliders, 8 holds, per character (`tune.cpp`, `visceral_tuning.lua`, the 5 tuning json files): replaced by
@@ -132,8 +137,8 @@ Group D: DROP (archived, out of the game folder)
 33. The first-generation plugin (`dev-archive/plugin/`, 2,639 lines, read-only since 2026-10-05): archived
 34. Every probe and old fix script (section 3, strays), `reload_block.cpp` (Village's reload.cpp owns the game-reload block
     itself), `spreadprobe.cpp`, `menu_probe.cpp`, the shell-clip test file
-35. Hand pairs, grip-zone spheres, body turn, the ammo counter at the hand, hold-to-keep: never in RE2, not added (Tefa dropped
-    15/20/23 in Village; the 11-01 list said spheres only if wanted)
+35. Hand pairs, grip-zone spheres, body turn, hold-to-keep: never in RE2, not added (Tefa dropped 15/20/23 in Village; the
+    11-01 list said spheres only if wanted). The ammo counter is NOT dropped: item 24b (Tefa 2026-11-07, Q2).
 36. DLSS: PDPerfPlugin.dll + nvngx_dlss.dll not installed (off since 2026-10-31); the fw config keeps the upscaler off
 
 ## 5. The new plugin: shape
@@ -177,12 +182,11 @@ reads them and hands them over through the shared float array (today's mailbox h
 - Everything else goes native: the five body scripts (item 11), the pick-up world half, the hand smoothing, the sounds (Village
   plays handling sounds from Lua; RE2 plays them natively through the game's own sound calls, `foley.cpp` the way `sfx.cpp`
   already does), the finger recorder (a tool, `VN_TOOLS`).
-- THE MENU GOES NATIVE: REFramework's plugin API offers `on_imgui_draw_ui` with the shared ImGui context (`REFImGuiFrameCbData`),
-  the way praydog's example plugin draws. The plugin links the ImGui version REFramework 76298bd was built with (its source tree
-  pins it) and draws ONE window, "Visceral RE2", with the sections Village's Emporium has (sounds, holds, timings, switches, the
-  test rows). My call. FALLBACK if the shared context refuses (a version mismatch shows as a crash on the first draw): one
-  `visceral_menu.lua`, readings through the bridge, exactly Village's Emporium shape; the fallback is allowed only after the
-  native try is written down with what failed.
+- NO MENU IN THIS REBUILD (Tefa 2026-11-07, Q3: *"re2 will have its own style so leave that out for now"*). Every setting a
+  menu would carry lives in a file under `reframework/data/visceral/` (timings.json, the hand_poser/ files, small switch files
+  like today's `visceral_*_off`), re-read when it changes, so Hand Poser and Animation & Timing keep working and a test switch
+  is a file. When Tefa designs RE2's own menu it goes native through `on_imgui_draw_ui` (the shared ImGui context, praydog's
+  example plugin's way), as its own layer with a saved build `[hypothesis]`.
 - The REFramework MCP's own plugin (REFramework.NET) is a dev tool: installed by the MCP, not by build.sh; it stays out of the
   player package.
 
@@ -202,9 +206,9 @@ praydog's nightly LATER (a layer of its own with a saved build, after the rebuil
 | 2 | the body plugin: group A + the bridge + jitterlog + Ghost Hand; the five body scripts native | ladder, menus over the world, pick-up, shadow head, flashlight, running, holsters, the rain; nothing worse than today |
 | 3 | guns, magazines and rounds: items 13-15, 18-19, 22-23 | Matilda / Lightning Hawk magazine out and in by hand, the W-870 shells, the slide, the empty click, casings |
 | 4 | guns, the opening ones: 16-17 (the GM 79, the three revolvers) | the GM 79 swing, a revolver loaded by the right hand, the hammer |
-| 5 | recoil and rumble: 20-21 | a shot in one and two hands |
-| 6 | hands: 26-28, 30 (Claire's clips and rest poses; Leon's takes recorded flat first) | the fingers move the game's way on a round-in and a magazine change; the docked hand rests right |
-| 7 | the native menu + timings: 24, the Animation & Timing hooks (clips_state, scrub, edit.json) | the window edits a clip live |
+| 5 | recoil, rumble, the ammo counter: 20-21, 24b | a shot in one and two hands; the counter at the hand while RG is held |
+| 6 | hands: 26-28, 30 (Claire's clips and rest poses on every character) | the fingers move the game's way on a round-in and a magazine change; hands roughly right on every gun, Leon and Claire |
+| 7 | timings: 24, the Animation & Timing hooks (clips_state, scrub, edit.json); no menu (Q3) | the window edits a clip live |
 | 8 | (later, its own decision) praydog's current nightly | everything above again |
 
 Each layer: built on the OpenXR Simulator + VR Bench first (RE2 boots on the simulator by `tools/re2_sim_boot.py`, route A/A/A
@@ -248,21 +252,16 @@ engine behaviour nobody wrote down is a `MODEL: FABLE` row, said at once, not pu
 
 Fable's share of this rebuild is this document and the plan's architecture: the folder split, the per-game layer, the Lua
 boundary, the hand-animation design, the layer order. Done here. Everything in section 8 is Opus work with a clear method, with
-these likely Fable rows (say `MODEL: FABLE` the moment one resists, do not grind): the ImGui shared-context linkage if the first
-try crashes; how REFramework's C++ VR layer reports the two-handed grip (never written down; RE2's rack.cpp guessed 0.45 m);
+these likely Fable rows (say `MODEL: FABLE` the moment one resists, do not grind): how REFramework's C++ VR layer reports the two-handed grip (never written down; RE2's rack.cpp guessed 0.45 m);
 RE2's motion-id table if the takes do not show a clean per-round cycle.
 
-## 13. Tefa's ticks and questions (the only round)
+## 13. Tefa's ticks and answers (2026-11-07): the design is APPROVED
 
-Ticks: the numbered list in section 4 (KEEP 1-12 and 25, REWRITE 13-24, NEW 26-30, DROP 31-36). Answer with numbers that are
-WRONG; silence on a number = agreed.
+No number of section 4 was named wrong (silence = agreed). The answers, folded into the sections above:
+- Q1. The Lightning Hawk stays a magazine gun (no objection).
+- Q2. The ammo counter at the right hand: IN ("yes please"); item 24b, layer 5.
+- Q3. The menu: OUT for now ("re2 will have its own style so leave that out for now"); settings live in files (section 6).
+- Q4. Leon's takes: OUT; Claire's clips on everyone, "as long as hands are roughly placed at the right positions when holding
+  guns" (the layer 6 test, item 30).
 
-Questions whose answer changes what gets built:
-Q1. The Lightning Hawk: today it has magazine rules (b182-b184). Village's rules treat a .50 magnum pistol as a magazine gun too.
-    Stays a magazine gun? (my assumption: yes)
-Q2. The ammo counter at the right hand (Village item 11, shown while RG is held): RE2 never had it. Add it in layer 7, or leave
-    it out? (my assumption: out, item 35)
-Q3. The native menu (section 6): one window "Visceral RE2" with Village's Emporium sections, or keep today's REFramework-menu
-    style (several small menus)? (my assumption: one window)
-Q4. Leon's finger takes: recorded flat by the session before layer 6 (a run with nothing of ours installed, like Claire's on
-    11-02), or Claire's clips on Leon's hands for now? (my assumption: record Leon before layer 6; Ada and Hunk fall back)
+Next: `MODEL: OPUS` writes `2026-11-07-clean-rebuild-plan.md` from this document and starts layer 0.
