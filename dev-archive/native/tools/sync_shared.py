@@ -18,7 +18,7 @@ DEFAULT_TO = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(NATIVE
 SHARED = [
     "CMakeLists.txt", "include", "third_party",
     "src/core", "src/guns", "src/hands", "src/tools", "src/game/game.h",
-    "lua/visceral_bridge.lua", "lua/jitterlog.lua",
+    "lua/visceral_bridge.lua", "lua/jitterlog.lua", "lua/visceral_hand_smooth.lua",
     "tools/deploy.py", "tools/build.sh", "tools/test_deploy.py", "tools/sim_boot.py", "tools/sync_shared.py", "tools/clips",
 ]
 MANIFEST = ".shared-manifest.txt"
