@@ -2,7 +2,7 @@
 # Build visceral_native.dll (Release x64) and, with --deploy, put exactly one layer of the install list into the RE2 folder.
 #   bash dev-archive/native/tools/build.sh [--deploy] [--layer N] [--dry]
 # The clean rebuild (2026-11-07): install-list.txt says what each layer holds; deploy.py moves every other file of ours out
-# (to D:/Visceral build versions/_removed-by-deploy/<time>/, never deleted). The default layer is the highest one listed.
+# (to D:/claude video game stuff/re2-removed-by-deploy/<time>/, never deleted). The default layer is the highest one listed.
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")/.." && pwd)"
 DEPLOY=0; DRY=""; LAYER=""

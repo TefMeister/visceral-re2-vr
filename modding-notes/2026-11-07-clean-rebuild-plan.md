@@ -48,7 +48,7 @@ calls into `src/game/game.h`. Installed in 8 layers, each a saved build, each wo
 ## Layer 0: back up, archive, wipe (Tasks 1-4)
 
 DONE 2026-11-07 (Opus): Tasks 1-3. The folder held exactly build b192; 256 files moved to
-`D:/Visceral build versions/_before-clean-rebuild-2026-11-07/game/`, all hashes matched, 0 left; saves copied (9 files).
+`D:/claude video game stuff/re2-before-clean-rebuild-2026-11-07/ (outside every git repo: "D:/Visceral build versions" is a junction into the builds repo)game/`, all hashes matched, 0 left; saves copied (9 files).
 `builds.py restore visceral-re2-vr 192` puts the old install back. Task 4 waits for Tefa's yes.
 
 ### Task 1: The inventory and Tefa's tuned numbers, read-only
@@ -73,7 +73,7 @@ DONE 2026-11-07 (Opus): Tasks 1-3. The folder held exactly build b192; 256 files
 
 ### Task 2: Save the current state as a build, then move every mod file out
 
-**Files:** none in the repo; the backup goes to `D:/Visceral build versions/_before-clean-rebuild-2026-11-07/`.
+**Files:** none in the repo; the backup goes to `D:/claude video game stuff/re2-before-clean-rebuild-2026-11-07/ (outside every git repo: "D:/Visceral build versions" is a junction into the builds repo)`.
 
 - [x] **Step 1:** `builds.py which visceral-re2-vr`; if the folder matches no build, `builds.py snap visceral-re2-vr
   "before the clean rebuild" --note "the whole gen-1 install as worn up to b192"`.

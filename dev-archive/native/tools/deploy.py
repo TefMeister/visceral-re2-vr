@@ -15,8 +15,9 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 NATIVE = os.path.dirname(HERE)                                     # dev-archive/native
 DEV = os.path.dirname(NATIVE)                                      # dev-archive
 GAME = r"C:\Steam\steamapps\common\RESIDENT EVIL 2  BIOHAZARD RE2"   # two spaces, as Steam names it
-BACKUP = r"D:\Visceral build versions\_before-clean-rebuild-2026-11-07\game"
-REMOVED = r"D:\Visceral build versions\_removed-by-deploy"
+# Both outside every git repo: "D:\Visceral build versions" is a junction into the builds repo (found 2026-11-07).
+BACKUP = r"D:\claude video game stuff\re2-before-clean-rebuild-2026-11-07\game"
+REMOVED = r"D:\claude video game stuff\re2-removed-by-deploy"
 INVENTORY = os.path.join(DEV, "rebuild", "2026-11-07-inventory.tsv")
 NOT_OURS_VERDICTS = ("TOOL", "LEAVE", "LOG")
 
