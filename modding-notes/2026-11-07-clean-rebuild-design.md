@@ -84,7 +84,10 @@ Group A: the body and the controls (KEEP, as files)
 8. Run Type Hold, auto reload off, aim assist off, set once (`options.cpp`); the idle pose off (fw config)
 9. The flashlight like RE3's (`flashlight.cpp`)
 10. The title rain (`rainhold.cpp` + whatever Lua half it needs) `[verified-live 2026-10-17]`
-11. Locomotion (aim-speed + run animation off real speed), spine straighten, foot grounding, the cinematic gate, the crosshair
+11. CORRECTED 2026-11-07 (the inventory): these five were NOT installed in b192, so they are NOT part of the body as it
+    works now and stay out. What ran instead: body_anchor, body_direct, lefthand_hold, title_rain, title_one_scene,
+    pickup_world, steady_light, mute_music (layer 2a as Lua, 2b native). The original line, for the record:
+    11. Locomotion (aim-speed + run animation off real speed), spine straighten, foot grounding, the cinematic gate, the crosshair
     off: the five body Lua scripts of the shipped mod, PORTED TO C++ as they are (no behaviour change; section 6)
 12. Hand smoothing, guns only, never melee (today's `visceral_hand_smooth.lua` + the plugin's part; Village's `smooth.cpp` is the
     native model) `[verified-live, simulator 2026-11-02]`

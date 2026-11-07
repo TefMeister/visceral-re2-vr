@@ -58,14 +58,19 @@ def main():
             fails.append("dinput8.dll is not the backup's")
         # Review Focus 4: the plugin DLL is never in a layer below 2
         for line in open(os.path.join(HERE, "install-list.txt"), encoding="utf-8"):
-            p = line.split()
-            if p and not p[0].startswith("#") and p[-1].endswith("visceral_native.dll") and int(p[0]) < 2:
+            p = line.split("#", 1)[0].split()
+            if p and p[-1].endswith("visceral_native.dll") and int(p[0]) < 2:
                 fails.append("the plugin is listed below layer 2")
-        # max=1: deploying layer 2 must take the layer-1-only music script out again
-        r2 = subprocess.run([sys.executable, "-I", DEPLOY, "--layer", "2", "--game", game, "--backup", backup,
-                             "--removed", removed, "--skip-missing"], capture_output=True, text=True)
-        if os.path.exists(os.path.join(game, "reframework/autorun/visceral_mute_music.lua")):
-            fails.append("max=1 file still there after a layer 2 deploy")
+        # max=N: a line kept only up to layer N leaves again at a higher layer (a small list of the test's own)
+        small = os.path.join(tmp, "small-list.txt")
+        make(backup, "one.lua", "layer one only")
+        with open(small, "w", encoding="utf-8") as f:
+            f.write("1 max=1 backup:one.lua reframework/autorun/visceral_one.lua   # a trailing note\n")
+        for layer, want_there in ((1, True), (2, False)):
+            subprocess.run([sys.executable, "-I", DEPLOY, "--layer", str(layer), "--game", game, "--backup", backup,
+                            "--removed", removed, "--list", small], capture_output=True, text=True)
+            if os.path.exists(os.path.join(game, "reframework/autorun/visceral_one.lua")) != want_there:
+                fails.append("max=1 line wrong after a layer %d deploy" % layer)
         print("\n".join("FAIL " + f for f in fails) or "ALL PASS")
         return 1 if fails else 0
     finally:

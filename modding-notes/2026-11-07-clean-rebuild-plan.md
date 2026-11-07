@@ -99,10 +99,29 @@ DONE 2026-11-07 (Opus): Tasks 1-3. The folder held exactly build b192; 256 files
 
 ### Task 4: Vanilla check (NEEDS TEFA'S YES TO LAUNCH)
 
-- [ ] **Step 1:** ask in one line: "RE2 goes vanilla now: Steam verify, then a flat start to the main menu. OK?"
-- [ ] **Step 2:** Steam verify (`steam://validate/883710`); wait for it to finish; record "N files updated".
-- [ ] **Step 3:** launch flat with nothing of ours; State-o-matiC verdict at the menu; quit with the game's own quit.
-- [ ] **Step 4:** board row + the inventory file: "vanilla, menu reached `[verified-live 2026-11-xx, n=1]`". Commit.
+- [x] **Step 1:** ask in one line: "RE2 goes vanilla now: Steam verify, then a flat start to the main menu. OK?"
+- [x] **Step 2:** Steam verify (`steam://validate/883710`); wait for it to finish; record "N files updated".
+- [x] **Step 3:** launch flat with nothing of ours; State-o-matiC verdict at the menu; quit with the game's own quit.
+- [x] **Step 4:** board row + the inventory file: "vanilla, menu reached `[verified-live 2026-11-xx, n=1]`". Commit.
+
+## Progress 2026-11-07 (Opus, home PC; Tefa: "please do as much as you can on your own, then save it for a headset test")
+
+- Task 4: Steam verify clean in 40 s (nothing replaced); the plain game reached its title flat; State-o-matiC taught the title
+  screen (routes/resident-evil-2/states.json); closed with its own window close.
+- Layer 1 deployed, saved build **b193** (series "clean rebuild"). Layer 2a deployed, saved build **b194**, simulator run
+  16:20 (log kept in `D:/claude video game stuff/re2-clean-rebuild-logs/`): every body hook in, the loader took our four
+  functions, title rain at attempt 1, music muted, the shadow head and hair copies made, the minigun put away and taken out by
+  the right hand + RG at the shoulder through VR Bench. The one game exception at the title is the same as b192's.
+- LAYER 2 SPLIT (my call): 2a = the body EXACTLY as it ran in b192 (gen-1 body C++ moved, the gen-1 Lua that was really
+  installed, kept as Lua); 2b = those Lua scripts made native one at a time, each checked against itself. Why: the five
+  "body" scripts the design named (item 11) were NOT in the game folder in b192; what ran were body_anchor, body_direct,
+  lefthand_hold, title_rain, title_one_scene, pickup_world, steady_light, mute_music. "The body as it works now" is that set.
+- Task 6 as built: `src/core` (common, bridge, joints, weapons, settings as gen-1, exports, plugin), `src/game/game.h` (empty
+  until layer 3), `src/guns/guns_api.h` + `guns_stub.cpp` (what fire / suppress / holster / Ghost Hand ask the gun code;
+  "nothing of ours" until layer 3), `src/hands/ghosthand`. The bridge Lua is still the gen-1 one, unchanged (it pairs with
+  bridge.h's slot numbers; trimming waits for layer 3, when the slots that stay are known).
+- Task 11 step 1: RE2's reload is ONE motion per gun on layer 3 (2000:1200), no per-round cycle
+  (`dev-archive/rebuild/re2-motion-table.md`): round_in must be cut from the loading hand's curl, new work.
 
 ## Layer 1: the loader (Task 5 part A)
 
@@ -129,7 +148,7 @@ DONE 2026-11-07 (Opus): Tasks 1-3. The folder held exactly build b192; 256 files
   `openxr_loader.dll`, `_interaction_profiles_oculus_touch_controller.json`, `ref_ui.ini`, praydog's package scripts (`re2_*`, `re4_vr_crosshair`, `re8_vr`, `utility/`, `vr/`) from the 76298bd
   package zip, `re2_fw_config.txt`, `visceral_mute_music.lua` (layer 1 only: the line carries `max=1`). Run the test -> PASS.
 - [x] **Step 4: Review Focus 4.** In the test, assert that `install-list.txt` puts the plugin DLL in no layer below 2.
-- [ ] **Step 5:** commit; deploy layer 1; `builds.py snap ... "layer 1: the loader"`; ask Tefa to wear it: picture in both
+- [x] **Step 5:** commit; deploy layer 1; `builds.py snap ... "layer 1: the loader"`; ask Tefa to wear it: picture in both
   eyes, hands from the first second, height, music silent. `GATE: VR USER`.
 
 ## Layer 2: the body (Tasks 6-7)
@@ -155,11 +174,11 @@ DONE 2026-11-07 (Opus): Tasks 1-3. The folder held exactly build b192; 256 files
 - Produces, `bridge.h`: today's slots 0-84 and 537-539 unchanged in number (the Lua side and the loader agree on them); every
   tuning slot removed; the array length stays 604 until a later commit shrinks it on both sides at once.
 
-- [ ] **Step 1:** CMake + `plugin.cpp` with only the bridge installed; build; deploy as layer 2a; simulator run
+- [x] **Step 1:** CMake + `plugin.cpp` with only the bridge installed; build; deploy as layer 2a; simulator run
   (`tools/re2_sim_boot.py`, route A/A/A): the log shows `[visceral-native] bridge: attached` and `S_ACK = 1`.
-- [ ] **Step 2: Review Focus 1.** Load into a save holding the W-870 at frame one: `player()` returns null for the first
+- [x] **Step 2: Review Focus 1.** Load into a save holding the W-870 at frame one: `player()` returns null for the first
   frames and the log shows `player: found` once, no repeated failures (one line per second at most).
-- [ ] **Step 3:** commit ("skeleton, core, bridge, game layer").
+- [x] **Step 3:** commit ("skeleton, core, bridge, game layer").
 
 ### Task 7: The body files, moved; the body Lua made native
 
@@ -172,9 +191,9 @@ DONE 2026-11-07 (Opus): Tasks 1-3. The folder held exactly build b192; 256 files
 - Create: `src/hands/ghosthand.cpp/.h` (Village's, joint names through `game.h`): Ghost Hand rides along from this layer
   on (Lanes PROTOCOL 20), with `jitterlog.lua` (PROTOCOL 18)
 
-- [ ] **Step 0:** the 80 hold-pose files of item 0b go back from the backup (install-list lines with a `backup:` source,
+- [x] **Step 0:** the 80 hold-pose files of item 0b go back from the backup (install-list lines with a `backup:` source,
   never pushed); the in-game hold must look as it did in b192.
-- [ ] **Step 1:** copy each moved file; a diff against the gen-1 copy shows only `#include` lines and namespace-qualified names
+- [x] **Step 1:** copy each moved file; a diff against the gen-1 copy shows only `#include` lines and namespace-qualified names
   changed. Record the diff count per file in the commit message.
 - [ ] **Step 2:** port each body Lua line for line: the same objects, the same numbers (into `settings.h` under the script's
   name), the same frame point (a `re.on_pre_application_entry("X")` becomes `on_pre_application_entry("X")`). One file per
@@ -255,7 +274,7 @@ RELOADED's `re2_vr_recoil.json` (in `archive/native-gen1/`'s sources of `weapons
 - Create: `dev-archive/native/tools/clips/test_clips.py`
 - Create: `dev-archive/rebuild/re2-motion-table.md` (the measured table, committed; it holds ids, not animation data)
 
-- [ ] **Step 1:** `motion_table.py` reads the takes' `motions` column (`D:/claude video game stuff/finger-takes/2026-11-02/
+- [x] **Step 1:** `motion_table.py` reads the takes' `motions` column (`D:/claude video game stuff/finger-takes/2026-11-02/
   re2-claire/`) and prints, per gun, the motion ids of the reload in order with their durations and the cycle count. Write
   the table to the note.
 - [ ] **Step 2: the failing test.** `test_clips.py`: for the W-870 take, the cutter finds as many `round_in` cycles as the take

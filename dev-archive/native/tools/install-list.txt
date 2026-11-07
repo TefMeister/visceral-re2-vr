@@ -24,7 +24,26 @@
 1 backup:reframework/autorun/vr                              reframework/autorun/vr
 1 backup:reframework/data/re2_vr                             reframework/data/re2_vr
 1 backup:reframework/data/visceral/hand_smooth.json          reframework/data/visceral/hand_smooth.json
-1 max=1 repo:lua/visceral_mute_music.lua                     reframework/autorun/visceral_mute_music.lua
+1 repo:lua/visceral_mute_music.lua                           reframework/autorun/visceral_mute_music.lua   # until body/music.cpp (layer 2b)
 
 # ---- layer 2: the body (Tasks 6-7) ---------------------------------------------------------------------------------
-# filled in by Task 6 / 7: the plugin DLL, the bridge Lua, jitterlog, the hold poses of item 0b, custom_sfx
+# Layer 2a = the body EXACTLY as it ran in b192: the gen-1 body C++ files (moved, unchanged) and the gen-1 Lua that was really
+# installed (2026-11-07 inventory). Correction to design item 11: the five "body" scripts of mod/ were NOT installed in b192,
+# so they stay out; these ran instead. Each Lua here goes native later (layer 2b), one at a time, checked against itself.
+2 repo:build/Release/visceral_native.dll                    reframework/plugins/visceral_native.dll
+2 repo:lua/visceral_bridge.lua                               reframework/autorun/visceral_bridge.lua
+2 repo:lua/jitterlog.lua                                     reframework/autorun/jitterlog.lua
+2 repo:lua/visceral_body_anchor.lua                          reframework/autorun/visceral_body_anchor.lua
+2 repo:lua/visceral_body_direct.lua                          reframework/autorun/visceral_body_direct.lua
+2 repo:lua/visceral_lefthand_hold.lua                        reframework/autorun/visceral_lefthand_hold.lua
+2 repo:lua/visceral_title_rain.lua                           reframework/autorun/visceral_title_rain.lua
+2 repo:lua/visceral_title_one_scene.lua                      reframework/autorun/visceral_title_one_scene.lua
+2 repo:lua/visceral_pickup_world.lua                         reframework/autorun/visceral_pickup_world.lua
+2 repo:lua/visceral_steady_light.lua                         reframework/autorun/visceral_steady_light.lua
+2 backup:natives                                             natives
+2 backup:reframework/data/custom_sfx                         reframework/data/custom_sfx
+2 backup:reframework/data/visceral_shadowhead.txt            reframework/data/visceral_shadowhead.txt
+2 backup:reframework/data/visceral_shadowhead_offset.txt     reframework/data/visceral_shadowhead_offset.txt
+2 backup:reframework/data/visceral_options_set.txt           reframework/data/visceral_options_set.txt
+2 backup:reframework/data/visceral_steady_light.json         reframework/data/visceral_steady_light.json
+2 backup:reframework/data/visceral_title_one_scene.json      reframework/data/visceral_title_one_scene.json

@@ -22,10 +22,10 @@ INVENTORY = os.path.join(DEV, "rebuild", "2026-11-07-inventory.tsv")
 NOT_OURS_VERDICTS = ("TOOL", "LEAVE", "LOG")
 
 
-def read_list():
+def read_list(path):
     lines = []
-    for n, raw in enumerate(open(os.path.join(HERE, "install-list.txt"), encoding="utf-8"), 1):
-        p = raw.split()
+    for n, raw in enumerate(open(path, encoding="utf-8"), 1):
+        p = raw.split("#", 1)[0].split() if not raw.lstrip().startswith("#") else []
         if not p or p[0].startswith("#"):
             continue
         layer, mx = int(p[0]), None
@@ -79,9 +79,10 @@ def main():
     ap.add_argument("--removed", default=REMOVED)
     ap.add_argument("--skip-missing", action="store_true")
     ap.add_argument("--dry", action="store_true")
+    ap.add_argument("--list", default=os.path.join(HERE, "install-list.txt"))
     a = ap.parse_args()
 
-    lines = read_list()
+    lines = read_list(a.list)
     listed_anywhere = {g for _, _, _, g in lines}
     gen1 = set()
     if os.path.exists(INVENTORY):
