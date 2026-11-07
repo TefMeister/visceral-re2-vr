@@ -31,7 +31,9 @@ later step that needs Village moved onto the same `game/` layer too. `src/game/g
 
 Out: the tuning sliders woven through the magazine, slide and shell code; the button-rack mode (off since b165); the GM 79's
 pieces inside the shotgun path (layer 4 brings the GM 79 back on its own); the debug chatter and the probes
-(`watch_game_reload`, the per-press distance logs). Smaller than gen-1 (about 1,200 lines against 1,700), every file under 400.
+(`watch_game_reload`, the per-press distance logs). About the same size as gen-1 (1,921 lines with its headers, data and
+settings, against 1,912 for gen-1's reload, rack, block and pump files `[measured 2026-11-07]`); the gain is the split: the
+largest file is 310 lines (gen-1's reload.cpp was 786), and each does one job.
 
 ## Tested on the OpenXR Simulator with VR Bench `[verified-live 2026-11-07, simulator, n=1 each]`
 
