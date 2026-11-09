@@ -34,6 +34,7 @@
 2 repo:lua/visceral_bridge.lua                               reframework/autorun/visceral_bridge.lua
 2 repo:lua/jitterlog.lua                                     reframework/autorun/jitterlog.lua
 2 repo:lua/visceral_hand_smooth.lua                         reframework/autorun/visceral_hand_smooth.lua   # the smoothing sliders, stopgap until the options book (2026-11-07)
+2 repo:lua/visceral_options_book.lua                        reframework/autorun/visceral_options_book.lua   # the in-world options book, first milestone (2026-11-10)
 2 repo:lua/visceral_body_anchor.lua                          reframework/autorun/visceral_body_anchor.lua
 2 repo:lua/visceral_body_direct.lua                          reframework/autorun/visceral_body_direct.lua
 2 repo:lua/visceral_lefthand_hold.lua                        reframework/autorun/visceral_lefthand_hold.lua
