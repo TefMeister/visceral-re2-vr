@@ -73,3 +73,21 @@ The test files are out of the game folder, kept in `D:/RE2 REFramework builds/_a
 (sha256 5790028705e65222...).
 
 Also fixed in the script: the first ask for a page picture in a session throws; it is now asked again by itself.
+
+## The header is not it `[measured 2026-11-10, desk]`
+
+Side by side: our failing page texture (2048 x 2048, BC7 sRGB, 12 mips, flags 0), an HD-hands body texture of ours that
+does load (4096 x 4096, same format, 13 mips, flags 0, made by `body_tex_build.py`), and one shipped by the game
+(512 x 512, 7 mips, flags 0x101). The two of ours are built the same way down to the mip table; the file is whole
+(the last mip ends exactly at the file's end). So `tex_build.py`'s header is not the fault. `[disproved]` for the
+first suspicion above.
+
+What is left, in the order to try:
+1. **The streaming twin.** The notebook's page pictures also exist under `natives/stm/streaming/...` (the full-size
+   copy); the plain file is then only the small stand-in and says so in its flags (the shipped example's 0x101). A
+   full-size loose file with flags 0 under that name contradicts the twin, and the game dropped it (the swap kept the
+   old picture). The body texture works because both of its files were replaced together `[hypothesis]`. Test: borrow
+   a name that has NO streaming twin, or write both files.
+2. **A new name** (`natives/stm/visceral/...`) never showed either, with no twin in play: whether the loose-file loader
+   serves names the game's own index does not know is the second question; September's meshes under that folder did
+   load (they drew, grey), so it serves at least meshes.
