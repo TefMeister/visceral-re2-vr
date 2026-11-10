@@ -6,6 +6,7 @@
 #include "gun_data.h"
 #include "gun_frame.h"
 #include "joints.h"
+#include "settings.h"
 
 #include <cmath>
 #include <map>
@@ -18,9 +19,12 @@ using namespace joints;
 
 namespace {
 constexpr float PI = 3.14159265f;
+constexpr int SPENT = -1;
 
 struct Drum {
-    std::vector<int> ch;   // chambered gun: one kind per chamber (0 = empty); else the kinds in order, front = fires next
+    // chambered gun: one kind per chamber (0 = empty, SPENT = a fired case still in it); else the kinds in order, front =
+    // fires next
+    std::vector<int> ch;
     int up = 0;            // chambered gun: the chamber at the barrel
 };
 
@@ -43,7 +47,7 @@ Drum& drum() {
 
 int count(const Drum& d) {
     int n = 0;
-    for (int it : d.ch) if (it != 0) ++n;
+    for (int it : d.ch) if (it > 0) ++n;
     return n;
 }
 
@@ -51,7 +55,7 @@ int count(const Drum& d) {
 int next_loaded(const Drum& d) {
     for (int i = 0; i < g_chambers; ++i) {
         const int c = (d.up + i) % g_chambers;
-        if (d.ch[c] != 0) return c;
+        if (d.ch[c] > 0) return c;
     }
     return -1;
 }
@@ -61,7 +65,7 @@ std::string text(const Drum& d) {
     for (size_t i = 0; i < d.ch.size(); ++i) {
         if (!s.empty()) s += " ";
         if (g_chambers > 0 && (int)i == d.up) s += ">";
-        s += d.ch[i] == 0 ? "-" : std::to_string(d.ch[i]);
+        s += d.ch[i] == 0 ? "-" : d.ch[i] == SPENT ? "x" : std::to_string(d.ch[i]);
     }
     return s.empty() ? "empty" : s;
 }
@@ -70,6 +74,8 @@ bool known(int item) {
     for (int it : g_w->items) if (it != 0 && it == item) return true;
     return false;
 }
+
+bool has_crane() { return g_w != nullptr && g_w->crane != nullptr && g_w->crane[0] != 0; }
 
 MO* joint(const char* name) { return gf().gun_tf != nullptr ? joint_by_name(gf().gun_tf, widen(name).c_str()) : nullptr; }
 
@@ -90,6 +96,14 @@ void draw() {
     const float a = g_w->turn_sign * (2.0f * PI / (float)g_chambers) * (float)drum().up * 0.5f;
     Quat q = qnorm(qmul(g_rest, Quat{0, 0, std::sin(a), std::cos(a)}));
     set_any(JOINT, g_drum_joint, "set_LocalRotation", &q);
+    // each chamber's own round: there when loaded or spent, gone when empty
+    const Drum& d = drum();
+    for (int c = 0; c < g_chambers; ++c) {
+        MO* j = joint(g_w->chamber[c]);
+        const float k = d.ch[c] != 0 ? 1.0f : 0.0f;
+        Vec3 s{k, k, k};
+        if (j != nullptr) set_any(JOINT, j, "set_LocalScale", &s);
+    }
 }
 
 void say(const char* what) { LOGI("%s rounds: WP%04d %s; the drum: %s", TAG, gf().wp, what, text(drum()).c_str()); }
@@ -172,13 +186,16 @@ void late_point() {
     if (g_chambers > 0) {
         while (count(d) > n) {                                    // fired: the chamber at the barrel, then the drum turns on
             const int c = next_loaded(d);
-            d.ch[c] = 0;
+            d.ch[c] = has_crane() ? SPENT : 0;      // a drum that swings out keeps the case until it is tipped out
             d.up = (c + 1) % g_chambers;
             changed = true;
         }
         while (count(d) < n && count(d) < g_chambers) {           // put in by the game itself (a save, its own reload)
             float dd;
-            d.ch[nearest_empty_chamber(nullptr, dd)] = current();
+            int c = nearest_empty_chamber(nullptr, dd);
+            if (c < 0) for (int i = 0; i < g_chambers && c < 0; ++i) if (d.ch[i] == SPENT) c = i;   // no empty one: over a spent case
+            if (c < 0) break;
+            d.ch[c] = current();
             changed = true;
         }
         const int c = next_loaded(d);
@@ -194,6 +211,33 @@ void late_point() {
 
 void render_point() {
     if (chambered()) draw();
+}
+
+int dump_spent() {
+    if (!chambered()) return 0;
+    Drum& d = drum();
+    int n = 0;
+    for (int& it : d.ch) if (it == SPENT) { it = 0; ++n; }
+    if (n > 0) say("spent cases out");
+    return n;
+}
+
+void show_hand(int n, Vec3 world, Quat wrot) {
+    if (!chambered() || n <= 0) return;
+    const Drum& d = drum();
+    int shown = 0;
+    for (int i = 0; i < g_chambers && shown < n; ++i) {
+        const int c = (d.up + g_chambers - 1 - i) % g_chambers;   // the last chambers to come up lend first
+        if (d.ch[c] != 0) continue;
+        MO* j = joint(g_w->chamber[c]);
+        if (j == nullptr) continue;
+        Vec3 p = world + rotate(wrot, Vec3{cfg::HAND_ROUND_GAP_M * (float)shown, 0, 0});
+        Vec3 one{1, 1, 1};
+        set_any(JOINT, j, "set_Position", &p);
+        set_any(JOINT, j, "set_Rotation", &wrot);
+        set_any(JOINT, j, "set_LocalScale", &one);
+        ++shown;
+    }
 }
 
 } // namespace vn::guns::rounds

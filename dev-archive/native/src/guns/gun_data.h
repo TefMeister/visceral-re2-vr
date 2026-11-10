@@ -25,7 +25,13 @@ struct ShellGun { int wp; const char* joint; int mesh_part; Vec3 port; float doc
 // A drum the hand loads chamber by chamber: the joint that IS the drum (it turns about its own Z), which way it turns as
 // it fires (+1 / -1), and the chamber joints in the order they come to the barrel, the one at the barrel at rest first.
 // No chamber names: a plain list, first in first out.
-struct RoundGun { int wp; int items[4]; const char* drum; float turn_sign; const char* chamber[6]; };
+// A drum that swings out (cylinder.h): the joint that swings (`crane`, about its own Z) and how far (the sign: which side); "" = it stays shut and
+// loads as it is. Each chamber joint carries the gun's own round (measured on RE3's MGL): shown when loaded or spent,
+// hidden when empty, and an empty chamber's round is what the hand holds.
+struct RoundGun {
+    int wp; int items[4]; const char* drum; float turn_sign; const char* chamber[6];
+    const char* crane; float open_deg; const char* sfx; float vol;
+};
 
 const MagGun* mag_gun(int wp);
 const RoundGun* round_gun(int wp);

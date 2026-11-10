@@ -31,6 +31,11 @@ constexpr float MAG_DOCK_DOWN_M = 0.05f;          // the hand on the magazine ho
 constexpr bool  MAG_KEEP_OUT_ON_SWAP = true;      // a magazine taken out stays out when the gun is put away and comes back
 
 // ---- shotgun shells ----------------------------------------------------------------------------------------------
+constexpr float CYLINDER_GRAB_M = 0.15f;          // the left wrist this close to the drum: LG + LT opens / closes it
+constexpr float CYLINDER_SWING_DEG_S = 400.0f;    // how fast the drum swings out and back
+constexpr float CYLINDER_OPEN_ENOUGH = 0.9f;      // of its full swing: open enough to load
+constexpr float CYLINDER_TIP_UP = 0.5f;           // the muzzle this far up (sine: 0.5 = 30 degrees): spent cases fall out
+constexpr float HAND_ROUND_GAP_M = 0.045f;        // a second round in the hand sits this far beside the first
 constexpr int   SHELLS_PER_GRAB = 2;              // two shells per pouch grab
 // SHELLS_STEP_S and SHELL_PORT_DOCK_M are each game's own tuning: body/settings_body.h
 struct ShellHold { float ox, oy, oz, yaw, pitch, roll; };

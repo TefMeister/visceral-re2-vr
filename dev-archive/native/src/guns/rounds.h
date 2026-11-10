@@ -23,5 +23,8 @@ bool nearest_empty(Vec3 in_gun, float& d);
 // one round of that kind into the gun (a chambered gun: into the empty chamber nearest in_gun, or the next empty one when
 // in_gun is null); true = it went in
 bool insert(int item, const Vec3* in_gun);
+int  dump_spent();           // the spent cases out of their chambers (cylinder.h: the open gun tipped up); how many
+// n rounds drawn in the hand at (world, wrot): empty chambers lend their rounds; called every drawn frame while held
+void show_hand(int n, Vec3 world, Quat wrot);
 
 } // namespace vn::guns::rounds

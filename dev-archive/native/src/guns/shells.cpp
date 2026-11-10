@@ -3,6 +3,7 @@
 #include "shells.h"
 #include "ammo.h"
 #include "bridge.h"
+#include "cylinder.h"
 #include "game_reload.h"
 #include "gun_data.h"
 #include "gun_frame.h"
@@ -73,6 +74,12 @@ void done(const char* why) {
 }
 
 void pose() {
+    if (g_n > 0 && g_item != 0 && rounds::chambered()) {      // a drum gun: empty chambers lend the hand their rounds
+        Vec3 hw;
+        Quat hq;
+        if (hand_pose(hw, hq)) rounds::show_hand(g_n, hw, hq);
+        return;
+    }
     if (g_n <= 0 || g_joint == nullptr) return;
     Vec3 wp, lp;
     Quat wr, lr;
@@ -99,6 +106,7 @@ void checks() {
         Vec3 wp, lp;
         Quat wr;
         if (!hand_pose(wp, wr) || !to_gun_local(wp, wr, lp, nullptr)) return;
+        if (cylinder::ours() && !cylinder::is_open()) return;      // a drum that swings out takes rounds only while open
         float d = dist(lp, g_w->port);
         if (g_item != 0 && rounds::chambered() && !rounds::nearest_empty(lp, d)) return;   // a drum: the nearest empty chamber
         if (d > std::fmin(g_w->dock, cfg::SHELL_PORT_DOCK_M) || !dock_here()) return;
