@@ -31,6 +31,10 @@ struct ShellGun { int wp; const char* joint; int mesh_part; Vec3 port; float doc
 struct RoundGun {
     int wp; int items[4]; const char* drum; float turn_sign; const char* chamber[6];
     const char* crane; float open_deg; const char* sfx; float vol;
+    // the rounds' own material on the gun's mesh and its colour value (-1 = none), and a colour per kind (items' order).
+    // ONE material paints every round of the gun, so all of them take the colour of the kind in the hand, or of the kind
+    // coming up when the hand holds none.
+    int round_mat; int round_var; float tint[4][3];
 };
 
 const MagGun* mag_gun(int wp);

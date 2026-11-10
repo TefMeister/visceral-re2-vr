@@ -15,7 +15,12 @@ void on_gun_changed(int old_wp, int new_wp);
 void late_point();           // the drum in step with the gun's count; the game's kind = the round coming up; the drum drawn
 void render_point();         // the drum drawn again
 bool ours();                 // the gun in hand takes more than one kind of round (gun_data.h: round_gun)
-int  hip_item(bool right);   // the round the left hip (false) or the right hip (true) holds for this gun now; 0 = none
+void install();              // the hook that puts the game's kind back on the chamber coming up before a shot
+// ONE pouch for every kind (Tefa 2026-11-10: "left holster ammo pouch must be used for all of them, LG+LT press chooses
+// next ammo type"): the kind the pouch gives now (0 = none carried), and the step to the next kind carried (the game's
+// ammo counter shows it for a moment)
+int  selected();
+int  cycle();
 int  carried(int item);      // rounds of that kind carried
 bool chambered();            // the gun in hand has chambers the hand loads one by one
 // the empty chamber nearest a point in the gun's own space: its distance; false = no chamber is empty
@@ -25,6 +30,6 @@ bool nearest_empty(Vec3 in_gun, float& d);
 bool insert(int item, const Vec3* in_gun);
 int  dump_spent();           // the spent cases out of their chambers (cylinder.h: the open gun tipped up); how many
 // n rounds drawn in the hand at (world, wrot): empty chambers lend their rounds; called every drawn frame while held
-void show_hand(int n, Vec3 world, Quat wrot);
+void show_hand(int n, int item, Vec3 world, Quat wrot);
 
 } // namespace vn::guns::rounds

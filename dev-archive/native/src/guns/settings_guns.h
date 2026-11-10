@@ -35,6 +35,7 @@ constexpr float CYLINDER_GRAB_M = 0.15f;          // the left wrist this close t
 constexpr float CYLINDER_SWING_DEG_S = 400.0f;    // how fast the drum swings out and back
 constexpr float CYLINDER_OPEN_ENOUGH = 0.9f;      // of its full swing: open enough to load
 constexpr float CYLINDER_TIP_UP = 0.5f;           // the muzzle this far up (sine: 0.5 = 30 degrees): spent cases fall out
+constexpr float KIND_SHOW_SEC = 2.5f;             // after LG + LT chose another kind of round: the game's ammo counter shows it this long
 constexpr float HAND_ROUND_GAP_M = 0.045f;        // a second round in the hand sits this far beside the first
 constexpr int   SHELLS_PER_GRAB = 2;              // two shells per pouch grab
 // SHELLS_STEP_S and SHELL_PORT_DOCK_M are each game's own tuning: body/settings_body.h

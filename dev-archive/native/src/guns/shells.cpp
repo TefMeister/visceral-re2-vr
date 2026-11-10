@@ -77,7 +77,7 @@ void pose() {
     if (g_n > 0 && g_item != 0 && rounds::chambered()) {      // a drum gun: empty chambers lend the hand their rounds
         Vec3 hw;
         Quat hq;
-        if (hand_pose(hw, hq)) rounds::show_hand(g_n, hw, hq);
+        if (hand_pose(hw, hq)) rounds::show_hand(g_n, g_item, hw, hq);
         return;
     }
     if (g_n <= 0 || g_joint == nullptr) return;
@@ -102,6 +102,17 @@ bool dock_here() {
 void checks() {
     if (g_n <= 0) return;
     if (!bridge::held(bridge::S_LGRIP)) { done("left grip let go"); return; }
+    // rounds in the hand, away from the gun, LT: the pouch's next kind, and the hand now holds that kind
+    if (!g_docked && g_item != 0 && bridge::pressed(bridge::S_LTRIG)) {
+        const int it = rounds::cycle();
+        if (it != 0 && it != g_item) {
+            g_item = it;
+            g_n = std::max(1, std::min(cfg::SHELLS_PER_GRAB, std::min(rounds::carried(it), ammo::space())));
+            sfx::play("mag_grab", g_w->sfx, g_w->vol);
+        }
+        bridge::rumble(bridge::LEFT, cfg::RELOAD_GRAB_BUZZ_AMP, cfg::RELOAD_GRAB_BUZZ_SEC);
+        return;
+    }
     if (!g_docked) {
         Vec3 wp, lp;
         Quat wr;
@@ -152,12 +163,9 @@ int hand_socket(Vec3& p, Quat& q) {
     return 1;
 }
 
-bool pouch_grab(bool right_hip) {
+bool pouch_grab() {
     if (!ours()) return false;
-    const bool kinds = rounds::ours();
-    if (right_hip && !kinds) return false;                 // one kind of round: there is no right-hip pouch
-    const int item = kinds ? rounds::hip_item(right_hip) : 0;
-    if (right_hip && item == 0) return false;              // no second kind carried
+    const int item = rounds::ours() ? rounds::selected() : 0;
     const float now = now_s();
     if (now - g_last_grab < cfg::RELOAD_GRAB_COOLDOWN_SEC || g_n > 0) return true;
     g_last_grab = now;
@@ -174,7 +182,7 @@ bool pouch_grab(bool right_hip) {
     shell_part(true);
     sfx::play("mag_grab", g_w->sfx, g_w->vol);
     bridge::rumble(bridge::LEFT, cfg::RELOAD_GRAB_BUZZ_AMP, cfg::RELOAD_GRAB_BUZZ_SEC);
-    LOGI("%s shells: %d in the left hand from the %s hip, item %d (carried %d, space %d)", TAG, g_n, right_hip ? "right" : "left", g_item, carried, space);
+    LOGI("%s shells: %d in the left hand, item %d (carried %d, space %d)", TAG, g_n, g_item, carried, space);
     return true;
 }
 

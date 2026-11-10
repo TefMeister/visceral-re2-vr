@@ -11,8 +11,6 @@ bool managed_now();       // the gun in hand is one of ours (its game reload is 
 bool fire_blocked();      // the magazine is out and no round is chambered: the gun must not fire
 bool rack_blocks_fire();  // a rack / pump is required and has not happened
 bool session_active();    // a reload is under way (the left grip must not ready the sub weapon)
-bool alt_pouch();         // holster.cpp: the gun in hand has a second kind of round carried: the right hip holds it (left hand + LG)
-bool pouch_grab_alt();    // holster.cpp: the left grip went down at the right hip and took the second kind of round
 bool pouch_grab();        // holster.cpp: the left grip went down in the pouch spot and took a magazine / round
 
 // Ghost Hand's readings of the rack (zeros until layer 3)

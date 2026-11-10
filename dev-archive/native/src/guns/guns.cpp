@@ -23,6 +23,7 @@ void install() {
     game_reload::install();
     dryfire::install();
     pump::install();
+    rounds::install();
 }
 
 void frame_begin() {
@@ -58,9 +59,7 @@ bool managed_now() { return magazine::ours() || shells::ours(); }
 bool fire_blocked() { return magazine::fire_blocked() || cylinder::blocks_fire(); }
 bool rack_blocks_fire() { return rack::blocks_fire(); }
 bool session_active() { return magazine::session_active() || shells::in_hand(); }
-bool pouch_grab() { return shells::pouch_grab(false) || magazine::pouch_grab(); }
-bool alt_pouch() { return shells::ours() && rounds::hip_item(true) != 0; }
-bool pouch_grab_alt() { return shells::pouch_grab(true); }
+bool pouch_grab() { return shells::pouch_grab() || magazine::pouch_grab(); }
 void* slide_joint() { return rack::slide_joint(); }
 float rack_travel() { return rack::travel(); }
 float rack_pull_m() { return rack::pull_m(); }

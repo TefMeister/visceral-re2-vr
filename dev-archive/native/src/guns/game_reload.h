@@ -13,6 +13,7 @@ namespace vn::guns::game_reload {
 void install();                          // the hooks (once, first game frame)
 void frame();                            // UpdateBehavior pre, before anything reads this frame's buttons
 void show_ammo_counter(float seconds);   // the HUD's ammo counter kept up this long
+void show_kind_switch(float seconds);   // the same, with the game's own list of the gun's kinds of round (the one chosen marked)
 
 struct Commit {   // our own reload calls go through the blocks while one of these is alive (game thread only)
     Commit();

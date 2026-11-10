@@ -60,8 +60,10 @@ void post_hud_rounds(void** ret_val, REFrameworkTypeDefinitionHandle, unsigned l
     if (ret_val == nullptr || g_commit > 0 || !magazine::mag_out()) return;
     *ret_val = (void*)(uintptr_t)std::max(0, magazine::hud_rounds());
 }
+bool g_kind_switched = false;   // ask the game's counter for its own "another kind of round" display, once
 void hud_tick() {
     if (g_hud == nullptr || g_hud_until < 0.0f || now_s() > g_hud_until) return;
+    if (g_kind_switched) { g_kind_switched = false; call_direct<void*>(g_hud, "set_TriggerSwitchBullet", nullptr, true); }
     call_direct<void*>(g_hud, "set_RequestDraw", nullptr, true);
     call_direct<void*>(g_hud, "set_IsDraw", nullptr, true);
 }
@@ -85,6 +87,7 @@ void clear_bit(char* bb, uint64_t kind) {
 } // namespace
 
 void show_ammo_counter(float seconds) { g_hud_until = now_s() + seconds; }
+void show_kind_switch(float seconds) { g_kind_switched = true; g_hud_until = now_s() + seconds; }
 Commit::Commit() { ++g_commit; }
 Commit::~Commit() { --g_commit; }
 
@@ -98,7 +101,9 @@ void install() {
     hook(game::type("implement.Gun").c_str(), "executeReload", pre_skip_reload, post_nop, "gun reload");
     hook(game::type("survivor.Inventory").c_str(), "reloadMainSlot", pre_skip_reload, post_nop, "rounds into the gun");
     hook(game::type("gamemastering.InventoryManager").c_str(), "getMainWeaponRemainingBullet", pre_nop, post_hud_rounds, "HUD count with the magazine out");
-    hook(game::type("gui.RemainingBulletBehavior").c_str(), "get_RequestDraw", pre_hud_request, post_hud_request, "ammo counter after a reload");
+    // RE2: gui.RemainingBulletBehavior; RE3: gui.EsRemainingBulletBehavior (found on its GUI_RemainingBullet object 2026-11-10)
+    const bool es = API::get()->tdb()->find_type(game::type("gui.RemainingBulletBehavior").c_str()) == nullptr;
+    hook(game::type(es ? "gui.EsRemainingBulletBehavior" : "gui.RemainingBulletBehavior").c_str(), "get_RequestDraw", pre_hud_request, post_hud_request, "ammo counter after a reload");
     hook(game::type("survivor.player.PlayerActionOrderer").c_str(), "doSurvivorActionOrdererUpdate", pre_nop, post_orderer_update, "no reload action");
     LOGI("%s reload: the game's own reload is kept off for the guns reloaded by hand", TAG);
 }
