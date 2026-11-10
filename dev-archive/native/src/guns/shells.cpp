@@ -99,7 +99,8 @@ void checks() {
         Vec3 wp, lp;
         Quat wr;
         if (!hand_pose(wp, wr) || !to_gun_local(wp, wr, lp, nullptr)) return;
-        const float d = dist(lp, g_w->port);
+        float d = dist(lp, g_w->port);
+        if (g_item != 0 && rounds::chambered() && !rounds::nearest_empty(lp, d)) return;   // a drum: the nearest empty chamber
         if (d > std::fmin(g_w->dock, cfg::SHELL_PORT_DOCK_M) || !dock_here()) return;
         g_docked = true;
         bridge::rumble(bridge::LEFT, cfg::RELOAD_GRAB_BUZZ_AMP, cfg::RELOAD_GRAB_BUZZ_SEC);
@@ -113,7 +114,10 @@ void checks() {
         sfx::play("mag_insert", g_w->sfx, g_w->vol);
         bridge::rumble(bridge::LEFT, cfg::RELOAD_INSERT_BUZZ_AMP, cfg::RELOAD_INSERT_BUZZ_SEC);
         const bool was_empty = ammo::loaded() == 0;
-        const bool went_in = g_item != 0 ? rounds::insert(g_item) : ammo::insert_one();
+        Vec3 hw, hl;
+        Quat hq;
+        const bool have_hand = hand_pose(hw, hq) && to_gun_local(hw, hq, hl, nullptr);
+        const bool went_in = g_item != 0 ? rounds::insert(g_item, have_hand ? &hl : nullptr) : ammo::insert_one();
         if (went_in && is_pump(gf().wp)) pump::on_shell_in(was_empty);
         game_reload::show_ammo_counter(cfg::HUD_AFTER_RELOAD_SEC);
         --g_n;

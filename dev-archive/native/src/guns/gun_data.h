@@ -22,7 +22,10 @@ struct SlideGun { int wp; const char* joint; float rest_z, parked_z, back_z; };
 struct ShellGun { int wp; const char* joint; int mesh_part; Vec3 port; float dock; const char* sfx; float vol; };
 
 // a gun that takes more than one kind of round: the kinds as the game's item numbers, the gun's normal round first (0 = unused)
-struct RoundGun { int wp; int items[4]; };
+// A drum the hand loads chamber by chamber: the joint that IS the drum (it turns about its own Z), which way it turns as
+// it fires (+1 / -1), and the chamber joints in the order they come to the barrel, the one at the barrel at rest first.
+// No chamber names: a plain list, first in first out.
+struct RoundGun { int wp; int items[4]; const char* drum; float turn_sign; const char* chamber[6]; };
 
 const MagGun* mag_gun(int wp);
 const RoundGun* round_gun(int wp);

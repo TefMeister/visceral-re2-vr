@@ -1,28 +1,68 @@
-// rounds.cpp -- see rounds.h. Each gun's drum list is kept while the session lasts (a weapon swap does not lose it); after a
-// save is loaded every round in the gun is of the kind the game saved.
+// rounds.cpp -- see rounds.h. Each gun's drum is kept while the session lasts (a weapon swap does not lose it); after a save
+// is loaded every round in the gun is of the kind the game saved, in the chambers from the barrel on.
 #include "game.h"
 #include "rounds.h"
 #include "ammo.h"
 #include "gun_data.h"
 #include "gun_frame.h"
+#include "joints.h"
 
+#include <cmath>
 #include <map>
 #include <string>
 #include <vector>
 
 namespace vn::guns::rounds {
 
+using namespace joints;
+
 namespace {
+constexpr float PI = 3.14159265f;
+
+struct Drum {
+    std::vector<int> ch;   // chambered gun: one kind per chamber (0 = empty); else the kinds in order, front = fires next
+    int up = 0;            // chambered gun: the chamber at the barrel
+};
+
 const RoundGun* g_w = nullptr;
-std::map<int, std::vector<int>> g_drums;   // per WP: the kinds in the gun, front = fires next
+int g_chambers = 0;                 // chamber joints named for this gun (0 = a plain list)
+std::map<int, Drum> g_drums;        // per WP
+MO* g_drum_joint = nullptr;
+bool g_have_rest = false;
+Quat g_rest{0, 0, 0, 1};
 
 MO* slot() { return call_ptr(gf().inventory, "get_MainSlot"); }
 int current() { return call_direct<int>(slot(), "get_BulletID", 0); }
 void set_current(int item) { call_direct<void*>(slot(), "set_BulletID", nullptr, (int32_t)item); }
 
-std::string drum_text(const std::vector<int>& d) {
+Drum& drum() {
+    Drum& d = g_drums[gf().wp];
+    if (g_chambers > 0 && (int)d.ch.size() != g_chambers) d.ch.assign(g_chambers, 0);
+    return d;
+}
+
+int count(const Drum& d) {
+    int n = 0;
+    for (int it : d.ch) if (it != 0) ++n;
+    return n;
+}
+
+// the chamber that fires next: the one at the barrel, or the next loaded one round the drum (-1 = none)
+int next_loaded(const Drum& d) {
+    for (int i = 0; i < g_chambers; ++i) {
+        const int c = (d.up + i) % g_chambers;
+        if (d.ch[c] != 0) return c;
+    }
+    return -1;
+}
+
+std::string text(const Drum& d) {
     std::string s;
-    for (int it : d) s += (s.empty() ? "" : " ") + std::to_string(it);
+    for (size_t i = 0; i < d.ch.size(); ++i) {
+        if (!s.empty()) s += " ";
+        if (g_chambers > 0 && (int)i == d.up) s += ">";
+        s += d.ch[i] == 0 ? "-" : std::to_string(d.ch[i]);
+    }
     return s.empty() ? "empty" : s;
 }
 
@@ -30,11 +70,41 @@ bool known(int item) {
     for (int it : g_w->items) if (it != 0 && it == item) return true;
     return false;
 }
+
+MO* joint(const char* name) { return gf().gun_tf != nullptr ? joint_by_name(gf().gun_tf, widen(name).c_str()) : nullptr; }
+
+// a chamber's place in the gun's own space, as the drum is turned now
+bool chamber_pos(int c, Vec3& out) {
+    Vec3 wp;
+    MO* j = joint(g_w->chamber[c]);
+    return j != nullptr && get_v3(JOINT, j, "get_Position", wp) && to_gun_local(wp, Quat{0, 0, 0, 1}, out, nullptr);
+}
+
+// the drum turned so that the chamber at the barrel is `up` (the game never turns it: rounds.h)
+void draw() {
+    if (g_chambers <= 0 || g_w->drum[0] == '\0') return;
+    g_drum_joint = joint(g_w->drum);
+    if (g_drum_joint == nullptr) return;
+    if (!g_have_rest) g_have_rest = get_q(JOINT, g_drum_joint, "get_LocalRotation", g_rest);
+    if (!g_have_rest) return;
+    const float a = g_w->turn_sign * (2.0f * PI / (float)g_chambers) * (float)drum().up * 0.5f;
+    Quat q = qnorm(qmul(g_rest, Quat{0, 0, std::sin(a), std::cos(a)}));
+    set_any(JOINT, g_drum_joint, "set_LocalRotation", &q);
+}
+
+void say(const char* what) { LOGI("%s rounds: WP%04d %s; the drum: %s", TAG, gf().wp, what, text(drum()).c_str()); }
 } // namespace
 
-void on_gun_changed(int, int new_wp) { g_w = round_gun(new_wp); }
+void on_gun_changed(int, int new_wp) {
+    g_w = round_gun(new_wp);
+    g_chambers = 0;
+    if (g_w != nullptr) for (const char* c : g_w->chamber) if (c != nullptr && c[0] != '\0') ++g_chambers;
+    g_drum_joint = nullptr;
+    g_have_rest = false;
+}
 
 bool ours() { return g_w != nullptr && gf().gun != nullptr && gf().inventory != nullptr; }
+bool chambered() { return ours() && g_chambers > 0; }
 
 int carried(int item) {
     if (!ours() || item == 0) return 0;
@@ -56,14 +126,40 @@ int hip_item(bool right) {
     return 0;
 }
 
-bool insert(int item) {
+namespace {
+int nearest_empty_chamber(const Vec3* in_gun, float& best) {
+    Drum& d = drum();
+    int pick = -1;
+    best = 1e9f;
+    for (int i = 0; i < g_chambers; ++i) {
+        const int c = (d.up + i) % g_chambers;
+        if (d.ch[c] != 0) continue;
+        if (in_gun == nullptr) { best = 0.0f; return c; }       // no hand to ask: the next empty one round the drum
+        Vec3 p;
+        if (!chamber_pos(c, p)) continue;
+        const float dd = dist(p, *in_gun);
+        if (dd < best) { best = dd; pick = c; }
+    }
+    return pick;
+}
+} // namespace
+
+bool nearest_empty(Vec3 in_gun, float& d) { return chambered() && nearest_empty_chamber(&in_gun, d) >= 0; }
+
+bool insert(int item, const Vec3* in_gun) {
     if (!ours() || !known(item)) return false;
-    auto& drum = g_drums[gf().wp];
+    Drum& d = drum();
+    float dd = 0.0f;
+    const int c = g_chambers > 0 ? nearest_empty_chamber(in_gun, dd) : -1;
+    if (g_chambers > 0 && c < 0) return false;
     set_current(item);                       // the game takes the round from this kind's stack
     const bool ok = ammo::insert_one();
-    if (ok) drum.push_back(item);
-    if (!drum.empty()) set_current(drum.front());
-    LOGI("%s rounds: WP%04d %s item %d; the drum: %s", TAG, gf().wp, ok ? "took" : "DID NOT TAKE", item, drum_text(drum).c_str());
+    if (ok && g_chambers > 0) d.ch[c] = item;
+    else if (ok) d.ch.push_back(item);
+    if (g_chambers > 0) { const int n = next_loaded(d); if (n >= 0) set_current(d.ch[n]); }
+    else if (!d.ch.empty()) set_current(d.ch.front());
+    if (g_chambers > 0) LOGI("%s rounds: WP%04d %s item %d in chamber %d (%.3f m from the hand); the drum: %s", TAG, gf().wp, ok ? "took" : "DID NOT TAKE", item, c, dd, text(d).c_str());
+    else LOGI("%s rounds: WP%04d %s item %d; the drum: %s", TAG, gf().wp, ok ? "took" : "DID NOT TAKE", item, text(d).c_str());
     return ok;
 }
 
@@ -71,16 +167,33 @@ void late_point() {
     if (!ours()) return;
     const int n = ammo::loaded();
     if (n < 0) return;
-    auto& drum = g_drums[gf().wp];
-    const size_t before = drum.size();
-    while ((int)drum.size() > n) drum.erase(drum.begin());        // fired: the front rounds are gone
-    while ((int)drum.size() < n) drum.push_back(current());       // put in by the game itself (a save, its own reload)
-    if (!drum.empty() && current() != drum.front()) {
-        set_current(drum.front());
-        LOGI("%s rounds: WP%04d next up is item %d; the drum: %s", TAG, gf().wp, drum.front(), drum_text(drum).c_str());
-    } else if (drum.size() != before) {
-        LOGI("%s rounds: WP%04d the drum: %s", TAG, gf().wp, drum_text(drum).c_str());
+    Drum& d = drum();
+    bool changed = false;
+    if (g_chambers > 0) {
+        while (count(d) > n) {                                    // fired: the chamber at the barrel, then the drum turns on
+            const int c = next_loaded(d);
+            d.ch[c] = 0;
+            d.up = (c + 1) % g_chambers;
+            changed = true;
+        }
+        while (count(d) < n && count(d) < g_chambers) {           // put in by the game itself (a save, its own reload)
+            float dd;
+            d.ch[nearest_empty_chamber(nullptr, dd)] = current();
+            changed = true;
+        }
+        const int c = next_loaded(d);
+        if (c >= 0 && current() != d.ch[c]) { set_current(d.ch[c]); changed = true; }
+        draw();
+    } else {
+        while ((int)d.ch.size() > n) { d.ch.erase(d.ch.begin()); changed = true; }
+        while ((int)d.ch.size() < n) { d.ch.push_back(current()); changed = true; }
+        if (!d.ch.empty() && current() != d.ch.front()) { set_current(d.ch.front()); changed = true; }
     }
+    if (changed) say("now");
+}
+
+void render_point() {
+    if (chambered()) draw();
 }
 
 } // namespace vn::guns::rounds

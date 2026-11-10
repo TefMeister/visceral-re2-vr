@@ -46,7 +46,7 @@ void frame() {
 }
 
 void late_point() { magazine::late_point(); rounds::late_point(); shells::late_point(); rack::late_point(); }
-void render_point() { magazine::render_point(); shells::render_point(); rack::render_point(); }
+void render_point() { magazine::render_point(); rounds::render_point(); shells::render_point(); rack::render_point(); }
 void begin_render() { rack::render_point(); }
 void update_motion() { pump::update_motion(); }
 
