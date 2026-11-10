@@ -122,15 +122,34 @@ function B.set_open(want)
     end
 end
 
--- a page's picture: slot 0 is the page's colour picture on the game's notebook (BaseMetalMap)
-function B.set_page_texture(material, slot, tex_path)
+-- a page's picture: slot 0 is the page's colour picture on the game's notebook (BaseMetalMap). THE FIRST ASK FOR A
+-- PICTURE IN A SESSION THROWS (seen every time, 2026-11-10: the first setMaterialTexture with a just-made resource
+-- fails, the same call a second later works), so the ask is kept and tried again from the frame hook.
+local page_asks = {}
+local function try_page(a)
     if meshc == nil then return false, "the book is not out" end
-    local r = sdk.create_resource("via.render.TextureResource", tex_path)
+    local r = sdk.create_resource("via.render.TextureResource", a.path)
     if r == nil then return false, "that picture did not load" end
     r = r:add_ref()
     meshc:call("updatableMaterial")
-    local ok, e = pcall(function() meshc:call("setMaterialTexture", material, slot, r:create_holder("via.render.TextureResourceHolder"):add_ref()) end)
+    return pcall(function() meshc:call("setMaterialTexture", a.material, a.slot, r:create_holder("via.render.TextureResourceHolder"):add_ref()) end)
+end
+function B.set_page_texture(material, slot, tex_path)
+    local a = { material = material, slot = slot, path = tex_path, tries = 0 }
+    local ok, e = try_page(a)
+    if not ok then page_asks[#page_asks + 1] = a end
     return ok, e
+end
+local function retry_pages()
+    if #page_asks == 0 or meshc == nil then return end
+    local keep = {}
+    for _, a in ipairs(page_asks) do
+        a.tries = a.tries + 1
+        local ok = try_page(a)
+        if not ok and a.tries < 20 then keep[#keep + 1] = a end
+        if ok then L("page picture set at try " .. tostring(a.tries + 1) .. ": " .. a.path) end
+    end
+    page_asks = keep
 end
 
 local held_since, fired = nil, false
@@ -164,6 +183,7 @@ re.on_pre_application_entry("UpdateBehavior", function()
             if c.cmd == "open" then B.set_open(true) elseif c.cmd == "close" then B.set_open(false) elseif c.cmd == "toggle" then B.set_open(not B.open) end
         end
     end
+    if tick % 10 == 0 then retry_pages() end
     -- THE FIRST ASK FOR THE MODEL'S FILES IN A SESSION GIVES A BOOK THAT NEVER DRAWS (seen twice 2026-11-10: the object is
     -- there, MaterialReady false, 0 materials; handing the files to the same mesh part again did not help, a NEW object
     -- a moment later drew at once). So: not ready after a few frames = take it away and make it again.

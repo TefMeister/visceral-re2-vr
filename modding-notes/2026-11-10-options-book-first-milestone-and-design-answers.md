@@ -51,3 +51,25 @@ live), **5.7 the swoosh**, the rest of 5.6.
 2. The freeze and the input swallow.
 3. With Tefa in Blender: the notebook's and the folder's own models, one part at a time; they replace the two paths in
    the script's `MODELS` table.
+
+## Later the same night: a picture of OUR OWN on a page does not load yet `[measured 2026-11-10, simulator, n=3 runs]`
+
+Built a 2048 x 2048 test page (blue "VR OPTIONS" on paper) with `dev-archive/tools/re-engine/tex_build.py`
+(BC7_UNORM_SRGB, mipmaps; 5,595,624 bytes) and asked for it three ways, each with the swap call returning success:
+
+| our file placed as | result on the page |
+| --- | --- |
+| a new name, `natives/stm/visceral/options_book/...tex.34` | unchanged (the default sketches) |
+| the notebook's own `..._c_albm` name, game restarted with it in place | unchanged |
+| the notebook's own `..._b_albm` name, game restarted with it in place | unchanged; the swap to `b` **no longer shows the statue page** |
+
+Control, same sessions: the game's ORIGINAL `..._b_albm` shows the three statue sketches at once. So the swap works,
+the name works, and **the file our tool writes is what the game will not take** (with our file standing in for `b`, the
+engine keeps the old picture rather than show ours). September's grey bracelets used textures from the same tool: this
+is very likely the same fault, and it was blamed on the material then `[hypothesis]`. HD hands' textures, which do
+load, come from `body_tex_build.py`: the next step is a byte-level comparison of the two tools' headers against a
+shipped `.tex.34` of the same size (streaming flag, mip table, the header's own size field). `MODEL: OPUS`.
+The test files are out of the game folder, kept in `D:/RE2 REFramework builds/_archive-2026-11-10-options-book-test-textures/`
+(sha256 5790028705e65222...).
+
+Also fixed in the script: the first ask for a page picture in a session throws; it is now asked again by itself.
