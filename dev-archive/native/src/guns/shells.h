@@ -15,6 +15,8 @@ bool ours();             // the gun in hand takes shells by hand
 bool in_hand();          // shells are in the left hand
 // the left hand as the shells want it: -1 = no say, 1 = docked at the port at (p, q) in the right wrist's space
 int  hand_socket(Vec3& p, Quat& q);
-bool pouch_grab();       // LG went down in the pouch: true if this gun took it
+// LG went down in the pouch (the left hip), or at the right hip (a gun with a second kind of round, rounds.h): true if
+// this gun took it
+bool pouch_grab(bool right_hip);
 
 } // namespace vn::guns::shells

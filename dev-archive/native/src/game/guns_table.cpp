@@ -49,6 +49,7 @@ constexpr ShellGun SHELL_GUNS[] = {
 } // namespace
 
 const MagGun* mag_gun(int wp) { for (const auto& m : MAG_GUNS) if (m.wp == wp) return &m; return nullptr; }
+const RoundGun* round_gun(int) { return nullptr; }   // RE2: the GM 79's flame / acid item numbers are not read yet (board row)
 const SlideGun* slide_gun(int wp) { for (const auto& s : SLIDE_GUNS) if (s.wp == wp) return &s; return nullptr; }
 const ShellGun* shell_gun(int wp) { for (const auto& s : SHELL_GUNS) if (s.wp == wp) return &s; return nullptr; }
 bool is_pump(int wp) { return wp == 1000 || wp == 1100 || wp == 1200 || wp == 1500 || wp == 4300; }

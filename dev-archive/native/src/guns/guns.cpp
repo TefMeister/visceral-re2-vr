@@ -8,6 +8,7 @@
 #include "magazine.h"
 #include "pump.h"
 #include "rack.h"
+#include "rounds.h"
 #include "settings.h"
 #include "shells.h"
 
@@ -28,6 +29,7 @@ void frame_begin() {
     if (gf().wp != g_wp) {
         const int old = g_wp < 0 ? -1 : g_wp;
         magazine::on_gun_changed(old, gf().wp);
+        rounds::on_gun_changed(old, gf().wp);
         shells::on_gun_changed(gf().wp);
         rack::on_gun_changed(old, gf().wp);
         g_wp = gf().wp;
@@ -43,7 +45,7 @@ void frame() {
     left_hand::frame();
 }
 
-void late_point() { magazine::late_point(); shells::late_point(); rack::late_point(); }
+void late_point() { magazine::late_point(); rounds::late_point(); shells::late_point(); rack::late_point(); }
 void render_point() { magazine::render_point(); shells::render_point(); rack::render_point(); }
 void begin_render() { rack::render_point(); }
 void update_motion() { pump::update_motion(); }
@@ -53,7 +55,9 @@ bool managed_now() { return magazine::ours() || shells::ours(); }
 bool fire_blocked() { return magazine::fire_blocked(); }
 bool rack_blocks_fire() { return rack::blocks_fire(); }
 bool session_active() { return magazine::session_active() || shells::in_hand(); }
-bool pouch_grab() { return shells::pouch_grab() || magazine::pouch_grab(); }
+bool pouch_grab() { return shells::pouch_grab(false) || magazine::pouch_grab(); }
+bool alt_pouch() { return shells::ours() && rounds::hip_item(true) != 0; }
+bool pouch_grab_alt() { return shells::pouch_grab(true); }
 void* slide_joint() { return rack::slide_joint(); }
 float rack_travel() { return rack::travel(); }
 float rack_pull_m() { return rack::pull_m(); }

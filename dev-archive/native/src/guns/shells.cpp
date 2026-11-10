@@ -8,6 +8,7 @@
 #include "gun_frame.h"
 #include "joints.h"
 #include "pump.h"
+#include "rounds.h"
 #include "settings.h"
 #include "sfx.h"
 
@@ -25,6 +26,7 @@ bool g_have_rest = false;
 Vec3 g_rest{};
 Quat g_rest_rot{0, 0, 0, 1};
 int g_n = 0;                 // shells in the hand
+int g_item = 0;              // their kind, for a gun with more than one (rounds.h); 0 = the gun's only kind
 bool g_docked = false;       // the hand is at the port
 bool g_feeding = false;      // LT was pressed at the port: they go in one by one
 float g_next = 0.0f;
@@ -32,8 +34,10 @@ float g_last_grab = -10.0f;
 Vec3 g_dock_p{};
 Quat g_dock_q{0, 0, 0, 1};
 
+bool drawn() { return g_w != nullptr && g_w->joint[0] != '\0' && g_w->mesh_part >= 0; }
+
 void find_joint() {
-    g_joint = (g_w != nullptr && gf().gun_tf != nullptr) ? joint_by_name(gf().gun_tf, widen(g_w->joint).c_str()) : nullptr;
+    g_joint = (drawn() && gf().gun_tf != nullptr) ? joint_by_name(gf().gun_tf, widen(g_w->joint).c_str()) : nullptr;
     if (g_joint != nullptr && !g_have_rest) g_have_rest = get_v3(JOINT, g_joint, "get_LocalPosition", g_rest) && get_q(JOINT, g_joint, "get_LocalRotation", g_rest_rot);
 }
 
@@ -43,6 +47,7 @@ void write_local(Vec3 p, Quat q) {
 }
 
 void shell_part(bool show) {
+    if (!drawn()) return;
     auto* mesh = call_ptr(gf().gun, "get_Mesh");
     auto* m = mesh ? find_method_deep(mesh->get_type_definition(), "setPartsEnable(System.UInt64, System.Boolean)") : nullptr;
     if (m != nullptr) m->call<void>(API::get()->get_vm_context(), (void*)mesh, (uint64_t)g_w->mesh_part, show);
@@ -108,7 +113,8 @@ void checks() {
         sfx::play("mag_insert", g_w->sfx, g_w->vol);
         bridge::rumble(bridge::LEFT, cfg::RELOAD_INSERT_BUZZ_AMP, cfg::RELOAD_INSERT_BUZZ_SEC);
         const bool was_empty = ammo::loaded() == 0;
-        if (ammo::insert_one()) pump::on_shell_in(was_empty);
+        const bool went_in = g_item != 0 ? rounds::insert(g_item) : ammo::insert_one();
+        if (went_in && is_pump(gf().wp)) pump::on_shell_in(was_empty);
         game_reload::show_ammo_counter(cfg::HUD_AFTER_RELOAD_SEC);
         --g_n;
         g_next = now + cfg::SHELLS_STEP_S;
@@ -134,24 +140,29 @@ int hand_socket(Vec3& p, Quat& q) {
     return 1;
 }
 
-bool pouch_grab() {
+bool pouch_grab(bool right_hip) {
     if (!ours()) return false;
+    const bool kinds = rounds::ours();
+    if (right_hip && !kinds) return false;                 // one kind of round: there is no right-hip pouch
+    const int item = kinds ? rounds::hip_item(right_hip) : 0;
+    if (right_hip && item == 0) return false;              // no second kind carried
     const float now = now_s();
     if (now - g_last_grab < cfg::RELOAD_GRAB_COOLDOWN_SEC || g_n > 0) return true;
     g_last_grab = now;
-    const int carried = ammo::reserve(), space = ammo::space();
+    const int carried = item != 0 ? rounds::carried(item) : ammo::reserve(), space = ammo::space();
     if (carried <= 0 || space <= 0) {
         LOGI("%s shells: none to take (carried %d, space %d)", TAG, carried, space);
         bridge::rumble(bridge::LEFT, cfg::RELOAD_DENY_BUZZ_AMP, cfg::RELOAD_DENY_BUZZ_SEC);
         return true;
     }
     find_joint();
-    if (g_joint == nullptr) { LOGW("%s shells: joint %s not found on WP%04d", TAG, g_w->joint, gf().wp); return true; }
+    if (drawn() && g_joint == nullptr) { LOGW("%s shells: joint %s not found on WP%04d", TAG, g_w->joint, gf().wp); return true; }
     g_n = std::min(cfg::SHELLS_PER_GRAB, std::min(carried, space));
+    g_item = item;
     shell_part(true);
     sfx::play("mag_grab", g_w->sfx, g_w->vol);
     bridge::rumble(bridge::LEFT, cfg::RELOAD_GRAB_BUZZ_AMP, cfg::RELOAD_GRAB_BUZZ_SEC);
-    LOGI("%s shells: %d in the left hand (carried %d, space %d)", TAG, g_n, carried, space);
+    LOGI("%s shells: %d in the left hand from the %s hip, item %d (carried %d, space %d)", TAG, g_n, right_hip ? "right" : "left", g_item, carried, space);
     return true;
 }
 

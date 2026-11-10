@@ -17,10 +17,15 @@ struct MagGun { int wp; const char* joint; Vec3 exit; float dock; const char* sf
 struct SlideGun { int wp; const char* joint; float rest_z, parked_z, back_z; };
 
 // a pump gun's shells: the shell is the gun's own hidden mesh part on a joint; the port is where it goes in (the gun's
-// local space); his insert distance (ours is capped by SHELL_PORT_DOCK_M)
+// local space); his insert distance (ours is capped by SHELL_PORT_DOCK_M). A gun with no shell of its own to show: joint ""
+// and mesh_part -1 (the hand docks and LT loads; nothing is drawn in the hand yet)
 struct ShellGun { int wp; const char* joint; int mesh_part; Vec3 port; float dock; const char* sfx; float vol; };
 
+// a gun that takes more than one kind of round: the kinds as the game's item numbers, the gun's normal round first (0 = unused)
+struct RoundGun { int wp; int items[4]; };
+
 const MagGun* mag_gun(int wp);
+const RoundGun* round_gun(int wp);
 const SlideGun* slide_gun(int wp);
 const ShellGun* shell_gun(int wp);
 bool is_pump(int wp);
