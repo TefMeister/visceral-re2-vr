@@ -22,6 +22,14 @@ constexpr MagGun MAG_GUNS[] = {
     {7000, "_04", { 0.002f, -0.109f, -0.021f}, 0.04f, "handgun",  2.0f, {0.097f, -0.028f, 0.032f, -115.0f, 167.5f, -64.5f}, HOLD_GENERIC_2},
 };
 
+// the magazine's top rounds as a mesh part of their own (read from the model files 2026-11-11, modding-notes
+// 2026-11-11-the-rounds-seen-in-the-magazine.md): only the Broom Hc (WP0700, part 1, one round) and the Lightning Hawk (part 5, which the
+// game leaves off). The other RE2 handguns have no such part: their magazine is one piece of the gun's mesh.
+constexpr MagRounds MAG_ROUNDS[] = {
+    {700,  -1, 1, -1, -1},
+    {3000, -1, 5, -1, -1},
+};
+
 constexpr SlideGun SLIDE_GUNS[] = {
     {0,    "_01", 0.060f, 0.038f,  0.013f},
     {100,  "_01", 0.101f, 0.057f,  0.007f},
@@ -49,6 +57,7 @@ constexpr ShellGun SHELL_GUNS[] = {
 } // namespace
 
 const MagGun* mag_gun(int wp) { for (const auto& m : MAG_GUNS) if (m.wp == wp) return &m; return nullptr; }
+const MagRounds* mag_rounds(int wp) { for (const auto& m : MAG_ROUNDS) if (m.wp == wp) return &m; return nullptr; }
 const RoundGun* round_gun(int) { return nullptr; }   // RE2: the GM 79's flame / acid item numbers are not read yet (board row)
 const SlideGun* slide_gun(int wp) { for (const auto& s : SLIDE_GUNS) if (s.wp == wp) return &s; return nullptr; }
 const ShellGun* shell_gun(int wp) { for (const auto& s : SHELL_GUNS) if (s.wp == wp) return &s; return nullptr; }

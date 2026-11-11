@@ -34,6 +34,7 @@ bool g_out_to_hand = false;
 
 namespace {
 int g_chamber = 0;           // the round kept in the chamber while the magazine is out
+int g_mag_rounds = 0;        // the rounds in the magazine that is out (magrounds.cpp shows or hides them)
 int g_loaded_out = -1;       // the game's count when it came out (lower later = the chambered round was fired)
 bool g_dry = false;          // the chamber is empty: a rack is due once a magazine is back in
 bool g_same_mag = false;     // the magazine in the hand is the one pulled from this gun
@@ -42,7 +43,7 @@ bool g_lt_free = false;      // LT has been let go since the pull-out
 float g_last_grab = -10.0f, g_last_dock = -10.0f;
 float g_closest = 99.0f;     // the nearest the magazine in the hand came to the magwell (logged when it is let go)
 
-struct Kept { Vec3 pos, scale; Quat rot; int chamber, loaded_out; bool dry; };
+struct Kept { Vec3 pos, scale; Quat rot; int chamber, loaded_out; bool dry; int mag_rounds; };
 std::map<int, Kept> g_kept;  // guns put away with their magazine out
 
 const char* st_name(St s) {
@@ -83,6 +84,7 @@ void take_out(bool to_hand, const char* why) {
     g_loaded_out = n;
     g_chamber = (cfg::CHAMBER_ROUND && n > 0 && keeps_chamber()) ? 1 : 0;
     g_dry = n <= 0;
+    g_mag_rounds = n > g_chamber ? n - g_chamber : 0;
     g_same_mag = g_lt_to_seat = g_out_to_hand = to_hand;
     g_lt_free = g_hand_on_mag = false;
     g_closest = 99.0f;
@@ -212,7 +214,7 @@ void on_gun_changed(int old_wp, int new_wp) {
     g_hand_on_mag = g_out_to_hand = false;
     if (g_w != nullptr && g_st != St::SEATED) {
         if (cfg::MAG_KEEP_OUT_ON_SWAP) {
-            g_kept[old_wp] = Kept{g_rest_pos, g_rest_scale, g_rest_rot, g_chamber, g_loaded_out, g_dry};
+            g_kept[old_wp] = Kept{g_rest_pos, g_rest_scale, g_rest_rot, g_chamber, g_loaded_out, g_dry, g_mag_rounds};
             if (g_joint != nullptr) write_scale(Vec3{0, 0, 0});
             LOGI("%s magazine: WP%04d put away with its magazine out: it stays out", TAG, old_wp);
         } else if (g_joint != nullptr) {
@@ -228,7 +230,7 @@ void on_gun_changed(int old_wp, int new_wp) {
         const Kept k = it->second;
         g_kept.erase(it);
         g_rest_pos = k.pos; g_rest_scale = k.scale; g_rest_rot = k.rot;
-        g_chamber = k.chamber; g_loaded_out = k.loaded_out; g_dry = k.dry;
+        g_chamber = k.chamber; g_loaded_out = k.loaded_out; g_dry = k.dry; g_mag_rounds = k.mag_rounds;
         g_st = St::OUT;
         g_t0 = now_s();
         LOGI("%s magazine: WP%04d back with its magazine still out", TAG, new_wp);
@@ -238,6 +240,14 @@ void on_gun_changed(int old_wp, int new_wp) {
 bool ours() { return cfg::RELOAD_ON && g_w != nullptr && gf().gun != nullptr && bridge::live(); }
 bool mag_out() { return ours() && g_st != St::SEATED; }
 bool fire_blocked() { return mag_out() && g_chamber <= 0; }
+int rounds_in_mag() {
+    if (!ours()) return -1;
+    if (g_st != St::SEATED) return g_mag_rounds;
+    const int n = ammo::loaded();
+    if (n <= 0) return 0;
+    // seated: a slide gun holds one of its rounds in the chamber, unless a rack is still due (then all are in the magazine)
+    return (keeps_chamber() && !rack::blocks_fire()) ? n - 1 : n;
+}
 int hud_rounds() { return mag_out() ? g_chamber : -1; }
 bool session_active() { return mag_out(); }
 bool hand_docked() {
@@ -274,6 +284,7 @@ bool pouch_grab() {
         return true;
     }
     g_same_mag = g_lt_to_seat = false;   // a fresh one: topped up, seats at the magwell by itself
+    g_mag_rounds = ammo::reserve() > 0 ? ammo::reserve() : 0;   // what it will bring (the top-up takes at most the capacity)
     g_closest = 99.0f;
     set_state(St::IN_HAND, "taken from the pouch");
     ghosthand::event("mag", "start");

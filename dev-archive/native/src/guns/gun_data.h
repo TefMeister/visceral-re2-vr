@@ -37,7 +37,13 @@ struct RoundGun {
     int round_mat; int round_var; float tint[4][3];
 };
 
+// a magazine gun whose model has its magazine's top rounds as a mesh part of their own (magrounds.h): up to two pairs of
+// {the magazine's part, its rounds' part} (standard / extended magazine); a magazine part of -1 = the gun has one magazine,
+// a rounds part of -1 = no such pair
+struct MagRounds { int wp; int mag_a, rounds_a, mag_b, rounds_b; };
+
 const MagGun* mag_gun(int wp);
+const MagRounds* mag_rounds(int wp);
 const RoundGun* round_gun(int wp);
 const SlideGun* slide_gun(int wp);
 const ShellGun* shell_gun(int wp);

@@ -24,6 +24,7 @@ constexpr float HUD_AFTER_RELOAD_SEC = 5.0f;      // the ammo counter stays up t
 // A slide gun with rounds keeps one in the chamber when its magazine comes out: it fires once with the magazine out. The
 // rounds stay in the game's count; the trigger gate and the HUD decide what can be seen and fired, so the same magazine
 // going back in holds exactly its own rounds, and a pouch magazine is topped up from the ammo carried.
+constexpr bool  MAG_ROUNDS_ON = true;             // magrounds.cpp: the rounds seen in the magazine follow what it holds (guns with a rounds part)
 constexpr bool  CHAMBER_ROUND = true;
 constexpr float MAG_GRAB_M = 0.15f;               // an LG press this close to the seated magazine puts the hand ON it
 constexpr float INSERT_LT_MIN_SEC = 0.25f;        // the gun's own magazine back in needs a fresh LT; the pull's own LT never counts
