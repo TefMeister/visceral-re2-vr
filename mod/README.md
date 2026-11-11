@@ -11,7 +11,7 @@ with your own hands.
 > left hand grips with its fingers, the slide and pump can be worked by hand, and the hands can be
 > tuned per character and gun. In November the mod was rebuilt cleanly, layer by layer, and an
 > options book is being made from the officer's own notebook in the game, hung in the world in front
-> of you (not released yet). Each build's notes are on its release page, and the `README.txt`
+> of you (not in a download yet). Each build's notes are on its release page, and the `README.txt`
 > inside the 0.4.0 zip has its install steps. The rest of this page describes the first release, 0.1.0.
 
 ## What the first release brought (0.1.0)
