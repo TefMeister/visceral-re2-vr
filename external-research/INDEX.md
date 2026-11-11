@@ -1,6 +1,8 @@
 # Research index
 
-**Last `/gr` pass: 2026-11-07 (estate sweep) — CHECK-IN.** A second public RE2 VR overhaul turned up: h1nt36r2's RE2IVR (MIT, 0.8.9 of 2026-10-26: belt zones that follow the game's quick slots, hand reload, grenade pin and throw); one topic, pointer in `engine-research/inbox/`. REFramework master since 11-01: HookManager error paths and thread safety (#1885, nightly 01438), nothing for OpenXR, Lua file reading or RE2; pd-upscaler still unchanged since 2026-10-11.
+**Last `/gr` pass: 2026-11-11 — CHECK-IN.** Nothing new: REFramework's newest nightly is still 01438 (11-04) and pd-upscaler still 10-11; its issues since 11-04 are MH Wilds, DD2 and a contributing guide; RE2IVR still 0.8.9 (no push since 10-26).
+
+_Previous: **Last `/gr` pass: 2026-11-07 (estate sweep) — CHECK-IN.** A second public RE2 VR overhaul turned up: h1nt36r2's RE2IVR (MIT, 0.8.9 of 2026-10-26: belt zones that follow the game's quick slots, hand reload, grenade pin and throw); one topic, pointer in `engine-research/inbox/`. REFramework master since 11-01: HookManager error paths and thread safety (#1885, nightly 01438), nothing for OpenXR, Lua file reading or RE2; pd-upscaler still unchanged since 2026-10-11._
 
 _Previous: **Last `/gr` pass: 2026-11-01 (estate sweep) — CHECK-IN.** REFramework check: master fixed hooks on methods with out/ref float arguments (#1853, 2026-11-01); the pd-upscaler branch our build uses has no commits since 2026-10-10. Pointer sent to the cross-engine library inbox._
 
