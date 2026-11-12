@@ -14,6 +14,7 @@
 #include "flashlight.h"
 #include "bridge.h"
 #include "common.h"
+#include "game.h"
 #include "guns_api.h"
 #include "hand_state.h"
 #include "holster.h"
@@ -36,9 +37,11 @@ MO* g_fl = nullptr;           // the player's FlashLight, held with a reference 
 int g_logs = 0;
 bool g_report = false;        // log the beam's numbers once after each change
 bool g_axes_logged = false;
+bool g_drew = false;          // we switched the torch's game object to drawn (RE3 keeps Jill's lamp undrawn): undone in the spot
+int g_hand_reads = 0;        // how many more frames to report the torch as the game left it (set on each take-out)
 
-MO* player_go() { return call_ptr(API::get()->get_managed_singleton("app.ropeway.PlayerManager"), "get_CurrentPlayer"); }
-MO* condition() { return component(player_go(), "app.ropeway.survivor.SurvivorCondition"); }
+MO* player_go() { return call_ptr(API::get()->get_managed_singleton((std::string(game::ns()) + "PlayerManager").c_str()), "get_CurrentPlayer"); }
+MO* condition() { return component(player_go(), (std::string(game::ns()) + "survivor.SurvivorCondition").c_str()); }
 
 // gameplay = REFramework's FirstPerson drives the view (bridge slot 32); cutscenes = it does not. Flat runs (no
 // headset, no bridge) count as gameplay so the light can be checked on the monitor.
@@ -49,18 +52,39 @@ bool is_players(MO* flashlight) {
     return cond != nullptr && flashlight != nullptr && field_obj(flashlight, "<Condition>k__BackingField") == cond;
 }
 
+std::string go_name(MO* go) { return go != nullptr ? read_string(call_ptr(go, "get_Name")) : std::string("(none)"); }
+
+// once per FlashLight found: what its game object is, whether it carries a mesh, and the game objects under it and under
+// the player (RE3 2026-11-12: Jill's lamp did not draw in the hand, so where does her lamp mesh live?)
+void describe(MO* fl) {
+    auto* fgo = call_ptr(fl, "get_GameObject");
+    auto* mesh = component(fgo, "via.render.Mesh");
+    LOGI("%s flashlight: its game object '%s', mesh %p (enabled %d)", TAG, go_name(fgo).c_str(), (void*)mesh,
+         mesh != nullptr ? (int)call_direct<bool>(mesh, "get_Enabled", false) : -1);
+    for (MO* root : {call_ptr(fgo, "get_Transform"), call_ptr(player_go(), "get_Transform")}) {
+        int n = 0;
+        for (MO* c = call_ptr(root, "get_Child"); c != nullptr && n < 60; c = call_ptr(c, "get_Next"), ++n) {
+            auto* go = call_ptr(c, "get_GameObject");
+            auto* m = component(go, "via.render.Mesh");
+            LOGI("%s flashlight:   under '%s': '%s'%s", TAG, go_name(call_ptr(root, "get_GameObject")).c_str(), go_name(go).c_str(), m != nullptr ? " (mesh)" : "");
+        }
+    }
+}
+
 void keep(MO* fl) {
     if (fl == g_fl) return;
     if (fl != nullptr) fl->add_ref();
     if (g_fl != nullptr) g_fl->release();
     g_fl = fl;
     LOGI("%s flashlight: the player's FlashLight is %p", TAG, (void*)fl);
+    if (fl != nullptr) describe(fl);
 }
 
 void show_torch(MO* flashlight, bool show) {
     auto* go = call_ptr(flashlight, "get_GameObject");
     auto* mesh = component(go, "via.render.Mesh");
     if (mesh != nullptr && call_direct<bool>(mesh, "get_Enabled", !show) != show) call_direct<void*>(mesh, "set_Enabled", nullptr, show);
+    if (show && mesh != nullptr && !call_direct<bool>(mesh, "get_DrawDefault", true)) call_direct<void*>(mesh, "set_DrawDefault", nullptr, true);
 }
 
 // the turn that makes local -Z (the way the IES light and the camera face) point along dir, world up kept up
@@ -142,6 +166,7 @@ void place_in_spot(MO* flashlight) {
     const Vec3 right = rotate(cq, Vec3{1, 0, 0});
     const Vec3 pos = cp + right * cfg::FLASHLIGHT_BEAM.side + Vec3{0, cfg::FLASHLIGHT_BEAM.up, 0} + fwd * cfg::FLASHLIGHT_BEAM.fwd;
     show_torch(flashlight, false);
+    if (g_drew) { call_direct<void*>(call_ptr(flashlight, "get_GameObject"), "set_DrawSelf", nullptr, false); g_drew = false; }
     light_at(flashlight, pos, cq, "at the left chest (torch in its spot)");
 }
 
@@ -185,11 +210,24 @@ void place_in_hand(MO* flashlight) {
     const Quat rot = qnorm(qmul(hold, flip));
     auto* fgo = call_ptr(flashlight, "get_GameObject");
     auto* ftf = call_ptr(fgo, "get_Transform");
-    if (ftf != nullptr) {
+    if (g_hand_reads > 0 && ftf != nullptr) {   // the first frames in the hand: where the game had it, its size, drawn?
+        --g_hand_reads;
+        Vec3 gp{0, 0, 0}, sc{0, 0, 0};
+        get_v3(XFORM, ftf, "get_Position", gp);
+        get_v3(XFORM, ftf, "get_LocalScale", sc);
+        auto* mesh = component(fgo, "via.render.Mesh");
+        auto* parent = call_ptr(ftf, "get_Parent");
+        LOGI("%s flashlight: before our write: at %.2f %.2f %.2f (wrist %.2f %.2f %.2f), scale %.2f %.2f %.2f, draw %d, mesh enabled %d, DrawDefault %d, parent '%s'",
+             TAG, gp.x, gp.y, gp.z, wp.x, wp.y, wp.z, sc.x, sc.y, sc.z, (int)call_direct<bool>(fgo, "get_DrawSelf", false),
+             mesh != nullptr ? (int)call_direct<bool>(mesh, "get_Enabled", false) : -1,
+             mesh != nullptr ? (int)call_direct<bool>(mesh, "get_DrawDefault", false) : -1, go_name(call_ptr(parent, "get_GameObject")).c_str());
+    }
+    if (cfg::TORCH_GAME_MESH_IN_HAND && ftf != nullptr) {
         set_any(XFORM, ftf, "set_Position", &pos);
         set_any(XFORM, ftf, "set_Rotation", &rot);
     }
-    show_torch(flashlight, true);
+    show_torch(flashlight, cfg::TORCH_GAME_MESH_IN_HAND);   // RE3: Jill's lamp stays hidden (it does not follow the GameObject)
+    if (cfg::TORCH_GAME_MESH_IN_HAND && !call_direct<bool>(fgo, "get_DrawSelf", true)) { call_direct<void*>(fgo, "set_DrawSelf", nullptr, true); g_drew = true; }
 
     const Vec3 dir = rotate(rot, lens);
     light_at(flashlight, pos + dir * cfg::TORCH_LENS_M, facing(dir), g_reverse ? "from the lens (overhand)" : "from the lens (ordinary)");
@@ -222,8 +260,8 @@ void post_apply(void**, REFrameworkTypeDefinitionHandle, unsigned long long) {
 } // namespace
 
 void install() {
-    auto* m = API::get()->tdb()->find_method("app.ropeway.FlashLight", "applyTransform");
-    if (m == nullptr) { LOGE("%s flashlight: FlashLight.applyTransform not found, flashlight off", TAG); return; }
+    auto* m = API::get()->tdb()->find_method(std::string(game::ns()) + "FlashLight", "applyTransform");
+    if (m == nullptr) { LOGE("%s flashlight: %sFlashLight.applyTransform not found, flashlight off", TAG, game::ns()); return; }
     m->add_hook(pre_apply, post_apply, false);
     LOGI("%s flashlight: applyTransform hook in (the torch lives in the left shoulder spot; LG taps it out and back, LT lights it)", TAG);
 }
@@ -236,6 +274,7 @@ void tap_spot() {
     hand_state::torch_in_left_hand = g_hand;
     g_report = true;
     g_flip_t = -1.0f;
+    g_hand_reads = g_hand ? 3 : 0;
     bridge::rumble(bridge::LEFT, cfg::BUZZ_GRAB_AMP, cfg::BUZZ_GRAB_SEC);
     LOGI("%s flashlight: torch %s (light %s)", TAG, g_hand ? "TAKEN OUT into the left hand" : "PUT BACK in the left shoulder spot", g_light ? "on" : "off");
 }

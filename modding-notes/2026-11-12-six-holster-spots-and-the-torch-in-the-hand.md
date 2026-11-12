@@ -77,3 +77,16 @@ answer. Back left is the mirror of the old back spot (now back right, unchanged)
   title rain script's line ("title left"), not ours `[inferred]`.
 - Left for the headset: the hold numbers, how bright the beam is in a dark room, how the overhand grip feels (the
   simulator's arm did not reach eye height), Hand Poser's fingers round the torch.
+
+## RE3 (13:00-13:16, Jill, the radio room) `[verified-live 2026-11-12, simulator, n=1]`
+
+- The torch code moved to `src/hands/flashlight.cpp` (shared with RE3 by `sync_shared.py`; type names through
+  `game::ns()`). RE3's FlashLight is the same type (`offline.FlashLight`, applyTransform, `<IESLight>`, `<Condition>`).
+- Jill's lamp is the FlashLight game object's own mesh (children FakeGI, IESLight, LightShaft; parent pl2000). Switched to
+  drawn (DrawSelf was 0), DrawDefault 1, mesh on, placed at the wrist: never seen. Read: it is bound to her body, not to its
+  game object `[inferred]`. So `TORCH_GAME_MESH_IN_HAND = false` for RE3: hidden in play (her chest lamp is gone, Tefa's
+  ask), the beam from the empty left hand until our Blender torch. RE2 keeps `true`.
+- The beam could not be seen on the simulator in that room either way (light on vs off looked alike); for the headset.
+- A start-up froze once inside REFramework's own hook install (the known RE2 hang); the window close did nothing; ended.
+- RE3's window close works from play only with the window in front (KNOWN.md).
+- Builds: RE3 b018 installed (`torch in the hand/v0.1.0-b018`). RE2 compiled with the shared changes, b207 stays installed.

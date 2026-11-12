@@ -46,6 +46,7 @@ constexpr float TORCH_LENS_AXIS[3] = {0.0f, 0.0f, 1.0f};   // tail -> lens, in t
 constexpr float TORCH_LENS_M      = 0.24f;                 // tail to lens (the beam starts there)
 constexpr float TORCH_FLIP_DOT    = 0.25f;   // the lens end must point this far past sideways (cos) before the grip flips
 constexpr float TORCH_FLIP_SEC    = 0.15f;   // the flip eases over this long (Village's pose changes ease 0.15 s)
+constexpr bool  TORCH_GAME_MESH_IN_HAND = true;   // RE2: the game's torch is an object of its own: drawn and placed in the hand
 
 constexpr float BUZZ_ENTER_AMP  = 0.35f;   // a short tick when a hand enters a zone it can use
 constexpr float BUZZ_ENTER_SEC  = 0.05f;
