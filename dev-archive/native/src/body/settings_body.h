@@ -36,11 +36,14 @@ constexpr bool  FLASHLIGHT_ON = true;
 constexpr int   RAINHOLD_CTX_ALLOC_DEPTH = 0x78;   // via.clr thread context: allocation-nesting counter (re2.exe 0x141f5d750; scratch cleanup when it returns to 0), rainhold.h
 constexpr ZoneOffset FLASHLIGHT_BEAM {-0.12f, -0.25f, 0.05f};   // the beam's start from the camera: left, down, forward (m)
 // The torch in the left wrist's space (l_arm_wrist): position (m) and turn (yaw pitch roll, degrees, gun_frame's ypr_deg)
-// for the ordinary grip. FIRST GUESSES, to be tuned on the first run (the log prints the wrist's axes once).
-constexpr float TORCH_HOLD_POS[3] = {0.0f, -0.03f, 0.08f};
+// for the ordinary grip. The torch's own origin is its TAIL (simulator 2026-11-12: at 8 cm the tail sat at the knuckles and
+// the whole torch ahead of the hand), so the tail goes just past the wrist and the fist closes on the rear half, as in
+// Tefa's two pictures. The overhand flip turns it about the tail, which puts the body out of the little-finger side.
+// The wrist's +Z runs along the hand (simulator: 0.86 with the view's forward when the controller points ahead).
+constexpr float TORCH_HOLD_POS[3] = {0.0f, -0.03f, 0.0f};
 constexpr float TORCH_HOLD_YPR[3] = {0.0f, 0.0f, 0.0f};
-constexpr float TORCH_LENS_AXIS[3] = {0.0f, 0.0f, 1.0f};   // the lens end, in the torch's own space (unit)
-constexpr float TORCH_LENS_M      = 0.09f;                 // grip centre to lens
+constexpr float TORCH_LENS_AXIS[3] = {0.0f, 0.0f, 1.0f};   // tail -> lens, in the torch's own space (unit); right on the first run
+constexpr float TORCH_LENS_M      = 0.24f;                 // tail to lens (the beam starts there)
 constexpr float TORCH_FLIP_DOT    = 0.25f;   // the lens end must point this far past sideways (cos) before the grip flips
 constexpr float TORCH_FLIP_SEC    = 0.15f;   // the flip eases over this long (Village's pose changes ease 0.15 s)
 

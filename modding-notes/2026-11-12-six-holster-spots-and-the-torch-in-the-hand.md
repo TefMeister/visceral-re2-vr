@@ -63,3 +63,17 @@ answer. Back left is the mirror of the old back spot (now back right, unchanged)
 4. Village: our own six-spot holster code in place of the borrowed script (it is at its size limit), the torch.
 5. Jill's chest pushing forward when standing still: compare with RE2's body (2026-10-10 probe: the body slides ~8 cm
    forward under the head at a stop).
+
+## First run, simulator (12:36-12:45, Claire, the main hall, Minigun in hand) `[verified-live 2026-11-12, simulator, n=1]`
+
+- b206: LG tap at the left shoulder took the torch out; the game's own torch mesh DRAWS in the left hand even with the
+  game's flashlight state off; LT lit it from the lens (light on vs off: a faint change in the lit hall, mean +1 grey
+  level, 1,568 pixels brighter by 20+); "left hand: the torch (no two-handed grip) has it"; the fist raised with the
+  little-finger end forward flipped the grip ("OVERHAND ... -0.34"), back in front flipped it back; LG tap at the shoulder
+  put it back and the light went on shining from the left chest.
+- The torch's origin is its TAIL: at 8 cm the tail sat at the knuckles and the torch ran ahead of the hand. b207: tail just
+  past the wrist, lens 24 cm out: the fist now closes on the rear half, head forward. Wrist +Z runs along the hand.
+- One "get_GameObject" game exception at the title -> play hand-over, before our FlashLight was found; it came from the
+  title rain script's line ("title left"), not ours `[inferred]`.
+- Left for the headset: the hold numbers, how bright the beam is in a dark room, how the overhand grip feels (the
+  simulator's arm did not reach eye height), Hand Poser's fingers round the torch.
