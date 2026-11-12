@@ -10,6 +10,7 @@
 #include "rack.h"
 #include "settings.h"
 #include "shells.h"
+#include "weapons.h"
 
 #include <cmath>
 
@@ -52,8 +53,11 @@ void frame() {
     // the torch in the left hand (2026-11-12): no two-handed grip until it is back in its spot. A rack or a reload above
     // keeps the hand (Tefa: "can reload weapons with the flashlight out"); otherwise the grip is ours with no socket, so
     // the loader does not dock the hand on the gun.
+    // Long guns only (Tefa: "long weapons cannot be two handed while flashlight is held"; Village does the same).
     const bool torch = hand_state::torch_in_left_hand;
-    if (torch && !on_slide && r < 0) { s.owned = 1; s.steer = 0; s.active = 0; who = "the torch (no two-handed grip)"; }
+    const auto kind = weapons::holster_for(gf().wp);
+    const bool long_gun = kind == weapons::Holster::LONG || kind == weapons::Holster::SPECIAL;
+    if (torch && long_gun && !on_slide && r < 0) { s.owned = 1; s.steer = 0; s.active = 0; who = "the torch (no two-handed long gun)"; }
 
     if (who != g_who) { LOGI("%s left hand: %s has it", TAG, who); g_who = who; }
 
