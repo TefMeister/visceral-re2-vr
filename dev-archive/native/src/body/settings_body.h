@@ -16,17 +16,33 @@ constexpr ZoneOffset RIGHT_HIP    { 0.20f, -0.62f,  0.02f};   // shortcut RIGHT,
 constexpr ZoneOffset LEFT_HIP     {-0.20f, -0.62f,  0.02f};   // shortcut DOWN (right hand + RG) / ammo pouch (left hand + LG)
 constexpr ZoneOffset RIGHT_SHOULDER{ 0.28f, -0.22f, -0.08f};  // shortcut UP, right hand + RG
 constexpr ZoneOffset LEFT_SHOULDER{-0.28f, -0.22f, -0.08f};   // shortcut LEFT, right hand + RG
-constexpr ZoneOffset BACK         { 0.12f, -0.62f, -0.30f};   // the sub weapon (knife/grenade), right hand + RG: lower back, as low as the pistol, a little right and out (Tefa 2026-10-10, b135; was behind the head in b134)
+constexpr ZoneOffset BACK_RIGHT   { 0.12f, -0.62f, -0.30f};   // the sub weapon (knife/grenade), right hand + RG: lower back, as low as the pistol, a little right and out (Tefa 2026-10-10, b135; was behind the head in b134)
+constexpr ZoneOffset BACK_LEFT    {-0.12f, -0.62f, -0.30f};   // 2026-11-12: the mirror of BACK_RIGHT; medicine, left hand + LG (a later step: buzzes for now)
 
-// ---- the flashlight, like RE3's (2026-10-11, Tefa; flashlight.cpp) -------------------------------------------------
-// Switched by LT with the LEFT hand at the left shoulder (the LEFT_SHOULDER spot). The beam shines from the left upper
-// chest and points where the head looks; the torch model is hidden in play and seen only in cutscenes.
+// Six spots, the same places on every character and in every game (Tefa 2026-11-12: "6 holster spots on all my
+// charachters. hips, shoulders, back, 1 set on left and 1 set on right ... just LG and RG in these spots do different
+// stuff"), "as big as possible so they won't interfere with each other but also don't get in the way of gameplay": a
+// hand counts as in the NEAREST spot within reach, so two overlapping spots never both answer.
+constexpr float ZONE_ENTER_M    = 0.20f;   // hand closer than this = in the zone (was 0.15 until 2026-11-12)
+constexpr float ZONE_LEAVE_M    = 0.26f;   // and must go further than this to leave (no flicker at the edge)
+
+// ---- the flashlight in the hand (2026-11-12, Tefa; flashlight.cpp) ------------------------------------------------
+// Lives in the left shoulder spot: tap LG there to take it out, tap LG there again to put it back (no holding LG). LT
+// switches the light, in the hand or in the spot. In the spot it shines from the left upper chest where the head looks
+// (2026-10-11's RE3-style light); in the hand the game's own torch is drawn in the left hand and the beam leaves its lens.
+// The grip follows the wrist: whichever end of the fist points forward gets the lens (the thumb end = the ordinary grip,
+// the little-finger end = the overhand grip held up high). In the hand: no two-handed long gun (core/hand_state.h).
 constexpr bool  FLASHLIGHT_ON = true;
 constexpr int   RAINHOLD_CTX_ALLOC_DEPTH = 0x78;   // via.clr thread context: allocation-nesting counter (re2.exe 0x141f5d750; scratch cleanup when it returns to 0), rainhold.h
 constexpr ZoneOffset FLASHLIGHT_BEAM {-0.12f, -0.25f, 0.05f};   // the beam's start from the camera: left, down, forward (m)
-
-constexpr float ZONE_ENTER_M    = 0.15f;   // hand closer than this = in the zone
-constexpr float ZONE_LEAVE_M    = 0.22f;   // and must go further than this to leave (no flicker at the edge)
+// The torch in the left wrist's space (l_arm_wrist): position (m) and turn (yaw pitch roll, degrees, gun_frame's ypr_deg)
+// for the ordinary grip. FIRST GUESSES, to be tuned on the first run (the log prints the wrist's axes once).
+constexpr float TORCH_HOLD_POS[3] = {0.0f, -0.03f, 0.08f};
+constexpr float TORCH_HOLD_YPR[3] = {0.0f, 0.0f, 0.0f};
+constexpr float TORCH_LENS_AXIS[3] = {0.0f, 0.0f, 1.0f};   // the lens end, in the torch's own space (unit)
+constexpr float TORCH_LENS_M      = 0.09f;                 // grip centre to lens
+constexpr float TORCH_FLIP_DOT    = 0.25f;   // the lens end must point this far past sideways (cos) before the grip flips
+constexpr float TORCH_FLIP_SEC    = 0.15f;   // the flip eases over this long (Village's pose changes ease 0.15 s)
 
 constexpr float BUZZ_ENTER_AMP  = 0.35f;   // a short tick when a hand enters a zone it can use
 constexpr float BUZZ_ENTER_SEC  = 0.05f;

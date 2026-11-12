@@ -5,6 +5,7 @@
 #include "bridge.h"
 #include "exports.h"
 #include "gun_frame.h"
+#include "hand_state.h"
 #include "magazine.h"
 #include "rack.h"
 #include "settings.h"
@@ -48,10 +49,17 @@ void frame() {
         if (r == 1) put(s, p, q);
         who = reload_who;
     }
+    // the torch in the left hand (2026-11-12): no two-handed grip until it is back in its spot. A rack or a reload above
+    // keeps the hand (Tefa: "can reload weapons with the flashlight out"); otherwise the grip is ours with no socket, so
+    // the loader does not dock the hand on the gun.
+    const bool torch = hand_state::torch_in_left_hand;
+    if (torch && !on_slide && r < 0) { s.owned = 1; s.steer = 0; s.active = 0; who = "the torch (no two-handed grip)"; }
+
     if (who != g_who) { LOGI("%s left hand: %s has it", TAG, who); g_who = who; }
 
-    // Hand Poser holds the left fingers only while the hand is on the gun: our socket, or LG held near the gun hand
-    bool on = s.active != 0;
+    // Hand Poser holds the left fingers only while the hand is on the gun: our socket, or LG held near the gun hand; the
+    // torch counts too, so the fingers close round it (2026-11-12)
+    bool on = s.active != 0 || torch;
     if (!on && gf().wp >= 0 && bridge::live() && bridge::held(bridge::S_LGRIP)) {
         const Vec3 d = bridge::hand_pos(bridge::LEFT) - bridge::hand_pos(bridge::RIGHT);
         on = std::sqrt(d.x * d.x + d.y * d.y + d.z * d.z) < cfg::LEFT_ON_GUN_NEAR_M;

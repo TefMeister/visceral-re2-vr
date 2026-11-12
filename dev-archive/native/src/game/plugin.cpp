@@ -94,6 +94,6 @@ extern "C" __declspec(dllexport) bool reframework_plugin_initialize(const REFram
     param->functions->on_pre_application_entry("UpdateMotion", []() { guns::update_motion(); });   // the game's own pump animation cut
     param->functions->on_pre_application_entry("LockScene", []() { ladder::restore(false); menu_body::camera_point(false); });
     param->functions->on_post_application_entry("LockScene", []() { menu_body::late_write(); });
-    param->functions->on_post_application_entry("PrepareRendering", []() { ladder::restore(true); guns::render_point(); menu_body::camera_point(true); });
+    param->functions->on_post_application_entry("PrepareRendering", []() { ladder::restore(true); guns::render_point(); flashlight::render_point(); menu_body::camera_point(true); });
     return true;
 }

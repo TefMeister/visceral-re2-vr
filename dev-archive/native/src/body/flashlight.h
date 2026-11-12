@@ -1,10 +1,14 @@
-// flashlight.h -- the flashlight works like RE3's: a light only, never the torch in the hand (Tefa 2026-10-11).
-// LT with the left hand at the left shoulder switches it. The light shines from the left upper chest, where the head
-// looks; the torch model is hidden during play and left to the game in cutscenes.
+// flashlight.h -- the torch you hold (Tefa 2026-11-12; the RE3-style light of 2026-10-11 stays for the torch in its spot).
+// The torch lives in the left shoulder spot: tap LG there to take it out, tap LG there again to put it back. LT switches
+// the light, in the hand or in the spot. In the hand the game's own torch is drawn in the left hand, the beam leaves its
+// lens, and the grip follows the wrist (ordinary, or overhand held up high). In the spot the beam shines from the left
+// upper chest where the head looks and the torch is hidden. Cutscenes are left to the game.
 #pragma once
 
 namespace vn::flashlight {
-void install();      // hooks FlashLight.applyTransform (needs the type database: first game frame)
-void frame();        // keeps the game's flashlight state where the switch put it
-void toggle();       // the switch (holster.cpp: left hand + LT at the left shoulder)
+void install();        // hooks FlashLight.applyTransform (needs the type database: first game frame)
+void frame();          // LT anywhere while the torch is in the hand (UpdateBehavior)
+void render_point();   // the torch and the beam, last word before drawing (PrepareRendering post)
+void tap_spot();       // holster.cpp: LG tapped in the left shoulder spot (out / back)
+bool in_hand();        // the torch is out of its spot
 } // namespace vn::flashlight

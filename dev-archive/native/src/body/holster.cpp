@@ -1,4 +1,16 @@
 // holster.cpp -- see holster.h
+//
+// 2026-11-12, Tefa: six spots on every character (both hips, both shoulders, back left and back right), the same places
+// for both hands; LG and RG in a spot do different things. A hand is in the NEAREST spot within reach, so two spots that
+// overlap never both answer, and the spots can be big.
+//
+//   spot             LG (left hand)                      RG (right hand)
+//   left shoulder    the torch: tap out / tap back; LT   shortcut LEFT
+//   right shoulder   -                                   shortcut UP
+//   left hip         the ammo pouch                      shortcut DOWN
+//   right hip        -                                   shortcut RIGHT
+//   back left        medicine (a later step: buzzes)     -
+//   back right       -                                   the sub weapon (subweapon.cpp reads the press itself)
 #include "holster.h"
 #include "bridge.h"
 #include "guns_api.h"
@@ -11,31 +23,37 @@ namespace vn::holster {
 
 namespace {
 using bridge::Hand;
-constexpr int NO_SHORTCUT = -1;
+constexpr int NONE = -1;
 
-struct Zone {
+enum class Act { NOTHING, TORCH, POUCH, MEDICINE, SHORTCUT, SUB_WEAPON };
+
+struct Spot {
     const char* name;
     cfg::ZoneOffset off;
-    Hand hand;              // the hand that uses it
-    bridge::Slot grip;      // the button that acts in it
-    int dir;                // the shortcut slot it holds (Tefa's mapping), or NO_SHORTCUT
-    bool inside = false;
+    Act left;               // what LG does here
+    Act right;              // what RG does here
+    int dir;                // the shortcut slot RG takes out here (Tefa's mapping), or NONE
 };
 
 // Tefa 2026-10-05: right = right hip, bottom = left hip, left = left shoulder, top = right shoulder
-Zone g_zones[] = {
-    {"flashlight (left shoulder, LT)",      cfg::LEFT_SHOULDER,  bridge::LEFT,  bridge::S_LTRIG, NO_SHORTCUT},   // 2026-10-11
-    {"ammo pouch (left hip)",                cfg::LEFT_HIP,       bridge::LEFT,  bridge::S_LGRIP, NO_SHORTCUT},
-    {"back (sub weapon)",                    cfg::BACK,           bridge::RIGHT, bridge::S_RGRIP, NO_SHORTCUT},
-    {"right hip",                            cfg::RIGHT_HIP,      bridge::RIGHT, bridge::S_RGRIP, shortcut::RIGHT},
-    {"left hip",                             cfg::LEFT_HIP,       bridge::RIGHT, bridge::S_RGRIP, shortcut::DOWN},
-    {"left shoulder",                        cfg::LEFT_SHOULDER,  bridge::RIGHT, bridge::S_RGRIP, shortcut::LEFT},
-    {"right shoulder",                       cfg::RIGHT_SHOULDER, bridge::RIGHT, bridge::S_RGRIP, shortcut::UP},
+const Spot SPOTS[] = {
+    {"left shoulder",  cfg::LEFT_SHOULDER,  Act::TORCH,    Act::SHORTCUT,   shortcut::LEFT},
+    {"right shoulder", cfg::RIGHT_SHOULDER, Act::NOTHING,  Act::SHORTCUT,   shortcut::UP},
+    {"left hip",       cfg::LEFT_HIP,       Act::POUCH,    Act::SHORTCUT,   shortcut::DOWN},
+    {"right hip",      cfg::RIGHT_HIP,      Act::NOTHING,  Act::SHORTCUT,   shortcut::RIGHT},
+    {"back left",      cfg::BACK_LEFT,      Act::MEDICINE, Act::NOTHING,    NONE},
+    {"back right",     cfg::BACK_RIGHT,     Act::NOTHING,  Act::SUB_WEAPON, NONE},
 };
+constexpr int N_SPOTS = (int)(sizeof(SPOTS) / sizeof(SPOTS[0]));
+constexpr int LEFT_SHOULDER_SPOT = 0;
+constexpr int BACK_RIGHT_SPOT = 5;
 
+int g_in[2] = {NONE, NONE};   // the spot each hand is in (index bridge::LEFT / bridge::RIGHT)
 int g_frame = 0;
 int g_last_weapon = -2;
 int g_last_slots[4] = {-2, -2, -2, -2};
+
+Act act_of(int spot, Hand h) { return spot < 0 ? Act::NOTHING : (h == bridge::LEFT ? SPOTS[spot].left : SPOTS[spot].right); }
 
 // headset position + offset turned by the headset's YAW only: the spots turn left and right with the head and never
 // tilt (Tefa 2026-10-05: "no tilt please, just left and right turn"). OpenXR space: +X right, +Y up, -Z forward.
@@ -46,6 +64,26 @@ Vec3 zone_pos(const cfg::ZoneOffset& o) {
     if (len < 1e-4f) f = {0, 0, -1}; else f = f * (1.0f / len);
     const Vec3 right{-f.z, 0, f.x};
     return bridge::hmd_pos() + right * o.side + Vec3{0, o.up, 0} + f * o.fwd;
+}
+
+// the nearest spot within reach; the one the hand is in keeps it out to ZONE_LEAVE_M unless another is within reach and
+// nearer
+void update_hand(Hand h) {
+    const Vec3 hp = bridge::hand_pos(h);
+    float d[N_SPOTS];
+    int best = 0;
+    for (int i = 0; i < N_SPOTS; ++i) {
+        d[i] = dist(hp, zone_pos(SPOTS[i].off));
+        if (d[i] < d[best]) best = i;
+    }
+    const int was = g_in[h];
+    int now = NONE;
+    if (was != NONE && d[was] < cfg::ZONE_LEAVE_M && (best == was || d[best] >= cfg::ZONE_ENTER_M)) now = was;
+    else if (d[best] < cfg::ZONE_ENTER_M) now = best;
+    if (now != was) {
+        g_in[h] = now;
+        if (now != NONE && act_of(now, h) != Act::NOTHING) bridge::rumble(h, cfg::BUZZ_ENTER_AMP, cfg::BUZZ_ENTER_SEC);
+    }
 }
 
 void track_weapon() {
@@ -66,15 +104,14 @@ void track_slots() {
     if (changed) shortcut::log_slots();
 }
 
-void grab(const Zone& z) {
+void grab_shortcut(const Spot& z) {
     // a knife or grenade in hand: RG is the game's throw, so the holster stays out of it (Tefa 2026-10-06)
-    const int in_hand = weapons::current_id();
-    if (in_hand == 4500 || in_hand == 4510 || in_hand == 6200 || in_hand == 6300) return;
+    const int held = weapons::current_id();
+    if (held == 4500 || held == 4510 || held == 6200 || held == 6300) return;
     const auto d = (shortcut::Dir)z.dir;
     const int in_slot = shortcut::weapon_in(d);
-    const int held = weapons::current_id();
     if (in_slot < 0) { LOGI("%s GRAB at %s: shortcut %s is empty, nothing to do", TAG, z.name, shortcut::dir_name(d)); return; }
-    bridge::rumble(z.hand, cfg::BUZZ_GRAB_AMP, cfg::BUZZ_GRAB_SEC);
+    bridge::rumble(bridge::RIGHT, cfg::BUZZ_GRAB_AMP, cfg::BUZZ_GRAB_SEC);
     if (held == in_slot) {
         const bool ok = shortcut::put_away(held);
         LOGI("%s GRAB at %s: PUT AWAY %s -> %s", TAG, z.name, weapons::name(held), ok ? "called" : "FAILED");
@@ -84,45 +121,35 @@ void grab(const Zone& z) {
              shortcut::dir_name(d), held < 0 ? "nothing" : weapons::name(held), ok ? "game said yes" : "game said no");
     }
 }
+
+void left_press(int spot) {
+    const Spot& z = SPOTS[spot];
+    switch (z.left) {
+    case Act::POUCH: guns::pouch_grab(); return;   // b132: a magazine / round from the pouch
+    case Act::TORCH: flashlight::tap_spot(); return;
+    case Act::MEDICINE:
+        bridge::rumble(bridge::LEFT, cfg::BUZZ_GRAB_AMP, cfg::BUZZ_GRAB_SEC);
+        LOGI("%s GRAB at %s: medicine (does nothing yet: a later step)", TAG, z.name);
+        return;
+    default: return;
+    }
+}
 } // namespace
 
-bool right_hand_in_back_zone() {
-    for (auto& z : g_zones) if (z.hand == bridge::RIGHT && z.dir == NO_SHORTCUT && z.inside) return true;
-    return false;
-}
-
-bool right_hand_in_zone() {
-    for (auto& z : g_zones) if (z.hand == bridge::RIGHT && z.inside) return true;
-    return false;
-}
+bool right_hand_in_back_zone() { return g_in[bridge::RIGHT] == BACK_RIGHT_SPOT; }
+bool right_hand_in_zone() { return act_of(g_in[bridge::RIGHT], bridge::RIGHT) != Act::NOTHING; }
+bool left_hand_at_torch_spot() { return g_in[bridge::LEFT] == LEFT_SHOULDER_SPOT; }
 
 void frame() {
     ++g_frame;
     track_weapon();
     track_slots();
-    if (!bridge::live()) return;
-    for (auto& z : g_zones) {
-        const float d = dist(bridge::hand_pos(z.hand), zone_pos(z.off));
-        if (!z.inside && d < cfg::ZONE_ENTER_M) {
-            z.inside = true;
-            bridge::rumble(z.hand, cfg::BUZZ_ENTER_AMP, cfg::BUZZ_ENTER_SEC);
-        } else if (z.inside && d > cfg::ZONE_LEAVE_M) {
-            z.inside = false;
-        }
-        if (!z.inside || !bridge::pressed(z.grip)) continue;
-        if (z.dir == NO_SHORTCUT) {
-            if (z.off.side == cfg::LEFT_HIP.side && z.hand == bridge::LEFT && guns::pouch_grab()) continue;   // b132
-            if (z.hand == bridge::RIGHT) continue;   // b134: the back spot is subweapon.cpp's (it reads the press itself)
-            if (z.grip == bridge::S_LTRIG) {   // 2026-10-11: the flashlight (not while LG is held: LG+LT is the rack)
-                if (!bridge::held(bridge::S_LGRIP) && !bridge::held(bridge::S_RGRIP)) flashlight::toggle();
-                continue;
-            }
-            bridge::rumble(z.hand, cfg::BUZZ_GRAB_AMP, cfg::BUZZ_GRAB_SEC);
-            LOGI("%s GRAB at %s (does nothing yet: a later step)", TAG, z.name);
-        } else {
-            grab(z);
-        }
-    }
+    if (!bridge::live()) { g_in[0] = g_in[1] = NONE; return; }
+    update_hand(bridge::LEFT);
+    update_hand(bridge::RIGHT);
+    if (g_in[bridge::LEFT] != NONE && bridge::pressed(bridge::S_LGRIP)) left_press(g_in[bridge::LEFT]);
+    const int r = g_in[bridge::RIGHT];
+    if (r != NONE && bridge::pressed(bridge::S_RGRIP) && SPOTS[r].right == Act::SHORTCUT) grab_shortcut(SPOTS[r]);
 }
 
 } // namespace vn::holster
