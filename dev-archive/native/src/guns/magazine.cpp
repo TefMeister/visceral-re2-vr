@@ -248,6 +248,11 @@ int rounds_in_mag() {
     // seated: a slide gun holds one of its rounds in the chamber, unless a rack is still due (then all are in the magazine)
     return (keeps_chamber() && !rack::blocks_fire()) ? n - 1 : n;
 }
+int chambered() {
+    if (!ours()) return -1;
+    if (g_st != St::SEATED) return g_chamber > 0 ? 1 : 0;
+    return (ammo::loaded() > 0 && keeps_chamber() && !rack::blocks_fire()) ? 1 : 0;
+}
 int hud_rounds() { return mag_out() ? g_chamber : -1; }
 bool session_active() { return mag_out(); }
 bool hand_docked() {

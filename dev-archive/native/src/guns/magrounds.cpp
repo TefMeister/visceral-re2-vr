@@ -11,6 +11,7 @@ namespace vn::guns::magrounds {
 namespace {
 int g_wp = -1, g_said = -2;   // the gun and the look last logged (1 shown, 0 hidden)
 float g_fight_said = -10.0f;
+int g_chamber_said = -1;   // the chamber round's look last logged
 
 bool part_on(MO* mesh, API::Method* get, int part) {
     return get != nullptr && get->call<bool>(API::get()->get_vm_context(), (void*)mesh, (uint64_t)part);
@@ -42,6 +43,17 @@ void point() {
             wrote = true;
         }
         shown += want ? 1 : 0;
+    }
+    // the round in the chamber (2026-11-12): shown only while one is chambered
+    if (r->chamber >= 0) {
+        const bool want = magazine::chambered() > 0;
+        if (part_on(mesh, get, r->chamber) != want) {
+            set->call<void>(API::get()->get_vm_context(), (void*)mesh, (uint64_t)r->chamber, want);
+            if (want != g_chamber_said) {
+                LOGI("%s magrounds: WP%04d the chamber %s: its round %s", TAG, gf().wp, want ? "holds a round" : "is empty", want ? "SHOWN" : "HIDDEN");
+                g_chamber_said = want;
+            }
+        }
     }
     if (shown != g_said) {
         LOGI("%s magrounds: WP%04d the magazine holds %d (%s): its rounds %s", TAG, gf().wp, rounds,

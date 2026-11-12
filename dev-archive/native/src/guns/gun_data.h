@@ -39,8 +39,9 @@ struct RoundGun {
 
 // a magazine gun whose model has its magazine's top rounds as a mesh part of their own (magrounds.h): up to two pairs of
 // {the magazine's part, its rounds' part} (standard / extended magazine); a magazine part of -1 = the gun has one magazine,
-// a rounds part of -1 = no such pair
-struct MagRounds { int wp; int mag_a, rounds_a, mag_b, rounds_b; };
+// a rounds part of -1 = no such pair. `chamber` (2026-11-12): a part that is the round modelled IN THE CHAMBER, shown only while
+// a round is chambered (-1 = none; the RE2 M19's model carries one on the frame, so an empty gun showed a round when racked)
+struct MagRounds { int wp; int mag_a, rounds_a, mag_b, rounds_b; int chamber = -1; };
 
 const MagGun* mag_gun(int wp);
 const MagRounds* mag_rounds(int wp);

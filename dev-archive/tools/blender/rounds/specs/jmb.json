@@ -1,0 +1,6 @@
+{"gun_mesh": "<extracted>/natives/stm/sectionroot/character/weapon/wp0200/wp0200_browningh.mesh.2109108288", "rounds_mesh": "<extracted>/out/natives/stm/sectionroot/character/weapon/wp0400/wp0400_glock.mesh.2109108288",
+ "gun_mdf": "<extracted>/natives/stm/sectionroot/character/weapon/wp0200/wp0200_browningh.mdf2.21", "rounds_mdf": "<extracted>/natives/stm/sectionroot/character/weapon/wp0400/wp0400_glock.mdf2.21",
+ "out_mesh": "<extracted>/out/natives/stm/sectionroot/character/weapon/wp0200/wp0200_browningh.mesh.2109108288", "out_mdf": ["<extracted>/out/natives/stm/sectionroot/character/weapon/wp0200/wp0200_browningh.mdf2.21", "<extracted>/out/natives/stm/sectionroot/character/weapon/wp0200/wp0200.mdf2.21"],
+ "top": 0.0600, "fwd": 0.0185,
+ "parts": [{"group": 5, "new": 7, "follower": {"ymin": 0.053, "maxw": 0.0165, "drop": 0.012}},
+           {"group": 6, "new": 8, "follower": {"ymin": 0.053, "maxw": 0.0165, "drop": 0.012}}]}

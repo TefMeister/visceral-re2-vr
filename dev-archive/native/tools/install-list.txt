@@ -53,3 +53,20 @@
 # ---- layer 3: the guns (2026-11-07) ---------------------------------------------------------------------------------
 # No new files: the gun code is in the plugin (src/guns/), and its sounds (custom_sfx, incl. common/dry_hammer.wav, the
 # empty click) came back with layer 2. Deploy with --layer 3 so the build is named for it.
+# 2026-11-12: two handgun models with the magazine's rounds cut out as a part of their own (src/game/guns_table.cpp MAG_ROUNDS):
+# the WP0400 (two rounds -> part 41) and the MUP (one round -> part 61). Modified game files the mod needs (allowed 2026-09-27);
+# made with RE Mesh Editor in Blender from the game's own files, nothing else changed (modding-notes/2026-11-12-...).
+3 repo:assets/natives/stm/sectionroot/character/weapon/wp0400/wp0400_glock.mesh.2109108288   natives/stm/sectionroot/character/weapon/wp0400/wp0400_glock.mesh.2109108288
+3 repo:assets/natives/stm/sectionroot/character/weapon/wp0600/wp0600_usp.mesh.2109108288     natives/stm/sectionroot/character/weapon/wp0600/wp0600_usp.mesh.2109108288
+# 2026-11-12 (later): four handguns had NO round modelled (an empty follower). Two of the WP0400's rounds were set into each magazine as
+# a part of their own, with the WP0400's material added to the gun's material file; the follower lowered under them (Matilda,
+# JMB Hp3; the Samurai Edge's closed top opened). Matilda parts 7 / 8, M19 11, JMB Hp3 7 / 8, Samurai Edge 1.
+3 repo:assets/natives/stm/sectionroot/character/weapon/wp0000/wp0000_vp70.mesh.2109108288   natives/stm/sectionroot/character/weapon/wp0000/wp0000_vp70.mesh.2109108288
+3 repo:assets/natives/stm/sectionroot/character/weapon/wp0000/wp0000_vp70.mdf2.21   natives/stm/sectionroot/character/weapon/wp0000/wp0000_vp70.mdf2.21
+3 repo:assets/natives/stm/sectionroot/character/weapon/wp0100/wp0100_m1911.mesh.2109108288   natives/stm/sectionroot/character/weapon/wp0100/wp0100_m1911.mesh.2109108288
+3 repo:assets/natives/stm/sectionroot/character/weapon/wp0100/wp0100_m1911.mdf2.21   natives/stm/sectionroot/character/weapon/wp0100/wp0100_m1911.mdf2.21
+3 repo:assets/natives/stm/sectionroot/character/weapon/wp0200/wp0200_browningh.mesh.2109108288   natives/stm/sectionroot/character/weapon/wp0200/wp0200_browningh.mesh.2109108288
+3 repo:assets/natives/stm/sectionroot/character/weapon/wp0200/wp0200_browningh.mdf2.21   natives/stm/sectionroot/character/weapon/wp0200/wp0200_browningh.mdf2.21
+3 repo:assets/natives/stm/sectionroot/character/weapon/wp0200/wp0200.mdf2.21   natives/stm/sectionroot/character/weapon/wp0200/wp0200.mdf2.21
+3 repo:assets/natives/stm/sectionroot/character/weapon/wp7000/wp7000_samuraiedge.mesh.2109108288   natives/stm/sectionroot/character/weapon/wp7000/wp7000_samuraiedge.mesh.2109108288
+3 repo:assets/natives/stm/sectionroot/character/weapon/wp7000/wp7000_samuraiedge.mdf2.21   natives/stm/sectionroot/character/weapon/wp7000/wp7000_samuraiedge.mdf2.21

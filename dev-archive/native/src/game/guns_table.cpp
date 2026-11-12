@@ -24,10 +24,18 @@ constexpr MagGun MAG_GUNS[] = {
 
 // the magazine's top rounds as a mesh part of their own (read from the model files 2026-11-11, modding-notes
 // 2026-11-11-the-rounds-seen-in-the-magazine.md): only the Broom Hc (WP0700, part 1, one round) and the Lightning Hawk (part 5, which the
-// game leaves off). The other RE2 handguns have no such part: their magazine is one piece of the gun's mesh.
+// game leaves off). The other RE2 handguns had no such part (their magazine was one piece of the gun's mesh); since 2026-11-12 our own
+// models give them one (dev-archive/native/assets/, modding-notes/2026-11-12-our-rounds-in-six-re2-handguns.md).
 constexpr MagRounds MAG_ROUNDS[] = {
     {700,  -1, 1, -1, -1},
     {3000, -1, 5, -1, -1},
+    {400,  -1, 41, -1, -1},   // the WP0400: its two top rounds cut out of the magazine as part 41 (2026-11-12, our model)
+    {600,  -1, 61, -1, -1},   // the MUP: its top round cut out as part 61 (2026-11-12, our model)
+    // 2026-11-12: these four had no round modelled; ours added (two of the WP0400's rounds, our models and material files)
+    {0,    5, 7, 6, 8},       // the Matilda: standard magazine 5 -> rounds 7, long magazine 6 -> rounds 8
+    {100,  -1, 11, -1, -1, 12},   // the M19 (.45, the rounds 12 % larger); its chamber round cut out of the frame as part 12
+    {200,  5, 7, 6, 8},       // the JMB Hp3: standard 5 -> 7, long 6 -> 8
+    {7000, -1, 1, -1, -1},    // the Samurai Edge
 };
 
 constexpr SlideGun SLIDE_GUNS[] = {

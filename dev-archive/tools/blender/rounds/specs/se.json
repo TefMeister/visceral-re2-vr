@@ -1,0 +1,5 @@
+{"gun_mesh": "<extracted>/natives/stm/sectionroot/character/weapon/wp7000/wp7000_samuraiedge.mesh.2109108288", "rounds_mesh": "<extracted>/out/natives/stm/sectionroot/character/weapon/wp0400/wp0400_glock.mesh.2109108288",
+ "gun_mdf": "<extracted>/natives/stm/sectionroot/character/weapon/wp7000/wp7000_samuraiedge.mdf2.21", "rounds_mdf": "<extracted>/natives/stm/sectionroot/character/weapon/wp0400/wp0400_glock.mdf2.21",
+ "out_mesh": "<extracted>/out/natives/stm/sectionroot/character/weapon/wp7000/wp7000_samuraiedge.mesh.2109108288", "out_mdf": ["<extracted>/out/natives/stm/sectionroot/character/weapon/wp7000/wp7000_samuraiedge.mdf2.21"],
+ "top": 0.0695, "fwd": 0.0090, "scale": 0.97,
+ "parts": [{"group": 0, "sub": 1, "new": 1, "follower": {"ymin": 0.069, "maxw": 0.013, "drop": 0.012}}]}

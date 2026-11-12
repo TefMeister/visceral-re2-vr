@@ -20,6 +20,7 @@ bool ours();             // the gun in hand is a magazine gun we reload by hand
 bool mag_out();          // the magazine is not seated
 int  rounds_in_mag();    // the rounds the magazine itself holds now, seated, in the hand or dropped (the chambered round is not one); -1 = not ours
 bool fire_blocked();     // the magazine is out and no round is chambered
+int  chambered();        // 1 = a round is in the chamber now (seated: loaded and no rack due; out: the kept round), 0 = none; -1 = not ours
 int  hud_rounds();       // what the counter shows while it is out (0, or 1 chambered); -1 = seated
 bool session_active();   // a magazine change is under way
 bool hand_docked();      // the drawn left hand sits ON the magazine
