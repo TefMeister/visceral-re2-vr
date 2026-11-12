@@ -51,3 +51,16 @@ Look at each of the six with the magazine out: several rounds = rounds at the to
 empty gun, slide back = no round (the M19: also none in the chamber). Tune: how high the rounds sit, how far forward,
 their size, and the lowered followers (an empty magazine now shows its follower 12 mm below the lips on the Matilda,
 JMB Hp3 and Samurai Edge). The numbers are in `dev-archive/tools/blender/rounds/specs/`; re-run `add_rounds.py`.
+
+## Simulator check (b204, then b205), 2026-11-12 11:3x
+
+`[verified-live 2026-11-12, simulator, n=1 each]`: each of the six given into the hand one after another (the test script
+`zz_test_short2.lua`, gift; taken out of the game folder after): the game stayed up, no load error. WP0400 given empty:
+`magrounds: WP0400 the magazine holds 0 (seated): its rounds HIDDEN`; MUP, Matilda, JMB Hp3, Samurai Edge with 10 and the
+M19 with 7: `holds 9` / `holds 6 (seated): its rounds SHOWN`. Not looked at by eye (the simulator picture is too small).
+The M19's chamber part had nothing to change (loaded and chambered: on), so no chamber line was logged.
+
+Found on the way and fixed in b205: `visceral_options_book.lua` read its command file before it existed and REFramework
+logged a JSON error about 4 times a second (613 in a few minutes); it now writes the file at the start (0 after a fresh
+start). Also learnt: RE2 ignores a window close in play; the quit route (Esc > Quit > Up + Enter, then close at the title)
+is recorded in ai-game-control-profiles.

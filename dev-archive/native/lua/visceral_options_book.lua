@@ -22,6 +22,8 @@
 
 local TAG = "[visceral-book]"
 local CMD_FILE = "visceral/options_book_cmd.json"
+-- 2026-11-12: made empty at the start: reading a file that is not there logged a JSON error about 4 times a second
+pcall(json.dump_file, CMD_FILE, { cmd = "" })
 local HOLD_S = 0.5
 local CMD_EVERY_FRAMES = 20
 
