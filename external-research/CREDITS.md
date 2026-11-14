@@ -118,3 +118,8 @@ please tell us: **open a GitHub issue on this repo**. We'll act on that
 request promptly — no argument, no delay — and we'll find another way to get
 the job done that doesn't rely on your material. This is your work; we're
 just grateful to have learned from it.
+
+## Sources (2026-11-14)
+
+- **praydog**, REFramework nightly 01439, incl. PR #1893 by **Dimcirui**, and `VR.cpp` (cutscene UI handling) — https://github.com/praydog/REFramework
+- **h1nt36r2**, RE2IVR (installer settings, releases) — https://github.com/h1nt36r2/Resident-Evil-2-Remake-VR
