@@ -505,7 +505,7 @@ index d8908953..dbc1549d 100644
  
      const ModToggle::Ptr m_smooth_xz_movement{ ModToggle::create(generate_name("SmoothXZMovementVR"), true) };
 diff --git a/src/mods/VR.cpp b/src/mods/VR.cpp
-index 736bcc08..aa832806 100644
+index 736bcc08..70e559de 100644
 --- a/src/mods/VR.cpp
 +++ b/src/mods/VR.cpp
 @@ -63,6 +63,11 @@
@@ -792,7 +792,7 @@ index 736bcc08..aa832806 100644
      } else {
          set_button_state((app::ropeway::InputDefine::Kind)((uint64_t)1 << 51), false); // RE3 dodge
      }
-@@ -4044,11 +4286,26 @@ void VR::openvr_input_to_re2_re3(REManagedObject* input_system) {
+@@ -4044,11 +4286,27 @@ void VR::openvr_input_to_re2_re3(REManagedObject* input_system) {
      // Change Ammo
      set_button_state(app::ropeway::InputDefine::Kind::CHANGE_BULLET, is_change_ammo_down);
  
@@ -803,7 +803,8 @@ index 736bcc08..aa832806 100644
 -    set_button_state(app::ropeway::InputDefine::Kind::PAUSE, is_left_system_button_down || is_right_system_button_down || get_runtime()->handle_pause);
 +    // Visceral 2026-11-15, the shared Visceral layout (Tefa 2026-11-14: "menu tap = journal / objectives; menu held 0.3 s
 +    // = pause"): the menu (system) button tapped = the map screen (RE2 / RE3 keep their files there), held 0.3 s = pause.
-+    // REFramework's own pause request (handle_pause) still pauses at once.
++    // REFramework's own pause request (handle_pause) is raised by OpenXR::update_input on the SAME button's press, so it
++    // is not let through: it would pause on every tap (the /lm reader, 2026-11-15). It is still cleared below.
 +    static std::chrono::steady_clock::time_point visceral_menu_t{};
 +    static bool visceral_menu_was = false, visceral_menu_fired = false;
 +    static int visceral_map_frames = 0;
@@ -820,11 +821,11 @@ index 736bcc08..aa832806 100644
 +    if (visceral_map_frames > 0) --visceral_map_frames;
 +
 +    // Left or Right System Button held 0.3 s: Pause
-+    set_button_state(app::ropeway::InputDefine::Kind::PAUSE, visceral_menu_held || get_runtime()->handle_pause);
++    set_button_state(app::ropeway::InputDefine::Kind::PAUSE, visceral_menu_held);
      get_runtime()->handle_pause = false;
  
      // Fixes QTE bound to triggers
-@@ -4286,6 +4543,10 @@ void VR::on_draw_ui() {
+@@ -4286,6 +4544,10 @@ void VR::on_draw_ui() {
          ImGui::TreePop();
      }
  

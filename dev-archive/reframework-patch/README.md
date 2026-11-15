@@ -116,3 +116,5 @@ ef-76build-76b.bat` (target RE2) ->
   crouch; RE3 no jump or crouch: those stick gestures stay unused. `[compile-verified 2026-11-15]`, installed (RE2
   dinput8 b0cff3eb = build b209, RE3 4677adbd = build b020), not run. Previous files in
   `D:/Visceral build versions/_backup-2026-11-15-shared-layout-refw/`. Build: `D:/ref-76b/build2`, targets RE2 and RE3.
+
+- 2026-11-15 (later), the same patch file rewritten: the menu button tapped no longer pauses (REFramework raises `handle_pause` on the same press; it is no longer ORed into PAUSE). Installed RE2 b210 (dinput8 340ef5f7), RE3 b021 (1501c371). Found by the Village /lm session's reader `[inferred-static 2026-11-15, OpenXR.cpp:325]`, compiled, not run.
