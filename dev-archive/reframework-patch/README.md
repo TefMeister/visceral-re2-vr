@@ -106,3 +106,13 @@ ef-76build-76b.bat` (target RE2) ->
   is out. Simulator 2026-11-02, a made-up tremor on the right hand: 75-76% of the shake taken out at strength 4; knife out
   = paused, back to the gun = working `[verified-live 2026-11-02, simulator, n=1]`. Build: `D:ef-76build-76b.bat`.
   RE3 gets the same code on top of its own b145 set: `visceral-re3-vr/dev-archive/reframework-patch/`.
+
+- `2026-11-15-re2-re3-shared-layout-menu-and-dodge.patch` — against `76298bd`, cumulative (everything in `D:/ref-76b`,
+  which builds BOTH games: `build2/bin/RE2` and `build2/bin/RE3`; apply this one alone). THE SHARED VISCERAL LAYOUT
+  (Tefa 2026-11-14; 2026-11-15: "the shared layout everywhere, where the functions apply"), in `VR.cpp
+  openvr_input_to_re2_re3`: the menu (system) button TAPPED = the map screen (`MINIMAP` for 6 frames after the let-go),
+  HELD 0.3 s = `PAUSE` (REFramework's own pause request still pauses at once); RE3 only: dodge = the right stick CLICK
+  as well as its own dodge action (the left stick gives the direction, the game's own). RE2 has no dodge, jump or
+  crouch; RE3 no jump or crouch: those stick gestures stay unused. `[compile-verified 2026-11-15]`, installed (RE2
+  dinput8 b0cff3eb = build b209, RE3 4677adbd = build b020), not run. Previous files in
+  `D:/Visceral build versions/_backup-2026-11-15-shared-layout-refw/`. Build: `D:/ref-76b/build2`, targets RE2 and RE3.

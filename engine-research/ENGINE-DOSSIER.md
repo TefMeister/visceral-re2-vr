@@ -1846,3 +1846,19 @@ the game does not switch it off again until the screen closes, when it restores 
 hidden by their objects' own flags, not a folder. A pick-up can be opened by script: `GUIMaster.openInventoryGetItemMode(
 stock, nil)` with a `StockItem` from `sdk.create_instance` + `setStock(id, 0, 0, 1)`. Built as `lua/visceral_pickup_world.lua`;
 probe `lua/visceral_pickup_probe.lua`; note `modding-notes/2026-11-05-the-world-behind-a-pick-up.md`.
+
+## Inbox drained 2026-11-15 (/pd)
+
+- **Ghost Hand, 20 runs 2026-10-13..19:** racks finished 189 of 282 (67 %); 16 misses where the controllers really pulled
+  far enough and the mod measured 0.00 point at the mod, not the hands `[measured, /gd 2026-10-26]`.
+- **The ladder's hook count overstates:** two of the six camera-controller `update` hooks fail inside REFramework
+  ("Failed to hook function for 'updateCameraPosition'" and TwirlerCameraControllerRoot.update, n=3 logs), but
+  `ladder.cpp` counts all six. Checked 2026-11-15: REFramework's `HookManager::add` returns a hook id even when the hook
+  later fails (the failure is only logged, inside the lazy install), so `add_hook`'s return cannot tell; the log's
+  "Failed to hook" lines are the only witness `[inferred-static 2026-11-15, D:/ref-76b src/HookManager.cpp]`.
+- **RE2IVR** (h1nt36r2, MIT, v0.8.9): a second public RE2 VR overhaul; Tefa 2026-11-07: *"it's ok ours is miles more
+  advanced"*: a reference only. It cites REFramework issue #400 (the body vanishing in the second eye with ray-traced
+  costumes).
+- **The .NET connector line on 76298bd** is the managed DLL failing to start .NET (cured on a nightly by the .NET 10
+  Desktop Runtime, REFramework #1739) `[reported; inferred-static 2026-11-11, /gr]`, not "no .NET on this build".
+- The two OPEN-heading notes (2026-10-26, 2026-11-14): fixed on the board 2026-11-15.
