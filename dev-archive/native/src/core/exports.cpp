@@ -16,3 +16,8 @@ extern "C" __declspec(dllexport) vn::exports::VisceralDockSocket* visceral_dock_
 
 // The gen-1 tuning sliders' "hold both hands still" box. The sliders are gone (design item 31): always 0.
 extern "C" __declspec(dllexport) int visceral_hands_frozen() { return 0; }
+
+// 2026-11-16 (Tefa: the side step "would be preferred in re3 as well"): our patched REFramework (VR.cpp, RE3 build) asks this
+// before it hands the right stick click to the game's own dodge; 1 = the click is the side step's (src/hands/sidestep.cpp)
+#include "sidestep.h"
+extern "C" __declspec(dllexport) int visceral_own_sidestep() { return vn::sidestep::owns_click() ? 1 : 0; }

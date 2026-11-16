@@ -22,6 +22,7 @@ enum Slot : int {
     // running stop (2026-10-06), written with the buttons at UpdateHID
     S_LCLICK = 37,        // left stick click (vrmod joystick-click action on the left hand)
     S_LSTICK_MAG = 38,    // how far the left stick is pushed, 0..1
+    S_RCLICK = 39,        // 2026-11-16: right stick click (the side step, src/hands/sidestep.cpp)
     // menu camera (2026-10-08, src/menu_body.cpp): what the VR layer will multiply onto the camera while FirstPerson
     // is not driving. Written at LateUpdateBehavior PRE with the view readings; first component NO_VALUE on failure.
     S_HMD_Q = 40,         // raw headset turn as a quaternion x y z w (vrmod:get_transform(0):to_quat(), proven path)
@@ -43,6 +44,9 @@ enum Slot : int {
     S_LADDER_HOLD_OFF = 537, // b188: 1 = the ladder/cupboard view hold (ladder.cpp) is switched off by the Lua menu's tick box; 0 or unset = on
     S_AUTO_EXPOSURE_ON = 538,
     S_LEFT_ON_GUN = 539,  // 2026-11-01, WRITTEN BY THE PLUGIN: 1 = the left hand is on the gun (Hand Poser holds its fingers only then) // 2026-10-28: 1 = the game keeps its own automatic brightness (Lua tick box); 0 or unset = ours keeps it off (exposure.cpp)
+    // 2026-11-16, the side step (src/hands/sidestep.cpp), written with the buttons at UpdateHID, read live with view():
+    S_LSTICK_DIR = 604,   // the left stick turned by the game camera into a level world direction x z (unit; 0 0 when centred)
+    S_CAM_FWD = 606,      // the game camera's level forward x z (unit), for a step back with the stick centred
     S_HT2 = 540,          // 2026-10-31: the eighth hold onward (tune.h MAG_DOCK: the left hand on the magazine in the gun), HT_STRIDE each; the array is 604 long (visceral_bridge.lua N)
 };
 constexpr float SENTINEL = 54321.0f;

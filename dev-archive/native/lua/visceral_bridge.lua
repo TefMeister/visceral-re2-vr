@@ -19,7 +19,7 @@ local TAG = "[visceral-bridge]"
 -- 2026-11-07 (the clean rebuild): one file for RE2 and RE3 (shared, RE2's repo owns it); the game decides the type names
 local GAME = reframework:get_game_name()   -- "re2" or "re3"
 local NS = GAME == "re3" and "offline." or "app.ropeway."
-local N = 604   -- 2026-10-31: + the eighth hold at 540 (src/bridge.h S_HT2, the hand on the magazine); b173: 84 + the hand tuning slots (src/bridge.h S_WHO .. S_HT + 7 x 64) + S_FREEZE; b188: + S_LADDER_HOLD_OFF; 2026-10-28: + S_AUTO_EXPOSURE_ON
+local N = 608   -- 2026-11-16: + the side step's stick direction 604-605 and camera forward 606-607 (src/bridge.h); 2026-10-31: + the eighth hold at 540 (src/bridge.h S_HT2, the hand on the magazine); b173: 84 + the hand tuning slots (src/bridge.h S_WHO .. S_HT + 7 x 64) + S_FREEZE; b188: + S_LADDER_HOLD_OFF; 2026-10-28: + S_AUTO_EXPOSURE_ON
 local S_FRAME, S_HMD = 0, 1
 local S_LGRIP, S_LTRIG, S_RGRIP, S_RTRIG = 2, 3, 4, 5
 local S_LA, S_LB, S_RA, S_RB = 6, 7, 8, 9
@@ -28,6 +28,7 @@ local S_HMD_POS, S_HMD_ROT, S_LPOS, S_RPOS = 14, 17, 21, 24
 local S_ACK, S_SENTINEL = 30, 31
 local S_FP_USED, S_HMD_YAW, S_OFFEXT_YAW, S_CAM_YAW, S_RENDER_YAW = 32, 33, 34, 35, 36
 local S_LCLICK, S_LSTICK_MAG = 37, 38   -- running stop (src/run.cpp)
+local S_RCLICK, S_LSTICK_DIR, S_CAM_FWD = 39, 604, 606   -- the side step (src/hands/sidestep.cpp, 2026-11-16)
 local S_HMD_Q, S_ROT_OFF, S_ORIGIN = 40, 44, 48   -- menu camera (src/menu_body.cpp, 2026-10-08)
 local S_RROT = 52   -- the right controller's turn, room space (src/rack.cpp motion racking, b143)
 -- 56..83: b156-b159 slider slots, unused since b164 (visceral_tuning.lua writes 84 onward)
@@ -136,7 +137,8 @@ local function buttons()
     if live then jl_pose(vr) end
     if not live then
         for s = S_LGRIP, S_RB do w(s, 0) end
-        w(S_LCLICK, 0); w(S_LSTICK_MAG, 0)
+        w(S_LCLICK, 0); w(S_LSTICK_MAG, 0); w(S_RCLICK, 0)
+        w(S_LSTICK_DIR, 0); w(S_LSTICK_DIR + 1, 0); w(S_CAM_FWD, 0); w(S_CAM_FWD + 1, 0)
         return
     end
     poses(vr)
@@ -155,6 +157,25 @@ local function buttons()
     w(S_LCLICK, on(safe(function() return vr:get_action_joystick_click() end), lj))
     local axis = safe(function() return vr:get_left_stick_axis() end)
     w(S_LSTICK_MAG, axis and safe(function() return axis:length() end) or 0)
+    -- the side step (2026-11-16): the right stick click, and the left stick turned into a level world direction by the game
+    -- camera (its view looks down its own -Z, as S_CAM_YAW reads it; +X is its right), plus the camera's level forward
+    w(S_RCLICK, on(safe(function() return vr:get_action_joystick_click() end), rj))
+    local dir_ok = safe(function()
+        local q = sdk.get_primary_camera():call("get_WorldMatrix"):to_quat()
+        local f = q * Vector3f.new(0, 0, -1)
+        local r = q * Vector3f.new(1, 0, 0)
+        local fl = math.sqrt(f.x * f.x + f.z * f.z)
+        local rl = math.sqrt(r.x * r.x + r.z * r.z)
+        if fl < 1e-4 or rl < 1e-4 then return false end
+        local fx, fz, rx, rz = f.x / fl, f.z / fl, r.x / rl, r.z / rl
+        w(S_CAM_FWD, fx); w(S_CAM_FWD + 1, fz)
+        local sx, sy = axis and axis.x or 0, axis and axis.y or 0
+        local dx, dz = rx * sx + fx * sy, rz * sx + fz * sy
+        local dl = math.sqrt(dx * dx + dz * dz)
+        if dl > 1e-3 then w(S_LSTICK_DIR, dx / dl); w(S_LSTICK_DIR + 1, dz / dl) else w(S_LSTICK_DIR, 0); w(S_LSTICK_DIR + 1, 0) end
+        return true
+    end)
+    if not dir_ok then w(S_LSTICK_DIR, 0); w(S_LSTICK_DIR + 1, 0); w(S_CAM_FWD, 0); w(S_CAM_FWD + 1, 0) end
 end
 
 local function rumble()

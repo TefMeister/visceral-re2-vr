@@ -47,3 +47,14 @@ RE3 (namespace `offline`) is built on RE2's code (`app.ropeway`); its additions 
 5. **Checks**: flat first (the step's distance and the walls by the log), then the simulator (VR Bench presses), then
    Tefa in the headset for comfort (a 1 m move in 0.3 s may want to be shorter or slower).
 `MODEL: OPUS` to build; the slow-motion perfect dodge later is `MODEL: FABLE`.
+
+## Built the same afternoon (Tefa: "yes and if this is possible to do, then this type of dodge would be preferred in re3 as well")
+- `src/hands/sidestep.cpp` (shared with RE3 through `sync_shared.py`): 1.0 m over 0.30 s, smoothstep, Invincible for 0.25 s
+  (left alone if the game had it on), 0.8 s from step to step, a short buzz, only while FirstPerson drives the view and
+  not with the left hand on the gun. Every number in `sidestep.h`. The bridge Lua sends the right stick click (slot 39),
+  the left stick turned by the game camera into a world direction (604-605) and the camera's level forward (606-607).
+- RE3: our REFramework (`2026-11-16b-re2-re3-sidestep-click.patch`) gives the right stick click to the side step when
+  `visceral_native.dll` exports `visceral_own_sidestep()` = 1; the game's dodge action itself still dodges.
+- Simulator `[verified-live 2026-11-16, simulator, n=1 each]`: RE2 (b213): stick right = the camera's right, centred = straight
+  back, left = left; the step to the right went into a wall, stopped at 0.28 m and slid along it. RE3 (b022): the click
+  side-stepped, Jill's dodge animation did not play, Invincible on for ~0.26 s. Not worn; no enemy has swung at it yet.

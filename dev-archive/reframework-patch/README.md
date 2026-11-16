@@ -128,3 +128,9 @@ ef-76build-76b.bat`.
   the GUI camera flat; `OpenXR::end_frame` sends one quad (the left eye's swapchain, 16:9, `VisceralCutsceneScreenWidth`
   wide, `...Distance` ahead of where the head looked, level) instead of the eyes' layer. OpenVR: stays off. Build:
   `D:\ref-76b\build-76b.bat` -> `build2\bin\RE2\dinput8.dll`. Note: `modding-notes/2026-11-16-cutscenes-on-a-flat-screen-the-plan.md`.
+
+- `2026-11-16b-re2-re3-sidestep-click.patch` — against `76298bd`, cumulative (CONTAINS the 2026-11-16 cutscene screen patch;
+  apply this one alone; one tree, `D:\ref-76b`, builds both games: `build-76b.bat` RE2, `build-76b-re3.bat` RE3). RE3 only:
+  the right stick click goes to the game's dodge only when `visceral_native.dll` does not export `visceral_own_sidestep()`
+  returning 1; with our plugin it is the side step (`src/hands/sidestep.cpp`). The game's own dodge action still dodges.
+  Log: `[Visceral] RE3 right stick click: the side step ...`.
