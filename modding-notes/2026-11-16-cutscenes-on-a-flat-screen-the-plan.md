@@ -35,3 +35,16 @@ the Claire-after-the-crash cutscene named as broken). Nothing run; read from the
    the cutscene's end (FirstPerson's existing "no jump after a cutscene" code must still run).
 3. (flat, then simulator) the Claire cutscene from a save before it; the simulator's two-eye pictures show the quad.
 4. (Tefa, headset) comfort and size; then RE3 and Village get the same patch.
+
+## Step 1 done (same day, 13:30): built, installed, switched on, NOT run `[compile-verified 2026-11-16]`
+Patch `dev-archive/reframework-patch/2026-11-16-re2-cutscene-screen.patch` (README there says what each part does).
+Builds b211 (switch off) and b212 (switch on in `re2_fw_config.txt`, the installed state). The trigger is the game's
+own EVENT camera type, so ladders, doors, grabs and the inventory should stay in VR `[inferred-static]`; the log lines
+`[Visceral] cutscene screen: the game's camera type A -> B` say which types the first test really meets.
+What the first wear tells us, from the REFramework log:
+- `cutscene screen ON` / `OFF` at the cutscene's start and end, and nothing in between (no flicker);
+- `camera FOV x (the game's own | the fallback slider's)`: whether the game writes its own field of view in cutscenes;
+- `cutscene screen placed ...`: the quad's place.
+What to watch for in the headset: a screen at all (if black: the quad's picture or the swapchain chosen); squashed or
+stretched people (the field of view / aspect, step 2); half-rate picture (only the left eye's image, AFR); the return
+to VR at the end (FirstPerson's "no jump after a cutscene").

@@ -104,7 +104,8 @@ ef-76build-76b.bat` (target RE2) ->
   (Tefa 2026-11-02: "hand smoothing must always be off for melee weapons in any game"): `FirstPerson.cpp`'s arm code
   publishes whether a real gun is in hand, and the plugin's `visceral_sub_weapon_out()` says when the knife or a grenade
   is out. Simulator 2026-11-02, a made-up tremor on the right hand: 75-76% of the shake taken out at strength 4; knife out
-  = paused, back to the gun = working `[verified-live 2026-11-02, simulator, n=1]`. Build: `D:ef-76build-76b.bat`.
+  = paused, back to the gun = working `[verified-live 2026-11-02, simulator, n=1]`. Build: `D:
+ef-76build-76b.bat`.
   RE3 gets the same code on top of its own b145 set: `visceral-re3-vr/dev-archive/reframework-patch/`.
 
 - `2026-11-15-re2-re3-shared-layout-menu-and-dodge.patch` — against `76298bd`, cumulative (everything in `D:/ref-76b`,
@@ -118,3 +119,12 @@ ef-76build-76b.bat` (target RE2) ->
   `D:/Visceral build versions/_backup-2026-11-15-shared-layout-refw/`. Build: `D:/ref-76b/build2`, targets RE2 and RE3.
 
 - 2026-11-15 (later), the same patch file rewritten: the menu button tapped no longer pauses (REFramework raises `handle_pause` on the same press; it is no longer ORed into PAUSE). Installed RE2 b210 (dinput8 340ef5f7), RE3 b021 (1501c371). Found by the Village /lm session's reader `[inferred-static 2026-11-15, OpenXR.cpp:325]`, compiled, not run.
+
+- `2026-11-16-re2-cutscene-screen.patch` — against `76298bd`, CONTAINS the 2026-11-15 shared-layout patch (cumulative,
+  apply this one alone). Cutscenes on a flat screen in the headset (Tefa 2026-11-16), behind the menu switch
+  "[Visceral] Cutscenes on a flat screen (OpenXR)" (`VR_VisceralCutsceneScreen`, off by default; on in b212). While the
+  game's busy camera is EVENT (FirstPerson's `last_camera_type()`, 3 frames to switch either way): no head turn or eye
+  offset on the camera, the game's own projection and 16:9 aspect (fallback field of view slider if the game writes none),
+  the GUI camera flat; `OpenXR::end_frame` sends one quad (the left eye's swapchain, 16:9, `VisceralCutsceneScreenWidth`
+  wide, `...Distance` ahead of where the head looked, level) instead of the eyes' layer. OpenVR: stays off. Build:
+  `D:ef-76build-76b.bat` -> `build2in\RE2\dinput8.dll`. Note: `modding-notes/2026-11-16-cutscenes-on-a-flat-screen-the-plan.md`.
