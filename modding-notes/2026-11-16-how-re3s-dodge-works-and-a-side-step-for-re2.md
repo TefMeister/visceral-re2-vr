@@ -58,3 +58,10 @@ RE3 (namespace `offline`) is built on RE2's code (`app.ropeway`); its additions 
 - Simulator `[verified-live 2026-11-16, simulator, n=1 each]`: RE2 (b213): stick right = the camera's right, centred = straight
   back, left = left; the step to the right went into a wall, stopped at 0.28 m and slid along it. RE3 (b022): the click
   side-stepped, Jill's dodge animation did not play, Invincible on for ~0.26 s. Not worn; no enemy has swung at it yet.
+
+## ⚠️ What was really installed today (found 16:2x)
+`--deploy` installs the REFramework named in `tools/install-list.txt` (RE2: the 11-02 build; RE3: d60128e7 of 11-02) and the
+repo's `game-folder/re2_fw_config.txt`, so every REFramework copied in by hand was put back by the next --deploy. Tests run
+right after a hand copy (no deploy after it) were valid: RE3 b022 side step, b023 roll off, b024 A / Y, RE2 b214 A / Y. NOT
+valid: RE2 b213 and its REFramework parts (b213's snapshot holds the 11-02 REFramework). Fixed: both install lists now name
+our builds of patch 2026-11-16e (kept in each backup's `loaders/`) and the repo's config carries the cutscene-screen switch.

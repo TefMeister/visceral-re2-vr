@@ -108,3 +108,4 @@ VR_SetStandingOriginKey=-1
 VR_UseCustomViewDistance=false
 VR_VisceralMenuFitWindow=true
 VR_WorldSpaceUIScale=15.000000
+VR_VisceralCutsceneScreen=true

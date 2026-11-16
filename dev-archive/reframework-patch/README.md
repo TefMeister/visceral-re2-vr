@@ -145,3 +145,9 @@ ef-76build-76b.bat`.
   while FirstPerson is not driving (the title and menus still start / confirm on A); left B (Y) keeps INVENTORY. Seen on
   the simulator in both games: A in the open does nothing, Y opens the inventory, X closes it. (In RE3 A next to the
   typewriter opens the wall map, `openInventoryMapMode`: that is the map's own interaction.)
+
+- `2026-11-16e-doors-by-hand.patch` — cumulative (CONTAINS 2026-11-16d; apply this one alone). ACTION also goes on while
+  `visceral_native.dll`'s `visceral_action_pulse()` says 1: the hand pressing on a shut door (`src/hands/doorpush.cpp`) gets A
+  pressed for the game. Built: RE2 dinput8 0448cf6e, RE3 84ce7341, kept in each backup's `loaders/` and named in
+  `tools/install-list.txt`, so `--deploy` installs them (before 2026-11-16 every hand-copied REFramework was put back to the
+  11-02 one by the next --deploy).

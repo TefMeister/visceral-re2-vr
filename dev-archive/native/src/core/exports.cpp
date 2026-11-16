@@ -21,3 +21,8 @@ extern "C" __declspec(dllexport) int visceral_hands_frozen() { return 0; }
 // before it hands the right stick click to the game's own dodge; 1 = the click is the side step's (src/hands/sidestep.cpp)
 #include "sidestep.h"
 extern "C" __declspec(dllexport) int visceral_own_sidestep() { return vn::sidestep::owns_click() ? 1 : 0; }
+
+// 2026-11-16 (Tefa: doors pushed by the hand): our REFramework ORs this into the game's ACTION (A) while the hand presses on
+// a shut door, so the game opens it as if A was pressed (src/hands/doorpush.cpp); A itself still opens doors
+#include "doorpush.h"
+extern "C" __declspec(dllexport) int visceral_action_pulse() { return vn::doorpush::action_pulse() ? 1 : 0; }

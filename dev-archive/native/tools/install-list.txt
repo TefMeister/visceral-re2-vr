@@ -7,7 +7,10 @@
 # Everything of OURS in the game folder that is not on the list for the chosen layer is moved out by --deploy.
 
 # ---- layer 1: the loader (design section 7, item 0) ----------------------------------------------------------------
-1 backup:dinput8.dll                                         dinput8.dll
+# 2026-11-16: REFramework 76298bd + the cumulative patch 2026-11-16d (dev-archive/reframework-patch: shared layout, cutscene screen,
+# side step click, RE3 roll off, A only interact, doors by hand). A REFramework copied in by hand is put back to this by every
+# --deploy: build it, put it in loaders/, and change this line (that is how the 11-15 / 11-16 copies were lost, 2026-11-16).
+1 backup:../loaders/dinput8-0448cf6e-re2-patch-2026-11-16d-doorpush.dll   dinput8.dll   # was backup:dinput8.dll (the 11-02 build)
 1 backup:openxr_loader.dll                                   openxr_loader.dll
 1 backup:LICENSE-REFramework.txt                             LICENSE-REFramework.txt
 1 backup:ref_ui.ini                                          ref_ui.ini
