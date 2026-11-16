@@ -139,3 +139,9 @@ ef-76build-76b.bat`.
   (`visceral_own_sidestep()` = 1) the game's own dodge (bit 51, `RE3_Dodge`, right A when nothing is near) is never asked
   for (Tefa 2026-11-16: "please remove the original dodge roll if possible"). A in open floor then opens the inventory, its
   other job, as in RE2.
+
+- `2026-11-16d-a-only-interact.patch` — cumulative (CONTAINS 2026-11-16c; apply this one alone). RE2 and RE3 (Tefa 2026-11-16:
+  "A should only be interact, and inventory should only be Y"): right A no longer sends ITEM, and sends PRESS_START only
+  while FirstPerson is not driving (the title and menus still start / confirm on A); left B (Y) keeps INVENTORY. Seen on
+  the simulator in both games: A in the open does nothing, Y opens the inventory, X closes it. (In RE3 A next to the
+  typewriter opens the wall map, `openInventoryMapMode`: that is the map's own interaction.)
