@@ -1,0 +1,1165 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index edd8b8f6..dcb78b7d 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -49,11 +49,8 @@ project(reframework
+ 	LANGUAGES
+ 		CXX
+ 		C
+-		CSharp
+ )
+ 
+-include(CSharpUtilities)
+-
+ set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
+ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /MP")
+ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /MP")
+diff --git a/cmake.toml b/cmake.toml
+index b5aa4a2f..83c74e8a 100644
+--- a/cmake.toml
++++ b/cmake.toml
+@@ -4,7 +4,7 @@
+ # > cmake --build build --config Release
+ [project]
+ name = "reframework"
+-languages = ["CXX", "C", "CSharp"]
++languages = ["CXX", "C"]
+ cmake-after = """
+ set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
+ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /MP")
+diff --git a/src/REFramework.cpp b/src/REFramework.cpp
+index f593697a..2a79348a 100644
+--- a/src/REFramework.cpp
++++ b/src/REFramework.cpp
+@@ -825,6 +825,36 @@ void REFramework::run_imgui_frame(bool from_present) {
+     
+     ImGui_ImplWin32_NewFrame();
+ 
++    // Visceral (RE2 VR), 2026-10-24: the menu text was squished in VR (Tefa 2026-10-11). On OpenXR the menu is never
++    // put in the headset; it is drawn onto the back buffer, which in VR is the eye size (2688x2880 on a Quest 3 via
++    // Virtual Desktop), and the window shows that back buffer shrunk into its own 16:9 client area. ImGui lays the menu
++    // out for the client size and drew it 1:1 into the back buffer's top-left corner, so the window's shrink flattened
++    // it. Scaling the draw to the whole back buffer (the framebuffer scale) lets the window's shrink undo it exactly:
++    // the menu shows at the window's own pixels, and the mouse, already in window pixels, lines up with no change.
++    // Not on OpenVR: its overlay reads the menu target and maps the laser in back buffer pixels.
++    {
++        auto& io = ImGui::GetIO();
++        io.DisplayFramebufferScale = ImVec2{1.0f, 1.0f};
++
++        const auto& vr = VR::get();
++        const auto is_d3d11 = m_renderer_type == RendererType::D3D11;
++        const auto rt_w = (float)(is_d3d11 ? m_d3d11.rt_width : m_d3d12.rt_width);
++        const auto rt_h = (float)(is_d3d11 ? m_d3d11.rt_height : m_d3d12.rt_height);
++
++        if (vr->is_ui_fit_window() && vr->is_hmd_active() && vr->get_runtime()->is_openxr() &&
++            rt_w > 0.0f && rt_h > 0.0f && io.DisplaySize.x > 0.0f && io.DisplaySize.y > 0.0f) {
++            io.DisplayFramebufferScale = ImVec2{rt_w / io.DisplaySize.x, rt_h / io.DisplaySize.y};
++        }
++
++        static ImVec2 s_logged_scale{1.0f, 1.0f};
++
++        if (std::abs(io.DisplayFramebufferScale.x - s_logged_scale.x) > 0.01f || std::abs(io.DisplayFramebufferScale.y - s_logged_scale.y) > 0.01f) {
++            s_logged_scale = io.DisplayFramebufferScale;
++            spdlog::info("[Visceral] menu drawn at scale {:.3f} x {:.3f} (window {}x{}, back buffer {}x{})",
++                s_logged_scale.x, s_logged_scale.y, (int)io.DisplaySize.x, (int)io.DisplaySize.y, (int)rt_w, (int)rt_h);
++        }
++    }
++
+     // from_present is so we don't accidentally
+     // run script/game code within the present thread.
+     if (is_init_ok && !from_present) {
+diff --git a/src/mods/FirstPerson.cpp b/src/mods/FirstPerson.cpp
+index 71c87795..7837522d 100644
+--- a/src/mods/FirstPerson.cpp
++++ b/src/mods/FirstPerson.cpp
+@@ -1,4 +1,7 @@
++#include <atomic>
+ #include <unordered_set>
++#include <filesystem>
++#include <fstream>
+ 
+ #include <spdlog/spdlog.h>
+ #include <imgui.h>
+@@ -12,6 +15,10 @@
+ #include "VR.hpp"
+ #include "FirstPerson.hpp"
+ 
++// Visceral 2026-11-02: read by VR.cpp's hand smoothing (guns only)
++std::atomic<bool> g_visceral_gun_in_hand{false};
++std::atomic<long long> g_visceral_gun_seen{0};
++
+ #if defined(RE2) || defined(RE3)
+ 
+ FirstPerson* g_first_person = nullptr;
+@@ -322,9 +329,14 @@ void FirstPerson::on_pre_update_transform(RETransform* transform) {
+         const auto gui_state = *sdk::get_object_field<int32_t>(m_gui_master, "<State_>k__BackingField");
+         const auto is_paused = gui_state == (int32_t)app::ropeway::gui::GUIMaster::GuiState::PAUSE || gui_state == (int32_t)app::ropeway::gui::GUIMaster::GuiState::INVENTORY;
+ 
+-        m_last_pause_state = is_paused;
++        note_pause_state(is_paused);
+         m_last_camera_type = utility::re_managed_object::get_field<app::ropeway::camera::CameraControlType>(m_camera_system, "BusyCameraType");
+ 
++        // [Visceral 2026-10-24] one game frame of the menu-close hold used up (this runs once per frame, before the camera)
++        if (m_menu_close_hold_frames > 0) {
++            --m_menu_close_hold_frames;
++        }
++
+         m_cached_bone_matrix = nullptr;
+ 
+         update_player_vr(m_player_transform);
+@@ -415,7 +427,24 @@ void FirstPerson::on_update_camera_controller(RopewayPlayerCameraController* con
+     //*(glm::quat*)&controller->worldRotation = glm::quat{ nudged_mtx  };
+ 
+     //m_last_controller_pos = controller->worldPosition;
+-    m_last_controller_rotation = *(glm::quat*)&controller->worldRotation;
++    if (m_menu_close_hold_frames > 0) {
++        // [Visceral 2026-10-24] INVENTORY EXIT JUMP (Tefa 2026-10-17: "the whole world in front of me teleports to the
++        // left for a frame or 2 and then snaps back"). When the inventory closes the game switches back to the player
++        // camera and seeds its rotation from the camera as it stood, which already carries a headset turn (ours or the VR
++        // layer's); this hook took that as the body direction and the headset turn was multiplied on again, so the
++        // head's yaw was in the view twice for a frame or two (10-19 log: the close frame is off by exactly the headset
++        // yaw, the body direction itself never changes). While the hold runs, the body direction from before the menu
++        // rules instead; the stick cannot have turned it meanwhile.
++        if (!m_menu_close_logged) {
++            m_menu_close_logged = true;
++            const auto offered = glm::normalize(*(glm::quat*)&controller->worldRotation);
++            const auto off_deg = glm::degrees(glm::angle(glm::normalize(glm::inverse(m_pre_menu_controller_rotation) * offered)));
++            spdlog::info("[Visceral] menu closed: the game offered a body direction {:.1f} deg off the one from before the menu; the old one rules for {} frames", off_deg, m_menu_close_hold_frames);
++        }
++        m_last_controller_rotation = m_pre_menu_controller_rotation;
++    } else {
++        m_last_controller_rotation = *(glm::quat*)&controller->worldRotation;
++    }
+ 
+     update_camera_transform(m_camera->ownerGameObject->transform);
+ 
+@@ -434,6 +463,14 @@ void FirstPerson::on_update_camera_controller2(RopewayPlayerCameraController* co
+ 
+     std::lock_guard _{ m_matrix_mutex };
+ 
++    // [Visceral 2026-10-24] menu-close hold: keep the pre-menu body direction and write it back into the controller
++    // (the ignore path below does the write), every frame the hold runs, so the game's seeded value never reaches the view
++    if (m_menu_close_hold_frames > 0) {
++        m_ignore_next_player_angles = true;
++        m_last_controller_rotation = m_pre_menu_controller_rotation;
++        m_last_controller_angles = m_pre_menu_controller_angles;
++    }
++
+     const auto allowed = is_first_person_allowed();
+ 
+     if (!allowed && !m_ignore_next_player_angles) {
+@@ -892,12 +929,6 @@ void FirstPerson::update_player_arm_ik(RETransform* transform) {
+     auto [rh_rotation, rh_pos] = calculate_joint_pos_rot(r_arm_wrist_hash, 1);
+     auto [lh_rotation, lh_pos] = calculate_joint_pos_rot(l_arm_wrist_hash, 0);
+ 
+-    auto lh_grip_position = rh_pos + (rh_rotation * original_left_pos_relative);
+-    const auto lh_delta_to_rh = (lh_pos - rh_pos);
+-    const auto lh_grip_delta_to_rh = (lh_grip_position - rh_pos);
+-    const auto lh_grip_delta = (lh_grip_position - lh_pos);
+-    const auto lh_grip_distance = glm::length(lh_grip_delta);
+-
+     const auto& vr = VR::get();
+     const auto is_holding_left_grip = vr->is_action_active(vr->get_action_grip(), vr->get_left_joystick());
+ 
+@@ -905,10 +936,159 @@ void FirstPerson::update_player_arm_ik(RETransform* transform) {
+     const auto player_condition = utility::re_component::find<REComponent>(transform, player_condition_def->get_type());
+     const bool is_reloading = player_condition != nullptr ? sdk::call_object_func_easy<bool>(player_condition, "get_IsReload") : false;
+     const bool is_aiming = player_condition != nullptr ? sdk::call_object_func_easy<bool>(player_condition, "get_IsHold") : false;
+-    
+-    if (is_aiming && !is_reloading && (lh_grip_distance <= 0.1 || (m_was_gripping_weapon && is_holding_left_grip))) {
+-        // pistol "fix"
+-        if (glm::length(Vector3f{original_left_pos_relative}) >= 0.1f) {
++
++    // Visceral (RE2 VR), 2026-10-09: never dock the left hand while a SUB weapon (knife, grenade) is in hand.
++    // VR.cpp sends the game's SUPPORT_HOLD (ready the sub weapon) as "left grip AND NOT was_gripping_weapon". With the
++    // grenade out the game is in its hold state, so the dock below could switch on whenever the real left hand came
++    // within 10 cm of the animation's left-wrist spot: the dock drops SUPPORT_HOLD, the grenade goes away, the hold
++    // ends, the dock lets go, SUPPORT_HOLD comes back - the grenade flipping in and out that Tefa saw (probe
++    // 2026-10-09: SUPPORT_HOLD off for one frame every 1.5-2.5 s while held). The two-handed dock is for guns; a sub
++    // weapon is held in the left hand by the game itself, so the left hand simply follows its controller.
++    bool sub_weapon_in_hand = false;
++    REManagedObject* weapon = nullptr;
++    {
++        static auto equipment_t = sdk::find_type_definition(game_namespace("survivor.Equipment"));
++        static auto implement_melee_t = sdk::find_type_definition(game_namespace("implement.Melee"));
++        static auto throw_grenade_generator_t = sdk::find_type_definition(game_namespace("weapon.generator.ThrowGrenadeGenerator"));
++        const auto equipment = equipment_t != nullptr ? utility::re_component::find<REComponent>(transform, equipment_t->get_type()) : nullptr;
++        const auto weapon_field = equipment_t != nullptr ? equipment_t->get_field("<EquipWeapon>k__BackingField") : nullptr;
++        weapon = (equipment != nullptr && weapon_field != nullptr) ? weapon_field->get_data<REManagedObject*>(equipment) : nullptr;
++        if (weapon != nullptr) {
++            const auto weapon_t = utility::re_managed_object::get_type_definition(weapon);
++            if (weapon_t != nullptr && implement_melee_t != nullptr && weapon_t->is_a(implement_melee_t)) {
++                sub_weapon_in_hand = true;
++            } else if (throw_grenade_generator_t != nullptr) {
++                const auto shell_generator = *sdk::get_object_field<REManagedObject*>(weapon, "<ShellGenerator>k__BackingField");
++                const auto shell_generator_t = shell_generator != nullptr ? utility::re_managed_object::get_type_definition(shell_generator) : nullptr;
++                if (shell_generator_t != nullptr && shell_generator_t->is_a(throw_grenade_generator_t)) {
++                    sub_weapon_in_hand = true;
++                }
++            }
++        }
++    }
++
++    // Visceral (RE2 VR), 2026-10-10: the two-handed grip in any state, from the gun's own support-hand anchor.
++    // The grip socket (left wrist relative to the right wrist) used to come from the playing animation every frame.
++    // Visceral's animation files carry the RELAXED, one-handed pose in every state (the Leon pose fix of 2026-10-04),
++    // so that socket is never on the gun (b119 learned 0.55 m: the hanging left hand) and the dock could never engage.
++    // The game itself has the answer: every weapon carries an AID JOINT (`Implement.get_AidJoint()`, weapon joint _101
++    // or _100 by AidJointType), and the game's own two-hand hold pins the player's LEFT WRIST exactly onto it (measured
++    // 2026-09-04/05, |l_arm_wrist - _101| = 0.000 in every stock state). So the socket is the aid joint, read each frame
++    // relative to the right wrist (the gun is rigidly attached to it). Tefa's rule (2026-09-22): the left hand docks
++    // ONLY while the left grip is held, within 15 cm at the press, sticky until release, the gun turned forestock-into-
++    // hand at the press (the "pistol fix" below), no angle cap. No input is touched, so the pose stays as the game plays
++    // it, running included. Aiming uses the same socket, so the shot's kick cannot swing the gun (the 10-02 fix by
++    // another route). Reloads follow the animation's own left-hand position.
++    constexpr float VISCERAL_DOCK_M = 0.15f;
++    const bool is_gun = weapon != nullptr && !sub_weapon_in_hand;
++    // Visceral 2026-11-02 (Tefa: "hand smoothing must always be off for melee weapons in any game, only option for guns"):
++    // VR.cpp's hand smoothing runs only while this says a real gun (not a knife, not a grenade) is in hand, seen lately
++    g_visceral_gun_in_hand.store(is_gun);
++    g_visceral_gun_seen.store(std::chrono::steady_clock::now().time_since_epoch().count());
++    const int32_t weapon_type = is_gun ? sdk::call_object_func_easy<int32_t>(weapon, "get_WeaponType") : -1;
++    bool have_socket = false;
++    Vector4f socket_pos{};
++    glm::quat socket_rot{glm::identity<glm::quat>()};
++    float aid_to_real_wrist = -1.0f;   // for the log: how far the real left wrist is from the aid joint
++    if (is_gun) {
++        const auto aid_joint = sdk::call_object_func_easy<REJoint*>(weapon, "get_AidJoint");
++        const auto r_wrist_joint = sdk::get_transform_joint_by_hash(transform, r_arm_wrist_hash);
++        const auto l_wrist_joint = sdk::get_transform_joint_by_hash(transform, l_arm_wrist_hash);
++        if (aid_joint != nullptr && r_wrist_joint != nullptr) {
++            const auto aid_pos = sdk::get_joint_position(aid_joint);
++            const auto aid_rot = sdk::get_joint_rotation(aid_joint);
++            const auto rw_pos = sdk::get_joint_position(r_wrist_joint);
++            const auto rw_rot = sdk::get_joint_rotation(r_wrist_joint);
++            socket_pos = glm::inverse(rw_rot) * (aid_pos - rw_pos);
++            socket_pos.w = 0.0f;
++            socket_rot = glm::normalize(glm::inverse(rw_rot) * aid_rot);
++            have_socket = glm::length(Vector3f{socket_pos}) > 0.01f && glm::length(Vector3f{socket_pos}) < 1.0f;
++            if (l_wrist_joint != nullptr) {
++                aid_to_real_wrist = glm::length(Vector3f{sdk::get_joint_position(l_wrist_joint) - aid_pos});
++            }
++        }
++    }
++
++    // 2026-10-10 01:10 (b121): the socket is LATCHED at the press and kept while docked. b120 read it fresh every frame
++    // and the gun teleported between two spots on alternate frames (Tefa's video, 29 frames at 60 fps, strictly
++    // alternating): the dock turns the right hand, the gun follows a frame later, the fresh reading changes, the turn
++    // changes back - a two-frame loop. Taken once, at the press, the socket cannot feed back. (The 10-02 freeze did the
++    // same for the animation's socket.) The raw reading is logged for 60 frames after a dock to show the loop.
++    // Visceral 2026-10-10 (b143): the plugin may hand over its OWN socket (the left hand on the SLIDE for a rack, in
++    // right-wrist space), through visceral_native.dll's exported visceral_dock_socket(). While it does, that socket
++    // replaces the aid joint's and the latch is bypassed (the slide moves under the hand on purpose).
++    // Visceral 2026-10-14 (b176), version 2 of the socket adds two words (version 1 behaves as before):
++    //   steer: 0 = while the hand sits on the plugin's socket the RIGHT hand alone aims (a pistol slide being racked:
++    //          Tefa, "stopping left hand from moving the pistol when hand is on the slider"); 1 = the two-handed turn
++    //   owned: 1 = the plugin owns this gun's grip: with its socket inactive the hand is NOT docked on the aid joint
++    //          either (a pump gun had two grip spots, the aid joint's wrist pin and the plugin's hand-on-fore-end,
++    //          "depending on where i point the gun before pressing LG")
++    struct VisceralDockSocket { int version; int active; float px, py, pz; float qx, qy, qz, qw; int steer; int owned; };
++    static VisceralDockSocket* (*visceral_socket)() = nullptr;
++    if (visceral_socket == nullptr) {
++        if (const auto h = GetModuleHandleA("visceral_native.dll"); h != nullptr) {
++            visceral_socket = (VisceralDockSocket * (*)())GetProcAddress(h, "visceral_dock_socket");
++            if (visceral_socket != nullptr) spdlog::info("[Visceral] the dock socket can now come from visceral_native.dll");
++        }
++    }
++    bool visceral_override = false;
++    bool visceral_steer = true;
++    bool visceral_owned = false;
++    if (visceral_socket != nullptr && is_gun) {
++        if (const auto* vs = visceral_socket(); vs != nullptr && (vs->version == 1 || vs->version == 2)) {
++            if (vs->version == 2) {
++                visceral_owned = vs->owned != 0;
++                visceral_steer = vs->steer != 0;
++            }
++            if (vs->active) {
++                socket_pos = Vector4f{vs->px, vs->py, vs->pz, 0.0f};
++                socket_rot = glm::normalize(glm::quat{vs->qw, vs->qx, vs->qy, vs->qz});
++                have_socket = true;
++                visceral_override = true;
++            } else if (visceral_owned) {
++                have_socket = false;   // the plugin's gun, the plugin's grip: no aid-joint dock while its socket is off
++            }
++        }
++    }
++    if (visceral_owned != m_visceral_owned_logged) {
++        m_visceral_owned_logged = visceral_owned;
++        spdlog::info("[Visceral] weapon type {}: the grip is {}", weapon_type, visceral_owned ? "the plugin's alone (no aid-joint dock)" : "the aid joint's again");
++    }
++
++    const Vector4f raw_socket_pos = socket_pos;
++    if (visceral_override || visceral_owned) {
++        // no latch: the plugin's socket is the truth every frame (and an owned gun never falls back to a latched aid joint)
++    } else if (m_was_gripping_weapon && m_latched_socket_type == weapon_type) {
++        socket_pos = m_latched_socket_pos;
++        socket_rot = m_latched_socket_rot;
++        have_socket = true;
++    } else if (have_socket) {
++        m_latched_socket_pos = socket_pos;
++        m_latched_socket_rot = socket_rot;
++        m_latched_socket_type = weapon_type;
++    }
++    if (m_dock_log_frames > 0 && is_gun) {
++        --m_dock_log_frames;
++        spdlog::info("[Visceral] socket raw ({:.3f} {:.3f} {:.3f}) latched ({:.3f} {:.3f} {:.3f}) aiming {}",
++                     raw_socket_pos.x, raw_socket_pos.y, raw_socket_pos.z, socket_pos.x, socket_pos.y, socket_pos.z, is_aiming);
++    }
++
++    auto lh_grip_position = rh_pos + (rh_rotation * socket_pos);
++    const auto lh_delta_to_rh = (lh_pos - rh_pos);
++    const auto lh_grip_delta_to_rh = (lh_grip_position - rh_pos);
++    const auto lh_grip_delta = (lh_grip_position - lh_pos);
++    const auto lh_grip_distance = glm::length(lh_grip_delta);
++
++    // 2026-10-10 01:40 (b123): a reload while docked. The dock let go for the reload (the hand must follow the reload
++    // animation), so was_gripping_weapon went false, VR.cpp then sent SUPPORT_HOLD (left grip still held) and the game
++    // switched to the sub weapon, cancelling the reload; the hand snapped back on: Tefa "cannot reload while LG is docked
++    // on the gun". Now the GRIP is kept through the reload (no SUPPORT_HOLD) while the HAND follows the animation.
++    const bool dock_wanted = have_socket && is_holding_left_grip && (m_was_gripping_weapon || lh_grip_distance <= VISCERAL_DOCK_M);
++    const bool dock = dock_wanted && !is_reloading;
++    if (dock) {
++        // pistol "fix": turn the gun so its socket meets the real left hand -- unless the plugin's socket says the
++        // right hand alone aims (b176: a pistol slide being racked must not drag the gun after the left hand)
++        if (visceral_steer && glm::length(Vector3f{socket_pos}) >= 0.1f) {
+             const auto original_grip_rot = utility::math::to_quat(glm::normalize(lh_grip_delta_to_rh));
+             const auto current_grip_rot = utility::math::to_quat(glm::normalize(lh_delta_to_rh));
+ 
+@@ -918,24 +1098,45 @@ void FirstPerson::update_player_arm_ik(RETransform* transform) {
+             rh_rotation = glm::normalize(grip_rot_delta * rh_rotation);
+ 
+             // Adjust the grip position
+-            lh_grip_position = rh_pos + (rh_rotation * original_left_pos_relative);
++            lh_grip_position = rh_pos + (rh_rotation * socket_pos);
+             lh_grip_position.w = 1.0f;
+         }
+ 
+         // Set the left hand position and rotation to the grip position
+         lh_pos = lh_grip_position;
+-        lh_rotation = rh_rotation * original_left_rot_relative;
++        lh_rotation = rh_rotation * socket_rot;
+ 
++        if (!m_was_gripping_weapon) {
++            m_dock_log_frames = 60;
++            spdlog::info("[Visceral] left hand docked on weapon type {} (aiming {}, {:.3f} m from the socket; socket ({:.3f} {:.3f} {:.3f}) from the right wrist)",
++                         weapon_type, is_aiming, lh_grip_distance, socket_pos.x, socket_pos.y, socket_pos.z);
++        }
+         m_was_gripping_weapon = true;
+     } else {
+-        m_was_gripping_weapon = false;
++        if (is_reloading && dock_wanted) {
++            if (!m_logged_reload_grip) {
++                m_logged_reload_grip = true;
++                spdlog::info("[Visceral] reloading with the left grip held: grip kept, hand follows the reload animation");
++            }
++            m_was_gripping_weapon = true;
++        } else {
++            if (m_was_gripping_weapon) {
++                spdlog::info("[Visceral] left hand let go (grip {}, reloading {})", is_holding_left_grip, is_reloading);
++            }
++            m_was_gripping_weapon = false;
++            m_logged_reload_grip = false;
++        }
++        if (is_gun && ++m_socket_log_frames >= 90) {   // about once a second while a gun is held and not docked
++            m_socket_log_frames = 0;
++            spdlog::info("[Visceral] socket: weapon type {}, aid joint {}, real left wrist {:.3f} m from the aid joint, controller hand {:.3f} m from the socket, left grip {}, aiming {}",
++                         weapon_type, have_socket ? "ok" : "none", aid_to_real_wrist, lh_grip_distance, is_holding_left_grip, is_aiming);
++        }
+ 
+-        if (is_reloading) {
+-            lh_pos = lh_grip_position;
++        if (is_reloading && via_motion != nullptr) {
++            // the reload animation moves the left hand itself (magazine): follow it, as before
++            lh_pos = rh_pos + (rh_rotation * original_left_pos_relative);
++            lh_pos.w = 1.0f;
+             lh_rotation = rh_rotation * original_left_rot_relative;
+-        } else {
+-            lh_pos = lh_pos;
+-            lh_rotation = lh_rotation;
+         }
+     }
+ 
+@@ -1460,7 +1661,17 @@ void FirstPerson::update_camera_transform(RETransform* transform) {
+     const auto is_paused = gui_state == (int32_t)app::ropeway::gui::GUIMaster::GuiState::PAUSE || gui_state == (int32_t)app::ropeway::gui::GUIMaster::GuiState::INVENTORY;
+ 
+     m_last_camera_type = utility::re_managed_object::get_field<app::ropeway::camera::CameraControlType>(m_camera_system, "BusyCameraType");
+-    m_last_pause_state = is_paused;
++    note_pause_state(is_paused);
++
++    // [Visceral 2026-10-19] The inventory's own camera (type INVENTORY) stays busy for a frame or two after the
++    // inventory has closed. Read as "not the player camera", those frames went down the cutscene path: the last
++    // rendered view (which already holds the headset's turn) became the controller rotation and the headset turn was
++    // applied on top again, so the first frame back showed the world turned by the head's turn (Tefa: "the whole world
++    // in front of me teleports to the left for a frame or 2"; size varies, sometimes none). Once the menu is closed
++    // the player is back in control, so that leftover camera is treated as the player's.
++    if (m_last_camera_type == app::ropeway::camera::CameraControlType::INVENTORY && !is_paused) {
++        m_last_camera_type = app::ropeway::camera::CameraControlType::PLAYER;
++    }
+ 
+     const auto is_player_camera = m_last_camera_type == app::ropeway::camera::CameraControlType::PLAYER && !is_paused;
+     const auto is_switching_camera = utility::re_managed_object::get_field<bool>(m_camera_system->mainCameraController, "SwitchingCamera");
+@@ -1591,6 +1802,17 @@ void FirstPerson::update_camera_transform(RETransform* transform) {
+ 
+     auto bone_scale = (is_player_in_control || is_switching_to_player_camera) ? (m_interp_bone_scale * 0.01f) : 1.0f;
+ 
++    // [Visceral 2026-10-24] menu-close hold (see on_update_camera_controller): whatever reached m_last_controller_rotation
++    // this frame, the view is built from the pre-menu body direction; a camera still switching back keeps the hold alive
++    if (m_menu_close_hold_frames > 0 && is_player_camera) {
++        m_last_controller_rotation = m_pre_menu_controller_rotation;
++        m_last_controller_angles = m_pre_menu_controller_angles;
++
++        if (is_switching_camera && m_menu_close_hold_frames < 2) {
++            m_menu_close_hold_frames = 2;
++        }
++    }
++
+     auto cam_rot_mat = glm::extractMatrixRotation(Matrix4x4f{ m_last_controller_rotation });
+     auto head_rot_mat = glm::extractMatrixRotation(m_last_bone_matrix) * Matrix4x4f {
+         -1, 0, 0, 0,
+@@ -1669,8 +1891,15 @@ void FirstPerson::update_camera_transform(RETransform* transform) {
+     //}
+ 
+     if (vr->is_hmd_active()) {
+-        const auto last_headset_rotation = !is_player_in_control ? m_last_headset_rotation_pre_cutscene : glm::identity<Matrix4x4f>();
+-        const auto inverse_last_headset_rotation = !is_player_in_control ? glm::inverse(m_last_headset_rotation_pre_cutscene) : glm::identity<Matrix4x4f>();
++        // [Visceral 2026-10-19] A switch, a ladder or a cupboard push starts with a frame or two of SwitchingCamera on
++        // the player camera. Those frames are not "in control", so the headset's turn was measured against the stored
++        // pre-cutscene headset rotation (stale: from the last real cutscene or the last return to control), which
++        // snapped the view to that old head direction (Tefa: "grabs the camera and points it at the centered hmd
++        // direction for just a frame or 2"). Only a return FROM a cutscene (m_has_cutscene_rotation) needs that
++        // compensation; a switch from normal play keeps the real headset turn, as in control.
++        const auto headset_as_in_control = is_player_in_control || (is_switching_to_player_camera && !m_has_cutscene_rotation);
++        const auto last_headset_rotation = !headset_as_in_control ? m_last_headset_rotation_pre_cutscene : glm::identity<Matrix4x4f>();
++        const auto inverse_last_headset_rotation = !headset_as_in_control ? glm::inverse(m_last_headset_rotation_pre_cutscene) : glm::identity<Matrix4x4f>();
+         const auto headset_rotation = inverse_last_headset_rotation * real_headset_rotation;
+ 
+         if (is_first_person_allowed()) {
+@@ -1903,6 +2132,23 @@ float FirstPerson::update_delta_time(REComponent* component) {
+     return utility::re_component::get_delta_time(component);
+ }
+ 
++// [Visceral 2026-10-24] every place that refreshes the pause flag goes through here, so a menu's open and close are seen
++// exactly once each whichever hook sees them first. Open: remember the body direction (the controller as the game last
++// computed it, no headset). Close: let it rule for MENU_CLOSE_HOLD_FRAMES frames (the inventory exit jump).
++void FirstPerson::note_pause_state(bool is_paused) {
++    if (is_paused && !m_last_pause_state) {
++        m_pre_menu_controller_rotation = m_last_controller_rotation;
++        m_pre_menu_controller_angles = m_last_controller_angles;
++        m_has_pre_menu_rotation = true;
++    } else if (!is_paused && m_last_pause_state && m_has_pre_menu_rotation) {
++        m_menu_close_hold_frames = MENU_CLOSE_HOLD_FRAMES;
++        m_menu_close_logged = false;
++        m_ignore_next_player_angles = true;
++    }
++
++    m_last_pause_state = is_paused;
++}
++
+ bool FirstPerson::is_first_person_allowed() const {
+     if (m_last_pause_state) {
+         return false;
+diff --git a/src/mods/FirstPerson.hpp b/src/mods/FirstPerson.hpp
+index d8908953..a660baf5 100644
+--- a/src/mods/FirstPerson.hpp
++++ b/src/mods/FirstPerson.hpp
+@@ -1,5 +1,7 @@
+ #pragma once
+ 
++#include <unordered_map>
++
+ #include <chrono>
+ #include <mutex>
+ 
+@@ -23,6 +25,11 @@ public:
+         return is_enabled() && is_first_person_allowed() && m_player_transform != nullptr;
+     }
+ 
++    // [Visceral 2026-11-16] the game's busy camera type (EVENT = a cutscene), for VR's cutscene screen
++    int last_camera_type() const {
++        return (int)m_last_camera_type;
++    }
++
+     void toggle();
+ 
+     std::string_view get_name() const override { return "FirstPerson"; };
+@@ -118,6 +125,17 @@ private:
+     bool m_last_pause_state{false};
+     app::ropeway::camera::CameraControlType m_last_camera_type{};
+ 
++    // [Visceral 2026-10-24] the body direction (the game's player camera controller, no headset in it) as it was at the
++    // last in-control frame before a menu opened, and for how many frames after the menu's close it still rules the view
++    // (the game seeds the returning player camera with the previous camera's rotation, headset turn and all)
++    static constexpr int MENU_CLOSE_HOLD_FRAMES = 4;
++    glm::quat m_pre_menu_controller_rotation{};
++    Vector3f m_pre_menu_controller_angles{};
++    bool m_has_pre_menu_rotation{false};
++    bool m_menu_close_logged{false};
++    int m_menu_close_hold_frames{0};
++    void note_pause_state(bool is_paused);
++
+     // Don't show first person when the camera is not one of these
+     std::unordered_set<app::ropeway::camera::CameraControlType> m_allowed_camera_types{
+         app::ropeway::camera::CameraControlType::PLAYER, // normal gameplay
+@@ -165,6 +183,15 @@ private:
+     bool m_wants_disable{false};
+     bool m_was_hmd_active{false};
+     bool m_was_gripping_weapon{false};
++    // Visceral 2026-10-10: the remembered grip socket per weapon type (left wrist relative to the right wrist, from the
++    // aim animation), so the left hand can dock in any state and the grip never swings after a shot
++    int32_t m_socket_log_frames{0};
++    Vector4f m_latched_socket_pos{};                       // the grip socket taken at the press, kept while docked (b121)
++    glm::quat m_latched_socket_rot{glm::identity<glm::quat>()};
++    int32_t m_latched_socket_type{-1};
++    int32_t m_dock_log_frames{0};
++    bool m_logged_reload_grip{false};
++    bool m_visceral_owned_logged{false};   // b176: the last 'grip is the plugin's' state written to the log
+ 
+ 
+     const ModToggle::Ptr m_smooth_xz_movement{ ModToggle::create(generate_name("SmoothXZMovementVR"), true) };
+diff --git a/src/mods/VR.cpp b/src/mods/VR.cpp
+index 736bcc08..aff4cadf 100644
+--- a/src/mods/VR.cpp
++++ b/src/mods/VR.cpp
+@@ -63,6 +63,11 @@
+ #include "TemporalUpscaler.hpp"
+ #include "VR.hpp"
+ 
++// Visceral 2026-11-02: set by FirstPerson.cpp's arm code: a real gun in hand (hand smoothing is for guns only)
++extern std::atomic<bool> g_visceral_gun_in_hand;
++extern std::atomic<long long> g_visceral_gun_seen;
++static bool s_visceral_hands_held = false;   // the hold-still block below says whether the hands are held still
++
+ bool inside_on_end = false;
+ uint32_t actual_frame_count = 0;
+ 
+@@ -257,6 +262,10 @@ void VR::on_camera_get_projection_matrix(REManagedObject* camera, Matrix4x4f* re
+         return;
+     }
+ 
++    if (m_cutscene_screen_on) {
++        return; // [Visceral 2026-11-16] the cutscene screen: the game's own flat projection
++    }
++
+     /*if (camera != sdk::get_primary_camera()) {
+         return original_func(camera, result);
+     }*/
+@@ -300,6 +309,10 @@ Matrix4x4f* VR::gui_camera_get_projection_matrix_hook(REManagedObject* camera, M
+         return original_func(camera, result);
+     }
+ 
++    if (vr->m_cutscene_screen_on) {
++        return original_func(camera, result); // [Visceral 2026-11-16] the cutscene screen: subtitles drawn flat
++    }
++
+     /*if (camera != sdk::get_primary_camera()) {
+         return original_func(camera, result);
+     }*/
+@@ -332,6 +345,10 @@ void VR::on_camera_get_view_matrix(REManagedObject* camera, Matrix4x4f* result)
+         return;
+     }
+ 
++    if (m_cutscene_screen_on) {
++        return; // [Visceral 2026-11-16] the cutscene screen: both eyes see the game camera's one picture
++    }
++
+     auto cameras = get_cameras();
+ 
+     if (camera != cameras[0] && camera != cameras[1]) {
+@@ -1596,6 +1613,209 @@ void VR::update_hmd_state() {
+     
+     runtime->update_poses();
+ 
++    // Visceral (RE2 VR), 2026-10-13: HOLD THE HANDS STILL for the hand tuning sliders (Tefa: "freeze hand positions in
++    // VR, without the game freezing ... so i can then put my controllers down to do the hand poses"). While
++    // visceral_native.dll's exported visceral_hands_frozen() says 1 (a tick box with a 10 s countdown in the "Visceral:
++    // hand tuning" menu), both controllers keep the pose they had at the moment it switched on: everything that reads a
++    // controller (FirstPerson's arms, the dock, the plugin's holsters) sees the kept pose; the headset still tracks.
++    // Speeds are zeroed so nothing reads a swing, and the motion-controls inactivity timer is kept awake, otherwise the
++    // still controllers would hand the arms back to the game's animation after 30 s.
++    {
++        static int (*visceral_hands_frozen)() = nullptr;
++        if (visceral_hands_frozen == nullptr) {
++            if (const auto h = GetModuleHandleA("visceral_native.dll"); h != nullptr) {
++                visceral_hands_frozen = (int (*)())GetProcAddress(h, "visceral_hands_frozen");
++                if (visceral_hands_frozen != nullptr) spdlog::info("[Visceral] the hands can now be held still by visceral_native.dll");
++            }
++        }
++        static bool was_frozen = false;
++        static vr::TrackedDevicePose_t kept_vr[2]{};
++        static int32_t kept_vr_index[2]{-1, -1};
++        static XrPosef kept_xr[2]{};
++        const bool frozen = visceral_hands_frozen != nullptr && visceral_hands_frozen() != 0 && runtime->ready();
++        if (frozen) {
++            std::unique_lock _{ runtime->pose_mtx };
++            if (runtime->is_openvr()) {
++                auto& poses = m_openvr->render_poses;
++                for (size_t i = 0; i < 2 && i < m_controllers.size(); ++i) {
++                    const auto index = m_controllers[i];
++                    if (index <= 0 || index >= (int32_t)vr::k_unMaxTrackedDeviceCount) {
++                        continue;
++                    }
++                    if (!was_frozen || kept_vr_index[i] != index) {
++                        kept_vr[i] = poses[index];
++                        kept_vr_index[i] = index;
++                    }
++                    poses[index] = kept_vr[i];
++                    poses[index].vVelocity = {};
++                    poses[index].vAngularVelocity = {};
++                }
++            } else if (runtime->is_openxr()) {
++                for (size_t i = 0; i < m_openxr->hands.size() && i < 2; ++i) {
++                    auto& hand = m_openxr->hands[i];
++                    if (!was_frozen) {
++                        kept_xr[i] = hand.location.pose;
++                    }
++                    hand.location.pose = kept_xr[i];
++                    hand.velocity.linearVelocity = {};
++                    hand.velocity.angularVelocity = {};
++                }
++            }
++            m_last_controller_update = std::chrono::steady_clock::now();
++        }
++        if (frozen != was_frozen) {
++            spdlog::info("[Visceral] hands {}", frozen ? "HELD STILL (controllers can be put down)" : "follow the controllers again");
++        }
++        was_frozen = frozen;
++        s_visceral_hands_held = frozen;
++    }
++
++    // Visceral (RE2 / RE3 VR), 2026-11-02: HAND SMOOTHING, Village's filter (visceral-re8-vr lua/visceral_re8_hand_smooth.lua,
++    // Tefa 2026-11-01: "is there a way to add some smoothing to the motion controls ... to reduce the hand shakyness"; then
++    // 2026-11-02: "please add smoothing to re2 and 3"). A One Euro filter on each controller's pose, right after the runtime
++    // hands it over, so the arms, the gun, the aim, the dock and the plugin all see the steadier hand. Settings come from
++    // reframework/data/visceral/hand_smooth.json (written by lua/visceral_hand_smooth.lua's menu), re-read once a second:
++    // on, strength 0-10 (the cut-off when still: 12 Hz * 0.65^strength, 4 = 2.1 Hz), right, left. Its speed boost follows
++    // the CONTROLLER's own speed (Village's first version used the smoothed-vs-raw gap and every strength felt the same).
++    // A jump over 0.5 m or 1 rad in a frame (recentre, tracking lost) is taken as it is. Off while the hands are held still.
++    // Proof in the log every 10 s: "[Visceral] smoothing ...", raw vs smoothed turn of a hand held still.
++    {
++        struct SmoothCfg { bool on{false}; float strength{4.0f}; bool right{true}; bool left{true}; };
++        struct SmoothHand { bool have{false}; glm::quat rs{}, raw_prev{}; glm::vec3 ps{}, rawp_prev{}; float wspeed{0}, vspeed{0};
++                            double raw_sum{0}, out_sum{0}; int still_n{0}; };
++        static SmoothCfg cfg{};
++        static SmoothHand sh[2]{};
++        static auto last_read = std::chrono::steady_clock::time_point{};
++        static auto last_step = std::chrono::steady_clock::now();
++        static auto last_report = std::chrono::steady_clock::now();
++        static bool logged_cfg = false;
++        const auto now = std::chrono::steady_clock::now();
++        if (now - last_read > std::chrono::seconds(1)) {
++            last_read = now;
++            SmoothCfg c{};
++            std::ifstream f{REFramework::get_persistent_dir("reframework/data/visceral/hand_smooth.json")};
++            if (f) {
++                const std::string t{std::istreambuf_iterator<char>(f), std::istreambuf_iterator<char>()};
++                const auto value_at = [&](const char* key) -> size_t {
++                    const auto i = t.find(key);
++                    return i == std::string::npos ? std::string::npos : t.find_first_not_of(" \t\r\n:\"", i + std::strlen(key));
++                };
++                const auto flag = [&](const char* key, bool d) { const auto j = value_at(key); return j == std::string::npos ? d : t[j] == 't'; };
++                const auto num = [&](const char* key, float d) {
++                    const auto j = value_at(key);
++                    if (j == std::string::npos) return d;
++                    try { return std::stof(t.substr(j)); } catch (...) { return d; }
++                };
++                c.on = flag("\"on\"", false);
++                c.strength = std::clamp(num("\"strength\"", 4.0f), 0.0f, 10.0f);
++                c.right = flag("\"right\"", true);
++                c.left = flag("\"left\"", true);
++            }
++            if (!logged_cfg || c.on != cfg.on || c.strength != cfg.strength || c.right != cfg.right || c.left != cfg.left) {
++                spdlog::info("[Visceral] hand smoothing {} (strength {:.0f}, right {}, left {})", c.on ? "ON" : "off", c.strength, c.right, c.left);
++                logged_cfg = true;
++            }
++            cfg = c;
++        }
++        float dt = std::chrono::duration<float>(now - last_step).count();
++        last_step = now;
++        dt = std::clamp(dt, 1.0f / 500.0f, 0.1f);
++        const auto alpha = [](float hz, float step_dt) { const float tau = 1.0f / (2.0f * glm::pi<float>() * hz); return 1.0f / (1.0f + tau / step_dt); };
++        const auto qangle = [](const glm::quat& a, const glm::quat& b) { return 2.0f * std::acos(std::min(1.0f, std::abs(glm::dot(a, b)))); };
++        const auto nlerp = [](const glm::quat& a, glm::quat b, float k) { if (glm::dot(a, b) < 0.0f) b = -b; return glm::normalize(a * (1.0f - k) + b * k); };
++        // hand 0 = left, 1 = right (OpenXR hands[], OpenVR m_controllers[])
++        const auto step = [&](int i, glm::quat rc, glm::vec3 pc, glm::quat& out_r, glm::vec3& out_p) {
++            auto& h = sh[i];
++            if (!h.have) { h = SmoothHand{}; h.have = true; h.rs = h.raw_prev = rc; h.ps = h.rawp_prev = pc; out_r = rc; out_p = pc; return; }
++            const float ang = qangle(h.raw_prev, rc), d = glm::length(pc - h.rawp_prev);
++            h.raw_prev = rc;
++            h.rawp_prev = pc;
++            if (qangle(h.rs, rc) > 1.0f || glm::length(pc - h.ps) > 0.5f || ang > 1.0f || d > 0.5f) {
++                h.rs = rc; h.ps = pc; h.wspeed = h.vspeed = 0.0f; out_r = rc; out_p = pc;
++                return;
++            }
++            const float ad = alpha(1.0f, dt);
++            h.wspeed += (ang / dt - h.wspeed) * ad;
++            h.vspeed += (d / dt - h.vspeed) * ad;
++            const float still_hz = 12.0f * std::pow(0.65f, cfg.strength), beta_k = std::pow(0.8f, cfg.strength);
++            const auto prev = h.rs;
++            h.rs = nlerp(h.rs, rc, alpha(still_hz + 6.0f * beta_k * h.wspeed, dt));
++            h.ps = h.ps + (pc - h.ps) * alpha(still_hz + 20.0f * beta_k * h.vspeed, dt);
++            if (ang / dt < 0.35f) { h.raw_sum += ang; h.out_sum += qangle(prev, h.rs); ++h.still_n; }
++            out_r = h.rs;
++            out_p = h.ps;
++        };
++        const bool wants[2]{cfg.left, cfg.right};
++        // guns only (Tefa 2026-11-02: "smooth melee feels so bad in vr"): a knife, a grenade, bare hands, or no arm update in
++        // the last half second (a menu) all mean no smoothing
++        const auto gun_age = std::chrono::steady_clock::now().time_since_epoch().count() - g_visceral_gun_seen.load();
++        // and the plugin's own word: the knife or a grenade out (RE3 keeps the gun as the equipped weapon meanwhile)
++        static int (*visceral_sub_weapon_out)() = nullptr;
++        if (visceral_sub_weapon_out == nullptr) {
++            if (const auto h = GetModuleHandleA("visceral_native.dll"); h != nullptr) {
++                visceral_sub_weapon_out = (int (*)())GetProcAddress(h, "visceral_sub_weapon_out");
++            }
++        }
++        const bool sub_out = visceral_sub_weapon_out != nullptr && visceral_sub_weapon_out() != 0;
++        const bool gun_now = !sub_out && g_visceral_gun_in_hand.load() && gun_age >= 0 &&
++            gun_age < std::chrono::duration_cast<std::chrono::steady_clock::duration>(std::chrono::milliseconds(500)).count();
++        static bool logged_gun = false;
++        if (cfg.on && gun_now != logged_gun) {
++            spdlog::info("[Visceral] hand smoothing {}", gun_now ? "working: a gun is in hand" : "paused: no gun in hand (knife, grenade, menu)");
++            logged_gun = gun_now;
++        }
++        if (cfg.on && gun_now && !s_visceral_hands_held && runtime->ready()) {
++            std::unique_lock _{ runtime->pose_mtx };
++            if (runtime->is_openxr()) {
++                for (int i = 0; i < 2 && i < (int)m_openxr->hands.size(); ++i) {
++                    if (!wants[i]) { sh[i].have = false; continue; }
++                    auto& pose = m_openxr->hands[i].location.pose;
++                    const glm::quat rc{pose.orientation.w, pose.orientation.x, pose.orientation.y, pose.orientation.z};
++                    const glm::vec3 pc{pose.position.x, pose.position.y, pose.position.z};
++                    glm::quat r{};
++                    glm::vec3 p{};
++                    step(i, glm::normalize(rc), pc, r, p);
++                    pose.orientation = {r.x, r.y, r.z, r.w};
++                    pose.position = {p.x, p.y, p.z};
++                }
++            } else if (runtime->is_openvr()) {
++                auto& poses = m_openvr->render_poses;
++                for (int i = 0; i < 2 && i < (int)m_controllers.size(); ++i) {
++                    const auto index = m_controllers[i];
++                    if (!wants[i] || index <= 0 || index >= (int32_t)vr::k_unMaxTrackedDeviceCount) { sh[i].have = false; continue; }
++                    auto& m = poses[index].mDeviceToAbsoluteTracking.m;
++                    // HmdMatrix34_t is row-major; glm is column-major
++                    const glm::mat3 rm{m[0][0], m[1][0], m[2][0], m[0][1], m[1][1], m[2][1], m[0][2], m[1][2], m[2][2]};
++                    glm::quat r{};
++                    glm::vec3 p{};
++                    step(i, glm::normalize(glm::quat_cast(rm)), glm::vec3{m[0][3], m[1][3], m[2][3]}, r, p);
++                    const glm::mat3 o = glm::mat3_cast(r);
++                    for (int a = 0; a < 3; ++a) {
++                        for (int b = 0; b < 3; ++b) { m[a][b] = o[b][a]; }
++                    }
++                    m[0][3] = p.x;
++                    m[1][3] = p.y;
++                    m[2][3] = p.z;
++                }
++            }
++        } else {
++            sh[0].have = sh[1].have = false;
++        }
++        if (now - last_report > std::chrono::seconds(10)) {
++            last_report = now;
++            for (int i = 0; i < 2; ++i) {
++                auto& h = sh[i];
++                if (h.still_n > 0 && h.raw_sum > 0.0) {
++                    spdlog::info("[Visceral] smoothing {} hand held still ({} frames): controller turn {:.4f} deg a frame, smoothed {:.4f} ({:.0f}% of the shake taken out), strength {:.0f}",
++                        i == 1 ? "right" : "left", h.still_n, glm::degrees(h.raw_sum / h.still_n), glm::degrees(h.out_sum / h.still_n),
++                        100.0 * (1.0 - h.out_sum / h.raw_sum), cfg.strength);
++                }
++                h.raw_sum = h.out_sum = 0.0;
++                h.still_n = 0;
++            }
++        }
++    }
++
+     // Update the poses used for the game
+     // If we used the data directly from the WaitGetPoses call, we would have to lock a different mutex and wait a long time
+     // This is because the WaitGetPoses call is blocking, and we don't want to block any game logic
+@@ -1708,6 +1928,8 @@ void VR::update_camera() {
+         return;
+     }
+ 
++    update_cutscene_screen(); // [Visceral 2026-11-16]
++
+     auto cameras = get_cameras();
+ 
+     if (cameras[0] == nullptr) {
+@@ -1766,6 +1988,32 @@ void VR::update_camera() {
+         }
+     #endif
+ 
++        // [Visceral 2026-11-16] the cutscene screen: the game's own field of view on a 16:9 picture. The headset's (much
++        // wider) field of view was written onto the camera every frame until now; if the game does not write its own
++        // back, the fallback slider's is used. Logged once a second, so the first test shows which it was.
++        if (m_cutscene_screen_on) {
++            static auto get_fov_method = via_camera->get_method("get_FOV");
++            const auto fov = get_fov_method->call<float>(sdk::get_thread_context(), camera);
++            const bool game_sets = std::abs(fov - m_last_hmd_vfov) > 0.01f && std::abs(fov - m_cutscene_fallback_vfov_written) > 0.01f;
++
++            if (!game_sets) {
++                m_cutscene_fallback_vfov_written = m_cutscene_screen_vfov->value();
++                set_fov_method->call<void*>(sdk::get_thread_context(), camera, m_cutscene_fallback_vfov_written);
++            }
++
++            set_vertical_enable_method->call<void*>(sdk::get_thread_context(), camera, true);
++            set_aspect_ratio_method->call<void*>(sdk::get_thread_context(), camera, 16.0f / 9.0f);
++
++            const auto now = std::chrono::steady_clock::now();
++            if (camera == cameras[0] && now - m_cutscene_screen_log_t >= std::chrono::seconds(1)) {
++                m_cutscene_screen_log_t = now;
++                spdlog::info("[Visceral] cutscene screen: camera FOV {:.2f} ({}), headset's was {:.2f}", fov,
++                    game_sets ? "the game's own" : "the fallback slider's", m_last_hmd_vfov);
++            }
++
++            continue;
++        }
++
+         auto projection_matrix = is_using_multipass() ? get_projection_matrix(0) : get_current_projection_matrix(true);
+ 
+         // Steps towards getting lens flares and volumetric lighting working
+@@ -1778,6 +2026,7 @@ void VR::update_camera() {
+         //spdlog::info("Aspect: {}", aspect);
+ 
+         set_fov_method->call<void*>(sdk::get_thread_context(), camera, vfov);
++        m_last_hmd_vfov = vfov; // [Visceral 2026-11-16]
+         set_vertical_enable_method->call<void*>(sdk::get_thread_context(), camera, true);
+         set_aspect_ratio_method->call<void*>(sdk::get_thread_context(), camera, aspect);
+     }
+@@ -1834,7 +2083,47 @@ void VR::update_camera_origin() {
+             m_original_camera_matrix[3] = m_original_camera_position;
+         }
+ 
+-        apply_hmd_transform(camera_joint);
++        if (!m_cutscene_screen_on) { // [Visceral 2026-11-16] the cutscene screen: the game's camera as the game set it
++            apply_hmd_transform(camera_joint);
++        }
++    }
++}
++
++// [Visceral 2026-11-16] the cutscene screen's on / off. On after 3 frames of the game's EVENT camera (a real cutscene;
++// ladders, doors, grabs and the inventory have other types), off after 3 frames without it. OpenXR only: the quad layer
++// is what shows the picture; under OpenVR it would be a picture glued to the face, so it stays off there.
++void VR::update_cutscene_screen() {
++    bool want = false;
++    int type = -1;
++
++#if defined(RE2) || defined(RE3)
++    type = FirstPerson::get()->last_camera_type();
++
++    if (m_cutscene_screen->value() && is_hmd_active() && is_openxr_loaded()) {
++        want = type == (int)app::ropeway::camera::CameraControlType::EVENT;
++    }
++
++    if (m_cutscene_screen->value() && type != m_cutscene_last_camera_type) {
++        spdlog::info("[Visceral] cutscene screen: the game's camera type {} -> {}", m_cutscene_last_camera_type, type);
++    }
++#endif
++    m_cutscene_last_camera_type = type;
++
++    const bool on = m_cutscene_screen_on.load();
++
++    if (want == on) {
++        m_cutscene_screen_frames = 0;
++    } else if (++m_cutscene_screen_frames >= 3) {
++        m_cutscene_screen_frames = 0;
++        m_cutscene_screen_on = want;
++        m_cutscene_fallback_vfov_written = -1.0f;
++        spdlog::info("[Visceral] cutscene screen {}", want ? "ON: the cutscene on a flat screen" : "OFF: back to VR");
++    }
++
++    if (m_openxr != nullptr) {
++        m_openxr->visceral_screen_distance = m_cutscene_screen_distance->value();
++        m_openxr->visceral_screen_width = m_cutscene_screen_width->value();
++        m_openxr->visceral_screen = m_cutscene_screen_on.load();
+     }
+ }
+ 
+@@ -3946,16 +4235,44 @@ void VR::openvr_input_to_re2_re3(REManagedObject* input_system) {
+         }
+     };
+ 
++    // Visceral (RE2 VR), 2026-10-10 (b136): the knife/grenade on the RIGHT grip at a back spot, the right grip never
++    // aims, and the throw waits for a swing. visceral_native.dll decides each frame (export visceral_vr_buttons);
++    // without the plugin, or in a menu, nothing changes. Writing the game's button record from the plugin at
++    // UpdateBehavior pre did NOT reach these three (b134, worn 2026-10-10: the clears ran, the game still readied the
++    // sub weapon from the left grip), so the decision is taken here, where the VR layer writes them.
++    struct VisceralVrButtons { int version; int sub_out; int rg_never_aims; int attack_ok; int hold; };   // v2: hold added (b137)
++    static VisceralVrButtons* (*visceral_buttons)() = nullptr;
++    if (visceral_buttons == nullptr) {
++        if (const auto h = GetModuleHandleA("visceral_native.dll"); h != nullptr) {
++            visceral_buttons = (VisceralVrButtons * (*)())GetProcAddress(h, "visceral_vr_buttons");
++            if (visceral_buttons != nullptr) spdlog::info("[Visceral] VR buttons now come from visceral_native.dll");
++        }
++    }
++    bool visceral_hold = is_grip_down;
++    bool visceral_support = is_left_grip_down && !is_gripping_weapon;
++    bool visceral_attack = is_trigger_down;
++    if (visceral_buttons != nullptr) {
++        if (const auto* vb = visceral_buttons(); vb != nullptr && (vb->version == 1 || vb->version == 2)) {
++            // the sub weapon is readied by the plugin's latch. b136 (v1) sent HOLD with it and the game THREW the
++            // grenade the moment the grip was released (worn 2026-10-10: HOLD is the game's throw with a grenade
++            // readied; ATTACK drops it at the feet). v2: the plugin says when HOLD goes on (a short pulse on the
++            // throwing swing), and ATTACK is let through only when it says so (the knife's swing).
++            visceral_support = vb->sub_out != 0;
++            if (vb->rg_never_aims) visceral_hold = vb->version == 2 ? vb->hold != 0 : vb->sub_out != 0;
++            if (vb->sub_out && !vb->attack_ok) visceral_attack = false;
++        }
++    }
++
+     // Right Grip: Aim, UI Right (RB)
+-    set_button_state(app::ropeway::InputDefine::Kind::HOLD, is_grip_down);
++    set_button_state(app::ropeway::InputDefine::Kind::HOLD, visceral_hold);
+     set_button_state(app::ropeway::InputDefine::Kind::UI_SHIFT_RIGHT, is_grip_down);
+ 
+     // Left Grip: Alternate aim (grenades, knives, etc), UI left (LB)
+-    set_button_state(app::ropeway::InputDefine::Kind::SUPPORT_HOLD, is_left_grip_down && !is_gripping_weapon);   
++    set_button_state(app::ropeway::InputDefine::Kind::SUPPORT_HOLD, visceral_support);   
+     set_button_state(app::ropeway::InputDefine::Kind::UI_SHIFT_LEFT, is_left_grip_down);
+ 
+     // Right Trigger (RB): Attack, Alternate UI right (RT), GE_RTrigBottom (quick time event), GE_RTrigTop (another quick time event)
+-    set_button_state(app::ropeway::InputDefine::Kind::ATTACK, is_trigger_down);
++    set_button_state(app::ropeway::InputDefine::Kind::ATTACK, visceral_attack);
+     set_button_state(app::ropeway::InputDefine::Kind::UI_SHIFT_RIGHT_2, is_trigger_down);
+     set_button_state((app::ropeway::InputDefine::Kind)18014398509481984, is_trigger_down);
+     set_button_state((app::ropeway::InputDefine::Kind)9007199254740992, is_trigger_down);
+@@ -3990,7 +4307,29 @@ void VR::openvr_input_to_re2_re3(REManagedObject* input_system) {
+ 
+     // only allow dodging if there's nothing to interact with nearby
+     if (!is_right_a_button_down || (now - m_last_interaction_display) >= std::chrono::milliseconds(200)) {
++#ifdef RE3
++        // Visceral 2026-11-15: the shared Visceral layout, dodge = the left stick's direction + the right stick click
++        // (Tefa 2026-11-14); RE2 has no dodge, so its click stays unused there
++        // Visceral 2026-11-16 (Tefa: the side step "would be preferred in re3 as well"): when visceral_native.dll has the side
++        // step (its visceral_own_sidestep() says 1), the right stick click is the side step's, not the game's dodge; the game's
++        // own dodge button still dodges
++        static int (*visceral_own_sidestep)() = nullptr;
++        static bool visceral_own_sidestep_looked = false;
++        if (visceral_own_sidestep == nullptr && !visceral_own_sidestep_looked) {
++            if (const auto h = GetModuleHandleA("visceral_native.dll"); h != nullptr) {
++                visceral_own_sidestep_looked = true;
++                visceral_own_sidestep = (int (*)())GetProcAddress(h, "visceral_own_sidestep");
++                spdlog::info("[Visceral] RE3 right stick click: {}", visceral_own_sidestep != nullptr && visceral_own_sidestep() != 0
++                    ? "the side step (visceral_native.dll); the game's own roll is off" : "the game's dodge");
++            }
++        }
++        const bool click_is_ours = visceral_own_sidestep != nullptr && visceral_own_sidestep() != 0;
++        // Visceral 2026-11-16 (Tefa: "please remove the original dodge roll if possible"): with the side step in, the game's
++        // own roll is not asked for at all (its RE3_Dodge action is right A, which still uses / picks up as before)
++        set_button_state((app::ropeway::InputDefine::Kind)((uint64_t)1 << 51), click_is_ours ? false : (is_re3_dodge_down || is_right_joystick_click_down)); // RE3 dodge
++#else
+         set_button_state((app::ropeway::InputDefine::Kind)((uint64_t)1 << 51), is_re3_dodge_down); // RE3 dodge
++#endif
+     } else {
+         set_button_state((app::ropeway::InputDefine::Kind)((uint64_t)1 << 51), false); // RE3 dodge
+     }
+@@ -4044,11 +4383,27 @@ void VR::openvr_input_to_re2_re3(REManagedObject* input_system) {
+     // Change Ammo
+     set_button_state(app::ropeway::InputDefine::Kind::CHANGE_BULLET, is_change_ammo_down);
+ 
+-    // MiniMap
+-    set_button_state(app::ropeway::InputDefine::Kind::MINIMAP, is_minimap_down);
+-
+-    // Left or Right System Button: Pause
+-    set_button_state(app::ropeway::InputDefine::Kind::PAUSE, is_left_system_button_down || is_right_system_button_down || get_runtime()->handle_pause);
++    // Visceral 2026-11-15, the shared Visceral layout (Tefa 2026-11-14: "menu tap = journal / objectives; menu held 0.3 s
++    // = pause"): the menu (system) button tapped = the map screen (RE2 / RE3 keep their files there), held 0.3 s = pause.
++    // REFramework's own pause request (handle_pause) is raised by OpenXR::update_input on the SAME button's press, so it
++    // is not let through: it would pause on every tap (the /lm reader, 2026-11-15). It is still cleared below.
++    static std::chrono::steady_clock::time_point visceral_menu_t{};
++    static bool visceral_menu_was = false, visceral_menu_fired = false;
++    static int visceral_map_frames = 0;
++    constexpr int VISCERAL_MAP_PULSE_FRAMES = 6;   // the map press the game sees after a tap
++    const bool visceral_menu_now = is_left_system_button_down || is_right_system_button_down;
++    if (visceral_menu_now && !visceral_menu_was) { visceral_menu_t = now; visceral_menu_fired = false; }
++    const bool visceral_menu_held = visceral_menu_now && (now - visceral_menu_t) >= std::chrono::milliseconds(300);
++    if (visceral_menu_held) visceral_menu_fired = true;
++    if (!visceral_menu_now && visceral_menu_was && !visceral_menu_fired) visceral_map_frames = VISCERAL_MAP_PULSE_FRAMES;
++    visceral_menu_was = visceral_menu_now;
++
++    // MiniMap (and the menu button's tap)
++    set_button_state(app::ropeway::InputDefine::Kind::MINIMAP, is_minimap_down || visceral_map_frames > 0);
++    if (visceral_map_frames > 0) --visceral_map_frames;
++
++    // Left or Right System Button held 0.3 s: Pause
++    set_button_state(app::ropeway::InputDefine::Kind::PAUSE, visceral_menu_held);
+     get_runtime()->handle_pause = false;
+ 
+     // Fixes QTE bound to triggers
+@@ -4248,6 +4603,12 @@ void VR::on_draw_ui() {
+     m_rendering_technique->draw("Rendering Technique");
+     m_decoupled_pitch->draw("Decoupled Camera Pitch");
+ 
++    // [Visceral 2026-11-16]
++    m_cutscene_screen->draw("[Visceral] Cutscenes on a flat screen (OpenXR)");
++    m_cutscene_screen_distance->draw("[Visceral] Cutscene screen distance (m)");
++    m_cutscene_screen_width->draw("[Visceral] Cutscene screen width (m)");
++    m_cutscene_screen_vfov->draw("[Visceral] Cutscene field of view if the game sets none");
++
+     if (ImGui::Checkbox("Positional Tracking", &m_positional_tracking)) {
+     }
+ 
+@@ -4286,6 +4647,10 @@ void VR::on_draw_ui() {
+         ImGui::TreePop();
+     }
+ 
++    // Visceral (RE2 VR), 2026-10-24: off = the old drawing, for REFramework's on-screen markers (object boxes, Lua
++    // draw.*), which are placed in back buffer pixels and land off target while this is on.
++    m_ui_fit_window->draw("Menu Text Not Squished (window)");
++
+     ImGui::Separator();
+     ImGui::Text("Debug info");
+     m_camera_duplicator.on_draw_ui();
+diff --git a/src/mods/VR.hpp b/src/mods/VR.hpp
+index 0cf532e7..4b985575 100644
+--- a/src/mods/VR.hpp
++++ b/src/mods/VR.hpp
+@@ -153,6 +153,11 @@ public:
+     bool is_hmd_active() const {
+         return get_runtime()->ready();
+     }
++
++    // Visceral (RE2 VR), 2026-10-24: draw the menu over the whole back buffer so the window shows it unsquished.
++    bool is_ui_fit_window() const {
++        return m_ui_fit_window->value();
++    }
+     
+     bool is_openvr_loaded() const {
+         return m_openvr != nullptr && m_openvr->loaded;
+@@ -162,6 +167,11 @@ public:
+         return m_openxr != nullptr && m_openxr->loaded;
+     }
+ 
++    // [Visceral 2026-11-16] a cutscene is being shown on the flat screen (VisceralCutsceneScreen)
++    bool cutscene_screen_active() const {
++        return m_cutscene_screen_on.load();
++    }
++
+     bool is_using_hmd_oriented_audio() {
+         return m_hmd_oriented_audio->value();
+     }
+@@ -369,6 +379,7 @@ private:
+     void update_hmd_state();
+     void update_action_states();
+     void update_camera(); // if not in firstperson mode
++    void update_cutscene_screen(); // [Visceral 2026-11-16]
+     void update_camera_origin(); // every frame
+     void update_audio_camera();
+     void update_render_matrix();
+@@ -616,6 +627,22 @@ private:
+ 
+     const ModToggle::Ptr m_desktop_fix{ ModToggle::create(generate_name("DesktopRecordingFix"), true) };
+     const ModToggle::Ptr m_desktop_fix_skip_present{ ModToggle::create(generate_name("DesktopRecordingFixSkipPresent"), true) };
++    const ModToggle::Ptr m_ui_fit_window{ ModToggle::create(generate_name("VisceralMenuFitWindow"), true) };
++
++    // [Visceral 2026-11-16] cutscenes on a flat screen in the headset (Tefa: "getting re2 cutscenes to show in 2d, like ...
++    // sh2"). While the game's camera is an EVENT camera (a real cutscene): the game's own view, no head turn, no eye
++    // offset, both eyes the same, and OpenXR shows that one picture on a quad in front of where the head looked. Off by
++    // default until worn (visceral-re2-vr modding-notes/2026-11-16-cutscenes-on-a-flat-screen-the-plan.md).
++    const ModToggle::Ptr m_cutscene_screen{ ModToggle::create(generate_name("VisceralCutsceneScreen"), false) };
++    const ModSlider::Ptr m_cutscene_screen_distance{ ModSlider::create(generate_name("VisceralCutsceneScreenDistance"), 0.5f, 10.0f, 3.0f) };
++    const ModSlider::Ptr m_cutscene_screen_width{ ModSlider::create(generate_name("VisceralCutsceneScreenWidth"), 0.5f, 10.0f, 3.2f) };
++    const ModSlider::Ptr m_cutscene_screen_vfov{ ModSlider::create(generate_name("VisceralCutsceneScreenFOV"), 20.0f, 90.0f, 40.0f) };
++    std::atomic<bool> m_cutscene_screen_on{false};
++    int m_cutscene_screen_frames{0};
++    int m_cutscene_last_camera_type{-1};
++    float m_last_hmd_vfov{0.0f};
++    float m_cutscene_fallback_vfov_written{-1.0f};
++    std::chrono::steady_clock::time_point m_cutscene_screen_log_t{};
+ 
+ #if TDB_VER >= 73
+     const ModToggle::Ptr m_enable_asynchronous_rendering{ ModToggle::create(generate_name("AsyncRendering_V3"), false) };
+@@ -655,6 +682,11 @@ private:
+         *m_resolution_scale,
+         *m_desktop_fix,
+         *m_desktop_fix_skip_present,
++        *m_ui_fit_window,
++        *m_cutscene_screen,
++        *m_cutscene_screen_distance,
++        *m_cutscene_screen_width,
++        *m_cutscene_screen_vfov,
+         *m_enable_asynchronous_rendering
+     };
+ 
+diff --git a/src/mods/vr/runtimes/OpenXR.cpp b/src/mods/vr/runtimes/OpenXR.cpp
+index 8b2469ae..e160c7c7 100644
+--- a/src/mods/vr/runtimes/OpenXR.cpp
++++ b/src/mods/vr/runtimes/OpenXR.cpp
+@@ -1301,10 +1301,50 @@ XrResult OpenXR::end_frame() {
+ 
+     std::vector<XrCompositionLayerBaseHeader*> layers{};
+     std::vector<XrCompositionLayerProjectionView> projection_layer_views{};
++    XrCompositionLayerQuad screen_layer{XR_TYPE_COMPOSITION_LAYER_QUAD};
++
++    // [Visceral 2026-11-16] the cutscene screen: the left eye's picture (both eyes render the game camera's one view while
++    // it is on) on a 16:9 quad, black all round, placed once in front of where the head looked when it came on (it does
++    // not follow the head, as SH2's UI_FollowView off), facing back along that look.
++    if (!this->visceral_screen) {
++        this->visceral_screen_pose_ok = false;
++    }
++
++    if (this->frame_state.shouldRender == XR_TRUE && this->visceral_screen && !this->swapchains.empty() && this->stage_views.size() >= 2) {
++        if (!this->visceral_screen_pose_ok) {
++            const auto& a = this->stage_views[0].pose;
++            const auto& b = this->stage_views[1].pose;
++            const XrVector3f head{(a.position.x + b.position.x) * 0.5f, (a.position.y + b.position.y) * 0.5f, (a.position.z + b.position.z) * 0.5f};
++            const auto& q = a.orientation;
++            // the view's forward (-Z) turned by q, kept level
++            float fx = -(2.0f * (q.x * q.z + q.w * q.y));
++            float fz = -(1.0f - 2.0f * (q.x * q.x + q.y * q.y));
++            const float len = std::sqrt(fx * fx + fz * fz);
++            if (len < 1e-4f) { fx = 0.0f; fz = -1.0f; } else { fx /= len; fz /= len; }
++            const float yaw = std::atan2(-fx, -fz); // the turn about +Y that takes -Z onto (fx, 0, fz)
++            const float d = this->visceral_screen_distance;
++            this->visceral_screen_pose.position = {head.x + fx * d, head.y, head.z + fz * d};
++            this->visceral_screen_pose.orientation = {0.0f, std::sin(yaw * 0.5f), 0.0f, std::cos(yaw * 0.5f)};
++            this->visceral_screen_pose_ok = true;
++            spdlog::info("[Visceral] cutscene screen placed {:.2f} m ahead, {:.2f} m wide (yaw {:.1f} deg)", d,
++                (float)this->visceral_screen_width, yaw * 57.29578f);
++        }
+ 
++        const auto& swapchain = this->swapchains[0];
++        const float w = this->visceral_screen_width;
++        screen_layer.space = this->stage_space;
++        screen_layer.eyeVisibility = XR_EYE_VISIBILITY_BOTH;
++        screen_layer.subImage.swapchain = swapchain.handle;
++        screen_layer.subImage.imageRect.offset = {0, 0};
++        screen_layer.subImage.imageRect.extent = {swapchain.width, swapchain.height};
++        screen_layer.subImage.imageArrayIndex = 0;
++        screen_layer.pose = this->visceral_screen_pose;
++        screen_layer.size = {w, w * 9.0f / 16.0f};
++        layers.push_back((XrCompositionLayerBaseHeader*)&screen_layer);
++    }
+     // we CANT push the layers every time, it cause some layer error
+     // in xrEndFrame, so we must only do it when shouldRender is true
+-    if (this->frame_state.shouldRender == XR_TRUE) {
++    else if (this->frame_state.shouldRender == XR_TRUE) {
+         projection_layer_views.resize(this->stage_views.size(), {XR_TYPE_COMPOSITION_LAYER_PROJECTION_VIEW});
+ 
+         for (auto i = 0; i < projection_layer_views.size(); ++i) {
+diff --git a/src/mods/vr/runtimes/OpenXR.hpp b/src/mods/vr/runtimes/OpenXR.hpp
+index 5b5209e2..8341fbf6 100644
+--- a/src/mods/vr/runtimes/OpenXR.hpp
++++ b/src/mods/vr/runtimes/OpenXR.hpp
+@@ -1,6 +1,7 @@
+ #pragma once
+ 
+ #include <unordered_set>
++#include <atomic>
+ 
+ #include <d3d11.h>
+ #include <d3d12.h>
+@@ -148,6 +149,14 @@ public:
+ 
+     float resolution_scale{1.0f};
+ 
++    // [Visceral 2026-11-16] the cutscene screen: one quad layer in place of the eyes' projection layer (VR.cpp
++    // update_cutscene_screen sets these; end_frame places the quad where the head looked when it came on)
++    std::atomic<bool> visceral_screen{false};
++    std::atomic<float> visceral_screen_distance{3.0f};
++    std::atomic<float> visceral_screen_width{3.2f};
++    bool visceral_screen_pose_ok{false};
++    XrPosef visceral_screen_pose{};
++
+     struct Action {
+         std::vector<XrAction> action_collection{};
+     };

@@ -11,7 +11,8 @@
 // Only while REFramework's FirstPerson drives the view (not in menus, cutscenes, ladders or grabs), not with the left hand
 // on the gun, and not again until the cool-down has passed.
 // In RE3 it takes the right stick click over from the game's own dodge (our REFramework patch asks visceral_own_sidestep()
-// in core/exports.cpp); the game's own dodge button stays as it was.
+// in core/exports.cpp), and the game's own roll is switched off altogether (Tefa 2026-11-16: "please remove the original
+// dodge roll if possible"; it was on right A when nothing was there to use).
 #pragma once
 
 namespace vn::sidestep {

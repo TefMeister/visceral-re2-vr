@@ -134,3 +134,8 @@ ef-76build-76b.bat`.
   the right stick click goes to the game's dodge only when `visceral_native.dll` does not export `visceral_own_sidestep()`
   returning 1; with our plugin it is the side step (`src/hands/sidestep.cpp`). The game's own dodge action still dodges.
   Log: `[Visceral] RE3 right stick click: the side step ...`.
+
+- `2026-11-16c-re3-no-game-roll.patch` — cumulative (CONTAINS 2026-11-16b; apply this one alone). RE3: with the side step in
+  (`visceral_own_sidestep()` = 1) the game's own dodge (bit 51, `RE3_Dodge`, right A when nothing is near) is never asked
+  for (Tefa 2026-11-16: "please remove the original dodge roll if possible"). A in open floor then opens the inventory, its
+  other job, as in RE2.
