@@ -127,4 +127,5 @@ ef-76build-76b.bat`.
   offset on the camera, the game's own projection and 16:9 aspect (fallback field of view slider if the game writes none),
   the GUI camera flat; `OpenXR::end_frame` sends one quad (the left eye's swapchain, 16:9, `VisceralCutsceneScreenWidth`
   wide, `...Distance` ahead of where the head looked, level) instead of the eyes' layer. OpenVR: stays off. Build:
-  `D:ef-76build-76b.bat` -> `build2in\RE2\dinput8.dll`. Note: `modding-notes/2026-11-16-cutscenes-on-a-flat-screen-the-plan.md`.
+  `D:\ref-76b\build-76b.bat` -> `build2\bin\RE2\dinput8.dll`. Note: `modding-notes/2026-11-16-cutscenes-on-a-flat-screen-the-plan.md`.
+ef-76build-76b.bat` -> `build2in\RE2\dinput8.dll`. Note: `modding-notes/2026-11-16-cutscenes-on-a-flat-screen-the-plan.md`.
