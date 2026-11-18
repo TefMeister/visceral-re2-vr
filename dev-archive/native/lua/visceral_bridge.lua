@@ -19,7 +19,7 @@ local TAG = "[visceral-bridge]"
 -- 2026-11-07 (the clean rebuild): one file for RE2 and RE3 (shared, RE2's repo owns it); the game decides the type names
 local GAME = reframework:get_game_name()   -- "re2" or "re3"
 local NS = GAME == "re3" and "offline." or "app.ropeway."
-local N = 608   -- 2026-11-16: + the side step's stick direction 604-605 and camera forward 606-607 (src/bridge.h); 2026-10-31: + the eighth hold at 540 (src/bridge.h S_HT2, the hand on the magazine); b173: 84 + the hand tuning slots (src/bridge.h S_WHO .. S_HT + 7 x 64) + S_FREEZE; b188: + S_LADDER_HOLD_OFF; 2026-10-28: + S_AUTO_EXPOSURE_ON
+local N = 649   -- 2026-11-18: 608-648 the hands, walls and guns (src/bridge.h S_HW_* / S_WALL_* / S_MUZZLE_*, src/hands/walls.cpp, visceral_walls.lua); 2026-11-16: + the side step's stick direction 604-605 and camera forward 606-607 (src/bridge.h); 2026-10-31: + the eighth hold at 540 (src/bridge.h S_HT2, the hand on the magazine); b173: 84 + the hand tuning slots (src/bridge.h S_WHO .. S_HT + 7 x 64) + S_FREEZE; b188: + S_LADDER_HOLD_OFF; 2026-10-28: + S_AUTO_EXPOSURE_ON
 local S_FRAME, S_HMD = 0, 1
 local S_LGRIP, S_LTRIG, S_RGRIP, S_RTRIG = 2, 3, 4, 5
 local S_LA, S_LB, S_RA, S_RB = 6, 7, 8, 9

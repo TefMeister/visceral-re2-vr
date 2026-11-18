@@ -10,7 +10,7 @@
 # 2026-11-16: REFramework 76298bd + the cumulative patch 2026-11-16d (dev-archive/reframework-patch: shared layout, cutscene screen,
 # side step click, RE3 roll off, A only interact, doors by hand). A REFramework copied in by hand is put back to this by every
 # --deploy: build it, put it in loaders/, and change this line (that is how the 11-15 / 11-16 copies were lost, 2026-11-16).
-1 backup:../loaders/dinput8-0448cf6e-re2-patch-2026-11-16d-doorpush.dll   dinput8.dll   # was backup:dinput8.dll (the 11-02 build)
+1 backup:../loaders/dinput8-8e7d4a05-re2-patch-2026-11-18-hands-walls.dll   dinput8.dll   # 2026-11-18: + visceral_hand_wall (hands, walls, guns); was 0448cf6e (2026-11-16d, doors)
 1 backup:openxr_loader.dll                                   openxr_loader.dll
 1 backup:LICENSE-REFramework.txt                             LICENSE-REFramework.txt
 1 backup:ref_ui.ini                                          ref_ui.ini
@@ -35,6 +35,7 @@
 # so they stay out; these ran instead. Each Lua here goes native later (layer 2b), one at a time, checked against itself.
 2 repo:build/Release/visceral_native.dll                    reframework/plugins/visceral_native.dll
 2 repo:lua/visceral_bridge.lua                               reframework/autorun/visceral_bridge.lua
+2 repo:lua/visceral_walls.lua                             reframework/autorun/visceral_walls.lua   # 2026-11-18: hands, walls and guns (src/hands/walls.cpp)
 2 repo:lua/jitterlog.lua                                     reframework/autorun/jitterlog.lua
 2 repo:lua/visceral_hand_smooth.lua                         reframework/autorun/visceral_hand_smooth.lua   # the smoothing sliders, stopgap until the options book (2026-11-07)
 2 repo:lua/visceral_options_book.lua                        reframework/autorun/visceral_options_book.lua   # the in-world options book, first milestone (2026-11-10)

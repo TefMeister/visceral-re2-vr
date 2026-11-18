@@ -47,6 +47,17 @@ enum Slot : int {
     // 2026-11-16, the side step (src/hands/sidestep.cpp), written with the buttons at UpdateHID, read live with view():
     S_LSTICK_DIR = 604,   // the left stick turned by the game camera into a level world direction x z (unit; 0 0 when centred)
     S_CAM_FWD = 606,      // the game camera's level forward x z (unit), for a step back with the stick centred
+    // 2026-11-18 (Tefa: "give re2 and re3 hands, walls and guns the same collision treatment" as Village b141,
+    // src/hands/walls.cpp + lua/visceral_walls.lua). WRITTEN BY THE PLUGIN when our REFramework asks it to place the hands
+    // (visceral_hand_wall): 608-614 the right hand as the controller puts it (world pos, turn x y z w), 615-621 the right
+    // hand as handed back (after the wall), 622-624 the left hand as the controller puts it, 625 S_FRAME at that moment.
+    S_HW_RAW_R = 608, S_HW_OUT_R = 615, S_HW_RAW_L = 622, S_HW_STAMP = 625,
+    // WRITTEN BY THE LUA: per hand, S_FRAME + 1 of the frame a wall was last seen in front of it, a point on the hand's stop
+    // plane (world) and the plane's normal (toward the player); the gun's turn at the wrist (x y z w) and its stamp; the
+    // drawn muzzle (world) and its stamp (the doors push with it).
+    S_WALL_L_ON = 626, S_WALL_L_P = 627, S_WALL_L_N = 630,
+    S_WALL_R_ON = 633, S_WALL_R_P = 634, S_WALL_R_N = 637,
+    S_WALL_TILT_Q = 640, S_WALL_TILT_ON = 644, S_MUZZLE_W = 645, S_MUZZLE_ON = 648,
     S_HT2 = 540,          // 2026-10-31: the eighth hold onward (tune.h MAG_DOCK: the left hand on the magazine in the gun), HT_STRIDE each; the array is 604 long (visceral_bridge.lua N)
 };
 constexpr float SENTINEL = 54321.0f;

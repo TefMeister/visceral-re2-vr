@@ -24,8 +24,8 @@ struct Door {
     float drawn = 0.0f;       // our angle, degrees, 0..MAX_DEG
     float game_prev = 0.0f;
     float sign = 0.0f;        // which way the game turns the hinge to open it (+1 / -1; 0 = not seen yet)
-    float hand_prev[2] = {0, 0};
-    bool hand_prev_ok[2] = {false, false};
+    float hand_prev[4] = {0, 0, 0, 0};             // per pusher: the two wrists, the muzzle, the barrel's middle
+    bool hand_prev_ok[4] = {false, false, false, false};
 };
 Door g_door;
 clock_t_::time_point g_last_scan{};
@@ -84,6 +84,28 @@ bool hand_world(int i, Vec3& out) {
     return get_v3(JOINT, w, "get_Position", out);
 }
 
+// what pushes a door: the two wrists, and (2026-11-18) the gun's muzzle and the middle of its barrel, from the drawn muzzle
+// lua/visceral_walls.lua hands over (bridge S_MUZZLE_W)
+struct Pusher { Vec3 p; float r; };
+int pushers(Pusher out[4]) {
+    int n = 0;
+    Vec3 w[2];
+    bool ok[2];
+    for (int i = 0; i < 2; ++i) {
+        ok[i] = hand_world(i, w[i]);
+        if (ok[i]) out[n++] = {w[i], HAND_R};
+    }
+    const float stamp = bridge::view(bridge::S_MUZZLE_ON), frame = bridge::view(bridge::S_FRAME);
+    if (GUN_PUSHES && std::isfinite(stamp) && std::isfinite(frame) && stamp >= 0.5f && stamp >= frame - 2.0f) {
+        const Vec3 m = bridge::view_vec3(bridge::S_MUZZLE_W);
+        if (std::isfinite(m.x) && std::isfinite(m.y) && std::isfinite(m.z)) {
+            out[n++] = {m, GUN_R};
+            if (ok[1] && dist(m, w[1]) < 1.5f) out[n++] = {(m + w[1]) * 0.5f, GUN_R};
+        }
+    }
+    return n;
+}
+
 void scan() {
     MO* pl = player();
     Vec3 pp;
@@ -132,11 +154,13 @@ void frame() {
     if (!TOUCH_OPENS || g_door.hinge == nullptr || g_door.active) return;
     if (std::chrono::duration<float>(now - g_last_touch).count() < TOUCH_COOLDOWN_S) return;
     // the hand pressing on the shut leaf, moving into it: A for the game
-    for (int i = 0; i < 2; ++i) {
-        Vec3 hp;
+    Pusher ps[4];
+    const int np = pushers(ps);
+    for (int i = 0; i < np; ++i) {
+        const Vec3 hp = ps[i].p;
         float a, r;
-        if (!hand_world(i, hp) || !angle_of(g_door, hp, a, r)) { g_door.hand_prev_ok[i] = false; continue; }
-        const float m = std::asin(std::fmin(1.0f, HAND_R / std::fmax(r, HAND_R))) / DEG;
+        if (!angle_of(g_door, hp, a, r)) { g_door.hand_prev_ok[i] = false; continue; }
+        const float m = std::asin(std::fmin(1.0f, ps[i].r / std::fmax(r, ps[i].r))) / DEG;
         const bool touching = r >= 0.12f && r <= LEAF_M && std::fabs(a) <= m;
         const bool closing_in = g_door.hand_prev_ok[i] && std::fabs(a) < std::fabs(g_door.hand_prev[i]);
         g_door.hand_prev[i] = a;
@@ -159,7 +183,7 @@ void after_motion() {
             g_door.active = true;
             g_door.sign = raw < 0.0f ? -1.0f : 1.0f;
             g_door.drawn = INITIAL_DEG;
-            g_door.hand_prev_ok[0] = g_door.hand_prev_ok[1] = false;
+            for (bool& b : g_door.hand_prev_ok) b = false;
             say("the game opened the door (it turns %.0f): drawn at %.0f deg, the hands and the body push it from here", g_door.sign, INITIAL_DEG);
         } else {
             g_door.game_prev = game;
@@ -177,11 +201,13 @@ void after_motion() {
         return;
     }
     // the hands: a hand that crossed the leaf since last frame, or is on it, pushes it to just past itself
-    for (int i = 0; i < 2; ++i) {
-        Vec3 hp;
+    Pusher ps[4];
+    const int np = pushers(ps);
+    for (int i = 0; i < np; ++i) {
+        const Vec3 hp = ps[i].p;
         float a, r;
-        if (!hand_world(i, hp) || !angle_of(g_door, hp, a, r) || r < 0.12f || r > LEAF_M + HAND_R) { g_door.hand_prev_ok[i] = false; continue; }
-        const float m = std::asin(std::fmin(1.0f, HAND_R / r)) / DEG;
+        if (!angle_of(g_door, hp, a, r) || r < 0.12f || r > LEAF_M + ps[i].r) { g_door.hand_prev_ok[i] = false; continue; }
+        const float m = std::asin(std::fmin(1.0f, ps[i].r / r)) / DEG;
         const bool crossed = g_door.hand_prev_ok[i] && g_door.hand_prev[i] <= g_door.drawn + m && a + m > g_door.drawn;
         const bool on_it = std::fabs(a - g_door.drawn) <= m;
         if ((crossed || on_it) && a + m > g_door.drawn && a + m < MAX_DEG + 20.0f) g_door.drawn = std::fmin(MAX_DEG, a + m);

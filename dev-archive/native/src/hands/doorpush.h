@@ -20,7 +20,9 @@ constexpr float INITIAL_DEG = 1.0f;        // how far the door is drawn open whe
 constexpr float MAX_DEG = 92.0f;           // never drawn further than this
 constexpr float LEAF_M = 1.0f;             // the leaf's width from the hinge (a hand or body further out does not touch it)
 constexpr float LEAF_SIDE = 1.0f;          // the leaf lies along the door's own +X from the hinge (-1 = -X)
-constexpr float HAND_R = 0.10f;            // the hand's reach around the wrist, metres
+constexpr float HAND_R = 0.10f;
+constexpr bool  GUN_PUSHES = true;         // 2026-11-18 (Tefa, Village first): the gun's muzzle and barrel push doors too
+constexpr float GUN_R = 0.05f;             // their reach            // the hand's reach around the wrist, metres
 constexpr float BODY_R = 0.32f;            // the body's, around the player's position
 constexpr float SCAN_S = 0.5f;             // how often the nearest door is looked for
 constexpr float SCAN_M = 3.0f;             // and how close it must be, across the floor

@@ -151,3 +151,12 @@ ef-76build-76b.bat`.
   pressed for the game. Built: RE2 dinput8 0448cf6e, RE3 84ce7341, kept in each backup's `loaders/` and named in
   `tools/install-list.txt`, so `--deploy` installs them (before 2026-11-16 every hand-copied REFramework was put back to the
   11-02 one by the next --deploy).
+
+- `2026-11-18-hands-walls.patch` — cumulative (CONTAINS 2026-11-16e; apply this one alone). RE2 and RE3 (Tefa 2026-11-18:
+  "give re2 and re3 hands, walls and guns the same collision treatment", as Village b141). `FirstPerson.cpp
+  update_player_arm_ik`: right after each hand's place and turn are worked out from its controller, they go to
+  `visceral_native.dll`'s exported `visceral_hand_wall(hand, pos[4], quat[4] x y z w)` first (0 left, 1 right); the plugin
+  keeps a hand on the player's side of a wall and turns a gun at the wrist away from one (`src/hands/walls.cpp`, with
+  `lua/visceral_walls.lua` casting the rays). Everything after (the dock on the gun, the aim) starts from what it hands
+  back. Built: RE2 dinput8 8e7d4a05, RE3 b84a16fe, in each backup's `loaders/`, named in `tools/install-list.txt`.
+  Simulator-checked in both games 2026-11-18.
