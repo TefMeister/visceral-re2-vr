@@ -71,6 +71,7 @@ const SlideGun* slide_gun(int wp) { for (const auto& s : SLIDE_GUNS) if (s.wp ==
 const ShellGun* shell_gun(int wp) { for (const auto& s : SHELL_GUNS) if (s.wp == wp) return &s; return nullptr; }
 bool is_pump(int wp) { return wp == 1000 || wp == 1100 || wp == 1200 || wp == 1500 || wp == 4300; }
 const char* pump_sfx(int wp) { return wp == 4300 ? "spark_shot" : "shotgun_w870"; }
+Vec3 pump_dock_shift(int) { return {0.0f, 0.0f, 0.0f}; }   // RE2's pumps: PUMP_DOCK_OFF was measured on the W-870 itself
 bool long_mag(int wp) { return wp == 2200; }   // the LE 5: the magazine sits ahead of the grip (LG on it + LT pulls it out)
 
 } // namespace vn::guns

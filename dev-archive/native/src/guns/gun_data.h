@@ -50,6 +50,7 @@ const SlideGun* slide_gun(int wp);
 const ShellGun* shell_gun(int wp);
 bool is_pump(int wp);
 const char* pump_sfx(int wp);
+Vec3 pump_dock_shift(int wp);   // each game's: added to the pump hold's place (settings_guns.h PUMP_DOCK_OFF, measured on RE2's W-870) for a gun whose fore-end joint sits elsewhere on its handle; {0, 0, 0} = as the W-870
 bool long_mag(int wp);    // the magazine sits ahead of the grip: LG on it + LT pulls it out, B does nothing
 
 } // namespace vn::guns

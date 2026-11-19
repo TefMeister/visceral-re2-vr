@@ -53,7 +53,7 @@ bool pump() { return g_w != nullptr && is_pump(g_wp); }
 bool pump_shotgun() { return pump() && shell_gun(g_wp) != nullptr; }   // a fore-end held from below (not the Spark Shot's slide)
 
 // the pump hold's numbers: the built-in ones, or the tuning file's while it exists (looked at twice a second)
-struct PumpDock { float ypr[3]; Vec3 off; };
+struct PumpDock { float ypr[3]; Vec3 off; bool file = false; };   // file: the numbers are the tuning file's
 const PumpDock& pump_dock() {
     static PumpDock d{{cfg::PUMP_DOCK_YPR[0], cfg::PUMP_DOCK_YPR[1], cfg::PUMP_DOCK_YPR[2]}, cfg::PUMP_DOCK_OFF};
     static float last = -1.0f;
@@ -75,6 +75,7 @@ const PumpDock& pump_dock() {
         LOGI("%s rack: the pump hold back to the built-in numbers", TAG);
     }
     from_file = ok;
+    d.file = ok;
     return d;
 }
 const char* sfx_folder() { return pump() ? pump_sfx(g_wp) : magazine::sfx_folder(); }
@@ -274,7 +275,8 @@ bool socket(Vec3& p, Quat& q, bool& steer) {
     const Quat inv = qinv(qnorm(rq));
     const bool under = pump_shotgun();   // the fore-end is held from below; a slide (and the Spark Shot's) from above
     const float* ypr = under ? pump_dock().ypr : cfg::SLIDE_DOCK_YPR;
-    const Vec3 off = under ? pump_dock().off : cfg::SLIDE_DOCK_OFF;
+    Vec3 off = under ? pump_dock().off : cfg::SLIDE_DOCK_OFF;
+    if (under && !pump_dock().file) off = off + pump_dock_shift(g_wp);   // this gun's fore-end joint against the W-870's (the tuning file's numbers are taken as they are)
     const Quat turn = ypr_deg(ypr[0], ypr[1], ypr[2]);
     p = rotate(inv, jp + rotate(qnorm(jq), off) - rp);
     q = qnorm(qmul(inv, qmul(qnorm(jq), turn)));

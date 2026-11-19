@@ -1876,3 +1876,8 @@ probe `lua/visceral_pickup_probe.lua`; note `modding-notes/2026-11-05-the-world-
   out grips and steers the gun with the drawn hand still at the controller `[measured 2026-11-19, the loader's own log line]`.
 - Dead end: the game's own animation hold of the pump cannot be read from the joints at any point of the frame (all ten
   points tried gave the placed hand) `[disproved 2026-11-19, n=1]`. Village reads it another way (its `anim_hold`).
+
+- 2026-11-19, later the same day (the RE3 session): the shared code gained `pump_dock_shift(int wp)` (`guns/gun_data.h`,
+  answered in each game's `src/game/guns_table.cpp`), added to the built-in place of the pump hold. RE2 answers zero: no
+  change here (compiled, the installed b217 is the build before it and behaves the same) `[compile-verified]`. RE3 answers
+  7 cm forward for its M3.
