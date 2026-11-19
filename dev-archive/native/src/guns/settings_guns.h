@@ -57,6 +57,12 @@ constexpr float RACK_AUTO_RETURN_SEC = 0.10f;     // the pump handle let go at t
 constexpr float SLIDE_PARK_SCALE = 1.5f;          // the locked-open slide sits this much further back than his parked (Tefa)
 constexpr float SLIDE_DOCK_YPR[3] = {173.0f, 18.0f, 180.0f};   // the hand on the slide, turned (Tefa's numbers, b164)
 constexpr Vec3  SLIDE_DOCK_OFF = {0.078f, 0.026f, 0.012f};     // ... and placed, in the slide joint's axes (Tefa's numbers, b164)
+// 2026-11-19 (Tefa: "left hand on the shotgun docks above the pump handle, not under it"): a pump shotgun's fore-end has its
+// own hold, the hand UNDER the handle, palm up; the slide's numbers stay the slide's. PUMP_DOCK_FILE ("yaw pitch roll x y z",
+// degrees and metres, the fore-end joint's axes) replaces these while it exists (tuning; re-read when it changes).
+constexpr float PUMP_DOCK_YPR[3] = {173.0f, 18.0f, 0.0f};      // the slide hold turned over (its roll 180 -> 0): the palm faces up
+constexpr Vec3  PUMP_DOCK_OFF = {0.078f, -0.026f, 0.035f};    // 7.8 cm left of the fore-end joint, 2.6 cm under it, 3.5 cm forward (simulator 2026-11-19)
+constexpr const char* PUMP_DOCK_FILE = "reframework/data/visceral_pump_dock.txt";
 constexpr float RACK_BUZZ_AMP = 0.7f, RACK_BUZZ_SEC = 0.06f;
 constexpr bool  NO_FIRE_WHILE_LG_LT = true;       // no gun fires while LG and LT are both held (Tefa, b165)
 

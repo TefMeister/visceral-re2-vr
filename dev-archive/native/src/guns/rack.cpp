@@ -17,6 +17,7 @@
 #include "sfx.h"
 
 #include <cmath>
+#include <cstdio>
 #include <map>
 
 namespace vn::guns::rack {
@@ -49,6 +50,33 @@ float g_return_t0 = 0.0f;
 Vec3 g_axis{0, 0, -1};
 
 bool pump() { return g_w != nullptr && is_pump(g_wp); }
+bool pump_shotgun() { return pump() && shell_gun(g_wp) != nullptr; }   // a fore-end held from below (not the Spark Shot's slide)
+
+// the pump hold's numbers: the built-in ones, or the tuning file's while it exists (looked at twice a second)
+struct PumpDock { float ypr[3]; Vec3 off; };
+const PumpDock& pump_dock() {
+    static PumpDock d{{cfg::PUMP_DOCK_YPR[0], cfg::PUMP_DOCK_YPR[1], cfg::PUMP_DOCK_YPR[2]}, cfg::PUMP_DOCK_OFF};
+    static float last = -1.0f;
+    static bool from_file = false;
+    if (now_s() - last < 0.5f) return d;
+    last = now_s();
+    PumpDock f{};
+    bool ok = false;
+    if (FILE* fp = std::fopen(cfg::PUMP_DOCK_FILE, "r")) {
+        ok = std::fscanf(fp, "%f %f %f %f %f %f", &f.ypr[0], &f.ypr[1], &f.ypr[2], &f.off.x, &f.off.y, &f.off.z) == 6;
+        std::fclose(fp);
+    }
+    if (ok) {
+        if (!from_file || f.ypr[0] != d.ypr[0] || f.ypr[1] != d.ypr[1] || f.ypr[2] != d.ypr[2] || f.off.x != d.off.x || f.off.y != d.off.y || f.off.z != d.off.z)
+            LOGI("%s rack: the pump hold from the tuning file: turn %.1f %.1f %.1f, place %.3f %.3f %.3f", TAG, f.ypr[0], f.ypr[1], f.ypr[2], f.off.x, f.off.y, f.off.z);
+        d = f;
+    } else if (from_file) {
+        d = PumpDock{{cfg::PUMP_DOCK_YPR[0], cfg::PUMP_DOCK_YPR[1], cfg::PUMP_DOCK_YPR[2]}, cfg::PUMP_DOCK_OFF};
+        LOGI("%s rack: the pump hold back to the built-in numbers", TAG);
+    }
+    from_file = ok;
+    return d;
+}
 const char* sfx_folder() { return pump() ? pump_sfx(g_wp) : magazine::sfx_folder(); }
 float sfx_vol() { return pump() ? 2.0f : magazine::sfx_volume(); }
 
@@ -244,8 +272,11 @@ bool socket(Vec3& p, Quat& q, bool& steer) {
         !get_v3(JOINT, gf().rwrist, "get_Position", rp) || !get_q(JOINT, gf().rwrist, "get_Rotation", rq))
         return false;
     const Quat inv = qinv(qnorm(rq));
-    const Quat turn = ypr_deg(cfg::SLIDE_DOCK_YPR[0], cfg::SLIDE_DOCK_YPR[1], cfg::SLIDE_DOCK_YPR[2]);
-    p = rotate(inv, jp + rotate(qnorm(jq), cfg::SLIDE_DOCK_OFF) - rp);
+    const bool under = pump_shotgun();   // the fore-end is held from below; a slide (and the Spark Shot's) from above
+    const float* ypr = under ? pump_dock().ypr : cfg::SLIDE_DOCK_YPR;
+    const Vec3 off = under ? pump_dock().off : cfg::SLIDE_DOCK_OFF;
+    const Quat turn = ypr_deg(ypr[0], ypr[1], ypr[2]);
+    p = rotate(inv, jp + rotate(qnorm(jq), off) - rp);
     q = qnorm(qmul(inv, qmul(qnorm(jq), turn)));
     return true;
 }

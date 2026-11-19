@@ -1862,3 +1862,17 @@ probe `lua/visceral_pickup_probe.lua`; note `modding-notes/2026-11-05-the-world-
 - **The .NET connector line on 76298bd** is the managed DLL failing to start .NET (cured on a nightly by the .NET 10
   Desktop Runtime, REFramework #1739) `[reported; inferred-static 2026-11-11, /gr]`, not "no .NET on this build".
 - The two OPEN-heading notes (2026-10-26, 2026-11-14): fixed on the board 2026-11-15.
+
+## The pump shotgun's left-hand hold (2026-11-19, simulator)
+- The gun's own axes: +Z to the muzzle, +Y up, **+X is the gun's LEFT** `[measured 2026-11-19, simulator, n=2]` (a left
+  controller placed left of the gun read +0.59 on X).
+- The fore-end joint is `_01` on every pump (W-870 WP1000 and its upgrades); the left hand's hold is placed in that joint's
+  axes (`rack.cpp socket()`). Until b216 the pump used the pistol SLIDE's hold (`SLIDE_DOCK_*`, Tefa's b164 numbers: the hand
+  over the top). From b217 a pump shotgun (a gun in `SHELL_GUNS`) has `PUMP_DOCK_*`: the slide hold with its roll 180 -> 0 and
+  the wrist 2.6 cm under, 3.5 cm forward: palm up (0.96 up), fingers across under the handle
+  `[verified-live 2026-11-19, simulator, n=2 launches]`. The Spark Shot keeps the slide hold.
+- Our REFramework docks the drawn hand only when the CONTROLLER hand is within 0.15 m of the hold (`VISCERAL_DOCK_M`), while
+  the plugin's pump grab reaches further (0.20 m from the joint, or the barrel zone up to 0.70 m ahead): a grab from further
+  out grips and steers the gun with the drawn hand still at the controller `[measured 2026-11-19, the loader's own log line]`.
+- Dead end: the game's own animation hold of the pump cannot be read from the joints at any point of the frame (all ten
+  points tried gave the placed hand) `[disproved 2026-11-19, n=1]`. Village reads it another way (its `anim_hold`).
