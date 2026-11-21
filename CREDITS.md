@@ -56,6 +56,9 @@ people into tiers.
   [EMV Engine](https://github.com/alphazolam/EMV-Engine), MIT: the worked example
   of creating a GameObject, a `via.render.Mesh` and its resources at runtime,
   which is the pattern the neck plug follows. Studied, then written fresh in C++.
+  And its poser (freeze a joint, pose it by its local angles, re-apply it after the
+  animation has run), which our Hand Poser is modelled on; the left hand's finger
+  poses on the guns come from that tool. Studied; none of its code is included.
 - **The REFramework VR community** — public documentation of REFramework's VR
   behaviour, limitations, and techniques.
 - **Capcom** — Resident Evil 2 (2019) and the RE Engine. This is a
