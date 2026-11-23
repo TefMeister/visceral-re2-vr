@@ -22,6 +22,8 @@ void slide_lock_empty();      // the last round went: a pistol's slide locks ope
 void on_shot();               // a round was fired (the slide is the game's again)
 bool blocks_fire();
 bool active();                // the left hand is on the slide / fore-end
+bool at_back();               // ... and the part reached the back this cycle (stage.cpp)
+bool gripping();              // a pump gun's fore-end held with LG alone (stage.cpp)
 bool owns_grip();             // a pump gun: the left hand's only spot on it is the fore-end, ours
 // the left hand on the slide / fore-end: its place in the right wrist's space; steer = it may turn the gun (the pump)
 bool socket(Vec3& p, Quat& q, bool& steer);

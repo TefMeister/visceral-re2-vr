@@ -262,6 +262,8 @@ bool blocks_fire() {
     return cfg::RELOAD_ON && g_w != nullptr && g_needed;
 }
 bool active() { return g_hand_on; }
+bool at_back() { return g_hand_on && g_pulled; }
+bool gripping() { return g_grip && !g_hand_on; }
 bool owns_grip() { return pump(); }
 
 bool socket(Vec3& p, Quat& q, bool& steer) {

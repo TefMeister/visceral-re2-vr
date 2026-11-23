@@ -23,6 +23,7 @@ bool fire_blocked();     // the magazine is out and no round is chambered
 int  chambered();        // 1 = a round is in the chamber now (seated: loaded and no rack due; out: the kept round), 0 = none; -1 = not ours
 int  hud_rounds();       // what the counter shows while it is out (0, or 1 chambered); -1 = seated
 bool session_active();   // a magazine change is under way
+int  left_stage(float& pull);   // stage.cpp: 0 = the magazine has no say, 4 = the hand on it seated or riding it in, 13 = in the hand or sliding out into it; pull = 0, or 1 + how far out
 bool hand_docked();      // the drawn left hand sits ON the magazine
 // the left hand, as the reload wants it: -1 = no say, 0 = free (a magazine in it: nothing may dock it),
 // 1 = docked at (p, q) in the right wrist's space, 2 = no say, but the gun's grip handle is no dock spot

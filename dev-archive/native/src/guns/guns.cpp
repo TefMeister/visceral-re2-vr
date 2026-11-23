@@ -10,9 +10,11 @@
 #include "magrounds.h"
 #include "pump.h"
 #include "rack.h"
+#include "righthand.h"
 #include "rounds.h"
 #include "settings.h"
 #include "shells.h"
+#include "stage.h"
 
 namespace vn::guns {
 
@@ -48,11 +50,12 @@ void frame() {
     rack::frame();
     pump::frame();
     left_hand::frame();
+    stage::publish();
 }
 
-void late_point() { magazine::late_point(); magrounds::point(); cylinder::late_point(); rounds::late_point(); shells::late_point(); rack::late_point(); }
+void late_point() { magazine::late_point(); magrounds::point(); cylinder::late_point(); rounds::late_point(); shells::late_point(); rack::late_point(); stage::publish(); }
 void render_point() { magazine::render_point(); magrounds::point(); cylinder::render_point(); rounds::render_point(); shells::render_point(); rack::render_point(); }
-void begin_render() { rack::render_point(); }
+void begin_render() { rack::render_point(); righthand::begin_render(); }   // (the trigger finger: last of all, hands/righthand.h)
 void update_motion() { pump::update_motion(); }
 
 // ---- guns_api.h ---------------------------------------------------------------------------------------------------

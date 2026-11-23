@@ -67,6 +67,7 @@ void on_gun_changed(int new_wp) {
 }
 
 bool ours() { return cfg::RELOAD_ON && has_crane() && gf().gun != nullptr && bridge::live(); }
+bool hand_on_drum() { return ours() && bridge::held(bridge::S_LGRIP) && hand_at_drum(); }
 bool is_open() { return ours() && g_deg >= std::fabs(g_w->open_deg) * cfg::CYLINDER_OPEN_ENOUGH; }
 bool blocks_fire() { return ours() && g_deg > 0.0f; }
 

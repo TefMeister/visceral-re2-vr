@@ -58,6 +58,9 @@ enum Slot : int {
     S_WALL_L_ON = 626, S_WALL_L_P = 627, S_WALL_L_N = 630,
     S_WALL_R_ON = 633, S_WALL_R_P = 634, S_WALL_R_N = 637,
     S_WALL_TILT_Q = 640, S_WALL_TILT_ON = 644, S_MUZZLE_W = 645, S_MUZZLE_ON = 648,
+    // 2026-11-23 (src/guns/stage.h), WRITTEN BY THE PLUGIN for Hand Poser: the left hand's stage (Village's spot numbers), how far a
+    // magazine riding the hand is out (0 = not riding, else 1 + 0..1); 651 / 652 kept for the left hand's area and the right hand's spot
+    S_LEFT_STAGE = 649, S_MAG_PULL = 650,
     S_HT2 = 540,          // 2026-10-31: the eighth hold onward (tune.h MAG_DOCK: the left hand on the magazine in the gun), HT_STRIDE each; the array is 604 long (visceral_bridge.lua N)
 };
 constexpr float SENTINEL = 54321.0f;

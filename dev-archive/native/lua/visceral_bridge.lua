@@ -19,7 +19,7 @@ local TAG = "[visceral-bridge]"
 -- 2026-11-07 (the clean rebuild): one file for RE2 and RE3 (shared, RE2's repo owns it); the game decides the type names
 local GAME = reframework:get_game_name()   -- "re2" or "re3"
 local NS = GAME == "re3" and "offline." or "app.ropeway."
-local N = 649   -- 2026-11-18: 608-648 the hands, walls and guns (src/bridge.h S_HW_* / S_WALL_* / S_MUZZLE_*, src/hands/walls.cpp, visceral_walls.lua); 2026-11-16: + the side step's stick direction 604-605 and camera forward 606-607 (src/bridge.h); 2026-10-31: + the eighth hold at 540 (src/bridge.h S_HT2, the hand on the magazine); b173: 84 + the hand tuning slots (src/bridge.h S_WHO .. S_HT + 7 x 64) + S_FREEZE; b188: + S_LADDER_HOLD_OFF; 2026-10-28: + S_AUTO_EXPOSURE_ON
+local N = 653   -- 2026-11-23: 649 / 650 the left hand's stage and the magazine pull for Hand Poser (src/guns/stage.h), 651 / 652 kept; 2026-11-18: 608-648 the hands, walls and guns (src/bridge.h S_HW_* / S_WALL_* / S_MUZZLE_*, src/hands/walls.cpp, visceral_walls.lua); 2026-11-16: + the side step's stick direction 604-605 and camera forward 606-607 (src/bridge.h); 2026-10-31: + the eighth hold at 540 (src/bridge.h S_HT2, the hand on the magazine); b173: 84 + the hand tuning slots (src/bridge.h S_WHO .. S_HT + 7 x 64) + S_FREEZE; b188: + S_LADDER_HOLD_OFF; 2026-10-28: + S_AUTO_EXPOSURE_ON
 local S_FRAME, S_HMD = 0, 1
 local S_LGRIP, S_LTRIG, S_RGRIP, S_RTRIG = 2, 3, 4, 5
 local S_LA, S_LB, S_RA, S_RB = 6, 7, 8, 9
@@ -52,6 +52,7 @@ local function setup()
     for i = 0, N - 1 do w(i, 0.0) end
     for s = S_HMD_YAW, S_RENDER_YAW do w(s, NO_VALUE) end
     w(S_HMD_Q, NO_VALUE); w(S_ROT_OFF, NO_VALUE); w(S_ORIGIN, NO_VALUE)
+    w(84, -1.0)   -- the gun in hand (src/guns/stage.cpp writes it): no gun until the plugin says so (Hand Poser read 0 = the first gun)
     w(S_SENTINEL, SENTINEL)
     local t = sdk.find_type_definition(NS .. "RagdollControlZoneManager")
     mailbox = t and t:get_method("set_AccessMutex")
@@ -249,6 +250,7 @@ _G.visceral_bridge = {
     ready = function() return arr ~= nil end,
     r = function(slot) return r(slot) end,
     w = function(slot, v) w(slot, v) end,
+    n = N,
 }
 
 re.on_draw_ui(function()

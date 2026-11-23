@@ -110,6 +110,9 @@ void seated_controls() {
             LOGI("%s magazine: the left hand on it (%.3f m): %s", TAG, d, long_mag() ? "LT pulls it out" : "right B releases it into the hand");
             bridge::rumble(bridge::LEFT, cfg::RELOAD_GRAB_BUZZ_AMP * 0.5f, cfg::RELOAD_GRAB_BUZZ_SEC);
         }
+        // 2026-11-23: a miss says how far (the robot's scan of 40 places round the magazine never took it: the spot is the WRIST's
+        // place under the magazine, not the magazine itself)
+        else LOGI("%s magazine: LG pressed, the left wrist %.3f m from its spot on the seated magazine (takes within %.2f)", TAG, d, cfg::MAG_GRAB_M);
     }
     if (long_mag()) {
         if (g_hand_on_mag && bridge::pressed(bridge::S_LTRIG)) take_out(true, "pulled out by hand (LG on it + LT)");
@@ -255,6 +258,15 @@ int chambered() {
 }
 int hud_rounds() { return mag_out() ? g_chamber : -1; }
 bool session_active() { return mag_out(); }
+int left_stage(float& pull) {
+    pull = 0.0f;
+    if (!ours() || g_joint == nullptr) return 0;
+    if (g_st == St::IN_HAND) return 13;
+    if (g_st == St::SLIDE_OUT && g_out_to_hand) { pull = 1.0f + ease((now_s() - g_t0) / cfg::RELOAD_SLIDE_SEC); return 13; }
+    if (g_st == St::INSERT) { pull = 2.0f - ease((now_s() - g_t0) / cfg::RELOAD_INSERT_SEC); return 4; }
+    if (g_st == St::SEATED && g_hand_on_mag) { pull = 1.0f; return 4; }
+    return 0;
+}
 bool hand_docked() {
     if (!ours() || g_joint == nullptr) return false;
     return (g_st == St::SEATED && g_hand_on_mag) || (g_st == St::SLIDE_OUT && g_out_to_hand) || g_st == St::INSERT;

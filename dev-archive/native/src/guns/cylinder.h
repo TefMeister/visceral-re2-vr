@@ -11,6 +11,7 @@ void frame();            // the open / close press, the swing, the tip-out
 void late_point();       // the crane joint written (before rounds.h draws the chambers)
 void render_point();
 bool ours();             // the gun in hand has a drum that swings out
+bool hand_on_drum();     // LG held with the left wrist at the drum (stage.cpp)
 bool is_open();          // swung out far enough to load
 bool blocks_fire();      // not fully closed
 
