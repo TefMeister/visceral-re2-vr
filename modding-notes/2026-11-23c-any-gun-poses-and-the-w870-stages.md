@@ -59,3 +59,14 @@ numbers left alone.
   memory inventory is full after the gifted guns, KNOWN.md). Its bolt and magazine wait for a fresh start of the game.
 - The Matilda's magazine was dropped on the way back to the well (the robot's reach missed); harmless.
 - No pump, shell or port pose was saved as "any gun" (the W-870 is the only gun with those stages here).
+
+## Build 220 (after Tefa's answers, the same night)
+
+- **Tefa: "move it into the palm please"** (the carried Matilda magazine). `game/guns_table.cpp`: Claire's Matilda hold was
+  `HOLD_GENERIC` (the placeholder: 13.5 cm out of the palm side); it now takes Leon's Matilda hold. Run `[verified-live
+  2026-11-23, robot, n=1]`: the magazine joint 2.4 cm off the palm, among the fingers (`q_re_maghand.lua`: 9.9 / -2.4 / 5.6);
+  four pictures: the fist closes round it (`2026-11-23c-sheets/matilda-magazine-in-the-palm-b220.jpg`). ⚠️ Claire's other
+  magazine guns (M19 100, JMB Hp3 200, MQ 11 2000, SLS 60 7000 ...) still use the generic holds: the same may hold for them.
+- **Tefa: "hand should always ride along in any games on any weapoins"** and the drum by motion: shared `guns/cylinder.cpp`
+  (RE3's MGL; RE2 has no swing-out drum): see RE3's note. Built here, copied by `sync_shared.py`.
+- **The LE 5**: Tefa will empty the inventory; then the board row's steps.

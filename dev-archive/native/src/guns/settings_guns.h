@@ -33,7 +33,9 @@ constexpr bool  MAG_KEEP_OUT_ON_SWAP = true;      // a magazine taken out stays 
 
 // ---- shotgun shells ----------------------------------------------------------------------------------------------
 constexpr float CYLINDER_GRAB_M = 0.15f;          // the left wrist this close to the drum: LG + LT opens / closes it
-constexpr float CYLINDER_SWING_DEG_S = 400.0f;    // how fast the drum swings out and back
+constexpr float CYLINDER_SWING_DEG_S = 400.0f;    // (unused since 2026-11-23: the hand moves the drum, cylinder.cpp)
+constexpr float CYLINDER_TRAVEL_M = 0.094f;       // the hand's sideways way for the drum's whole swing (RE3's MGL: its drum joint moves 9.4 cm)
+constexpr float CYLINDER_CLICK = 0.97f;           // of the swing: it clicks open (and, pushed back to 1 - this, shut)
 constexpr float CYLINDER_OPEN_ENOUGH = 0.9f;      // of its full swing: open enough to load
 constexpr float CYLINDER_TIP_UP = 0.5f;           // the muzzle this far up (sine: 0.5 = 30 degrees): spent cases fall out
 constexpr float KIND_SHOW_SEC = 2.5f;             // after LG + LT chose another kind of round: the game's ammo counter shows it this long
