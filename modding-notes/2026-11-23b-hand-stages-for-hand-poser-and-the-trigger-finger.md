@@ -61,3 +61,11 @@ groundwork was the reader's: `engine-research/inbox/2026-11-23-mod-re2-re3-left-
   (the script asks for a file the window makes).
 - Only the Matilda has poses. Every other gun shows the game's own fingers until posed (a pose is per gun; "any gun @ <spot>" is
   read as a fall-back by the script, but the window has no way to save one yet: a tool job).
+
+## RE3 (build 29, the same shared code, Jill's save in slot 2) `[verified-live 2026-11-23, robot, n=1]`
+
+- `sync_shared.py` carried 13 files; the build and install went through; three A presses reach the save (pictures before each).
+- The gun is reported (4100 the MGL, 0 the G19), the bridge has `n` = 653, Hand Poser's script says game re3, gun wp4100.
+- The trigger finger: all three joints found, RT turns their z by +4 / +20 / +10 degrees (the same sign as RE2).
+- Stage 4 (the hand on the seated magazine) was reported once; the robot did not hit the pistol's slide in 40 places this time,
+  so stages 3, 13 and the MGL drum's 6 were NOT seen in RE3. No poses are kept for RE3.
