@@ -29,11 +29,17 @@ float g_deg = 0.0f;          // how far the drum is swung out now
 float g_last = 0.0f;
 // 2026-11-23 (Tefa: "have to open with motion, LG+LT held until it clicks, can either push closed from the handle or place hand on
 // the drum and push close, always LG+LT for these actions. and hand should always ride along in any games on any weapoins"): LG + LT
-// on the drum TAKE it; while both stay held the drum follows the hand's sideways way (it no longer swings out by itself and leaves
-// the hand behind); at the end of its swing it clicks open; pushed back all the way it clicks shut. Let go part way, it stays there.
+// on the drum TAKE it; while both stay held the drum follows the hand (it no longer swings out by itself and leaves the hand
+// behind); at the end of its swing it clicks open; pushed back all the way it clicks shut. Let go part way, it stays there.
+// Tefa, the same night: "push down and to the right to close, left and up to open, yes the grip": the drum follows the hand ROUND
+// ITS HINGE (on the MGL the hinge sits 9.6 cm above the drum, so opening carries it left AND up), and LG + LT at the front grip,
+// which is where the drum sits shut, takes it too (with the drum open, the grip is 15 cm from it).
 bool g_grab = false;
-Vec3 g_grab_p{};             // the left CONTROLLER (room) the swing is measured from: the drawn wrist is pinned to the drum
-float g_grab_u = 0.0f;       // the swing (0 shut .. 1 open) at that x
+float g_grab_ang = 0.0f;     // the hand's angle round the hinge when taken (degrees, + = the opening way)
+float g_grab_deg = 0.0f;     // the swing then
+// the hinge, measured once per gun in the gun's own frame while the drum is shut: its place, its axis, the shut drum's place
+bool g_geom = false;
+Vec3 g_pivot_l{}, g_axis_l{}, g_drum_l{};
 
 bool has_crane() { return g_w != nullptr && g_w->crane != nullptr && g_w->crane[0] != '\0'; }
 
@@ -47,10 +53,49 @@ bool hand_at_drum() {
     return dist(dl, hl) < cfg::CYLINDER_GRAB_M;
 }
 
-// the gun's +x (its left) in room space, the way the drum swings for a positive open_deg
-bool side_dir(Vec3& d) {
-    Quat gq;
-    return gf().gun_tf != nullptr && get_q(XFORM, gf().gun_tf, "get_Rotation", gq) && ghosthand::to_room_dir(rotate(qnorm(gq), Vec3{1, 0, 0}), d);
+bool gun_pose(Vec3& gp, Quat& gq) {
+    return gf().gun_tf != nullptr && get_v3(XFORM, gf().gun_tf, "get_Position", gp) && get_q(XFORM, gf().gun_tf, "get_Rotation", gq);
+}
+// once per gun, with the drum shut: the hinge and the drum in the gun's own frame
+void learn_geom() {
+    if (g_geom || g_deg > 0.0f || g_crane == nullptr || gf().gun_tf == nullptr) return;
+    MO* drum = joint_by_name(gf().gun_tf, widen(g_w->drum).c_str());
+    Vec3 gp, cw, dw; Quat gq, cq;
+    if (drum == nullptr || !gun_pose(gp, gq) || !get_v3(JOINT, g_crane, "get_Position", cw) || !get_q(JOINT, g_crane, "get_Rotation", cq) ||
+        !get_v3(JOINT, drum, "get_Position", dw)) return;
+    const Quat gi = qinv(qnorm(gq));
+    g_pivot_l = rotate(gi, cw - gp); g_drum_l = rotate(gi, dw - gp); g_axis_l = rotate(gi, rotate(qnorm(cq), Vec3{0, 0, 1}));
+    g_geom = true;
+    LOGI("%s cylinder: WP%04d hinge at %.1f %.1f %.1f cm, the drum shut at %.1f %.1f %.1f cm (the gun's frame)", TAG, gf().wp,
+         g_pivot_l.x * 100.0f, g_pivot_l.y * 100.0f, g_pivot_l.z * 100.0f, g_drum_l.x * 100.0f, g_drum_l.y * 100.0f, g_drum_l.z * 100.0f);
+}
+// the hinge, its axis and the shut drum's place in ROOM space (where the controllers are)
+bool geom_room(Vec3& p, Vec3& a, Vec3& d0) {
+    Vec3 gp; Quat gq;
+    if (!g_geom || !gun_pose(gp, gq)) return false;
+    gq = qnorm(gq);
+    return ghosthand::to_room_point(gp + rotate(gq, g_pivot_l), p) && ghosthand::to_room_dir(rotate(gq, g_axis_l), a) &&
+           ghosthand::to_room_point(gp + rotate(gq, g_drum_l), d0);
+}
+float dot3(Vec3 a, Vec3 b) { return a.x * b.x + a.y * b.y + a.z * b.z; }
+Vec3 cross3(Vec3 a, Vec3 b) { return {a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x}; }
+// the left controller's angle round the hinge from the shut drum, degrees, + = the way the drum opens
+bool hand_angle(float& deg) {
+    Vec3 p, a, d0;
+    if (!geom_room(p, a, d0)) return false;
+    const float al = std::sqrt(dot3(a, a));
+    if (al < 1e-6f) return false;
+    a = a * (1.0f / al);
+    Vec3 r = d0 - p, v = bridge::hand_pos(bridge::LEFT) - p;
+    r = r - a * dot3(r, a); v = v - a * dot3(v, a);
+    const float th = std::atan2(dot3(a, cross3(r, v)), dot3(r, v)) * 180.0f / PI;
+    deg = g_w->open_deg >= 0.0f ? th : -th;   // the crane turns by +open_deg about its own Z to open
+    return true;
+}
+// LG + LT also take the drum at the place it sits SHUT (the front grip just ahead of it on the MGL), so it can be pushed shut from there
+bool hand_at_shut_place() {
+    Vec3 p, a, d0;
+    return geom_room(p, a, d0) && dist(bridge::hand_pos(bridge::LEFT), d0) < cfg::CYLINDER_GRAB_M;
 }
 
 // the muzzle's rise: the gun's +Z against straight up
@@ -65,6 +110,7 @@ void write() {
     g_crane = joint_by_name(gf().gun_tf, widen(g_w->crane).c_str());
     if (g_crane == nullptr) return;
     if (!g_have_rest) g_have_rest = get_q(JOINT, g_crane, "get_LocalRotation", g_rest);
+    learn_geom();
     if (!g_have_rest || g_deg <= 0.0f) return;
     const float a = std::copysign(g_deg, g_w->open_deg) * PI / 180.0f * 0.5f;   // the sign of open_deg is the side it swings to
     Quat q = qnorm(qmul(g_rest, Quat{0, 0, std::sin(a), std::cos(a)}));
@@ -79,6 +125,7 @@ void on_gun_changed(int new_wp) {
     g_want_open = false;     // a gun put away is closed when it comes back
     g_deg = 0.0f;
     g_grab = false;
+    g_geom = false;
 }
 
 bool ours() { return cfg::RELOAD_ON && has_crane() && gf().gun != nullptr && bridge::live(); }
@@ -91,38 +138,39 @@ void frame() {
     if (!ours()) return;
     const float full = std::fabs(g_w->open_deg);
     const bool lg = bridge::held(bridge::S_LGRIP), lt = bridge::held(bridge::S_LTRIG);
-    // LG + LT on the drum, the hand empty: the drum is taken (either button may come last)
-    if (!g_grab && lg && lt && (bridge::pressed(bridge::S_LTRIG) || bridge::pressed(bridge::S_LGRIP)) && !shells::in_hand() && hand_at_drum()) {
-        {
-            g_grab = true; g_grab_p = bridge::hand_pos(bridge::LEFT); g_grab_u = full > 0.0f ? g_deg / full : 0.0f;
-            bridge::rumble(bridge::LEFT, cfg::RELOAD_GRAB_BUZZ_AMP * 0.5f, cfg::RELOAD_GRAB_BUZZ_SEC);
-            LOGI("%s cylinder: WP%04d drum taken (LG + LT) at %.0f%% open: it follows the hand", TAG, gf().wp, g_grab_u * 100.0f);
-        }
+    // LG + LT on the drum or at its shut place (the front grip), the hand empty: the drum is taken (either button may come last)
+    float ang = 0.0f;
+    if (!g_grab && lg && lt && (bridge::pressed(bridge::S_LTRIG) || bridge::pressed(bridge::S_LGRIP)) && !shells::in_hand() &&
+        (hand_at_drum() || hand_at_shut_place()) && hand_angle(ang)) {
+        g_grab = true; g_grab_ang = ang; g_grab_deg = g_deg;
+        bridge::rumble(bridge::LEFT, cfg::RELOAD_GRAB_BUZZ_AMP * 0.5f, cfg::RELOAD_GRAB_BUZZ_SEC);
+        LOGI("%s cylinder: WP%04d drum taken (LG + LT) at %.0f%% open: it follows the hand round its hinge", TAG, gf().wp,
+             full > 0.0f ? g_deg / full * 100.0f : 0.0f);
     }
     if (g_grab && (!lg || !lt)) {
         g_grab = false;
         LOGI("%s cylinder: WP%04d drum let go at %.0f%% open%s", TAG, gf().wp, full > 0.0f ? g_deg / full * 100.0f : 0.0f,
-             g_want_open ? " (clicked open)" : g_deg > 0.0f ? ": it stays there, the gun will not fire until it is shut" : " (shut)");
+             g_deg >= full ? " (clicked open)" : g_deg > 0.0f ? ": it stays there, the gun will not fire until it is shut" : " (shut)");
     }
-    Vec3 dir;
-    if (g_grab && full > 0.0f && side_dir(dir)) {
-        // the drum's side (the sign of open_deg: + = the gun's +x, measured on RE3's MGL), CYLINDER_TRAVEL_M of hand for the whole swing
-        const float side = g_w->open_deg >= 0.0f ? 1.0f : -1.0f;
-        const Vec3 hp = bridge::hand_pos(bridge::LEFT), m = hp - g_grab_p;
-        float u = g_grab_u + (m.x * dir.x + m.y * dir.y + m.z * dir.z) * side / cfg::CYLINDER_TRAVEL_M;
-        if (u > 1.0f || u < 0.0f) {   // past either end: measure on from here, so the way back moves it at once
-            u = std::clamp(u, 0.0f, 1.0f); g_grab_p = hp; g_grab_u = u;
+    if (g_grab && full > 0.0f && hand_angle(ang)) {
+        float d = ang - g_grab_ang;
+        while (d > 180.0f) d -= 360.0f;
+        while (d < -180.0f) d += 360.0f;
+        float deg = g_grab_deg + d;
+        if (deg > full || deg < 0.0f) {   // past either end: measure on from here, so the way back moves it at once
+            deg = std::clamp(deg, 0.0f, full); g_grab_ang = ang; g_grab_deg = deg;
         }
+        float u = deg / full;
         if (!g_want_open && u >= cfg::CYLINDER_CLICK) {
-            g_want_open = true; u = 1.0f; g_grab_p = hp; g_grab_u = u;
+            g_want_open = true; u = 1.0f; g_grab_ang = ang; g_grab_deg = full;
             sfx::play("mag_grab", g_w->sfx, g_w->vol);
             bridge::rumble(bridge::LEFT, cfg::RELOAD_GRAB_BUZZ_AMP, cfg::RELOAD_GRAB_BUZZ_SEC);
-            LOGI("%s cylinder: WP%04d clicked OPEN (pulled out by the hand)", TAG, gf().wp);
+            LOGI("%s cylinder: WP%04d clicked OPEN (pulled up and out by the hand)", TAG, gf().wp);
         } else if (g_want_open && u <= 1.0f - cfg::CYLINDER_CLICK) {
-            g_want_open = false; u = 0.0f; g_grab_p = hp; g_grab_u = u;
+            g_want_open = false; u = 0.0f; g_grab_ang = ang; g_grab_deg = 0.0f;
             sfx::play("mag_insert", g_w->sfx, g_w->vol);
             bridge::rumble(bridge::LEFT, cfg::RELOAD_GRAB_BUZZ_AMP, cfg::RELOAD_GRAB_BUZZ_SEC);
-            LOGI("%s cylinder: WP%04d clicked SHUT (pushed back by the hand)", TAG, gf().wp);
+            LOGI("%s cylinder: WP%04d clicked SHUT (pushed down and in by the hand)", TAG, gf().wp);
         }
         // the latches at both ends: within the last few percent it sits fully shut (or fully open), so a hand's small wobble
         // does not leave a shut drum a hair open (robot run 2026-11-23: "let go at 0% open: it stays there")
