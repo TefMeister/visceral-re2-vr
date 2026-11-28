@@ -1,6 +1,8 @@
 # Research index
 
-**Last `/gr` pass: 2026-11-25 — CHECK-IN.** Inbox empty. Same REFramework `pd-upscaler` 76298bd as Village, so the 11-17 heap-lock deadlock fix (Village topic 2026-11-25) applies here too; pointer in the engine inbox. Nothing RE2-specific upstream.
+**Last `/gr` pass: 2026-11-28 — CHECK-IN.** Inbox empty. REFramework quiet: no nightly after 01451 (11-23), no master commits since 11-24. Nothing new.
+
+_Previous: **Last `/gr` pass: 2026-11-25 — CHECK-IN.** Inbox empty. Same REFramework `pd-upscaler` 76298bd as Village, so the 11-17 heap-lock deadlock fix (Village topic 2026-11-25) applies here too; pointer in the engine inbox. Nothing RE2-specific upstream._
 
 _Previous: **Last `/gr` pass: 2026-11-14 — CHECK-IN.** Inbox empty. Nightly 01439 (11-12, #1893: a Lua state no longer wrongly erased after "reset scripts"); the "Failed to sync actions: XR_SESSION_NOT_FOCUSED" line is explained in visceral-re8-vr's topic (a focus change, harmless). For cutscenes on a flat screen: no public RE Engine VR mod does it (RE2IVR still 0.8.9 and only sets first person off in cutscenes; three searches); REFramework's VR keeps the cutscene fades and pillar boxes drawing and nothing more. No topic._
 
